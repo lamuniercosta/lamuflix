@@ -351,6 +351,92 @@ public sealed class ImportMovieFolderCommandHandlerTests
         capture.Measurements.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task HandleAsync_KnownLibraryPath_SkipsBeforeScanningStagingOrSaving()
+    {
+        // arrange
+        var folder = new LibraryPath("Heat (1995)");
+        var ct = CancellationToken.None;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath> { new("Heat (1995)") });
+        using var capture = new ImportCountCapture();
+
+        // act
+        await Should.ThrowAsync<DuplicateLibraryPathException>(
+            () => handler.HandleAsync(new ImportMovieFolderCommand(folder), ct));
+
+        // assert
+        scanner.DidNotReceive().Scan(Arg.Any<LibraryPath>());
+        await movies.DidNotReceive().NextIdentityAsync(Arg.Any<CancellationToken>());
+        await movies.DidNotReceive().AddAsync(Arg.Any<Movie>(), Arg.Any<CancellationToken>());
+        outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        capture.Measurements.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("heat (1995)")]
+    [InlineData("HEAT (1995)")]
+    public async Task HandleAsync_KnownLibraryPathDifferentCase_SkipsOnTheExistingKeySemantics(string stored)
+    {
+        // arrange
+        var ct = CancellationToken.None;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath> { new(stored) });
+        using var capture = new ImportCountCapture();
+
+        // act
+        await Should.ThrowAsync<DuplicateLibraryPathException>(
+            () => handler.HandleAsync(new ImportMovieFolderCommand(new LibraryPath("Heat (1995)")), ct));
+
+        // assert
+        await movies.DidNotReceive().AddAsync(Arg.Any<Movie>(), Arg.Any<CancellationToken>());
+        outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
+        capture.Measurements.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleAsync_DistinctPathForKnownImdbSibling_CreatesOneRowAndEnqueuesOnce()
+    {
+        // arrange: the operation carries no IMDb identity, so a distinct path is a new row and the
+        // collision is settled later by enrichment (T001 evidence section 2b).
+        var folder = new LibraryPath("Inception[2010]");
+        var id = NewId();
+        var ct = CancellationToken.None;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath> { new("Inception (2010) [1080p]") });
+        scanner.Scan(folder).Returns(
+            new ScannedMovie(folder, "Inception", new MediaFormat("mkv"), null, 1024L));
+        movies.NextIdentityAsync(ct).Returns(id);
+
+        // act
+        var result = await handler.HandleAsync(new ImportMovieFolderCommand(folder), ct);
+
+        // assert
+        result.ShouldBe(id);
+        await movies.Received(1).AddAsync(Arg.Any<Movie>(), ct);
+        outbox.Received(1).Stage(Arg.Is<EnrichmentRequested>(message => message.MovieId == id && message.Attempt == 1));
+        await movies.Received(1).SaveChangesAsync(ct);
+    }
+
+    [Fact]
+    public async Task HandleAsync_UnknownPath_StillImportsAndEnqueuesOnce()
+    {
+        // arrange
+        var folder = new LibraryPath("Newcomer");
+        var id = NewId();
+        var ct = CancellationToken.None;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath> { new("Heat (1995)") });
+        scanner.Scan(folder).Returns(
+            new ScannedMovie(folder, "Newcomer", new MediaFormat("mkv"), null, 1024L));
+        movies.NextIdentityAsync(ct).Returns(id);
+
+        // act
+        await handler.HandleAsync(new ImportMovieFolderCommand(folder), ct);
+
+        // assert
+        await movies.Received(1).AddAsync(Arg.Is<Movie>(movie => movie.Id == id), ct);
+        outbox.Received(1).Stage(Arg.Any<EnrichmentRequested>());
+        await movies.Received(1).SaveChangesAsync(ct);
+    }
+
     private static IOptions<LibraryOptions> Library(params string[] legacyRoots) =>
         Microsoft.Extensions.Options.Options.Create(new LibraryOptions { RootPath = Root, LegacyRootPaths = legacyRoots });
 

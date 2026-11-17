@@ -8,12 +8,12 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Import;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Import;
 using LamuFlix.UnitTests.Pipeline;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using NSubstitute.Core;
 using NSubstitute.ExceptionExtensions;
 
 namespace LamuFlix.UnitTests.Features.Import;
@@ -84,7 +84,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         // arrange
         var ct = TestContext.Current.CancellationToken;
         movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
-        importer.ImportAsync(new LibraryPath("Gone"), ct).ThrowsAsync(new LamuFlix.Core.Pipeline.NotFoundException());
+        importer.ImportAsync(new LibraryPath("Gone"), ct).ThrowsAsync(new NotFoundException());
         var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
@@ -112,7 +112,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         else
         {
             importer.ImportAsync(new LibraryPath(folder), ct)
-                .ThrowsAsync(new LamuFlix.Core.Pipeline.ValidationException(
+                .ThrowsAsync(new ValidationException(
                     new Dictionary<string, string[]> { ["folders"] = ["bad"] }));
         }
 
@@ -175,18 +175,20 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
     {
         // arrange
         using var source = new CancellationTokenSource();
+        var token = source.Token;
+        Action cancel = source.Cancel;
         movies.SnapshotMoviePathsAsync(Arg.Any<CancellationToken>()).Returns(new List<LibraryPath>());
         importer.ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>())
-            .Returns((Func<CallInfo, MovieId>)(call =>
+            .Returns<MovieId>(_ =>
             {
-                source.Cancel();
+                cancel();
                 throw new OperationCanceledException("cancelled");
-            }));
+            });
         var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
         var act = () => handler.HandleAsync(
-            new ImportLibraryFoldersCommand(["Heat"], RetryFailed: false), source.Token);
+            new ImportLibraryFoldersCommand(["Heat"], RetryFailed: false), token);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
@@ -325,6 +327,77 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_DuplicatePathConflictFromImporter_CountsAsSkippedAndKeepsRemainingItems()
+    {
+        // arrange: the durable uniqueness backstop rejects the second path with the existing
+        // duplicate-path translation, which must read as skipped/already-present, not a failure.
+        var ct = TestContext.Current.CancellationToken;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
+        importer.ImportAsync(new LibraryPath("Heat"), ct)
+            .ThrowsAsync(new DuplicateLibraryPathException("A movie already holds this library path."));
+        importer.ImportAsync(new LibraryPath("Bravo"), ct).Returns(new MovieId(2));
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
+
+        // act
+        var result = await handler.HandleAsync(
+            new ImportLibraryFoldersCommand(["Heat", "Bravo"], RetryFailed: false), ct);
+
+        // assert
+        result.Imported.ShouldBe(1);
+        result.Skipped.ShouldBe(1);
+        result.Failures.ShouldBeEmpty();
+        outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
+        await importer.Received(1).ImportAsync(new LibraryPath("Bravo"), ct);
+    }
+
+    [Fact]
+    public async Task HandleAsync_TwoNewPathsSharingAKnownImdb_BothImportUnderExistingSemantics()
+    {
+        // arrange: import carries no incoming IMDb identity (T001 evidence section 2b), so two new
+        // paths cannot be compared at import. Both rows are created and the collision is settled by
+        // enrichment; nothing is dropped and the remaining items still process.
+        var ct = TestContext.Current.CancellationToken;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath> { new("Inception (2010) [1080p]") });
+        importer.ImportAsync(new LibraryPath("Inception[2010]"), ct).Returns(new MovieId(11));
+        importer.ImportAsync(new LibraryPath("Inception 2010 1080p"), ct).Returns(new MovieId(12));
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
+
+        // act
+        var result = await handler.HandleAsync(
+            new ImportLibraryFoldersCommand(["Inception[2010]", "Inception 2010 1080p"], RetryFailed: false), ct);
+
+        // assert
+        result.Imported.ShouldBe(2);
+        result.Skipped.ShouldBe(0);
+        result.Failures.ShouldBeEmpty();
+        await importer.Received(2).ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_RetryFailed_RequeuesNonRetryableDuplicateFailedRowWithoutAddingMovies()
+    {
+        // arrange: retry stays available independently of duplicate skipping; a non-retryable
+        // duplicate_imdb_id row is re-requested, no movie is created and nothing loops.
+        var ct = TestContext.Current.CancellationToken;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
+        var duplicate = MovieAt(7, EnrichmentStatus.Pending);
+        duplicate.MarkFailed(EnrichmentFailureCategory.DuplicateImdbId, DateTimeOffset.UnixEpoch);
+        movies.FindFailedMoviesAsync(ct).Returns([duplicate]);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
+
+        // act
+        var result = await handler.HandleAsync(
+            new ImportLibraryFoldersCommand([], RetryFailed: true), ct);
+
+        // assert
+        result.Retried.ShouldBe(1);
+        result.Imported.ShouldBe(0);
+        duplicate.Status.ShouldBe(EnrichmentStatus.Pending);
+        outbox.Received(1).Stage(new EnrichmentRequested(duplicate.Id, 1));
+        await importer.DidNotReceive().ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Validator_EmptyFoldersWithoutRetry_Fails()
     {
         // arrange
@@ -423,5 +496,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         public void Dispose() => listener.Dispose();
     }
 
+    // ReSharper disable NotAccessedPositionalProperty.Local // Captured by the meter listener; only counts are asserted.
     private sealed record CapturedImport(string InstrumentName, long Value, KeyValuePair<string, object?>[] Tags);
+    // ReSharper restore NotAccessedPositionalProperty.Local
 }

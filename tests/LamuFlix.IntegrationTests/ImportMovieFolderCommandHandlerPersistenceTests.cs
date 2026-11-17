@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Import;
@@ -55,19 +56,15 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
 
         var baseline = capture.Measurements.Count;
 
-        DuplicateLibraryPathException rejection;
         await using (var secondContext = postgres.CreateMigratedContext())
         {
             var secondHandler = NewHandler(secondContext);
-            rejection = await Should.ThrowAsync<DuplicateLibraryPathException>(
+            await Should.ThrowAsync<DuplicateLibraryPathException>(
                 () => secondHandler.HandleAsync(new ImportMovieFolderCommand(folder), ct));
         }
 
-        // assert
-        var uniqueViolation = rejection.InnerException.ShouldBeOfType<DbUpdateException>()
-            .InnerException.ShouldBeOfType<PostgresException>();
-        uniqueViolation.SqlState.ShouldBe(PostgresErrorCodes.UniqueViolation);
-        uniqueViolation.ConstraintName.ShouldBe(ExactIndexName);
+        // assert: DEV-522 US2 — the repeat import is refused deterministically before a second row or
+        // a second enrichment enqueue could be staged, and the existing movie is left untouched.
         await using var verificationContext = postgres.CreateMigratedContext();
         var persisted = await verificationContext.Movies.ToListAsync(ct);
         var stored = persisted.ShouldHaveSingleItem();
@@ -82,8 +79,91 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
         measured.Tags.ShouldBeEmpty();
     }
 
+    /// <summary>
+    /// DEV-522 US2/FR-006, real database: the unique library-path index remains the concurrency
+    /// backstop beneath the import-time skip. Writing the same path twice through the repository
+    /// (bypassing the handler's lookup) is still rejected by <c>IX_movies_library_path</c>.
+    /// </summary>
     [Fact]
-    public async Task HandleAsync_CaseOnlyDuplicate_RejectsOnTheKeyIndexAndPreservesTheWinner()
+    public async Task AddAsync_SameLibraryPathTwice_RealDatabaseStillRejectsOnTheUniqueIndex()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await postgres.ResetAsync(ct);
+
+        // act
+        await using (var firstContext = postgres.CreateMigratedContext())
+        {
+            var repository = NewRepository(firstContext);
+            await repository.AddAsync(
+                Movie.Create(await repository.NextIdentityAsync(ct), "Imported", new LibraryPath("incoming"),
+                    new MediaFormat("mkv")),
+                ct);
+            await repository.SaveChangesAsync(ct);
+        }
+
+        DuplicateLibraryPathException rejection;
+        await using (var secondContext = postgres.CreateMigratedContext())
+        {
+            var repository = NewRepository(secondContext);
+            await repository.AddAsync(
+                Movie.Create(await repository.NextIdentityAsync(ct), "Imported again", new LibraryPath("incoming"),
+                    new MediaFormat("mkv")),
+                ct);
+            rejection = await Should.ThrowAsync<DuplicateLibraryPathException>(
+                () => repository.SaveChangesAsync(ct));
+        }
+
+        // assert
+        ExpectConstraintViolation(rejection, ExactIndexName);
+        await using var verification = postgres.CreateMigratedContext();
+        (await verification.Movies.CountAsync(ct)).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ConcurrentSamePathImports_RealDatabaseLeavesOneRowAndOneEnqueue()
+    {
+        // arrange: both invocations can pass the path pre-check before either commits, so the unique
+        // index — not the lookup — is what separates them. Whichever translation wins, the database
+        // must end with exactly one movie and exactly one enrichment enqueue.
+        var ct = TestContext.Current.CancellationToken;
+        await postgres.ResetAsync(ct);
+        var folder = new LibraryPath("Inception (2010) [1080p]");
+        scanner.Scan(folder).Returns(
+            new ScannedMovie(folder, "Inception", new MediaFormat("mkv"), null, 1024L));
+
+        // act
+        var outcomes = await Task.WhenAll(
+            ImportOnceAsync(folder, ct),
+            ImportOnceAsync(folder, ct));
+
+        // assert
+        outcomes.Count(outcome => outcome.Succeeded).ShouldBe(1);
+        outcomes.Single(outcome => !outcome.Succeeded).Failure
+            .ShouldBeOfType<DuplicateLibraryPathException>();
+        await using var verification = postgres.CreateMigratedContext();
+        (await verification.Movies.CountAsync(ct)).ShouldBe(1);
+        (await verification.OutboxMessages.CountAsync(ct)).ShouldBe(1);
+    }
+
+    private async Task<ImportAttempt> ImportOnceAsync(LibraryPath folder, CancellationToken ct)
+    {
+        try
+        {
+            await using var context = postgres.CreateMigratedContext();
+            await NewHandler(context).HandleAsync(new ImportMovieFolderCommand(folder), ct);
+            return new ImportAttempt(true, null);
+        }
+        catch (DuplicateLibraryPathException failure)
+        {
+            return new ImportAttempt(false, failure);
+        }
+    }
+
+    private sealed record ImportAttempt(bool Succeeded, Exception? Failure);
+
+    [Fact]
+    public async Task HandleAsync_CaseOnlyDuplicate_SkipsOnTheExistingKeySemanticsAndPreservesTheWinner()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -103,16 +183,16 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
                 .HandleAsync(new ImportMovieFolderCommand(firstFolder), ct);
         }
 
-        DuplicateLibraryPathException rejection;
         await using (var secondContext = postgres.CreateMigratedContext())
         {
-            rejection = await Should.ThrowAsync<DuplicateLibraryPathException>(
+            await Should.ThrowAsync<DuplicateLibraryPathException>(
                 () => NewHandler(secondContext)
                     .HandleAsync(new ImportMovieFolderCommand(caseVariedFolder), ct));
         }
 
-        // assert
-        ExpectConstraintViolation(rejection, KeyIndexName);
+        // assert: DEV-522 US2 — the existing case-insensitive path/key equivalence decides equality, so
+        // the case variant is a deterministic skip before any scan, insert or second enqueue.
+        scanner.DidNotReceive().Scan(caseVariedFolder);
         await using var verification = postgres.CreateMigratedContext();
         var stored = await verification.Movies.ToListAsync(ct);
         var winner = stored.ShouldHaveSingleItem();
@@ -120,6 +200,41 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
         winner.LibraryPath.ShouldBe(new LibraryPath("Heat (1995)"));
         winner.LibraryPathKey.ShouldBe("HEAT (1995)");
         (await verification.OutboxMessages.CountAsync(ct)).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task AddAsync_CaseOnlyPathTwice_RealDatabaseStillRejectsOnTheKeyIndex()
+    {
+        // arrange: the key index stays the concurrency backstop even though the handler now skips the
+        // case variant by lookup; writing past the lookup must still violate the unique key.
+        var ct = TestContext.Current.CancellationToken;
+        await postgres.ResetAsync(ct);
+        await using (var firstContext = postgres.CreateMigratedContext())
+        {
+            var repository = NewRepository(firstContext);
+            await repository.AddAsync(
+                Movie.Create(await repository.NextIdentityAsync(ct), "Heat",
+                    new LibraryPath("Heat (1995)"), new MediaFormat("mkv")),
+                ct);
+            await repository.SaveChangesAsync(ct);
+        }
+
+        DuplicateLibraryPathException rejection;
+        await using (var secondContext = postgres.CreateMigratedContext())
+        {
+            var repository = NewRepository(secondContext);
+            await repository.AddAsync(
+                Movie.Create(await repository.NextIdentityAsync(ct), "Heat Lower",
+                    new LibraryPath("heat (1995)"), new MediaFormat("mkv")),
+                ct);
+            rejection = await Should.ThrowAsync<DuplicateLibraryPathException>(
+                () => repository.SaveChangesAsync(ct));
+        }
+
+        // assert
+        ExpectConstraintViolation(rejection, KeyIndexName);
+        await using var verification = postgres.CreateMigratedContext();
+        (await verification.Movies.CountAsync(ct)).ShouldBe(1);
     }
 
     [Fact]
