@@ -180,6 +180,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
   }
 
   const busy = running;
+  const scanning = candidates.isPending;
   const inFlight = progress !== null && progress.done < progress.total;
   const nothingToDo = selectedFolders.length === 0 && !retryFailed;
 
@@ -219,6 +220,14 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
                 >
                   Retry scan
                 </button>
+              </p>
+            ) : scanning ? (
+              <p role="status" className="lamu-dialog-hint">
+                Scanning library…
+              </p>
+            ) : folders.length === 0 ? (
+              <p role="status" className="lamu-dialog-hint">
+                No new movies found
               </p>
             ) : (
               <ul className="lamu-dialog-folders">
@@ -307,9 +316,15 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
             </div>
           ) : null}
           <div className="lamu-dialog-actions">
-            <button type="button" className="lamu-action-quiet" onClick={handleClose}>
-              Cancel
-            </button>
+            {busy || scanning ? (
+              <button type="button" className="lamu-action-quiet" onClick={handleClose}>
+                Cancel
+              </button>
+            ) : (
+              <button type="button" className="lamu-action-quiet" onClick={handleClose}>
+                Close
+              </button>
+            )}
             <button type="submit" className="lamu-action-primary" disabled={busy || nothingToDo}>
               Import
             </button>
