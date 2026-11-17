@@ -1,8 +1,15 @@
 name: Compose smoke
 
 on:
+  # Doc-only PRs skip the smoke run. Keep this list in sync with the paths-ignore in ci.yml.
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'specs/**'
+      - 'docs/**'
+      - '.specify/**'
+      - 'CONTEXT.md'
+      - '**/*.md'
 
 permissions:
   contents: read
