@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
+using System.Linq;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Import;
@@ -143,6 +144,50 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
         var stored = await verification.Movies.SingleAsync(movie => movie.Id == id, ct);
         stored.LibraryPath.ShouldBe(canonical);
         stored.LibraryPathKey.ShouldBe("COLLECTIONS/ALIEN (1979)");
+    }
+
+    /// <summary>
+    /// DEV-522 T001 mechanism evidence: import carries no IMDb identity at all (the folder scan yields
+    /// title, path, format and year only), so two distinct folders for the same movie both insert a row.
+    /// The duplicate is only discovered later, during enrichment, which is why the second row survives
+    /// import and has to be settled as a failed enrichment instead of being skipped.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_TwoDistinctFoldersForTheSameMovie_PersistsTwoPendingRowsAndTwoEnqueues()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await postgres.ResetAsync(ct);
+        var firstFolder = new LibraryPath("Inception (2010) [1080p]");
+        var secondFolder = new LibraryPath("Inception[2010]");
+        scanner.Scan(firstFolder).Returns(
+            new ScannedMovie(firstFolder, "Inception", new MediaFormat("mkv"), null, 1024L));
+        scanner.Scan(secondFolder).Returns(
+            new ScannedMovie(secondFolder, "Inception", new MediaFormat("mkv"), null, 1024L));
+
+        // act
+        MovieId firstId;
+        await using (var firstContext = postgres.CreateMigratedContext())
+        {
+            firstId = await NewHandler(firstContext)
+                .HandleAsync(new ImportMovieFolderCommand(firstFolder), ct);
+        }
+
+        MovieId secondId;
+        await using (var secondContext = postgres.CreateMigratedContext())
+        {
+            secondId = await NewHandler(secondContext)
+                .HandleAsync(new ImportMovieFolderCommand(secondFolder), ct);
+        }
+
+        // assert
+        secondId.ShouldNotBe(firstId);
+        await using var verification = postgres.CreateMigratedContext();
+        var stored = await verification.Movies.OrderBy(movie => movie.Id).ToListAsync(ct);
+        stored.Count.ShouldBe(2);
+        stored.ShouldAllBe(movie => movie.Status == EnrichmentStatus.Pending);
+        stored.ShouldAllBe(movie => movie.Title == "Inception");
+        (await verification.OutboxMessages.CountAsync(ct)).ShouldBe(2);
     }
 
     [Fact]
