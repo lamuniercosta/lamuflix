@@ -18,10 +18,7 @@ public sealed record MovieDetails(
 {
     public bool IsNotInterested => Review == Review.Disliked;
 
-    // Caller-safe failure history: only a Failed movie exposes the persisted category (DEV-522 Q3).
     public EnrichmentFailureCategory? FailedCategory =>
-        FailureCategory is not null && ReferenceEquals(EnrichmentStatus, EnrichmentStatus.Failed)
-            ? FailureCategory
-            : null;
+        FailureCategoryProjection.ForFailedOnly(EnrichmentStatus, FailureCategory);
 }
 // ReSharper restore NotAccessedPositionalProperty.Global
