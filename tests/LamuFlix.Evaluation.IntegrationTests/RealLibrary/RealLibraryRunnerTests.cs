@@ -100,7 +100,7 @@ public sealed class RealLibraryRunnerTests : IAsyncLifetime
         interceptor.Reset();
 
         // act
-        var report = CompareRunner.Run(snapshot, Options, selectedId.Value, otherId: null);
+        var report = CompareRunner.Run(snapshot, Options, selectedId.Value, otherId: null, ct);
 
         // assert
         var rows = report.Envelope.Lists.ShouldHaveSingleItem().Rows;
@@ -217,7 +217,7 @@ public sealed class RealLibraryRunnerTests : IAsyncLifetime
             }
             catch (UnauthorizedAccessException)
             {
-                // Same.
+                // Best-effort cleanup must never fail an assertion.
             }
         }
     }

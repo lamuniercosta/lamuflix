@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
@@ -31,17 +32,21 @@ public static class CompareRunner
         RealLibrarySnapshot snapshot,
         RecommendationOptions options,
         int selectedId,
-        int? otherId)
+        int? otherId,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(options);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         var selectedMovieId = RequireSelected(selectedId);
         var otherMovieId = ValidateOther(otherId, selectedMovieId);
         var selected = FindSelected(snapshot, selectedMovieId);
         var selectedVectorUsable = TryUsableVector(snapshot, selectedMovieId, out _);
 
-        var scored = ScoreEnriched(snapshot, options, selected);
+        var scored = ScoreEnriched(snapshot, options, selected, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         var ordered = OrderRows(scored, PlotRanks(scored), options.CandidatePoolSize).ToList();
         var rows = KeepPair(ordered, otherMovieId);
         var matchedNames = otherMovieId is null
@@ -123,13 +128,16 @@ public static class CompareRunner
     private static List<ScoredMovie> ScoreEnriched(
         RealLibrarySnapshot snapshot,
         RecommendationOptions options,
-        Movie selected)
+        Movie selected,
+        CancellationToken cancellationToken)
     {
         var selectedFeatures = MovieFeaturesMapper.From(selected, includeSignals: true);
         var scored = new List<ScoredMovie>();
 
         foreach (var movie in snapshot.Movies)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (movie.Id == selected.Id || movie.Status != EnrichmentStatus.Enriched)
             {
                 continue;

@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
@@ -136,14 +137,18 @@ public static class QualityReportRunner
     public static QualityReport Run(
         RealLibrarySnapshot snapshot,
         RecommendationOptions options,
-        QualityParameters parameters)
+        QualityParameters parameters,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(parameters);
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         var judged = JudgedPairReader.ReadOrDefault(parameters.JudgedPairsPath);
-        var ranking = Ranking.Build(snapshot, options);
+        var ranking = Ranking.Build(snapshot, options, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
 
         return new QualityReport(
             parameters.Bars,
@@ -177,7 +182,10 @@ public static class QualityReportRunner
 
         public ImmutableArray<SelectedRanking> Selected { get; }
 
-        public static Ranking Build(RealLibrarySnapshot snapshot, RecommendationOptions options)
+        public static Ranking Build(
+            RealLibrarySnapshot snapshot,
+            RecommendationOptions options,
+            CancellationToken cancellationToken)
         {
             var enriched = snapshot.Movies
                 .Where(movie => movie.Status == EnrichmentStatus.Enriched)
@@ -187,7 +195,8 @@ public static class QualityReportRunner
 
             foreach (var movie in enriched)
             {
-                selected.Add(new SelectedRanking(movie.Id, RankAgainst(snapshot, options, movie)));
+                cancellationToken.ThrowIfCancellationRequested();
+                selected.Add(new SelectedRanking(movie.Id, RankAgainst(snapshot, options, movie, cancellationToken)));
             }
 
             return new Ranking(enriched.Length, selected.ToImmutable());
@@ -196,13 +205,16 @@ public static class QualityReportRunner
         private static ImmutableArray<RankedResult> RankAgainst(
             RealLibrarySnapshot snapshot,
             RecommendationOptions options,
-            Movie selected)
+            Movie selected,
+            CancellationToken cancellationToken)
         {
             var selectedFeatures = MovieFeaturesMapper.From(selected, includeSignals: true);
             var scored = ImmutableArray.CreateBuilder<RankedResult>();
 
             foreach (var movie in snapshot.Movies)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (movie.Id == selected.Id || movie.Status != EnrichmentStatus.Enriched)
                 {
                     continue;
