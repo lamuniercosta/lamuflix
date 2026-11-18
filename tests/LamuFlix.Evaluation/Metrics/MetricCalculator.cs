@@ -8,8 +8,9 @@ namespace LamuFlix.Evaluation.Metrics;
 public static class MetricCalculator
 {
     public const int Cutoff = 10;
-    public const int NearCutoff = 3;
-    public const int FirstRank = 1;
+
+    private const int NearCutoff = 3;
+    private const int FirstRank = 1;
 
     public static EvaluationMetrics Compute(IReadOnlyList<EvaluationObservation> observations)
     {
