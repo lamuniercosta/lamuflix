@@ -2428,7 +2428,9 @@
           "isWatched",
           "isNotInterested",
           "review",
-          "enrichmentStatus"
+          "enrichmentStatus",
+          "failureCategory",
+          "failureMessage"
         ],
         "type": "object",
         "properties": {
@@ -2473,6 +2475,18 @@
           },
           "enrichmentStatus": {
             "$ref": "#/components/schemas/EnrichmentStatus"
+          },
+          "failureCategory": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failureMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2591,7 +2605,9 @@
           "isInWatchlist",
           "isWatched",
           "isNotInterested",
-          "review"
+          "review",
+          "failureCategory",
+          "failureMessage"
         ],
         "type": "object",
         "properties": {
@@ -2653,6 +2669,18 @@
           },
           "review": {
             "type": "string"
+          },
+          "failureCategory": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failureMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

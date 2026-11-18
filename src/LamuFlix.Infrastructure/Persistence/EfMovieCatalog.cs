@@ -47,7 +47,8 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.Status,
                 movie.IsInWatchlist,
                 movie.IsWatched,
-                movie.Review))
+                movie.Review,
+                movie.EnrichmentFailureCategory))
             .ToArrayAsync(ct);
         return new PagedResult<MovieSummary>([.. items], totalCount);
     }
@@ -83,7 +84,8 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.FullCast.Select(actor => actor.Name).ToList(),
                 movie.CollectionId,
                 movie.Collection == null ? null : movie.Collection.Name,
-                movie.Status))
+                movie.Status,
+                movie.EnrichmentFailureCategory))
             .FirstOrDefaultAsync(ct);
         if (record is null)
         {
@@ -113,7 +115,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 Signals(record),
                 record.TrailerKey)
             : null;
-        return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata, record.IsInWatchlist, record.IsWatched, record.Review, record.Status);
+        return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata, record.IsInWatchlist, record.IsWatched, record.Review, record.Status, record.FailureCategory);
     }
 
     public async Task<IReadOnlyList<GenreFacet>> GetGenresAsync(CancellationToken ct)
@@ -250,7 +252,8 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         List<string> FullCast,
         int? CollectionId,
         string? CollectionName,
-        EnrichmentStatus Status);
+        EnrichmentStatus Status,
+        EnrichmentFailureCategory? FailureCategory);
 
     private sealed record KeywordRow(int Id, string Name);
 }

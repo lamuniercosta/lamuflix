@@ -16,6 +16,8 @@ const base = {
   isWatched: false,
   isNotInterested: false,
   review: 'none',
+  failureCategory: null,
+  failureMessage: null,
 } as const;
 
 function renderWithClient(ui: ReactElement) {

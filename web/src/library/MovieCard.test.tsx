@@ -25,6 +25,8 @@ const movie = {
   isWatched: false,
   isNotInterested: false,
   review: 'none',
+  failureCategory: null,
+  failureMessage: null,
 } as const;
 
 function renderCard(ui: ReactElement) {
@@ -121,6 +123,64 @@ describe('MovieCard', () => {
   it.each(['NotFound', 'Failed'] as const)('offers Retry for enrichment status %s', (status) => {
     renderCard(<MovieCard movie={{ ...movie, enrichmentStatus: status }} />);
     expect(screen.getByRole('button', { name: 'Retry Heat' })).toBeInTheDocument();
+  });
+
+  it('shows the canonical caller-safe failure reason beside Failed', () => {
+    // arrange / act
+    renderCard(
+      <MovieCard
+        movie={{
+          ...movie,
+          enrichmentStatus: 'Failed',
+          failureCategory: 'duplicate_imdb_id',
+          failureMessage: 'Another movie in the library already has this IMDb id.',
+        }}
+      />,
+    );
+
+    // assert
+    expect(screen.getByText('Failed')).toBeInTheDocument();
+    expect(
+      screen.getByText('Another movie in the library already has this IMDb id.'),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the existing Failed label when failure details are null', () => {
+    // arrange / act
+    const { container } = renderCard(
+      <MovieCard
+        movie={{
+          ...movie,
+          enrichmentStatus: 'Failed',
+          failureCategory: null,
+          failureMessage: null,
+        }}
+      />,
+    );
+
+    // assert
+    expect(screen.getByText('Failed')).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/unknown|unavailable|error|reason/i);
+    expect(screen.queryByText(/reason/i)).not.toBeInTheDocument();
+  });
+
+  it('never renders raw failure text that looks like an exception', () => {
+    // arrange / act
+    const { container } = renderCard(
+      <MovieCard
+        movie={{
+          ...movie,
+          enrichmentStatus: 'Failed',
+          failureCategory: 'duplicate_imdb_id',
+          failureMessage: 'Another movie in the library already has this IMDb id.',
+        }}
+      />,
+    );
+
+    // assert
+    expect(container.textContent).not.toContain('Exception');
+    expect(container.textContent).not.toContain('   at ');
+    expect(container.textContent).not.toContain('Npgsql');
   });
 
   it('navigates to details with player intent from Play without posting the launch contract', async () => {

@@ -549,7 +549,9 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
         ShouldCarryExactly(body, "items", "totalCount");
         var item = body.GetProperty("items").EnumerateArray().ToList().ShouldHaveSingleItem();
-        ShouldCarryExactly(item, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist", "isWatched", "isNotInterested", "review");
+        ShouldCarryExactly(item, SummaryPropertyNames);
+        item.GetProperty("failureCategory").ValueKind.ShouldBe(JsonValueKind.Null);
+        item.GetProperty("failureMessage").ValueKind.ShouldBe(JsonValueKind.Null);
         item.GetProperty("id").ValueKind.ShouldBe(JsonValueKind.Number);
         item.GetProperty("id").GetInt32().ShouldBe(1);
         item.GetProperty("title").ValueKind.ShouldBe(JsonValueKind.String);
@@ -558,6 +560,147 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         item.GetProperty("isInWatchlist").ValueKind.ShouldBe(JsonValueKind.True);
         body.GetProperty("totalCount").ValueKind.ShouldBe(JsonValueKind.Number);
         body.GetProperty("totalCount").GetInt32().ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task BrowseMovies_FailedWithKnownCategory_SerializesTheCallerSafeFailureProjection()
+    {
+        // arrange
+        catalog.Summaries = [FailedSummary(EnrichmentFailureCategory.DuplicateImdbId)];
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync($"{BrowseRoute}?{RequiredQuery}", cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var item = body.GetProperty("items").EnumerateArray().ToList().ShouldHaveSingleItem();
+        ShouldCarryExactly(item, SummaryPropertyNames);
+        item.GetProperty("enrichmentStatus").GetString().ShouldBe("Failed");
+        item.GetProperty("failureCategory").ValueKind.ShouldBe(JsonValueKind.String);
+        item.GetProperty("failureCategory").GetString().ShouldBe("duplicate_imdb_id");
+        item.GetProperty("failureMessage").ValueKind.ShouldBe(JsonValueKind.String);
+        item.GetProperty("failureMessage").GetString()
+            .ShouldBe(EnrichmentFailureCategory.DuplicateImdbId.SafeDescription);
+    }
+
+    [Fact]
+    public async Task GetMovieDetails_FailedWithKnownCategory_SerializesTheCallerSafeFailureProjection()
+    {
+        // arrange
+        catalog.Details = FailedDetails(EnrichmentFailureCategory.DuplicateImdbId);
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(DetailsUrl("7"), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        ShouldCarryExactly(body, DetailsPropertyNames);
+        body.GetProperty("enrichmentStatus").GetString().ShouldBe("Failed");
+        body.GetProperty("failureCategory").GetString().ShouldBe("duplicate_imdb_id");
+        body.GetProperty("failureMessage").GetString()
+            .ShouldBe(EnrichmentFailureCategory.DuplicateImdbId.SafeDescription);
+    }
+
+    [Fact]
+    public async Task BrowseMovies_FailedWithoutCategory_SerializesBothFailureFieldsAsJsonNull()
+    {
+        // arrange
+        catalog.Summaries = [FailedSummary(category: null)];
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync($"{BrowseRoute}?{RequiredQuery}", cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var item = body.GetProperty("items").EnumerateArray().ToList().ShouldHaveSingleItem();
+        item.GetProperty("enrichmentStatus").GetString().ShouldBe("Failed");
+        ShouldCarryJsonNull(item, "failureCategory", "failureMessage");
+    }
+
+    [Fact]
+    public async Task GetMovieDetails_FailedWithoutCategory_SerializesBothFailureFieldsAsJsonNull()
+    {
+        // arrange
+        catalog.Details = FailedDetails(category: null);
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(DetailsUrl("7"), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        body.GetProperty("enrichmentStatus").GetString().ShouldBe("Failed");
+        ShouldCarryJsonNull(body, "failureCategory", "failureMessage");
+    }
+
+    [Theory]
+    [InlineData("Pending")]
+    [InlineData("Enriched")]
+    [InlineData("NotFound")]
+    public async Task LibraryResponses_NonFailedStatus_SerializesBothFailureFieldsAsJsonNull(string status)
+    {
+        // arrange
+        var enrichmentStatus = EnrichmentStatus.FromName(status, ignoreCase: false);
+        catalog.Summaries = [SummaryWith(enrichmentStatus, EnrichmentFailureCategory.RateLimited)];
+        catalog.Details = DetailsWith(enrichmentStatus, EnrichmentFailureCategory.RateLimited);
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var browse = await client.GetAsync($"{BrowseRoute}?{RequiredQuery}", cancellationToken);
+        var browseBody = await browse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        var details = await client.GetAsync(DetailsUrl("7"), cancellationToken);
+        var detailsBody = await details.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        browse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        details.StatusCode.ShouldBe(HttpStatusCode.OK);
+        browseBody.GetProperty("items")[0].GetProperty("enrichmentStatus").GetString().ShouldBe(status);
+        ShouldCarryJsonNull(browseBody.GetProperty("items")[0], "failureCategory", "failureMessage");
+        detailsBody.GetProperty("enrichmentStatus").GetString().ShouldBe(status);
+        ShouldCarryJsonNull(detailsBody, "failureCategory", "failureMessage");
+    }
+
+    [Fact]
+    public async Task FailureProjection_NeverSerializesRawExceptionText()
+    {
+        // arrange
+        catalog.Summaries = [FailedSummary(EnrichmentFailureCategory.DuplicateImdbId)];
+        catalog.Details = FailedDetails(EnrichmentFailureCategory.DuplicateImdbId);
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var browse = await client.GetAsync($"{BrowseRoute}?{RequiredQuery}", cancellationToken);
+        var browseText = await browse.Content.ReadAsStringAsync(cancellationToken);
+        var details = await client.GetAsync(DetailsUrl("7"), cancellationToken);
+        var detailsText = await details.Content.ReadAsStringAsync(cancellationToken);
+
+        // assert
+        foreach (var text in new[] { browseText, detailsText })
+        {
+            text.ShouldNotContain("Exception");
+            text.ShouldNotContain("   at ");
+            text.ShouldNotContain("StackTrace");
+            text.ShouldNotContain("Npgsql");
+        }
     }
 
     [Fact]
@@ -576,7 +719,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "review", "enrichmentStatus");
+        ShouldCarryExactly(body, DetailsPropertyNames);
         body.GetProperty("enrichmentStatus").GetString().ShouldBe("Enriched");
         body.GetProperty("isInWatchlist").ValueKind.ShouldBe(JsonValueKind.True);
         body.GetProperty("id").ValueKind.ShouldBe(JsonValueKind.Number);
@@ -588,7 +731,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         body.GetProperty("format").ValueKind.ShouldBe(JsonValueKind.String);
         body.GetProperty("format").GetString().ShouldBe("mkv");
         var metadata = body.GetProperty("metadata");
-        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");
+        ShouldCarryExactly(metadata, MetadataPropertyNames);
         metadata.GetProperty("title").ValueKind.ShouldBe(JsonValueKind.String);
         metadata.GetProperty("title").GetString().ShouldBe("Heat");
         metadata.GetProperty("synopsis").ValueKind.ShouldBe(JsonValueKind.String);
@@ -620,7 +763,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "review", "enrichmentStatus");
+        ShouldCarryExactly(body, DetailsPropertyNames);
         body.GetProperty("enrichmentStatus").GetString().ShouldBe("NotFound");
         body.GetProperty("format").GetString().ShouldBe("mkv");
         body.GetProperty("isInWatchlist").GetBoolean().ShouldBeTrue();
@@ -643,7 +786,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var metadata = body.GetProperty("metadata");
-        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");
+        ShouldCarryExactly(metadata, MetadataPropertyNames);
         metadata.GetProperty("title").GetString().ShouldBe("Heat");
         ShouldCarryJsonNull(metadata, "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "trailerKey");
     }
@@ -865,6 +1008,24 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             responses.Select(item =>
                 $"{item.StatusCode.ToString(CultureInfo.InvariantCulture)}={item.Type?.FullName ?? "none"}"));
 
+    private static readonly string[] SummaryPropertyNames =
+    [
+        "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus",
+        "isInWatchlist", "isWatched", "isNotInterested", "review", "failureCategory", "failureMessage",
+    ];
+
+    private static readonly string[] DetailsPropertyNames =
+    [
+        "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested",
+        "review", "enrichmentStatus", "failureCategory", "failureMessage",
+    ];
+
+    private static readonly string[] MetadataPropertyNames =
+    [
+        "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl",
+        "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey",
+    ];
+
     private static string DetailsUrl(string id) => $"{BrowseRoute}/{id}";
 
     private WebApplicationFactory<Program> WithCatalog() =>
@@ -926,7 +1087,16 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         ((JsonElement)errors.ShouldNotBeNull()).EnumerateObject()
             .Select(property => property.Name);
 
-    private static MovieDetails KnownDetails() =>
+    private static MovieSummary FailedSummary(EnrichmentFailureCategory? category) =>
+        SummaryWith(EnrichmentStatus.Failed, category);
+
+    private static MovieSummary SummaryWith(EnrichmentStatus status, EnrichmentFailureCategory? category) =>
+        new(new MovieId(1), "Heat", null, null, null, null, status, true, false, Review.None, category);
+
+    private static MovieDetails FailedDetails(EnrichmentFailureCategory? category) =>
+        DetailsWith(EnrichmentStatus.Failed, category);
+
+    private static MovieDetails DetailsWith(EnrichmentStatus status, EnrichmentFailureCategory? category) =>
         new(
             new MovieId(7),
             "Heat",
@@ -936,7 +1106,11 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             true,
             false,
             Review.None,
-            EnrichmentStatus.NotFound);
+            status,
+            category);
+
+    private static MovieDetails KnownDetails() =>
+        DetailsWith(EnrichmentStatus.NotFound, category: null);
 
     private static MovieDetails DetailsWithFullMetadata() =>
         new(
@@ -955,7 +1129,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             true,
             false,
             Review.None,
-            EnrichmentStatus.Enriched);
+            EnrichmentStatus.Enriched,
+            FailureCategory: null);
 
     private static MovieDetails DetailsWithSparseMetadata() =>
         new(
@@ -967,7 +1142,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             false,
             false,
             Review.None,
-            EnrichmentStatus.Enriched);
+            EnrichmentStatus.Enriched,
+            FailureCategory: null);
 
     private static MovieQuery Accepted() => new()
     {
@@ -999,13 +1175,16 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
 
         public MovieDetails? Details { get; set; }
 
+        public IReadOnlyList<MovieSummary>? Summaries { get; set; }
+
         public Task<PagedResult<MovieSummary>> BrowseAsync(MovieQuery query, CancellationToken ct)
         {
             ArgumentNullException.ThrowIfNull(query);
             ct.ThrowIfCancellationRequested();
             Queries.Add(query);
-            return Task.FromResult(
-                new PagedResult<MovieSummary>([new MovieSummary(new MovieId(1), "Heat", null, null, null, null, EnrichmentStatus.Pending, true, false, Review.None)], 1));
+            IReadOnlyList<MovieSummary> items = Summaries
+                ?? [new MovieSummary(new MovieId(1), "Heat", null, null, null, null, EnrichmentStatus.Pending, true, false, Review.None)];
+            return Task.FromResult(new PagedResult<MovieSummary>([.. items], items.Count));
         }
 
         public Task<MovieDetails?> GetDetailsAsync(MovieId id, CancellationToken ct)

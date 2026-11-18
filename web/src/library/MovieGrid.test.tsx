@@ -16,6 +16,8 @@ const item = {
   isWatched: false,
   isNotInterested: false,
   review: 'none',
+  failureCategory: null,
+  failureMessage: null,
 };
 
 function renderWithClient(ui: ReactElement) {

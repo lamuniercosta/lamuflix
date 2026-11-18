@@ -21,6 +21,8 @@ const browseResponse = {
       isWatched: false,
       isNotInterested: false,
       review: 'none',
+      failureCategory: null,
+      failureMessage: null,
     },
   ],
   totalCount: '1',
@@ -36,6 +38,8 @@ const movieDetails = {
   isNotInterested: false,
   review: 'none',
   enrichmentStatus: 'Enriched',
+  failureCategory: null,
+  failureMessage: null,
   metadata: {
     title: 'Dune',
     synopsis: 'A synopsis',

@@ -209,6 +209,8 @@ export interface components {
       isNotInterested: boolean;
       review: string;
       enrichmentStatus: components["schemas"]["EnrichmentStatus"];
+      failureCategory: null | string;
+      failureMessage: null | string;
     };
     MovieMetadataResponse: {
       title: string;
@@ -245,6 +247,8 @@ export interface components {
       isWatched: boolean;
       isNotInterested: boolean;
       review: string;
+      failureCategory: null | string;
+      failureMessage: null | string;
     };
     PersonDto: {
       /** Format: int32 */

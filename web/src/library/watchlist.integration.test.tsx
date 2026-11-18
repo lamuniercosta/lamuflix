@@ -24,6 +24,8 @@ function summary(overrides: Partial<MovieSummary> = {}): MovieSummary {
     isWatched: false,
     isNotInterested: false,
     review: 'none',
+    failureCategory: null,
+    failureMessage: null,
     ...overrides,
   };
 }
@@ -38,6 +40,8 @@ function details(overrides: Partial<MovieDetails> = {}): MovieDetails {
     isWatched: false,
     isNotInterested: false,
     review: 'none',
+    failureCategory: null,
+    failureMessage: null,
     enrichmentStatus: 'NotFound',
     metadata: null,
     ...overrides,

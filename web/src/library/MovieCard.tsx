@@ -2,7 +2,7 @@ import { useState, type MouseEvent } from 'react';
 import type { components } from '../api/types';
 import { FilmIcon, PlayFilledIcon, RetryIcon, StarFilledIcon } from '../ui/icons';
 import { openMoviePlayer } from '../features/app-navigation/useAppNavigation';
-import { canRetryEnrichment, displayValue, formatRating } from './movieCardFormat';
+import { canRetryEnrichment, displayValue, failureDetail, formatRating } from './movieCardFormat';
 import { MovieFeedbackActions } from './MovieFeedbackActions';
 import type { MovieFeedbackClients } from './movieFeedbackStore';
 
@@ -53,6 +53,7 @@ export default function MovieCard({
   const thumbnailUrl = `/api/movies/${id}/thumbnail`;
   const ratingText = formatRating(movie.imdbRating);
   const statusLabel = STATUS_LABELS[status];
+  const failureMessage = failureDetail(status, movie.failureMessage);
 
   const handlePlay = () => {
     if (onOpenMovie) {
@@ -137,6 +138,8 @@ export default function MovieCard({
         <span className="movie-card-sep" aria-hidden="true" />
         <span>{displayValue(movie.releaseYear)}</span>
       </p>
+
+      {failureMessage ? <p className="movie-card-failure">{failureMessage}</p> : null}
 
       {reasons?.length ? (
         <div className="related-movie-reasons">

@@ -99,7 +99,7 @@ export default function RelatedMovies({ movieId, libraryClient }: RelatedMoviesP
           {rows.map((movie) => (
             <MovieCard
               key={String(movie.id)}
-              movie={movie}
+              movie={{ ...movie, failureCategory: null, failureMessage: null }}
               reasons={movie.reasons}
               feedbackClients={feedbackClients}
               onOpenMovie={openRecommendedMovie}

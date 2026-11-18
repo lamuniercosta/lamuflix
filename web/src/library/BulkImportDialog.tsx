@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { AlertTriangleIcon } from '../ui/icons';
+import { failureDetail } from './movieCardFormat';
 import {
   BULK_IMPORT_REASON_TEXT,
   bulkImportErrorMessage,
@@ -278,6 +279,20 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
             ) : (
               <>
                 <p>{failedItems.length} movie(s) are waiting in Failed enrichment.</p>
+                <ul className="lamu-dialog-failed">
+                  {failedItems.map((failedMovie) => {
+                    const reason = failureDetail('Failed', failedMovie.failureMessage);
+                    return (
+                      <li key={String(failedMovie.id)}>
+                        <span className="lamu-dialog-failed-title">{failedMovie.title}</span>{' '}
+                        <span className="lamu-dialog-failed-status">Failed</span>
+                        {reason ? (
+                          <span className="lamu-dialog-failed-reason">{reason}</span>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
                 <label>
                   <input
                     type="checkbox"
