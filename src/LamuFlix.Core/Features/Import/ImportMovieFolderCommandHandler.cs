@@ -32,13 +32,6 @@ public sealed class ImportMovieFolderCommandHandler(
         return id;
     }
 
-    /// <summary>
-    /// DEV-522 US2: a folder whose library path/key is already held is skipped before the scan, the
-    /// identity allocation and <c>outbox.Stage</c>, so a repeated import can never queue a second
-    /// enrichment. The outcome is the existing already-present conflict, and the stored row is reused
-    /// as-is: nothing is merged, deleted or re-created. Import carries no IMDb identity (see T001
-    /// evidence §2b), so a distinct path for an already-known movie is still discovered at enrichment.
-    /// </summary>
     private async Task RejectWhenAlreadyImportedAsync(LibraryPath folder, CancellationToken cancellationToken)
     {
         var imported = await movies.SnapshotMoviePathsAsync(cancellationToken);
