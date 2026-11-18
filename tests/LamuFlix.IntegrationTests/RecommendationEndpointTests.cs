@@ -856,7 +856,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         fixture.Customize<MovieId>(composer => composer.FromFactory(() => new MovieId(id)));
         fixture.Customize<EnrichmentStatus>(composer => composer.FromFactory(() => status));
         fixture.Customize<Review>(composer => composer.FromFactory(() => Review.None));
-        fixture.Customize<EnrichmentFailureCategory?>(composer => composer.FromFactory(() => (EnrichmentFailureCategory?)null));
+        fixture.Inject<EnrichmentFailureCategory?>(null);
 
         var builder = fixture.Build<MovieSummary>()
             .With(item => item.Title, Faker.Lorem.GetFirstWord());
