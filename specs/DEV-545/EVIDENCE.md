@@ -139,7 +139,7 @@ $priorOutput = $env:LAMUFLIX_EVALUATION_OUTPUT_PATH
 try {
   $env:LAMUFLIX_EVALUATION_MODE = 'leave-one-out'
   $env:LAMUFLIX_EVALUATION_OUTPUT_PATH = 'artifacts/recommendations/leave-one-out.json'
-  dotnet run --project tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj --no-build
+  dotnet run --project tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj -- -class LamuFlix.Evaluation.Entry.RealLibraryEntryTests -noLogo -noColor
 }
 finally {
   if ($null -eq $priorMode) { Remove-Item Env:LAMUFLIX_EVALUATION_MODE -ErrorAction SilentlyContinue } else { $env:LAMUFLIX_EVALUATION_MODE = $priorMode }
@@ -147,7 +147,7 @@ finally {
 }
 ```
 
-Inertness check: ordinary `dotnet test` **without** `LAMUFLIX_EVALUATION_MODE=leave-one-out|compare|quality` must not execute real-library modes (covered by `EvaluationEntryModeTests`). Mode and nonsecret markers MUST be restored/removed so copyable examples do not leave real-library mode enabled.
+Inertness check: ordinary `dotnet test` **without** `LAMUFLIX_EVALUATION_MODE=leave-one-out|compare` must not execute real-library modes (covered by `EvaluationEntryModeTests (extended)` and `RealLibraryEntryTests`). Mode and nonsecret markers MUST be restored/removed so copyable examples do not leave real-library mode enabled. The `-class LamuFlix.Evaluation.Entry.RealLibraryEntryTests` filter is required: without it the child runs the whole evaluation suite.
 
 | Check | Result |
 |---|---|
@@ -166,6 +166,30 @@ Inertness check: ordinary `dotnet test` **without** `LAMUFLIX_EVALUATION_MODE=le
 | Testcontainers no-write proof receipt (`RealLibraryReadOnlyLoaderTests`) | _pending_ |
 
 Note: Evidence acquired only after the run cannot prove non-mutation during that run. Keep raw personal before/after dumps unversioned. This is bounded ticket-required behavioral evidence, not a waiver of the strict no-write contract.
+
+### Phase 5 (T010–T012) leave-one-out and compare receipts
+
+| Check | Value |
+|---|---|
+| `dotnet test tests/LamuFlix.Evaluation` | 146 passed, 0 failed (synthetic publish unchanged) |
+| `dotnet test tests/LamuFlix.Evaluation.IntegrationTests` | 32 passed, 0 failed (4 new `RealLibraryRunnerTests`, including the two operator-entry paths) |
+| `dotnet test tests/LamuFlix.UnitTests` | 4032 passed, 1 skipped, 0 failed |
+| `pwsh -NoProfile -File ./scripts/run-evaluation.ps1` | exit 0; summary byte-identical to the T002 receipt above |
+| `./scripts/run-roslyn-analyzers.ps1` | exit 0, passed |
+| `./scripts/run-cyclomatic-complexity.ps1` | exit 0, passed (threshold 15) |
+| `./scripts/run-jetbrains-inspectcode.ps1` | exit 0, passed (no WARNING+) |
+| `dotnet format --verify-no-changes` | exit 0 |
+| Production `src/` seam | none added — LOO and compare are runner-local under `tests/LamuFlix.Evaluation/RealLibrary/` |
+| LOO denominator | `RealLibraryMetricCalculator` over one shared `MetricCalculator.Accumulate` path; attempted seeds per cohort; absent target contributes 0; zero cohort → null metrics |
+| LOO take | eligible candidate count from the immutable snapshot; endpoint/validator bypass and harness-relative validity are emitted as report `disclosures` |
+| Compare population | every other `EnrichmentStatus.Enriched` row retained; missing/wrong-dimension/nonfinite/zero-norm vectors emit null `rawPlotCosine`/`plotRank`, never a fabricated 0.0 |
+| Compare ordering | score desc then movie id asc; plot rank cosine desc then id asc among usable pairs only |
+| Pool flag | ticket formula `(plotRank is not null && plotRank <= CandidatePoolSize) || sameCollection`, disclosed as diagnostic |
+| Pair inspect | directed pair only; matched names from runner-local loaded feature names; no reason-text parsing and no new scoring term |
+| Credential transport | presence-only gate in `EvaluationEntry.RunRealLibraryAsync`; value never echoed, included in an exception message, or written to an artifact |
+| Mode scope | `RealLibraryModeScope` restores every prior nonsecret marker and removes markers that were absent before |
+| Inertness | `RealLibraryEntryTests` + `EvaluationEntryModeTests` (extended) prove ordinary `dotnet test` without `LAMUFLIX_EVALUATION_MODE` runs no real-library mode |
+| Nonsecret env names added | `LAMUFLIX_EVALUATION_SELECTED_ID`, `LAMUFLIX_EVALUATION_OTHER_ID` (compare/pair); `LAMUFLIX_EVALUATION_OUTPUT_PATH` defaults documented in §4 and §8 |
 
 ## 4. Compare and pair inspect (Q5 / PC2)
 
@@ -194,7 +218,7 @@ try {
   $env:LAMUFLIX_EVALUATION_SELECTED_ID = '101' # synthetic example ID — replace with looked-up home ID at Phase B
   Remove-Item Env:LAMUFLIX_EVALUATION_OTHER_ID -ErrorAction SilentlyContinue
   $env:LAMUFLIX_EVALUATION_OUTPUT_PATH = 'artifacts/recommendations/compare-101.json'
-  dotnet run --project tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj --no-build
+  dotnet run --project tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj -- -class LamuFlix.Evaluation.Entry.RealLibraryEntryTests -noLogo -noColor
 }
 finally {
   if ($null -eq $priorMode) { Remove-Item Env:LAMUFLIX_EVALUATION_MODE -ErrorAction SilentlyContinue } else { $env:LAMUFLIX_EVALUATION_MODE = $priorMode }
@@ -218,7 +242,7 @@ try {
   $env:LAMUFLIX_EVALUATION_SELECTED_ID = '101' # synthetic example
   $env:LAMUFLIX_EVALUATION_OTHER_ID = '202'   # synthetic example; directed pair 101 → 202
   $env:LAMUFLIX_EVALUATION_OUTPUT_PATH = 'artifacts/recommendations/pair-101-202.json'
-  dotnet run --project tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj --no-build
+  dotnet run --project tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj -- -class LamuFlix.Evaluation.Entry.RealLibraryEntryTests -noLogo -noColor
 }
 finally {
   if ($null -eq $priorMode) { Remove-Item Env:LAMUFLIX_EVALUATION_MODE -ErrorAction SilentlyContinue } else { $env:LAMUFLIX_EVALUATION_MODE = $priorMode }
@@ -269,7 +293,7 @@ try {
   # $env:LAMUFLIX_EVALUATION_BARS = '0.15,0.20,0.225,0.25,0.30,0.35,0.40'
   # $env:LAMUFLIX_EVALUATION_STRONG_ONLY_BAR = '0.225'
   $env:LAMUFLIX_EVALUATION_OUTPUT_PATH = 'artifacts/recommendations/quality.json'
-  dotnet run --project tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj --no-build
+  dotnet run --project tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj -- -class LamuFlix.Evaluation.Entry.RealLibraryEntryTests -noLogo -noColor
 }
 finally {
   if ($null -eq $priorMode) { Remove-Item Env:LAMUFLIX_EVALUATION_MODE -ErrorAction SilentlyContinue } else { $env:LAMUFLIX_EVALUATION_MODE = $priorMode }

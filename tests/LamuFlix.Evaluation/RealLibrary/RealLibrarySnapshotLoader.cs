@@ -16,6 +16,8 @@ public static class RealLibrarySnapshotLoader
 {
     private const string ConnectionStringVariable = "ConnectionStrings__DefaultConnection";
 
+    public static string CredentialVariableName => ConnectionStringVariable;
+
     public static bool IsCredentialPresent(Func<string, string?> readVariable)
     {
         ArgumentNullException.ThrowIfNull(readVariable);
