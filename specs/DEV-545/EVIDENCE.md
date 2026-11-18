@@ -188,8 +188,8 @@ Inertness check: ordinary `dotnet test` **without** `LAMUFLIX_EVALUATION_MODE=le
 | Liked HR@1/3/10, MRR, seed count | HR@1 0, HR@3 0, HR@10 0, MRR 0; **4 seeds** attempted (515, 518, 519, 525) |
 | Watched HR@1/3/10, MRR, seed count | HR@1 0, HR@3 0.0741 (2/27), HR@10 0.1481 (4/27), MRR 0.0537; **27 seeds** attempted |
 | Overlap disclosed | liked 4, watched 27, overlap 4 |
-| Bypass disclosure present (endpoint/validator + full-eligible take) | Present in code/report design (Phase 5 receipts above); no runtime report was produced |
-| Harness-relative HR/MRR validity disclaimer present | Present in report design; no runtime report was produced |
+| Bypass disclosure present (endpoint/validator + full-eligible take) | Present in code/report design; superseded by the completed Option A runtime report (§9: `leave-one-out.json`, 54522 bytes). Pre-run wording kept as history |
+| Harness-relative HR/MRR validity disclaimer present | Present in report design; superseded by the completed Option A runtime report (§9: `leave-one-out.json`, 54522 bytes). Pre-run wording kept as history |
 | **Before-state** row counts (captured and preserved **before** leave-one-out begins — T020) | **PASS**. Full before-state (per-table counts for 15 tables plus 449 review lines) preserved at `artifacts/recommendations/db-before-state.txt`, SHA-256 `390711968a2666aeb45f06865e694815555e3c700ef490bd046206d83e884f1e`; movies count 449 |
 | **Before-state** every movie review value (same timing — T020) | **PASS**: 449 `review|id|value` lines in the same preserved file, captured before LOO |
 | **After-state** row counts (captured **immediately after** the same leave-one-out run — T021) | **PASS**: identical to before (captured right after the LOO run exited 0) |
@@ -296,7 +296,7 @@ finally {
 
 Pair inspect sample: `artifacts/recommendations/pair-518-759.json` (selected 518 About Time, other 759 Pirate Radio; directed pair), exit 0.
 
-Pool diagnostic disclosure (ticket formula; not production pool parity): unchanged design disclosure — pool flag `(plotRank is not null && plotRank <= CandidatePoolSize) || sameCollection` is a diagnostic, not production pool parity. No runtime measurement exists.
+Pool diagnostic disclosure (ticket formula; not production pool parity): unchanged design disclosure — pool flag `(plotRank is not null && plotRank <= CandidatePoolSize) || sameCollection` is a diagnostic, not production pool parity. Runtime measurement for the pinned sample: `pair-518-759.json` plotRank **192**, `inPool` **false** (§9); the flag remains a diagnostic, not production pool parity.
 
 ## 5. Quality (Q7)
 
@@ -367,7 +367,7 @@ finally {
 | Check | Result |
 |---|---|
 | `git status` excludes outputs/judgments | PASS — `git status --porcelain --untracked-files=all` shows only the three intended files (`scripts/run-recommendation-snapshot.ps1`, `tests/.../RecommendationSnapshotCommandTests.cs`, `specs/DEV-545/EVIDENCE.md`); `artifacts/` is ignored by `.gitignore:66`, so no output or judged-pairs file can be committed |
-| Repo search: no committed connection string from this work | PASS — no connection string was read, echoed, or written at any point in this phase. `ConnectionStrings__DefaultConnection` was checked presence-only and was **absent** in this shell (process, user and machine scopes), which is itself why the real-library modes could not run |
+| Repo search: no committed connection string from this work | PASS — no connection string was read, echoed, or written at any point in this phase. Historical observation (pre-Option-A, dated before the §9 run): `ConnectionStrings__DefaultConnection` was checked presence-only and was **absent** in that shell (process, user and machine scopes), so the real-library modes could not run then. The completed Option A run (§9, 2026-11-18) ran with the credential present only inside the run-script process; the scrub verdict (no committed secret) is unchanged |
 | Evidence.md / provenance / notes / draft artifacts scrubbed of secrets and echoed credentials | PASS — a secret-pattern scan of this file (password, host, URI and API-key assignment patterns) returns no matches; the only credential-adjacent text is the standing presence-only rule |
 | No shell-history assignment examples for `ConnectionStrings__DefaultConnection` retained in drafts | PASS — no assignment example was added; §3/§4/§5/§8 keep the pre-existing presence-only pattern |
 
