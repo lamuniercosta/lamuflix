@@ -580,11 +580,11 @@ public static class RecommendationArtifactSerializer
     private static bool ReadBoolean(JsonElement element, string name)
     {
         var property = RequiredProperty(element, name);
-        return property.ValueKind switch
+        if (property.ValueKind is JsonValueKind.True or JsonValueKind.False)
         {
-            JsonValueKind.True => true,
-            JsonValueKind.False => false,
-            _ => throw new RecommendationArtifactFormatException($"The artifact property '{name}' must be a boolean."),
-        };
+            return property.GetBoolean();
+        }
+
+        throw new RecommendationArtifactFormatException($"The artifact property '{name}' must be a boolean.");
     }
 }
