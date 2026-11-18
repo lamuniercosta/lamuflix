@@ -45,7 +45,7 @@ public sealed class LeaveOneOutRunnerTests
     [Fact]
     public async Task RunAsync_absent_target_contributes_zero_rather_than_shrinking_the_denominator()
     {
-        // arrange — the only positive signal is the liked seed itself, so hiding it leaves no profile
+        // arrange
         var snapshot = Snapshot(
             Movies(
                 BuildMovie(1, "Alpha", review: Review.Liked, genres: ["Drama"]),
@@ -69,7 +69,7 @@ public sealed class LeaveOneOutRunnerTests
     [Fact]
     public async Task RunAsync_zero_seed_cohort_reports_null_unavailable_metrics()
     {
-        // arrange — no liked and no watched signal anywhere
+        // arrange
         var snapshot = Snapshot(
             Movies(BuildMovie(1, "Alpha", genres: ["Drama"]), BuildMovie(2, "Bravo", genres: ["Drama"])),
             Vectors((1, Vector(1.0)), (2, Vector(1.0))));
@@ -126,7 +126,7 @@ public sealed class LeaveOneOutRunnerTests
     [Fact]
     public async Task RunAsync_scoring_failure_fails_the_run_instead_of_shrinking_the_cohort()
     {
-        // arrange — a profile embedding with the wrong dimension is a scoring input failure
+        // arrange
         var snapshot = Snapshot(
             Movies(
                 BuildMovie(1, "Alpha", review: Review.Liked, genres: ["Drama"]),

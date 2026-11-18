@@ -16,10 +16,6 @@ namespace LamuFlix.Evaluation.RealLibrary;
 
 public sealed class QualityReportRunnerTests
 {
-    /// <summary>
-    /// One bar that separates the 1.0 identical-director pair from every sub-bar pair. With the
-    /// fixture snapshot: 1↔3 score 1.0, 1↔2 and 2↔1 score 0.625, 2↔3 score 0.5.
-    /// </summary>
     private static readonly ImmutableArray<double> SingleBar = [0.7];
 
     [Fact]
@@ -42,7 +38,7 @@ public sealed class QualityReportRunnerTests
     [Fact]
     public void Run_counts_only_enriched_movies_in_the_population()
     {
-        // arrange — movie 4 is pending, so it is neither a selection nor a candidate
+        // arrange
         var snapshot = StrongCollectionSnapshot(
             BuildMovie(4, "Pending", directors: ["Ada"], status: EnrichmentStatus.Pending));
 
@@ -104,7 +100,7 @@ public sealed class QualityReportRunnerTests
     [Fact]
     public void Run_reports_a_tenth_ordinal_median_once_ten_results_qualify()
     {
-        // arrange — twelve identical genre-only profiles at zero weight all score 1.0 against each other
+        // arrange
         var movies = Enumerable.Range(1, 12)
             .Select(id => BuildMovie(id, "Movie " + id.ToString(CultureInfo.InvariantCulture), genres: ["Drama"]))
             .ToArray();
@@ -126,7 +122,7 @@ public sealed class QualityReportRunnerTests
     [Fact]
     public void Run_never_treats_the_identity_fallback_entry_as_strong()
     {
-        // arrange — identical genre-only profiles at zero weight produce the identity fallback
+        // arrange
         var snapshot = Snapshot(
         [
             BuildMovie(1, "Alpha", genres: ["Drama"]),
@@ -206,7 +202,7 @@ public sealed class QualityReportRunnerTests
     [Fact]
     public void Run_repeats_identical_band_samples_on_unchanged_data()
     {
-        // arrange — twenty same-collection movies put plenty of pairs in one band
+        // arrange
         var movies = Enumerable.Range(1, 20)
             .Select(id => BuildMovie(
                 id,
@@ -443,7 +439,24 @@ public sealed class QualityReportRunnerTests
         parameters.Bars.ShouldBe([0.15, 0.20, 0.225, 0.25, 0.30, 0.35, 0.40]);
         parameters.StrongOnlyBar.ShouldBe(0.225);
         parameters.JudgedPairsPath.ShouldBe(
-            Path.GetFullPath(Path.Combine("artifacts", "recommendations", "judged-pairs.json")));
+            Path.GetFullPath(Path.Combine(EvaluationPaths.Root, "artifacts", "recommendations", "judged-pairs.json")));
+    }
+
+    [Fact]
+    public void ReadParameters_resolves_a_relative_judged_pairs_path_under_the_repository_root()
+    {
+        // arrange
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [QualityReportRunner.JudgedPairsPathVariable] = "artifacts/recommendations/custom-judged.json",
+        };
+
+        // act
+        var parameters = QualityReportRunner.ReadParameters(name => environment.GetValueOrDefault(name));
+
+        // assert
+        parameters.JudgedPairsPath.ShouldBe(
+            Path.GetFullPath(Path.Combine(EvaluationPaths.Root, "artifacts", "recommendations", "custom-judged.json")));
     }
 
     [Fact]
@@ -508,7 +521,7 @@ public sealed class QualityReportRunnerTests
     [Fact]
     public void ReadParameters_parses_bars_with_the_invariant_culture()
     {
-        // arrange — a comma decimal culture must not reinterpret the dot separators
+        // arrange
         using var culture = new CultureScope("pt-BR");
         var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
@@ -654,11 +667,6 @@ public sealed class QualityReportRunnerTests
             },
         };
 
-    /// <summary>
-    /// Three enriched movies at default weights. 1 and 3 share director Ada (no collection either
-    /// side) so they score 1.0 through Director; 1 and 2 share collection 7 with different directors so
-    /// they score 0.625 while Collection value is still 1.0; 2 and 3 share only the genre and score 0.5.
-    /// </summary>
     private static RealLibrarySnapshot StrongCollectionSnapshot(params Movie[] extra)
     {
         Movie[] movies =

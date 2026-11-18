@@ -10,13 +10,6 @@ using LamuFlix.Core.Ports;
 
 namespace LamuFlix.Evaluation.RealLibrary;
 
-/// <summary>
-/// Whole-library compare and directed pair inspect for one selected movie. Every other enriched
-/// movie is scored with the production <see cref="SimilarityScorer"/> term collection and kept even
-/// when a persisted plot vector is missing or unusable, so no enriched row is dropped and no cosine
-/// is fabricated. Plot ranks and pool membership follow the ticket diagnostic formula rather than
-/// production candidate-pool parity; the report discloses both boundaries.
-/// </summary>
 public static class CompareRunner
 {
     private const string PoolDisclosure =
@@ -262,10 +255,6 @@ public static class CompareRunner
             ? [PoolDisclosure]
             : [PoolDisclosure, UnusableSelectedVectorDisclosure];
 
-    /// <summary>
-    /// Matched entity names for pair inspect, from the runner-local loaded feature names of the two
-    /// movies. Reason text is never parsed and no scoring term is added.
-    /// </summary>
     private static ImmutableArray<RecommendationMatchedName> MatchedNames(Movie selected, Movie other)
     {
         var builder = ImmutableArray.CreateBuilder<RecommendationMatchedName>();
@@ -407,7 +396,7 @@ public static class CompareRunner
         bool InPool);
 }
 
-// ReSharper disable NotAccessedPositionalProperty.Global // report contract consumed by tests and operators
+// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by tests and operators
 public sealed record CompareReport(
     RecommendationArtifactEnvelope Envelope,
     int SelectedId,
@@ -416,4 +405,3 @@ public sealed record CompareReport(
     bool IsPairInspect,
     ImmutableArray<string> Disclosures,
     ImmutableArray<RecommendationMatchedName> MatchedNames);
-// ReSharper restore NotAccessedPositionalProperty.Global

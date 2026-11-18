@@ -18,11 +18,6 @@ using Testcontainers.PostgreSql;
 
 namespace LamuFlix.Evaluation.IntegrationTests.RealLibrary;
 
-/// <summary>
-/// Testcontainers proof that leave-one-out and compare are independently runnable on the real
-/// snapshot: both read one no-tracking library, none of them writes, and the produced reports carry
-/// the required disclosures and artifact contract.
-/// </summary>
 public sealed class RealLibraryRunnerTests : IAsyncLifetime
 {
     private const string Image =

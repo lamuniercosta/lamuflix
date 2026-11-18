@@ -14,13 +14,6 @@ using LibrarySortDirection = LamuFlix.Core.Library.SortDirection;
 
 namespace LamuFlix.Evaluation.RealLibrary;
 
-/// <summary>
-/// One in-memory evaluation copy of the loaded library in which a single movie is hidden. The hidden
-/// movie keeps its candidate identity and stays an eligible ranking target, while every watched,
-/// review, and profile signal it carries is cleared for this copy only. Each seed builds its own copy
-/// from the same immutable, no-tracking <see cref="RealLibrarySnapshot"/>, so no write can reach the
-/// database: every port below reads the snapshot and the repository exposes no mutation path.
-/// </summary>
 public sealed class HiddenSeedEvaluationCopy
 {
     private readonly RecommendationOptions options;
@@ -85,7 +78,6 @@ public sealed class HiddenSeedEvaluationCopy
     private GetForYouRecommendationsQueryHandler CreateHandler() =>
         new(Catalog, Repository, ProfileSource, GenreWeights, Options.Create(options));
 
-    /// <summary>The hidden movie as this copy presents it: identity retained, signals cleared.</summary>
     private static Movie HiddenView(Movie movie)
     {
         ArgumentNullException.ThrowIfNull(movie);
@@ -199,10 +191,6 @@ public sealed class HiddenSeedEvaluationCopy
                 : movies.OrderBy(movie => movie.Title, StringComparer.Ordinal).ThenBy(movie => movie.Id.Value);
     }
 
-    /// <summary>
-    /// A read-only repository over the snapshot: reads answer from memory and every mutation member
-    /// throws, so the evaluation path can never add, save, claim, or delete.
-    /// </summary>
     private sealed class SnapshotRepository(RealLibrarySnapshot snapshot, MovieId hiddenSeed) : IMovieRepository
     {
         public Task<Movie?> GetAsync(MovieId id, CancellationToken ct)
@@ -244,11 +232,6 @@ public sealed class HiddenSeedEvaluationCopy
             new("The evaluation snapshot repository is read-only; no library mutation is allowed.");
     }
 
-    /// <summary>
-    /// Serves the snapshot's profile rows (with the hidden seed already removed) and candidate
-    /// embeddings, and derives the taste profile through the production
-    /// <see cref="TasteProfileCalculator"/> so scoring terms are unchanged. It never reads the database.
-    /// </summary>
     private sealed class SnapshotProfileSource(
         ImmutableArray<TasteProfileMovie> profileMovies,
         ImmutableDictionary<MovieId, ImmutableArray<float>> plotEmbeddings,

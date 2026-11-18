@@ -6,11 +6,6 @@ using System.Text.Json;
 
 namespace LamuFlix.Evaluation.RealLibrary;
 
-/// <summary>
-/// Deterministic, compact UTF-8 leave-one-out report. It carries the cohort metrics, every attempted
-/// seed's full returned ranking, the disclosed cohort overlap, and the bypass/harness-relative
-/// disclosures, with no timestamps, host, or elapsed metadata.
-/// </summary>
 public static class LeaveOneOutReportSerializer
 {
     private const string PartialSuffix = ".partial";

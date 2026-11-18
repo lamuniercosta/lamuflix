@@ -20,11 +20,6 @@ using LibrarySortDirection = LamuFlix.Core.Library.SortDirection;
 
 namespace LamuFlix.Evaluation.IntegrationTests.RealLibrary;
 
-/// <summary>
-/// Testcontainers proof for the read-only snapshot loader and the per-seed hidden-seed adapters:
-/// a single no-tracking read, no hidden-target signal leakage, a fresh copy per seed, and no
-/// context mutation calls anywhere on the evaluation path.
-/// </summary>
 public sealed class RealLibraryReadOnlyLoaderTests : IAsyncLifetime
 {
     private const string Image =
