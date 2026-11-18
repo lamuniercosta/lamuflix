@@ -25,7 +25,15 @@ public sealed record RecommendationArtifactList(
     int? TargetId,
     int? Take,
     string Status,
-    ImmutableArray<RecommendationArtifactRow> Rows);
+    ImmutableArray<RecommendationArtifactRow> Rows)
+{
+    /// <summary>
+    /// Pair-inspect matched entity names for this directed pair, taken from runner-local loaded
+    /// feature names. Empty for capture lists and whole-library compares.
+    /// </summary>
+    public ImmutableArray<RecommendationMatchedName> MatchedNames { get; init; } =
+        ImmutableArray<RecommendationMatchedName>.Empty;
+}
 
 public sealed record RecommendationArtifactRow(
     int Rank,
@@ -48,3 +56,5 @@ public sealed record RecommendationCriterionContribution(
     double Value,
     double Weight,
     double Contribution);
+
+public sealed record RecommendationMatchedName(string Criterion, string Name);

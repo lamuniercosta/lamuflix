@@ -117,7 +117,30 @@ public static class RecommendationArtifactSerializer
         }
 
         writer.WriteEndArray();
+        WriteMatchedNames(writer, list.MatchedNames);
         writer.WriteEndObject();
+    }
+
+    private static void WriteMatchedNames(
+        Utf8JsonWriter writer,
+        ImmutableArray<RecommendationMatchedName> matchedNames)
+    {
+        if (matchedNames.IsDefaultOrEmpty)
+        {
+            return;
+        }
+
+        writer.WriteStartArray("matchedNames");
+
+        foreach (var matched in matchedNames)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("criterion", matched.Criterion);
+            writer.WriteString("name", matched.Name);
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
     }
 
     private static void WriteRow(Utf8JsonWriter writer, RecommendationArtifactRow row)
@@ -251,7 +274,32 @@ public static class RecommendationArtifactSerializer
                     ReadNullableInt32(item, "targetId"),
                     ReadNullableInt32(item, "take"),
                     ReadString(item, "status"),
-                    ReadRows(item)));
+                    ReadRows(item))
+                {
+                    MatchedNames = ReadMatchedNames(item),
+                });
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static ImmutableArray<RecommendationMatchedName> ReadMatchedNames(JsonElement list)
+    {
+        if (!list.TryGetProperty("matchedNames", out var element) || element.ValueKind == JsonValueKind.Null)
+        {
+            return ImmutableArray<RecommendationMatchedName>.Empty;
+        }
+
+        if (element.ValueKind != JsonValueKind.Array)
+        {
+            throw new RecommendationArtifactFormatException("The artifact matchedNames must be an array.");
+        }
+
+        var builder = ImmutableArray.CreateBuilder<RecommendationMatchedName>();
+        foreach (var item in element.EnumerateArray())
+        {
+            EnsureObject(item);
+            builder.Add(new RecommendationMatchedName(ReadString(item, "criterion"), ReadString(item, "name")));
         }
 
         return builder.ToImmutable();
