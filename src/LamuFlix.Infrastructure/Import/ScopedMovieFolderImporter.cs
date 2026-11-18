@@ -15,12 +15,12 @@ namespace LamuFlix.Infrastructure.Import;
 /// </summary>
 public sealed class ScopedMovieFolderImporter(IServiceScopeFactory scopeFactory) : IMovieFolderImporter
 {
-    public async Task<MovieId> ImportAsync(LibraryPath folder, CancellationToken cancellationToken)
+    public async Task<MovieId> ImportAsync(LibraryPath folder, CancellationToken cancellationToken, bool skipDuplicateCheck = false)
     {
         ArgumentNullException.ThrowIfNull(folder);
 
         await using var scope = scopeFactory.CreateAsyncScope();
         var handler = scope.ServiceProvider.GetRequiredService<ICommandHandler<ImportMovieFolderCommand, MovieId>>();
-        return await handler.HandleAsync(new ImportMovieFolderCommand(folder), cancellationToken);
+        return await handler.HandleAsync(new ImportMovieFolderCommand(folder, skipDuplicateCheck), cancellationToken);
     }
 }

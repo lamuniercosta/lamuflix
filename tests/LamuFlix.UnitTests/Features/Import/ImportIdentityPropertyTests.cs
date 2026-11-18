@@ -307,7 +307,7 @@ public sealed class ImportIdentityPropertyTests
                     addCount++;
                     return Task.CompletedTask;
                 });
-            importer.ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>())
+            importer.ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>(), true)
                 .Returns(call =>
                 {
                     imported.Add(call.Arg<LibraryPath>().Value);

@@ -21,7 +21,10 @@ public sealed class ImportMovieFolderCommandHandler(
     public async Task<MovieId> HandleAsync(ImportMovieFolderCommand command, CancellationToken cancellationToken)
     {
         var folder = Canonicalize(command.Folder);
-        await RejectWhenAlreadyImportedAsync(folder, cancellationToken);
+        if (!command.SkipDuplicateCheck)
+        {
+            await RejectWhenAlreadyImportedAsync(folder, cancellationToken);
+        }
         var scanned = scanner.Scan(folder);
         var id = await movies.NextIdentityAsync(cancellationToken);
         var movie = Movie.Create(id, scanned.Title, scanned.Path, scanned.Format, scanned.Year);

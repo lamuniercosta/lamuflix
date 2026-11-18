@@ -83,7 +83,7 @@ public sealed class ImportLibraryFoldersCommandHandler(
     {
         try
         {
-            await importer.ImportAsync(path, cancellationToken);
+            await importer.ImportAsync(path, cancellationToken, skipDuplicateCheck: true);
             importedPaths.Add(path.Value);
             return new FolderImportResult(FolderImportOutcome.Imported);
         }

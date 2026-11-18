@@ -63,7 +63,7 @@ public sealed class BulkImportEndpointTests(ApiHostFactory factory) : IClassFixt
         var ct = TestContext.Current.CancellationToken;
         movies.SnapshotMoviePathsAsync(Arg.Any<CancellationToken>())
             .Returns(new List<LibraryPath>());
-        importer.ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>())
+        importer.ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>(), true)
             .Returns(new MovieId(7));
         await using var host = CreateHost();
         using var client = host.CreateClient();
@@ -79,7 +79,7 @@ public sealed class BulkImportEndpointTests(ApiHostFactory factory) : IClassFixt
         payload.GetProperty("skipped").GetInt32().ShouldBe(0);
         payload.GetProperty("retried").GetInt32().ShouldBe(0);
         payload.GetProperty("failures").EnumerateArray().ShouldBeEmpty();
-        await importer.Received(2).ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>());
+        await importer.Received(2).ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>(), true);
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public sealed class BulkImportEndpointTests(ApiHostFactory factory) : IClassFixt
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         payload.GetProperty("imported").GetInt32().ShouldBe(0);
         payload.GetProperty("skipped").GetInt32().ShouldBe(2);
-        await importer.DidNotReceive().ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>());
+        await importer.DidNotReceive().ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>(), true);
     }
 
     [Fact]

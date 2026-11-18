@@ -204,12 +204,12 @@ public sealed class ImportLibraryDryRunTests(PostgresFixture postgres) : IAsyncL
         IMovieFolderImporter inner,
         ConcurrencyProbe probe) : IMovieFolderImporter
     {
-        public async Task<MovieId> ImportAsync(LibraryPath folder, CancellationToken cancellationToken)
+        public async Task<MovieId> ImportAsync(LibraryPath folder, CancellationToken cancellationToken, bool skipDuplicateCheck = false)
         {
             probe.Enter();
             try
             {
-                return await inner.ImportAsync(folder, cancellationToken);
+                return await inner.ImportAsync(folder, cancellationToken, skipDuplicateCheck);
             }
             finally
             {

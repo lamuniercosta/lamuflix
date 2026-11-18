@@ -373,6 +373,28 @@ public sealed class ImportMovieFolderCommandHandlerTests
         capture.Measurements.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task HandleAsync_SkipDuplicateCheck_SkipsSnapshotAndImports()
+    {
+        // arrange
+        var folder = new LibraryPath("incoming");
+        var id = NewId();
+        var scanned = new ScannedMovie(new LibraryPath("incoming"), "Imported", new MediaFormat("mkv"), null, 1024L);
+        var ct = CancellationToken.None;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath> { new("incoming") });
+        scanner.Scan(folder).Returns(scanned);
+        movies.NextIdentityAsync(ct).Returns(id);
+
+        // act
+        var result = await handler.HandleAsync(new ImportMovieFolderCommand(folder, SkipDuplicateCheck: true), ct);
+
+        // assert
+        result.ShouldBe(id);
+        await movies.DidNotReceive().SnapshotMoviePathsAsync(Arg.Any<CancellationToken>());
+        await movies.Received(1).AddAsync(Arg.Any<Movie>(), ct);
+        await movies.Received(1).SaveChangesAsync(ct);
+    }
+
     [Theory]
     [InlineData("heat (1995)")]
     [InlineData("HEAT (1995)")]

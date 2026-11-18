@@ -2,4 +2,4 @@ using LamuFlix.Core.Domain;
 
 namespace LamuFlix.Core.Features.Import;
 
-public sealed record ImportMovieFolderCommand(LibraryPath Folder);
+public sealed record ImportMovieFolderCommand(LibraryPath Folder, bool SkipDuplicateCheck = false);

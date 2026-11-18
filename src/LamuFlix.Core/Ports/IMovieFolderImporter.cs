@@ -9,5 +9,5 @@ namespace LamuFlix.Core.Ports;
 /// </summary>
 public interface IMovieFolderImporter
 {
-    Task<MovieId> ImportAsync(LibraryPath folder, CancellationToken cancellationToken);
+    Task<MovieId> ImportAsync(LibraryPath folder, CancellationToken cancellationToken, bool skipDuplicateCheck = false);
 }
