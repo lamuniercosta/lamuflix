@@ -36,7 +36,7 @@ Any mismatch in main SHA, relevant production content, build, harness, or effect
 | Production scoring equivalence judgment + invariance test receipts | **MISMATCH — gate STOP.** The running API revision `b98a4b0a` predates main's recommendation work: `git diff b98a4b0a origin/main` touches `GetForYouRecommendationsQueryHandler.cs`, `GetRecommendationsQueryHandler.cs`, `ProfileSimilarityCalculator.cs`, `TasteProfileCalculator.cs`, `RecommendationProfileInputs.cs`, `EfRecommendationProfileSource.cs` and `HybridCachedRecommendationProfileSource.cs` (147+/25−). Scoring behaviour is therefore not equivalent to main, and a file hash cannot prove otherwise. Branch-side receipts exist and are green (see below), but they cover the branch against main, not the deployed build against main |
 | Drift reconciliation note (or "none") | **Required, and not reconcilable from this seat.** Two independent mismatches: (1) deployed API build `b98a4b0a` ≠ `origin/main` `8a2deb9b` on recommendation content; (2) the Argo home promotion commit `bd0a83fe` is off-main, so "the home instance" is not a main build at all. Redeploying or re-pinning the home overlay to a main build is an operator/environment action outside a Build-lane code commit. Recapture would then be T019a → T020 → T021 in full |
 | Manifest recheck before T020 | **PASS** (2026-11-18). Immediately before the capture window: `origin/main` = `8a2deb9b`; api pod image digest `sha256:9f2cffbf...` (revision label `8a2deb9b`); Argo `lamuflix-home` Synced/Healthy at `cd8de7d4`; harness HEAD `494c08e2`, worktree clean. See the Option A manifest below |
-| Manifest recheck before publication | Performed as the first step of T024 (re-run `git fetch origin main`, pod digest, Argo revision) |
+| Manifest recheck before publication | **PASS** (2026-11-18, T024). Option A manifest values in §0 still hold; publication comment `7-315` posted with provenance and LOO harness-relative disclaimer (EVIDENCE §7) |
 | Cohort counts (liked, watched, overlap) | liked 4, watched 27, overlap 4 (LOO JSON `overlap`) |
 
 #### Option A re-run manifest (2026-11-18; the T019a PASS receipt)
@@ -375,13 +375,20 @@ finally {
 
 Re-run T019a manifest recheck before attaching. Include LOO harness-relative HR/MRR validity disclaimer in the comment.
 
-| Artifact | Attached to DEV-545 | Verified by |
+| Artifact | YouTrack attachment id | Verified by |
 |---|---|---|
-| Baseline snapshot | _pending_ | Rigger |
-| Leave-one-out result | _pending_ | Rigger |
-| Five compare outputs | _pending_ | Rigger |
-| Quality report | _pending_ | Rigger |
-| Provenance + LOO validity disclaimer (never credentials) | _pending_ | Rigger |
+| Baseline snapshot (`baseline-capture-a.json`, 37783 bytes) | `12-44` | Rigger (2026-11-18) |
+| Leave-one-out result (`leave-one-out.json`, 54522 bytes) | `12-45` | Rigger (2026-11-18) |
+| Compare A Few Good Men (`compare-515.json`, 408647 bytes) | `12-46` | Rigger (2026-11-18) |
+| Compare About Time (`compare-518.json`, 427853 bytes) | `12-47` | Rigger (2026-11-18) |
+| Compare Aladdin (`compare-519.json`, 433299 bytes) | `12-48` | Rigger (2026-11-18) |
+| Compare A Fistful of Dollars (`compare-575.json`, 408367 bytes) | `12-49` | Rigger (2026-11-18) |
+| Compare The Wind Rises (`compare-831.json`, 417155 bytes) | `12-50` | Rigger (2026-11-18) |
+| Pair inspect About Time → Pirate Radio (`pair-518-759.json`, 1620 bytes) | `12-52` | Rigger (2026-11-18) |
+| Quality report (`quality.json`, 11040 bytes) | `12-53` | Rigger (2026-11-18) |
+| Provenance + LOO validity disclaimer (never credentials) | comment `7-315` on DEV-545 | Rigger (2026-11-18) |
+
+YouTrack lists attachments at issue level (not nested on the comment object). `Edit-YouTrackIssue.ps1 -Ticket DEV-545 -Show` read-back matches every name and byte size above. Comment `7-315` text records main `8a2deb9b`, harness/evidence SHAs, effective options, cohort counts, harness-relative HR/MRR headline metrics, capture/DB fingerprints, LOO relative-path caveat, and excludes credentials, `judged-pairs.json`, and raw DB dumps from upload.
 
 ## 8. Real-library mode command summary (pinned nonsecret interface)
 
@@ -488,4 +495,4 @@ Executed under the owner decision "Option A" for DEV-545 in this worktree only. 
 
 ### Publication (T024)
 
-Performed after this commit. The YouTrack comment and its attachments are the record of publication; the comment id is reported in the run summary.
+**PASS** (2026-11-18). Comment `7-315` on DEV-545 with provenance and harness-relative LOO disclaimer; attachments `12-44` through `12-53` as listed in §7. Recorded in-repo by this commit.
