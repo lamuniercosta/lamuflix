@@ -240,7 +240,7 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IClassFixt
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = NewHost();
-        await host.Topology.EnsureDeclaredAsync(ct);
+        await fixture.ResetTopologyAsync(ct);
 
         await Task.WhenAll(
             host.Publisher.EnqueueAsync(new EnrichmentRequested(new MovieId(21), 1), ct),
