@@ -34,7 +34,11 @@ export default function ForYouPage({ onOpenMovie }: ForYouPageProps) {
         <div className="library-grid" role="list" aria-label="Recommended movies">
           {rows.map((movie) => (
             <div key={String(movie.id)} role="listitem">
-              <MovieCard movie={movie} reasons={movie.reasons} onOpenMovie={onOpenMovie} />
+              <MovieCard
+                movie={{ ...movie, failureCategory: null, failureMessage: null }}
+                reasons={movie.reasons}
+                onOpenMovie={onOpenMovie}
+              />
             </div>
           ))}
         </div>

@@ -47,6 +47,8 @@ function failedRow(title: string): MovieSummary {
     isWatched: false,
     isNotInterested: false,
     review: 'none',
+    failureCategory: null,
+    failureMessage: null,
   };
 }
 
@@ -108,6 +110,65 @@ describe('BulkImportDialog', () => {
     expect(
       await within(dialog).findByRole('checkbox', { name: 'Retry failed enrichments' }),
     ).toBeInTheDocument();
+  });
+
+  it('shows the canonical caller-safe failure reason beside each Failed movie', async () => {
+    // arrange
+    server.use(
+      candidatesHandler([]),
+      http.get('/api/movies', ({ request }) => {
+        const statuses = new URL(request.url).searchParams.getAll('Statuses');
+        return HttpResponse.json(
+          browseBody(
+            statuses.includes('Failed')
+              ? [
+                  {
+                    ...failedRow('Broken Cut'),
+                    failureCategory: 'duplicate_imdb_id',
+                    failureMessage: 'Another movie in the library already has this IMDb id.',
+                  },
+                ]
+              : [],
+          ),
+          { status: 200 },
+        );
+      }),
+    );
+
+    // act
+    renderDialog();
+
+    // assert
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    expect(await within(dialog).findByText('Broken Cut')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Another movie in the library already has this IMDb id.'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText('Failed')).toBeInTheDocument();
+  });
+
+  it('keeps the existing Failed label when failure details are null', async () => {
+    // arrange
+    server.use(
+      candidatesHandler([]),
+      http.get('/api/movies', ({ request }) => {
+        const statuses = new URL(request.url).searchParams.getAll('Statuses');
+        return HttpResponse.json(
+          browseBody(statuses.includes('Failed') ? [failedRow('Broken Cut')] : []),
+          { status: 200 },
+        );
+      }),
+    );
+
+    // act
+    renderDialog();
+
+    // assert
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    expect(await within(dialog).findByText('Broken Cut')).toBeInTheDocument();
+    expect(within(dialog).getByText('Failed')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/reason/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/unknown/i)).not.toBeInTheDocument();
   });
 
   it('shows the summary and invalidates the grid on successful import', async () => {

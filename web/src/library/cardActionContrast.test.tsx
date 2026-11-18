@@ -195,6 +195,8 @@ describe('card action icon pressed hooks', () => {
     isWatched: false,
     isNotInterested: false,
     review: 'none',
+    failureCategory: null,
+    failureMessage: null,
   } as const;
 
   function renderCard(isInWatchlist: boolean) {

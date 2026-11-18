@@ -53,7 +53,7 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "review", "enrichmentStatus");
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "review", "enrichmentStatus", "failureCategory", "failureMessage");
         body.GetProperty("isInWatchlist").GetBoolean().ShouldBeTrue();
         body.GetProperty("id").GetInt32().ShouldBe(id);
         body.GetProperty("title").GetString().ShouldBe("Heat");
@@ -87,7 +87,7 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "review", "enrichmentStatus");
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "review", "enrichmentStatus", "failureCategory", "failureMessage");
         var metadata = body.GetProperty("metadata");
         ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");
         metadata.GetProperty("trailerKey").ValueKind.ShouldBe(JsonValueKind.String);

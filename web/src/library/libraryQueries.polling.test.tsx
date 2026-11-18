@@ -32,6 +32,8 @@ const pendingArrival: MovieSummary = {
   isWatched: false,
   isNotInterested: false,
   review: 'none',
+  failureCategory: null,
+  failureMessage: null,
 };
 
 const duneEnriched: MovieSummary = {
@@ -46,6 +48,8 @@ const duneEnriched: MovieSummary = {
   isWatched: false,
   isNotInterested: false,
   review: 'none',
+  failureCategory: null,
+  failureMessage: null,
 };
 
 function enrichedRow(id: number, title: string): MovieSummary {
@@ -61,6 +65,8 @@ function enrichedRow(id: number, title: string): MovieSummary {
     isWatched: false,
     isNotInterested: false,
     review: 'none',
+    failureCategory: null,
+    failureMessage: null,
   };
 }
 
@@ -77,6 +83,8 @@ function lostFilmRow(enrichmentStatus: MovieSummary['enrichmentStatus']): MovieS
     isWatched: false,
     isNotInterested: false,
     review: 'none',
+    failureCategory: null,
+    failureMessage: null,
   };
 }
 

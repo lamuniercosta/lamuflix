@@ -17,6 +17,8 @@ const movie = {
   isWatched: false,
   isNotInterested: false,
   review: 'none',
+  failureCategory: null,
+  failureMessage: null,
 } as const;
 
 function renderRow(ui: ReactElement) {

@@ -16,6 +16,8 @@ const browseMoviesData = {
       isWatched: false,
       isNotInterested: false,
       review: 'none',
+      failureCategory: null,
+      failureMessage: null,
     },
     {
       id: 2,
@@ -29,6 +31,8 @@ const browseMoviesData = {
       isWatched: false,
       isNotInterested: false,
       review: 'none',
+      failureCategory: null,
+      failureMessage: null,
     },
   ],
   totalCount: 2,
@@ -44,6 +48,8 @@ const movieDetailsData = {
   isNotInterested: false,
   review: 'none',
   enrichmentStatus: 'Enriched',
+  failureCategory: null,
+  failureMessage: null,
   metadata: {
     title: 'Dune',
     synopsis: 'A noble family becomes embroiled in a war for the desert planet Arrakis.',
@@ -70,6 +76,8 @@ const movieDetailsNoTrailerData = {
   isNotInterested: false,
   review: 'none',
   enrichmentStatus: 'Enriched',
+  failureCategory: null,
+  failureMessage: null,
   metadata: {
     title: 'Dune',
     synopsis: 'A noble family becomes embroiled in a war for the desert planet Arrakis.',
@@ -96,6 +104,8 @@ const movieDetailsNullMetadataData = {
   isNotInterested: false,
   review: 'none',
   enrichmentStatus: 'NotFound',
+  failureCategory: null,
+  failureMessage: null,
   metadata: null,
 } satisfies Schemas['MovieDetailsResponse'];
 

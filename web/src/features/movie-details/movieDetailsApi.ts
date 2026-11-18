@@ -32,6 +32,8 @@ const movieDetailsSchema = z.object({
   review: z.string(),
   enrichmentStatus: z.enum(['Pending', 'Enriched', 'NotFound', 'Failed']),
   metadata: movieMetadataSchema.nullable(),
+  failureCategory: z.string().nullable(),
+  failureMessage: z.string().nullable(),
 }) satisfies z.ZodType<MovieDetailsResponse>;
 
 export type MovieDetails = MovieDetailsResponse;

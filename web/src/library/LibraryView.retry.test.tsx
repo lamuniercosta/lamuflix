@@ -27,6 +27,8 @@ const lostFilm: MovieSummary = {
   isWatched: false,
   isNotInterested: false,
   review: 'none',
+  failureCategory: null,
+  failureMessage: null,
 };
 
 const brokenCut: MovieSummary = {
@@ -41,6 +43,8 @@ const brokenCut: MovieSummary = {
   isWatched: false,
   isNotInterested: false,
   review: 'none',
+  failureCategory: null,
+  failureMessage: null,
 };
 
 const dune: MovieSummary = {
@@ -55,6 +59,8 @@ const dune: MovieSummary = {
   isWatched: false,
   isNotInterested: false,
   review: 'none',
+  failureCategory: null,
+  failureMessage: null,
 };
 
 const arrival: MovieSummary = {
@@ -69,6 +75,8 @@ const arrival: MovieSummary = {
   isWatched: false,
   isNotInterested: false,
   review: 'none',
+  failureCategory: null,
+  failureMessage: null,
 };
 
 function browseBody(items: MovieSummary[]): BrowseMoviesResponse {
