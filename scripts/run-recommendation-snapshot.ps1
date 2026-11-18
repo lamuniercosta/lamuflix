@@ -22,8 +22,9 @@
     changed, even when a group is empty.
 
     The five ordered seed titles are A Fistful of Dollars, About Time, A Few Good Men,
-    Aladdin and The Wind Rises. Their literal home-library integer ids are populated by
-    the one-time lookup in T019; until then -SeedIds must be supplied explicitly.
+    Aladdin and The Wind Rises, with literal home-library ids 575, 518, 515, 519 and 831
+    found by the one-time T019 lookup. Their defaults keep parameter-free Capture working
+    against the home instance; -SeedIds still accepts explicit overrides.
 
 .PARAMETER Mode
     Capture publishes a new artifact; Diff prints the five comparison groups.
@@ -33,7 +34,10 @@
 
 .PARAMETER SeedIds
     Five ordered positive home-library movie ids, validated before any HTTP request.
-    Defaults are populated by the T019 lookup, never by a fixture id.
+    Defaults come from the one-time T019 home-library lookup, never from a fixture id:
+    A Fistful of Dollars 575, About Time 518, A Few Good Men 515, Aladdin 519,
+    The Wind Rises 831. Explicit overrides still work. The fixture About Time id 90 is
+    never a home-library id.
 
 .PARAMETER OutputPath
     Published capture artifact. Default, resolved from the repository root:
@@ -53,7 +57,7 @@ param(
     [ValidateSet('Capture', 'Diff')]
     [string]$Mode = 'Capture',
     [string]$BaseUrl = 'http://localhost:3100',
-    [string[]]$SeedIds = @(),
+    [string[]]$SeedIds = @('575', '518', '515', '519', '831'),
     [string]$OutputPath = '',
     [string]$Before = '',
     [string]$After = '',
@@ -85,6 +89,16 @@ $seedTitles = @(
     'Aladdin',
     'The Wind Rises'
 )
+$seedDefaultIds = @(575, 518, 515, 519, 831)
+
+function Format-SeedDefaultLines {
+    $lines = [System.Collections.Generic.List[string]]::new()
+    for ($index = 0; $index -lt $seedTitles.Count; $index++) {
+        $lines.Add(('                        {0}. {1} = {2}' -f ($index + 1), $seedTitles[$index], $seedDefaultIds[$index]))
+    }
+
+    return ($lines -join [Environment]::NewLine)
+}
 
 function Write-Usage {
     Write-Output @"
@@ -97,9 +111,9 @@ OPTIONS:
   -Mode <Capture|Diff>  Work to perform. Default: Capture
   -BaseUrl <uri>        Home API origin. Default: $BaseUrl
   -SeedIds <int[]>      Five ordered positive movie ids, validated before any HTTP
-                        request. Ordered titles:
-                        $(($seedTitles | ForEach-Object { $_ }) -join ', ')
-                        Defaults are populated by the one-time T019 lookup.
+                        request. Ordered titles and home-library defaults:
+$(Format-SeedDefaultLines)
+                        Explicit overrides are accepted in the same order.
   -OutputPath <path>    Published capture artifact. Default, resolved from the
                         repository root: $defaultOutputRelative
   -Before <path>        Diff operand published first.
