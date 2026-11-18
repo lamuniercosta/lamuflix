@@ -39,6 +39,24 @@ Any mismatch in main SHA, relevant production content, build, harness, or effect
 | Manifest recheck before publication | _pending_ |
 | Cohort counts (liked, watched, overlap) | _pending_ |
 
+### T002 pre-edit identity note (provenance only — does **not** fill the T019a manifest above)
+
+Recorded by the Build lane immediately before the T003 shared-contract edits, so a later T019a run has a reference point. It is not a scoring-equivalence claim and must not be cited as one.
+
+| Observation | Value |
+|---|---|
+| `origin/main` SHA at T002 | `8a2deb9b7a971b50108721aa8465620e551f1cfa` |
+| Worktree `HEAD` at T002 | `dca52fc8c7ba9886848785a8e48fefca85084d1b` |
+| `git diff origin/main` on production recommendation paths (`Features/Recommendations/`, `Options/RecommendationOptions.cs`, `EfRecommendationProfileSource.cs`, `EfRecommendationCandidateSource.cs`) | empty — identical to main |
+| `SimilarityScorer.cs` SHA-256 (first 16) | `CE36CAE3F01A181A` |
+| `SimilarityResult.cs` SHA-256 (first 16) | `696A85859D7AB4C0` |
+| `RecommendationOptions.cs` SHA-256 (first 16) | `10BF864D2A67EF5B` |
+| `EfRecommendationProfileSource.cs` SHA-256 (first 16) | `8914A2C77297F4B5` |
+| `EfRecommendationCandidateSource.cs` SHA-256 (first 16) | `91AC356A18087FB9` |
+| Synthetic publish receipt at T002 | `pwsh -NoProfile -File ./scripts/run-evaluation.ps1` exit 0; summary `{"schemaVersion":1,"fixtureId":"dev-356-baseline","seed":356,"cutoff":10,"observationCount":12,"hitCount":9,"reciprocalRankSum":2.7484126984126984,"hitRateAt10":0.75,"mrr":0.22903439153439153}` |
+| T003 evaluation-project test receipt | `dotnet test tests/LamuFlix.Evaluation` — 112 passed, 0 failed |
+
+
 ## 1. Seed ID lookup (Q2)
 
 Ordered titles → home-library integer IDs (one-time lookup). Never use fixture About Time ID 90.
