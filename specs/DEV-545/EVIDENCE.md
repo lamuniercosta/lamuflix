@@ -342,8 +342,8 @@ finally {
 |---|---|
 | Coverage partition sums verified | **PASS**: `enrichedSelectedCount` 449; all 14 coverage lines in `quality.json` have bucket sums equal to 449 |
 | Band/strong-only samples stable across repeat (SHA-256 directed encoding) | Not repeated at runtime (one quality run). Recorded output: seven bands; six have 12 pairs; the strong-only band is undersupplied with 0 available. Fixture proof stands |
-| Judged-pairs path (unversioned) | `artifacts/recommendations/judged-pairs.json` (git-ignored; SHA-256 `a765b99dc7ba5245f346fe3575c5fc667fb509889a1f84cc2a0023ea47544e46`), 15 directed entries, owner ticket starting list used as-is; 0 skipped |
-| Known-miss good pair retained unless owner changed | **Retained, not tuned**: The Naked Gun → Hot Shots! is in the judged set; result rank 36, score 0.1917, not in top three (`quality.json` `judgedPairs.valid`) |
+| Judged-pairs path (unversioned) | `artifacts/recommendations/judged-pairs.json` (git-ignored; SHA-256 `001780943057959d7c0ff2b0eab0ad7364a2863a29a24000bf661a7813db7512`), 15 directed entries, owner ticket starting list with the Naked Gun id corrected 884 (2025) → 883 (1988) in the 2026-11-18 quality rerun (§9); 0 skipped |
+| Known-miss good pair retained unless owner changed | **Retained, not tuned**: The Naked Gun (1988, id 883) → Hot Shots! is in the judged set; result rank 22, score 0.2120, not in top three (`quality.json` `judgedPairs.valid`). The earlier 2025 id 884 gave rank 36, score 0.1917 |
 | Skipped IDs listed | `skipped` is empty in `quality.json` |
 | Output discloses LOO/full-take harness-relative metric validity where applicable | LOO output carries the bypass and harness-relative disclosures. `quality.json` has six disclosures and does not contain the harness-relative phrase; noted as a gap, not changed here |
 
@@ -471,7 +471,8 @@ Executed under the owner decision "Option A" for DEV-545 in this worktree only. 
 - Liked cohort: 4 seeds; HR@1 0, HR@3 0, HR@10 0, MRR 0.
 - Watched cohort: 27 seeds; HR@1 0, HR@3 0.0741 (2/27), HR@10 0.1481 (4/27), MRR 0.0537.
 - Overlap: all 4 liked seeds are also watched.
-- Judged pairs: good 10 valid (rank-one share 0.2, top-three share 0.3, strong share 0.2); bad 5 valid (top-three share 0, strong share 0).
+- Judged pairs (quality rerun 2026-11-18, corrected set; old → new): good 10 valid; rank-one share 0.2 → 0.2; top-three share 0.3 → 0.3; strong share 0.2 → 0.2. Good share per bar 0.15 1 → 1; 0.20 0.6 → 0.7; 0.225 0.4 → 0.4; 0.25 0.4 → 0.4; 0.30 0.3 → 0.3; 0.35 0.3 → 0.3; 0.40 0.2 → 0.2. Bad 5 valid, unchanged: top-three share 0, strong share 0; per bar 0.15 0.8, 0.20 0.6, 0.225 0.6, 0.25 0.6, 0.30 0.4, 0.35 0.2, 0.40 0.
+- Judged-pair correction: The Naked Gun → Hot Shots! was corrected from movieId 884 (The Naked Gun, 2025) to 883 (The Naked Gun: From the Files of Police Squad!, 1988); otherId 649 (Hot Shots!, 1991) unchanged. Only the quality report was rerun. Coverage table and band samples were compared byte-for-byte against the previous report and are identical; only `judgedPairs` changed. Previous report kept as `artifacts/recommendations/quality.prev.json`. No capture, leave-one-out or compare was rerun.
 
 ### Notes and deviations (disclosed, no code changed)
 
