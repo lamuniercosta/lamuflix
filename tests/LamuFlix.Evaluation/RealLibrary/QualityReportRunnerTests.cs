@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
@@ -344,7 +345,8 @@ public sealed class QualityReportRunnerTests
         var report = QualityReportRunner.Run(
             StrongCollectionSnapshot(),
             new RecommendationOptions(),
-            new QualityParameters(SingleBar, QualityReportRunner.DefaultStrongOnlyBar, path));
+            new QualityParameters(SingleBar, QualityReportRunner.DefaultStrongOnlyBar, path),
+            TestContext.Current.CancellationToken);
 
         // assert
         report.JudgedPairs.Valid.ShouldHaveSingleItem().Pair.Note.ShouldBe("The Naked Gun -> Hot Shots!");
@@ -361,11 +363,30 @@ public sealed class QualityReportRunnerTests
             directory.Combine("absent.json"));
 
         // act
-        var report = QualityReportRunner.Run(StrongCollectionSnapshot(), new RecommendationOptions(), parameters);
+        var report = QualityReportRunner.Run(StrongCollectionSnapshot(), new RecommendationOptions(), parameters, TestContext.Current.CancellationToken);
 
         // assert
         report.JudgedPairs.Valid.ShouldBeEmpty();
         report.JudgedPairs.Good.ValidCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Run_observes_a_cancelled_token_instead_of_scoring()
+    {
+        // arrange
+        using var directory = new TemporaryDirectory();
+        var parameters = new QualityParameters(
+            SingleBar,
+            QualityReportRunner.DefaultStrongOnlyBar,
+            directory.Combine("absent.json"));
+
+        // act / assert
+        Should.Throw<OperationCanceledException>(() =>
+            QualityReportRunner.Run(
+                StrongCollectionSnapshot(),
+                new RecommendationOptions(),
+                parameters,
+                new CancellationToken(canceled: true)));
     }
 
     [Fact]
@@ -381,7 +402,7 @@ public sealed class QualityReportRunnerTests
 
         // act / assert
         Should.Throw<JudgedPairsFormatException>(
-            () => QualityReportRunner.Run(StrongCollectionSnapshot(), new RecommendationOptions(), parameters));
+            () => QualityReportRunner.Run(StrongCollectionSnapshot(), new RecommendationOptions(), parameters, TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -510,12 +531,12 @@ public sealed class QualityReportRunnerTests
             SingleBar,
             QualityReportRunner.DefaultStrongOnlyBar,
             MissingJudgedPath());
-        var report = QualityReportRunner.Run(snapshot, new RecommendationOptions(), parameters);
+        var report = QualityReportRunner.Run(snapshot, new RecommendationOptions(), parameters, TestContext.Current.CancellationToken);
 
         // act
         var first = QualityReportSerializer.SerializeToUtf8Bytes(report);
         var second = QualityReportSerializer.SerializeToUtf8Bytes(
-            QualityReportRunner.Run(snapshot, new RecommendationOptions(), parameters));
+            QualityReportRunner.Run(snapshot, new RecommendationOptions(), parameters, TestContext.Current.CancellationToken));
 
         // assert
         second.ShouldBe(first);
@@ -539,7 +560,8 @@ public sealed class QualityReportRunnerTests
                 new QualityParameters(
                     SingleBar,
                     QualityReportRunner.DefaultStrongOnlyBar,
-                    MissingJudgedPath()))));
+                    MissingJudgedPath()),
+                TestContext.Current.CancellationToken)));
 
         // assert
         text.ShouldContain("\"medianTenthScore\":null");

@@ -103,7 +103,7 @@ public static class EvaluationEntry
         return readVariable(ModeVariable) switch
         {
             LeaveOneOutModeValue => await RunLeaveOneOutAsync(snapshot, outputPath, ct),
-            QualityModeValue => RunQuality(snapshot, readVariable, outputPath),
+            QualityModeValue => RunQuality(snapshot, readVariable, outputPath, ct),
             _ => await RunCompareAsync(snapshot, readVariable, outputPath, ct),
         };
     }
@@ -126,12 +126,15 @@ public static class EvaluationEntry
     private static string RunQuality(
         RealLibrarySnapshot snapshot,
         Func<string, string?> readVariable,
-        string outputPath)
+        string outputPath,
+        CancellationToken ct)
     {
         var report = QualityReportRunner.Run(
             snapshot,
             new RecommendationOptions(),
-            QualityReportRunner.ReadParameters(readVariable));
+            QualityReportRunner.ReadParameters(readVariable),
+            ct);
+        ct.ThrowIfCancellationRequested();
         QualityReportSerializer.WriteToFile(report, outputPath);
 
         return outputPath;
@@ -150,7 +153,8 @@ public static class EvaluationEntry
                 $"Evaluation parameter '{SelectedIdVariable}' is required for compare mode.");
         var otherId = ReadPositiveId(readVariable, OtherIdVariable);
 
-        var report = CompareRunner.Run(snapshot, new RecommendationOptions(), selectedId, otherId);
+        var report = CompareRunner.Run(snapshot, new RecommendationOptions(), selectedId, otherId, ct);
+        ct.ThrowIfCancellationRequested();
         RecommendationArtifactSerializer.WriteToFile(report.Envelope, outputPath);
 
         return Task.FromResult<string?>(outputPath);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
@@ -24,7 +25,7 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, Vector(1.0)), (3, Vector(0.5)), (4, Vector(-1.0))));
 
         // act
-        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null);
+        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null, TestContext.Current.CancellationToken);
 
         // assert
         var rows = report.Envelope.Lists.ShouldHaveSingleItem().Rows;
@@ -48,7 +49,7 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, Vector(1.0))));
 
         // act
-        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null);
+        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null, TestContext.Current.CancellationToken);
 
         // assert
         var rows = report.Envelope.Lists[0].Rows;
@@ -73,7 +74,7 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, [1f, 2f]), (3, WithNonfinite()), (4, new float[EmbeddingDimensions.Value])));
 
         // act
-        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null);
+        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null, TestContext.Current.CancellationToken);
 
         // assert
         var rows = report.Envelope.Lists[0].Rows;
@@ -103,7 +104,7 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, Vector(0.5)), (3, Vector(0.5)), (4, Vector(-1.0))));
 
         // act
-        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null);
+        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null, TestContext.Current.CancellationToken);
 
         // assert
         var rows = report.Envelope.Lists[0].Rows;
@@ -130,7 +131,7 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, Vector(1.0)), (3, Vector(-1.0)), (4, Vector(0.0))));
 
         // act
-        var report = CompareRunner.Run(snapshot, options, 1, otherId: null);
+        var report = CompareRunner.Run(snapshot, options, 1, otherId: null, TestContext.Current.CancellationToken);
 
         // assert
         var byId = report.Envelope.Lists[0].Rows.ToDictionary(row => row.MovieId);
@@ -148,7 +149,7 @@ public sealed class CompareRunnerTests
             Vectors((2, Vector(1.0))));
 
         // act
-        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null);
+        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null, TestContext.Current.CancellationToken);
 
         // assert
         report.SelectedVectorUsable.ShouldBeFalse();
@@ -172,7 +173,7 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, Vector(0.5))));
 
         // act
-        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null);
+        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null, TestContext.Current.CancellationToken);
 
         // assert
         report.Disclosures.ShouldContain(disclosure => disclosure.Contains("ticket diagnostic formula", StringComparison.Ordinal));
@@ -190,7 +191,7 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, Vector(0.5)), (3, Vector(0.0))));
 
         // act
-        var report = CompareRunner.Run(snapshot, Options, 1, otherId: 2);
+        var report = CompareRunner.Run(snapshot, Options, 1, otherId: 2, TestContext.Current.CancellationToken);
 
         // assert
         var rows = report.Envelope.Lists[0].Rows;
@@ -217,7 +218,7 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, Vector(0.5))));
 
         // act
-        var report = CompareRunner.Run(snapshot, Options, 1, otherId: 2);
+        var report = CompareRunner.Run(snapshot, Options, 1, otherId: 2, TestContext.Current.CancellationToken);
 
         // assert
         var row = report.Envelope.Lists[0].Rows[0];
@@ -237,8 +238,8 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, Vector(0.5))));
 
         // act / assert
-        Should.Throw<InvalidOperationException>(() => CompareRunner.Run(snapshot, Options, 1, otherId: 2));
-        Should.Throw<InvalidOperationException>(() => CompareRunner.Run(snapshot, Options, 1, otherId: 99));
+        Should.Throw<InvalidOperationException>(() => CompareRunner.Run(snapshot, Options, 1, otherId: 2, TestContext.Current.CancellationToken));
+        Should.Throw<InvalidOperationException>(() => CompareRunner.Run(snapshot, Options, 1, otherId: 99, TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -264,7 +265,7 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, Vector(0.5))));
 
         // act / assert
-        Should.Throw<ArgumentException>(() => CompareRunner.Run(snapshot, Options, 1, otherId: 1));
+        Should.Throw<ArgumentException>(() => CompareRunner.Run(snapshot, Options, 1, otherId: 1, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -278,7 +279,7 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, Vector(0.5))));
 
         // act
-        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null);
+        var report = CompareRunner.Run(snapshot, Options, 1, otherId: null, TestContext.Current.CancellationToken);
         var bytes = RecommendationArtifactSerializer.SerializeToUtf8Bytes(report.Envelope);
         var parsed = RecommendationArtifactSerializer.ReadFromUtf8Bytes(bytes);
 
@@ -301,13 +302,28 @@ public sealed class CompareRunnerTests
             Vectors((1, Vector(1.0)), (2, Vector(0.5))));
 
         // act
-        var report = CompareRunner.Run(snapshot, Options, 1, otherId: 2);
+        var report = CompareRunner.Run(snapshot, Options, 1, otherId: 2, TestContext.Current.CancellationToken);
         var text = System.Text.Encoding.UTF8.GetString(
             RecommendationArtifactSerializer.SerializeToUtf8Bytes(report.Envelope));
 
         // assert
         text.ShouldContain("\"matchedNames\":[");
         text.ShouldContain("{\"criterion\":\"Director\",\"name\":\"Ada\"}");
+    }
+
+    [Fact]
+    public void Run_observes_a_cancelled_token_instead_of_scoring()
+    {
+        // arrange
+        var snapshot = Snapshot(
+            Movies(
+                BuildMovie(1, "Selected", genres: ["Drama"]),
+                BuildMovie(2, "Other", genres: ["Drama"])),
+            Vectors((1, Vector(1.0)), (2, Vector(0.5))));
+
+        // act / assert
+        Should.Throw<OperationCanceledException>(() =>
+            CompareRunner.Run(snapshot, Options, 1, otherId: null, new CancellationToken(canceled: true)));
     }
 
     private static RealLibrarySnapshot Snapshot(

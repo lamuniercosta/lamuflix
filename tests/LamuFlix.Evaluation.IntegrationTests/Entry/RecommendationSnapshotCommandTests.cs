@@ -18,7 +18,6 @@ public sealed class RecommendationSnapshotCommandTests : IDisposable
 
     private static readonly int[] SeedIds = [11, 12, 13, 14, 15];
 
-    // Home-library ids looked up once by T019; the script defaults to these, never to fixture id 90.
     private static readonly int[] HomeSeedIds = [575, 518, 515, 519, 831];
 
     private readonly string root = Path.Combine(
@@ -42,7 +41,7 @@ public sealed class RecommendationSnapshotCommandTests : IDisposable
         }
         catch (UnauthorizedAccessException)
         {
-            // Same.
+            // Best-effort cleanup must never fail a test.
         }
     }
 
