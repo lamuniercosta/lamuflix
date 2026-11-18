@@ -1,0 +1,58 @@
+{
+  "encoding": "sha256(utf8(selectedId + ':' + otherId)) with invariant decimal text, no whitespace, no newline",
+  "vectors": [
+    {
+      "selectedId": 12,
+      "otherId": 34,
+      "text": "12:34",
+      "digest": "a5c8d54c25064f11498a937f38591eba85a3e67cccc102e6c4f76bbf5377cc37"
+    },
+    {
+      "selectedId": 34,
+      "otherId": 12,
+      "text": "34:12",
+      "digest": "6d68723693429df4b1e737f6da8941653958e7de14d79f16f61f4a9cc19ce02f",
+      "directionReversalOf": "12:34"
+    },
+    {
+      "selectedId": 1,
+      "otherId": 2,
+      "text": "1:2",
+      "digest": "673aeeb08cfbb00b91e5e3c60b5ba31896d55b522b1be2dccb0645a59bae8775"
+    },
+    {
+      "selectedId": 2,
+      "otherId": 1,
+      "text": "2:1",
+      "digest": "70a37d8f972f2494837f9dba8364cbb418b203558cbe0166f69ae925bb544f2d",
+      "directionReversalOf": "1:2"
+    },
+    {
+      "selectedId": 7,
+      "otherId": 9,
+      "text": "7:9",
+      "digest": "cedde4de2ccbc3f02931998756e1e6bf04481acaa9ca944783bc29b4c5699f8a"
+    },
+    {
+      "selectedId": 100,
+      "otherId": 250,
+      "text": "100:250",
+      "digest": "bdefe455edaef122e74096bbe3b86177f203219328f37b23debe5cfdf4623590"
+    },
+    {
+      "selectedId": 3,
+      "otherId": 4,
+      "text": "3:4",
+      "digest": "3adf4e63cc74037434c465d9c496622f3ce0032a18a0fa328857858c33933dbb"
+    }
+  ],
+  "digestOrderOfTheSevenVectors": [
+    "3:4",
+    "1:2",
+    "34:12",
+    "2:1",
+    "12:34",
+    "100:250",
+    "7:9"
+  ]
+}

@@ -124,6 +124,7 @@ public sealed class EvaluationEntryModeTests
     [Theory]
     [InlineData(EvaluationEntry.LeaveOneOutModeValue)]
     [InlineData(EvaluationEntry.CompareModeValue)]
+    [InlineData(EvaluationEntry.QualityModeValue)]
     public void IsRealLibraryRequested_IsTrueOnlyForTheRuledRealLibraryModes(string mode)
     {
         EvaluationEntry.IsRealLibraryRequested(
@@ -153,6 +154,7 @@ public sealed class EvaluationEntryModeTests
     [Theory]
     [InlineData(EvaluationEntry.LeaveOneOutModeValue)]
     [InlineData(EvaluationEntry.CompareModeValue)]
+    [InlineData(EvaluationEntry.QualityModeValue)]
     public async Task RunRealLibraryAsync_RequiresTheCredentialWithoutEchoingIt(string mode)
     {
         // arrange
