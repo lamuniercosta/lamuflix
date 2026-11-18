@@ -18,6 +18,16 @@ public static class SimilarityScorer
     private const string IdentityReason = "Identical feature profile";
     private const string SharedKeywordsReason = "Shared keywords";
     private const string SameCollectionReason = "Same franchise collection";
+    private const string IdentityFallbackCriterion = "IdentityFallback";
+    private const string DirectorCriterion = "Director";
+    private const string WritersCriterion = "Writers";
+    private const string CastCriterion = "Cast";
+    private const string GenresCriterion = "Genres";
+    private const string KeywordCriterion = "Keyword";
+    private const string CollectionCriterion = "Collection";
+    private const string YearCriterion = "YearProximity";
+    private const string RuntimeCriterion = "RuntimeProximity";
+    private const string RatingCriterion = "RatingBoost";
 
     public static SimilarityResult Score(
         MovieFeatures a,
@@ -37,10 +47,13 @@ public static class SimilarityScorer
 
         if (maxWeight <= 0.0)
         {
-            return ZeroWeightResult(a, b);
+            return ZeroWeightResult(a, b, terms);
         }
 
-        return new SimilarityResult(ComputeScore(terms, maxWeight), CollectReasons(terms));
+        return new SimilarityResult(ComputeScore(terms, maxWeight), CollectReasons(terms))
+        {
+            Breakdown = CollectBreakdown(terms),
+        };
     }
 
     private static ImmutableArray<Term> CollectTerms(
@@ -51,9 +64,9 @@ public static class SimilarityScorer
     {
         var builder = ImmutableArray.CreateBuilder<Term>();
 
-        AddSetTerm(builder, a.Directors, b.Directors, weights.Director, SetLabel.Director);
-        AddSetTerm(builder, a.Writers, b.Writers, weights.Writers, SetLabel.Writers);
-        AddSetTerm(builder, a.Cast, b.Cast, weights.Cast, SetLabel.Cast);
+        AddSetTerm(builder, a.Directors, b.Directors, weights.Director, SetLabel.Director, DirectorCriterion);
+        AddSetTerm(builder, a.Writers, b.Writers, weights.Writers, SetLabel.Writers, WritersCriterion);
+        AddSetTerm(builder, a.Cast, b.Cast, weights.Cast, SetLabel.Cast, CastCriterion);
         AddKeywordTerm(builder, a.Keywords, b.Keywords, weights.Keyword);
         AddCollectionTerm(builder, a.CollectionId, b.CollectionId, weights.Collection);
         AddGenreTerm(builder, a.Genres, b.Genres, weights.Genres, genreWeights);
@@ -69,13 +82,14 @@ public static class SimilarityScorer
         ImmutableHashSet<string> first,
         ImmutableHashSet<string> second,
         double weight,
-        SetLabel label)
+        SetLabel label,
+        string name)
     {
         if (first.Count > 0 && second.Count > 0)
         {
             var similarity = Jaccard(first, second);
             var reason = IsEligible(weight, similarity) ? SetReason(label, first, second) : null;
-            builder.Add(new Term(weight, similarity, reason));
+            builder.Add(new Term(name, weight, similarity, reason));
         }
     }
 
@@ -89,7 +103,7 @@ public static class SimilarityScorer
         {
             var similarity = Jaccard(first, second);
             var reason = IsEligible(weight, similarity) ? SharedKeywordsReason : null;
-            builder.Add(new Term(weight, similarity, reason));
+            builder.Add(new Term(KeywordCriterion, weight, similarity, reason));
         }
     }
 
@@ -103,7 +117,7 @@ public static class SimilarityScorer
         {
             var similarity = first == second ? 1.0 : 0.0;
             var reason = IsEligible(weight, similarity) ? SameCollectionReason : null;
-            builder.Add(new Term(weight, similarity, reason));
+            builder.Add(new Term(CollectionCriterion, weight, similarity, reason));
         }
     }
 
@@ -120,7 +134,7 @@ public static class SimilarityScorer
             var reason = IsEligible(weight, similarity)
                 ? SetReason(SetLabel.Genres, first, second)
                 : null;
-            builder.Add(new Term(weight, similarity, reason));
+            builder.Add(new Term(GenresCriterion, weight, similarity, reason));
         }
     }
 
@@ -133,7 +147,11 @@ public static class SimilarityScorer
         if (first is not null && second is not null)
         {
             var similarity = Proximity(YearDecayRate, first.Value, second.Value);
-            builder.Add(new Term(weight, similarity, IsSimilarYear(weight, first.Value, second.Value) ? "Similar release years" : null));
+            builder.Add(new Term(
+                YearCriterion,
+                weight,
+                similarity,
+                IsSimilarYear(weight, first.Value, second.Value) ? "Similar release years" : null));
         }
     }
 
@@ -146,7 +164,11 @@ public static class SimilarityScorer
         if (first is not null && second is not null)
         {
             var similarity = Proximity(RuntimeDecayRate, first.Minutes, second.Minutes);
-            builder.Add(new Term(weight, similarity, IsSimilarRuntime(weight, first.Minutes, second.Minutes) ? "Similar runtime" : null));
+            builder.Add(new Term(
+                RuntimeCriterion,
+                weight,
+                similarity,
+                IsSimilarRuntime(weight, first.Minutes, second.Minutes) ? "Similar runtime" : null));
         }
     }
 
@@ -159,7 +181,11 @@ public static class SimilarityScorer
         if (first is not null && second is not null)
         {
             var similarity = RatingProximity(first.Value, second.Value);
-            builder.Add(new Term(weight, similarity, IsSimilarRating(weight, first.Value, second.Value) ? "Similar rating" : null));
+            builder.Add(new Term(
+                RatingCriterion,
+                weight,
+                similarity,
+                IsSimilarRating(weight, first.Value, second.Value) ? "Similar rating" : null));
         }
     }
 
@@ -186,6 +212,32 @@ public static class SimilarityScorer
             : Math.Clamp(numerator / denominator, 0.0, 1.0);
     }
 
+    private static ImmutableList<CriterionContribution> CollectBreakdown(ImmutableArray<Term> terms)
+    {
+        var denominator = 0.0;
+        foreach (var term in terms)
+        {
+            denominator += term.Weight;
+        }
+
+        var builder = ImmutableList.CreateBuilder<CriterionContribution>();
+        foreach (var term in terms)
+        {
+            builder.Add(new CriterionContribution(
+                term.Name,
+                term.Similarity,
+                term.Weight,
+                WeightedContribution(term, denominator)));
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static double WeightedContribution(Term term, double denominator) =>
+        denominator > 0.0 && term.Weight > 0.0
+            ? term.Weight * term.Similarity / denominator
+            : 0.0;
+
     private static ImmutableList<Reason> CollectReasons(ImmutableArray<Term> terms)
     {
         var builder = ImmutableList.CreateBuilder<Reason>();
@@ -201,10 +253,38 @@ public static class SimilarityScorer
         return builder.ToImmutable();
     }
 
-    private static SimilarityResult ZeroWeightResult(MovieFeatures a, MovieFeatures b) =>
+    private static SimilarityResult ZeroWeightResult(
+        MovieFeatures a,
+        MovieFeatures b,
+        ImmutableArray<Term> terms) =>
         IsIdenticalProfile(a, b) && HasScoringFeature(a)
             ? new SimilarityResult(1.0, ImmutableList.Create(Reason.Structural(IdentityReason)))
-            : new SimilarityResult(0.0, ImmutableList<Reason>.Empty);
+            {
+                Breakdown = CollectZeroWeightBreakdown(terms, includeIdentityFallback: true),
+            }
+            : new SimilarityResult(0.0, ImmutableList<Reason>.Empty)
+            {
+                Breakdown = CollectZeroWeightBreakdown(terms, includeIdentityFallback: false),
+            };
+
+    private static ImmutableList<CriterionContribution> CollectZeroWeightBreakdown(
+        ImmutableArray<Term> terms,
+        bool includeIdentityFallback)
+    {
+        var builder = ImmutableList.CreateBuilder<CriterionContribution>();
+
+        foreach (var term in terms)
+        {
+            builder.Add(new CriterionContribution(term.Name, term.Similarity, term.Weight, 0.0));
+        }
+
+        if (includeIdentityFallback)
+        {
+            builder.Add(new CriterionContribution(IdentityFallbackCriterion, 1.0, 0.0, 1.0));
+        }
+
+        return builder.ToImmutable();
+    }
 
     private static double MaxWeight(ImmutableArray<Term> terms)
     {
@@ -411,5 +491,5 @@ public static class SimilarityScorer
         Genres,
     }
 
-    private readonly record struct Term(double Weight, double Similarity, string? Reason);
+    private readonly record struct Term(string Name, double Weight, double Similarity, string? Reason);
 }
