@@ -271,3 +271,13 @@ Decision: all nine proposal items are ratified and binding. PC1-PC3 supersede co
 
 
 
+
+---
+
+## Phase 5 Step 3 — Scope and owner escalation ruling on runtime baseline acceptance
+
+[from Patron] DEV-545 Phase 5 step 3 ruling — `blocked: structural — Do NOT waive runtime baseline acceptance (T019a–T021, T024) and do NOT park DEV-545; escalate via a draft PR checkbox on feature/DEV-545 under task-chain §4`:
+
+- **No silent waiver of ticket-required runtime baseline and publication (`AGENTS.md` §2.3; `specs/DEV-545/CONCLUSIONS.md` Q8/Q9/PC3; `specs/DEV-545/spec.md` FR-013, SC-001/SC-003/SC-005/SC-008/SC-009; `specs/DEV-545/tasks.md` T019a–T021, T024):** The ticket's *Scope & Technical Design* (`Wanted 21`) and acceptance criteria (`Done when` lines 71–84) explicitly require the current-main home baseline runs, split before/after DB non-mutation proof, About Time/Pirate Radio pool check, and YouTrack baseline comment before DEV-545 is Done. Under Charter §2.3(a), dropping or deferring those deliverables contradicts ticket delivery and cannot be waived by Patron (`tasks.md:169` T022 honest-pending clause authorized running Phase 9 verification gates only, not waiving merge or Done acceptance).
+- **Do not park at 1/3 blocked count (`task-pipeline` §2.2 line 30; `task-chain` §4 lines 98–102; `chain` line 22):** Parking applies only when a task reports `blocked` 3 times (`DEV-545` is at `blocked (1/3)`), whereas `task-chain` §4 explicitly prescribes the unattended path for a Charter §2.3(a) ticket-delivery question when the spec PR is already merged: commit work in progress, have Rigger open a draft PR from `feature/DEV-545` carrying an unticked owner checkbox with Patron's recommendation, and set the row to `blocked: owner — <question> (#n)`.
+- **Required draft PR owner checkbox and recommendation (`task-chain` §4 item 2; `DEV-545` note lines 87–98, 208–213):** Rigger opens the draft PR from `feature/DEV-545` with the unticked checkbox: `- [ ] Owner decision (DEV-545 runtime baseline T019a–T021 & T024): (A — Patron recommended) Redeploy home instance to current main, provision runtime ConnectionStrings__DefaultConnection and artifacts/recommendations/judged-pairs.json, and tick after T019a–T021 and T024 baseline publication complete on this branch; OR (B) Waive in-branch runtime baseline execution/publication on PR merge so the harness merges now and operator runs T019a–T021/T024 post-merge before starting DEV-518/544/543/540/539.` (Note: before final Phase 5 step 3 ship-review signoff, run Gauge pre-pass on the current rebased HEAD so Keel's pre-pass SHA check also closes cleanly.)
