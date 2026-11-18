@@ -18,6 +18,9 @@ public sealed class RecommendationSnapshotCommandTests : IDisposable
 
     private static readonly int[] SeedIds = [11, 12, 13, 14, 15];
 
+    // Home-library ids looked up once by T019; the script defaults to these, never to fixture id 90.
+    private static readonly int[] HomeSeedIds = [575, 518, 515, 519, 831];
+
     private readonly string root = Path.Combine(
         Path.GetTempPath(),
         "lamuflix-snapshot-" + Guid.NewGuid().ToString("N"));
@@ -112,6 +115,42 @@ public sealed class RecommendationSnapshotCommandTests : IDisposable
         result.ExitCode.ShouldBe(0, result.Describe());
         QueryValues(server, ForYouPath, "take").ShouldBe(["30"]);
         foreach (var seed in SeedIds)
+        {
+            QueryValues(server, $"/api/movies/{seed}/recommendations", "take").ShouldBe(["10"]);
+        }
+    }
+
+    [Fact]
+    public void Capture_DefaultsToTheLookedUpHomeSeedIdsWithoutAnyExplicitSeeds()
+    {
+        // arrange
+        using var server = SnapshotWireMock.Start();
+        StubSuccessfulLibrary(server);
+        foreach (var seed in HomeSeedIds)
+        {
+            server.Given(Request.Create().WithPath($"/api/movies/{seed}/recommendations").UsingGet())
+                .RespondWith(Json(200, "[]"));
+        }
+
+        var path = Path.Combine(root, "capture.json");
+
+        // act
+        var result = EvaluationCommand.RunSnapshot(
+            root,
+            "-Mode",
+            "Capture",
+            "-BaseUrl",
+            server.Urls[0],
+            "-OutputPath",
+            path);
+
+        // assert
+        result.ExitCode.ShouldBe(0, result.Describe());
+        using var document = JsonDocument.Parse(File.ReadAllBytes(path));
+        document.RootElement.GetProperty("targets").EnumerateArray()
+            .Select(target => target.GetInt32())
+            .ShouldBe(HomeSeedIds);
+        foreach (var seed in HomeSeedIds)
         {
             QueryValues(server, $"/api/movies/{seed}/recommendations", "take").ShouldBe(["10"]);
         }
@@ -470,6 +509,8 @@ public sealed class RecommendationSnapshotCommandTests : IDisposable
         result.StandardOutput.ShouldContain("-After");
         result.StandardOutput.ShouldContain("A Fistful of Dollars");
         result.StandardOutput.ShouldContain("The Wind Rises");
+        result.StandardOutput.ShouldContain("575");
+        result.StandardOutput.ShouldContain("831");
         result.StandardOutput.ShouldContain("http://localhost:3100");
     }
 
