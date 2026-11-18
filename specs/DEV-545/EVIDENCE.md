@@ -1,6 +1,6 @@
 # DEV-545 evidence runbook
 
-Status: Phase B partially filled. T019 (seed lookup and literal `-SeedIds` defaults) is complete and evidenced in §1. T019a ran and **stopped on an identity mismatch**: the deployed home API is build `b98a4b0a` (99 commits behind `origin/main` `8a2deb9b`), with recommendation content differences and an off-main Argo home revision. T020 therefore did not start; §2/§3/§4/§5 runtime slots are recorded as `Could not run`, not as passes. T021's scrub half is complete in §6; its after-state half is `Could not run`. Nothing here is invented, and there are no credentials.
+Status: Option A run executed on 2026-11-18. Home redeployed to main `8a2deb9b`; T019a identity gate PASS; T020 runtime PASS (fingerprint and capture hashes equal, DB before==after); T021 PASS. Rows that were `Could not run` in the earlier stopped attempt are replaced with measured values. Raw outputs stay unversioned in `artifacts/recommendations/` (git-ignored). Dated sections: §0 (Option A manifest) and §9.
 
 ## 0. Provenance / T019a identity manifest (never credentials; separate from deterministic capture JSON)
 
@@ -35,9 +35,21 @@ Any mismatch in main SHA, relevant production content, build, harness, or effect
 | Effective nonsecret RecommendationOptions | The pod injects only `Ollama__Endpoint`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `Tmdb__Enabled`, `Tmdb__ApiKey`; no `Recommendations` env or config override exists (`kubectl get deploy api` contains no `recommendations` key), so code defaults bind: `Take` 10, `CandidatePoolSize` 50, `MmrLambda` 0.7, `RecencyDecayLambda` ln2/30, `SimilarStoryThreshold` 0.5, blend 1.0/1.0, penalties 0.25/1.0, review 1.0/1.0, weights Director 3.0, Writers 2.0, Cast 2.0, Genres 3.0, YearProximity 1.0, RuntimeProximity 0.5, RatingBoost 0.5, Keyword 1.0, Collection 2.0, ReviewPlotWeight 1.0. Harness takes: For you 30, each Related 10 |
 | Production scoring equivalence judgment + invariance test receipts | **MISMATCH — gate STOP.** The running API revision `b98a4b0a` predates main's recommendation work: `git diff b98a4b0a origin/main` touches `GetForYouRecommendationsQueryHandler.cs`, `GetRecommendationsQueryHandler.cs`, `ProfileSimilarityCalculator.cs`, `TasteProfileCalculator.cs`, `RecommendationProfileInputs.cs`, `EfRecommendationProfileSource.cs` and `HybridCachedRecommendationProfileSource.cs` (147+/25−). Scoring behaviour is therefore not equivalent to main, and a file hash cannot prove otherwise. Branch-side receipts exist and are green (see below), but they cover the branch against main, not the deployed build against main |
 | Drift reconciliation note (or "none") | **Required, and not reconcilable from this seat.** Two independent mismatches: (1) deployed API build `b98a4b0a` ≠ `origin/main` `8a2deb9b` on recommendation content; (2) the Argo home promotion commit `bd0a83fe` is off-main, so "the home instance" is not a main build at all. Redeploying or re-pinning the home overlay to a main build is an operator/environment action outside a Build-lane code commit. Recapture would then be T019a → T020 → T021 in full |
-| Manifest recheck before T020 | **STOPPED.** T020 did not start, per "T020 MUST NOT start until T019a passes". Recorded `Could not run`, not a pass |
-| Manifest recheck before publication | N/A — no T020 run exists to publish; T024 must not attach anything until T019a passes |
-| Cohort counts (liked, watched, overlap) | Not measured — requires the real-library run that T019a blocked |
+| Manifest recheck before T020 | **PASS** (2026-11-18). Immediately before the capture window: `origin/main` = `8a2deb9b`; api pod image digest `sha256:9f2cffbf...` (revision label `8a2deb9b`); Argo `lamuflix-home` Synced/Healthy at `cd8de7d4`; harness HEAD `494c08e2`, worktree clean. See the Option A manifest below |
+| Manifest recheck before publication | Performed as the first step of T024 (re-run `git fetch origin main`, pod digest, Argo revision) |
+| Cohort counts (liked, watched, overlap) | liked 4, watched 27, overlap 4 (LOO JSON `overlap`) |
+
+#### Option A re-run manifest (2026-11-18; the T019a PASS receipt)
+
+| Field | Value |
+|---|---|
+| Promoted main SHA | `8a2deb9b7a971b50108721aa8465620e551f1cfa`. Dry run (promote-home run 44385356743) resolved the requested sha with no fallback. Real run 44385558517 (`dry_run=false`) pushed `env/home` as `cd8de7d4971ac61d2a7b22958413defda49fb25c` (`home: promote 8a2deb9b`). Images `sha-8a2deb9b` were published by push CI run 44289481302 |
+| Served build | Deployment `api` in namespace `lamuflix-home`, pod `api-d9d786c9-f2pzx` Ready, image `ghcr.io/lamuniercosta/lamuflix-api@sha256:9f2cffbfd3394dd35849bde9f93bc64d8e01b5f6679fac4bbae68672e4f07924`. OCI label `org.opencontainers.image.revision` on that digest = `8a2deb9b7a971b50108721aa8465620e551f1cfa` (read with `docker buildx imagetools inspect`). Argo `lamuflix-home` Synced/Healthy at `cd8de7d4` |
+| Harness | HEAD `494c08e24829fb7a88c7d49e7fe22370a762b67b`, worktree clean. `git merge-base HEAD origin/main` = `8a2deb9b`, so the branch already contains the promoted main |
+| Branch vs promoted build | `git diff --name-status 8a2deb9b HEAD -- src/` lists only `M` `SimilarityResult.cs` and `M` `SimilarityScorer.cs`. SHA-256 of `RecommendationOptions.cs`, `EfRecommendationProfileSource.cs` and `EfRecommendationCandidateSource.cs` is identical at `8a2deb9b` and HEAD. Bounded read of the scorer diff: criterion names, `Breakdown` population and the identity-fallback breakdown were added; `ComputeScore`, eligibility and weight arithmetic are unchanged. Invariance receipt: `dotnet test tests/LamuFlix.UnitTests --filter "FullyQualifiedName~Features.Recommendations"` = 635 passed, 0 failed at HEAD `494c08e2` |
+| Effective RecommendationOptions | Code defaults bind. The pod environment has no `Recommendations` setting (env names only: `Ollama__Endpoint`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `Tmdb__Enabled`, `Tmdb__ApiKey`). The secret `api.settings.json` top-level keys contain no `Recommendations`, and no `appsettings*.json` or `deploy/**` file at `8a2deb9b` sets one. Defaults: Take 10, CandidatePoolSize 50, MmrLambda 0.7 (others as in the stopped manifest above). Harness takes: For you 30, each Related 10 |
+| Credentials | None printed, logged or written. The connection string was built inside the run-script process only; checks were presence-only |
+| Recheck before T020 | PASS (values above) |
 
 #### Branch-side invariance receipts gathered during this gate (not a substitute for the deployed-build check)
 
@@ -134,15 +146,15 @@ Disclosure: the two captures above were written to a temporary operator path pur
 
 | Check | Result |
 |---|---|
-| Quiescence precondition verified (no scan/enrichment/user mutation) | **Could not run** — blocked by the T019a identity gate stop (deployed API `b98a4b0a` ≠ `origin/main`, and Argo home revision off-main). No quiescent window was attempted |
-| **Before** recommendation-input fingerprint/counts (row counts + pending/enrichment state) | **Could not run** — not captured; capturing after a blocked gate would be meaningless |
-| Capture A path + hash | **Could not run** (no T020 capture). The T019 script-verification captures in §1 are explicitly not this evidence |
-| Capture B path + hash (unchanged data) | **Could not run** |
-| Capture hashes identical | **Could not run** |
-| **After** recommendation-input fingerprint/counts (same fields as before) | **Could not run** |
-| Before==after fingerprint/counts equality | **Could not run** |
-| Mismatch → discarded/retried before hash interpretation (or "n/a — equal") | N/A — no window ran |
-| Diff five groups observed (same-mode operands) | **Could not run** |
+| Quiescence precondition verified (no scan/enrichment/user mutation) | **PASS**. `outbox_messages` with `processed_at IS NULL` = 0; `movies` status counts = `1` for all 449 rows; api logs for the prior 30 minutes contain no scan or enrichment template, only one startup library-gate line (no writes needed) |
+| **Before** recommendation-input fingerprint/counts (row counts + pending/enrichment state) | **PASS, captured before Capture A.** 18 aggregate rows: per-table `count(*)` plus `md5` over row text for movies, movie_features, movie_actors/directors/writers/genres/keywords, movie_tmdb_cast, actors, directors, writers, genres, keywords, collections; outbox unprocessed count; movie status counts. Sorted-output SHA-256 `ef86262fd5979769cad041e0ae4b7dd031ada4ee7a9820e8a864a76474e840e6`. Raw output unversioned |
+| Capture A path + hash | `artifacts/recommendations/baseline-capture-a.json` (37783 bytes), SHA-256 `e4a4f4b6ac333a943dcbdcd87c2b360288ecbf7d0eceb7e4355fdd8216225d04` |
+| Capture B path + hash (unchanged data) | `artifacts/recommendations/baseline-capture-b.json` (37783 bytes), SHA-256 `e4a4f4b6ac333a943dcbdcd87c2b360288ecbf7d0eceb7e4355fdd8216225d04` |
+| Capture hashes identical | **PASS** (compared only after the fingerprint equality check) |
+| **After** recommendation-input fingerprint/counts (same fields as before) | **Captured after Capture B**, same query. Sorted-output SHA-256 `ef86262fd5979769cad041e0ae4b7dd031ada4ee7a9820e8a864a76474e840e6` (same as before) |
+| Before==after fingerprint/counts equality | **PASS** on the first attempt; no retry needed |
+| Mismatch → discarded/retried before hash interpretation (or "n/a — equal") | N/A — equal |
+| Diff five groups observed (same-mode operands) | **PASS**: moved up 0, moved down 0, entered 0, left 0, reasons changed 0; summary line reports 0 in all groups |
 
 ## 3. Leave-one-out (Q3–Q4)
 
@@ -173,18 +185,18 @@ Inertness check: ordinary `dotnet test` **without** `LAMUFLIX_EVALUATION_MODE=le
 
 | Check | Result |
 |---|---|
-| Liked HR@1/3/10, MRR, seed count | **Could not run** — blocked by T019a |
-| Watched HR@1/3/10, MRR, seed count | **Could not run** |
-| Overlap disclosed | **Could not run** |
+| Liked HR@1/3/10, MRR, seed count | HR@1 0, HR@3 0, HR@10 0, MRR 0; **4 seeds** attempted (515, 518, 519, 525) |
+| Watched HR@1/3/10, MRR, seed count | HR@1 0, HR@3 0.0741 (2/27), HR@10 0.1481 (4/27), MRR 0.0537; **27 seeds** attempted |
+| Overlap disclosed | liked 4, watched 27, overlap 4 |
 | Bypass disclosure present (endpoint/validator + full-eligible take) | Present in code/report design (Phase 5 receipts above); no runtime report was produced |
 | Harness-relative HR/MRR validity disclaimer present | Present in report design; no runtime report was produced |
-| **Before-state** row counts (captured and preserved **before** leave-one-out begins — T020) | **Could not run** — no run occurred, so there is no before-state to preserve |
-| **Before-state** every movie review value (same timing — T020) | **Could not run** |
-| **After-state** row counts (captured **immediately after** the same leave-one-out run — T021) | **Could not run** |
-| **After-state** every movie review value (same timing — T021) | **Could not run** |
-| Before vs after comparison: row counts and every review value unchanged (SC-003 ticket-required boundary) | **Could not run** — deliberately not substituted with a post-hoc dump, which could not prove non-mutation anyway |
+| **Before-state** row counts (captured and preserved **before** leave-one-out begins — T020) | **PASS**. Full before-state (per-table counts for 15 tables plus 449 review lines) preserved at `artifacts/recommendations/db-before-state.txt`, SHA-256 `390711968a2666aeb45f06865e694815555e3c700ef490bd046206d83e884f1e`; movies count 449 |
+| **Before-state** every movie review value (same timing — T020) | **PASS**: 449 `review|id|value` lines in the same preserved file, captured before LOO |
+| **After-state** row counts (captured **immediately after** the same leave-one-out run — T021) | **PASS**: identical to before (captured right after the LOO run exited 0) |
+| **After-state** every movie review value (same timing — T021) | **PASS**: identical to before, same whole-file comparison |
+| Before vs after comparison: row counts and every review value unchanged (SC-003 ticket-required boundary) | **PASS**: byte-identical after LOO, and again after all compare, pair and quality runs. Boundary disclosure: counts and review values do not prove every column or transient write. The no-write proof remains the loader Testcontainers receipt plus code-path inspection |
 | Explicit disclosure: counts+reviews do **not** prove every untested column or transient write | Disclosed as a standing limitation of this evidence type; still applies whenever the run happens |
-| No save/add/update/remove in new LOO path (reviewer read of complete loaded path) | Static code-path evidence stands from Phase 5; runtime confirmation remains `Could not run` |
+| No save/add/update/remove in new LOO path (reviewer read of complete loaded path) | Static code-path evidence stands from Phase 5; runtime confirmation is recorded in §3 Option A rows (DB before==after) |
 | Testcontainers no-write proof receipt (`RealLibraryReadOnlyLoaderTests`) | `dotnet test tests/LamuFlix.Evaluation.IntegrationTests` — 67 passed, 0 failed on this diff (re-run this phase), including the loader no-tracking/no-write tests |
 
 Note: Evidence acquired only after the run cannot prove non-mutation during that run. Keep raw personal before/after dumps unversioned. This is bounded ticket-required behavioral evidence, not a waiver of the strict no-write contract.
@@ -276,13 +288,13 @@ finally {
 
 | Seed title | Output path | Notes |
 |---|---|---|
-| A Fistful of Dollars | **Could not run** — blocked by T019a | |
-| About Time | **Could not run** | Pirate Radio plot rank / pool: **Could not run** (acceptance remains open until evidenced) |
-| A Few Good Men | **Could not run** | |
-| Aladdin | **Could not run** | |
-| The Wind Rises | **Could not run** | |
+| A Fistful of Dollars | `artifacts/recommendations/compare-575.json` published, exit 0 (not summarized row by row) | |
+| About Time | `artifacts/recommendations/compare-518.json` published, exit 0 | Pirate Radio (759) in `pair-518-759.json`: plotRank **192**, `inPool` **false**, so rank > 50 and outside pool: **PASS** |
+| A Few Good Men | `artifacts/recommendations/compare-515.json` published, exit 0 | |
+| Aladdin | `artifacts/recommendations/compare-519.json` published, exit 0 | |
+| The Wind Rises | `artifacts/recommendations/compare-831.json` published, exit 0 | |
 
-Pair inspect sample (optional operator note; record selected/other IDs used): **Could not run** — no home-library pair was inspected; no IDs invented.
+Pair inspect sample: `artifacts/recommendations/pair-518-759.json` (selected 518 About Time, other 759 Pirate Radio; directed pair), exit 0.
 
 Pool diagnostic disclosure (ticket formula; not production pool parity): unchanged design disclosure — pool flag `(plotRank is not null && plotRank <= CandidatePoolSize) || sameCollection` is a diagnostic, not production pool parity. No runtime measurement exists.
 
@@ -328,12 +340,12 @@ finally {
 
 | Check | Result |
 |---|---|
-| Coverage partition sums verified | **Could not run** at runtime (blocked by T019a). Fixture proof stands: `QualityReportRunnerTests.Run_every_coverage_line_partitions_the_enriched_selected_population` |
-| Band/strong-only samples stable across repeat (SHA-256 directed encoding) | Runtime repeat **Could not run**; fixture/golden proof stands (`BandSampleSelectorTests` golden vectors, `QualityReportRunnerTests.Run_repeats_identical_band_samples_on_unchanged_data`) |
-| Judged-pairs path (unversioned) | Interface complete; no owner-corrected home judged-pairs file exists in this worktree (`artifacts/recommendations/` is empty), so no home judgment was run or invented |
-| Known-miss good pair retained unless owner changed | **Unresolved at runtime** — Phase B owner input (The Naked Gun → Hot Shots!) was never supplied here; nothing was written into the repo by the harness |
-| Skipped IDs listed | Fixture proof stands: `QualityReportRunnerTests.Run_skips_unknown_and_unenriched_ids_visibly_and_excludes_them_from_denominators` |
-| Output discloses LOO/full-take harness-relative metric validity where applicable | Design disclosure stands; no runtime output produced |
+| Coverage partition sums verified | **PASS**: `enrichedSelectedCount` 449; all 14 coverage lines in `quality.json` have bucket sums equal to 449 |
+| Band/strong-only samples stable across repeat (SHA-256 directed encoding) | Not repeated at runtime (one quality run). Recorded output: seven bands; six have 12 pairs; the strong-only band is undersupplied with 0 available. Fixture proof stands |
+| Judged-pairs path (unversioned) | `artifacts/recommendations/judged-pairs.json` (git-ignored; SHA-256 `a765b99dc7ba5245f346fe3575c5fc667fb509889a1f84cc2a0023ea47544e46`), 15 directed entries, owner ticket starting list used as-is; 0 skipped |
+| Known-miss good pair retained unless owner changed | **Retained, not tuned**: The Naked Gun → Hot Shots! is in the judged set; result rank 36, score 0.1917, not in top three (`quality.json` `judgedPairs.valid`) |
+| Skipped IDs listed | `skipped` is empty in `quality.json` |
+| Output discloses LOO/full-take harness-relative metric validity where applicable | LOO output carries the bypass and harness-relative disclosures. `quality.json` has six disclosures and does not contain the harness-relative phrase; noted as a gap, not changed here |
 
 ### Phase 7 (T016–T018) quality receipts
 
@@ -420,8 +432,8 @@ Credential transport for all real-library modes: pre-provisioned process environ
 | T019 test | New `Capture_DefaultsToTheLookedUpHomeSeedIdsWithoutAnyExplicitSeeds` proves a parameter-free Capture targets exactly those five ids and sends `take=10` to each Related path; `Help_DocumentsTheCaptureAndDiffSurface` now also asserts `575` and `831` appear |
 | T019 live proof | Parameter-free Capture exit 0 twice; SHA-256 `AD878F612789EEAF7EEA4B23CCBDFDA84860DA2E51105712B500B5ACF2A7F820` both times; 30 For-you rows, 10 rows per Related |
 | T019a identity gate | **STOP — mismatch.** Deployed API `b98a4b0a` vs `origin/main` `8a2deb9b` (99 commits behind) with recommendation handler/profile/calculator differences; Argo home revision `bd0a83fe` off-main. Full manifest in §0 |
-| T020 | **Not started** — T019a did not pass. §2 and §3 runtime slots recorded `Could not run` |
-| T021 | Split: scrub half PASS in §6; DB after-state half **Could not run** because no T020 run produced a preserved before-state |
+| T020 | Historical stop record (superseded by §9): originally not started because T019a did not pass; the Option A run completed |
+| T021 | Historical stop record (superseded by §9): scrub half PASS in §6; DB after-state half later PASS in §9 |
 | `dotnet test tests/LamuFlix.Evaluation.IntegrationTests` (full) | 67 passed, 0 failed (2 m 24 s) |
 | `dotnet test tests/LamuFlix.Evaluation.IntegrationTests --filter RecommendationSnapshotCommandTests` | 35 passed, 0 failed |
 | `dotnet test tests/LamuFlix.Evaluation` | 203 passed, 0 failed |
@@ -433,3 +445,46 @@ Credential transport for all real-library modes: pre-provisioned process environ
 | `dotnet format --verify-no-changes` | exit 0 |
 | `baseline.json` and `scripts/run-evaluation.ps1` vs `origin/main` | unchanged |
 | Production `src/` seam in this phase | none — this phase changed a script, a test and evidence only |
+
+
+## 9. Option A run receipts (2026-11-18)
+
+Executed under the owner decision "Option A" for DEV-545 in this worktree only. Raw outputs are under `artifacts/recommendations/` (git-ignored) and are not committed. The connection string existed only inside the run-script process.
+
+| Step | Result |
+|---|---|
+| Home redeploy | promote-home dry run 44385356743 then real run 44385558517, both success. `env/home` `bd0a83fe` → `cd8de7d4`. Argo Synced/Healthy; api rolled out Ready |
+| Pre-window identity recheck | PASS (see §0 Option A manifest) |
+| Quiescence and fingerprint before, DB before-state | captured before Capture A |
+| Capture A, Capture B | published; SHA-256 identical |
+| Fingerprint after (after Capture B) | equal to before |
+| Diff | five groups all 0 |
+| Leave-one-out | exit 0 (output path note below) |
+| DB after-state, immediately after LOO | equal to before |
+| Compare for 575, 518, 515, 519, 831 | exit 0 each |
+| Pair inspect 518 → 759 | exit 0; plotRank 192; inPool false |
+| Quality | exit 0; judged pairs 10 good, 5 bad, 0 skipped |
+| DB after-state after all runs | equal to before |
+
+### Headline metrics (harness-relative; compare only same-protocol deltas)
+
+- Liked cohort: 4 seeds; HR@1 0, HR@3 0, HR@10 0, MRR 0.
+- Watched cohort: 27 seeds; HR@1 0, HR@3 0.0741 (2/27), HR@10 0.1481 (4/27), MRR 0.0537.
+- Overlap: all 4 liked seeds are also watched.
+- Judged pairs: good 10 valid (rank-one share 0.2, top-three share 0.3, strong share 0.2); bad 5 valid (top-three share 0, strong share 0).
+
+### Notes and deviations (disclosed, no code changed)
+
+- Leave-one-out output path: the first LOO run resolved the relative `LAMUFLIX_EVALUATION_OUTPUT_PATH` against the test binary directory, so the file was written to `tests/LamuFlix.Evaluation/bin/Debug/net10.0/artifacts/recommendations/leave-one-out.json` (54522 bytes, SHA-256 `5a3e4229a248211c68a31f8a8aeff806d7457c455caa9b52541fb7eba378694a`). It was copied byte-identical to `artifacts/recommendations/leave-one-out.json`. All later runs used absolute paths. Relative output paths are not reliable as pinned; recorded as a finding for follow-up.
+- Compare, pair and quality attempts failed with exit 1 because of an error in the operator run script path string. Those attempts produced no harness output. The script was corrected and the runs repeated. No harness file was changed.
+- The T019 captures on the superseded build were 37781 bytes (SHA-256 `AD878F…`). The captures on `8a2deb9b` are 37783 bytes (SHA-256 `e4a4f4b6…`). Not investigated further; these T019 captures are not T020 evidence.
+- The pinned leave-one-out, compare and quality commands were used as written, with absolute output and judged-pairs paths substituted.
+
+### Scrub (T021 after-state)
+
+- Pattern scan over `artifacts/recommendations/*` for `Password=`, `ConnectionStrings`, `Host=127`, `Username=`, `POSTGRES_PASSWORD` and `postgres://`: no matches.
+- `git status --porcelain --untracked-files=all` after all runs: empty. `artifacts/` is ignored (`.gitignore:66`).
+
+### Publication (T024)
+
+Performed after this commit. The YouTrack comment and its attachments are the record of publication; the comment id is reported in the run summary.
