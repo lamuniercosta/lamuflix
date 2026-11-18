@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text;
 
@@ -10,7 +11,7 @@ internal sealed record CommandResult(int ExitCode, string StandardOutput, string
     public string Output => StandardOutput + StandardError;
 
     public string Describe() =>
-        "exit code " + ExitCode.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        "exit code " + ExitCode.ToString(CultureInfo.InvariantCulture)
         + Environment.NewLine + "stdout:" + Environment.NewLine + StandardOutput
         + Environment.NewLine + "stderr:" + Environment.NewLine + StandardError;
 }
@@ -23,13 +24,26 @@ internal static class EvaluationCommand
 
     private static string ScriptPath => Path.Combine(RepositoryRoot, "scripts", "run-evaluation.ps1");
 
+    private static string SnapshotScriptPath =>
+        Path.Combine(RepositoryRoot, "scripts", "run-recommendation-snapshot.ps1");
+
     public static string FixturePath =>
         Path.Combine(RepositoryRoot, "tests", "LamuFlix.Evaluation", "Fixtures", "baseline.json");
 
     public static string DefaultOutputPath =>
         Path.Combine(RepositoryRoot, "artifacts", "evaluation", "metrics-summary.json");
 
-    public static CommandResult Run(string workingDirectory, params string[] arguments)
+    public static CommandResult Run(string workingDirectory, params string[] arguments) =>
+        RunScript(ScriptPath, "scripts/run-evaluation.ps1", workingDirectory, arguments);
+
+    public static CommandResult RunSnapshot(string workingDirectory, params string[] arguments) =>
+        RunScript(SnapshotScriptPath, "scripts/run-recommendation-snapshot.ps1", workingDirectory, arguments);
+
+    private static CommandResult RunScript(
+        string scriptPath,
+        string scriptName,
+        string workingDirectory,
+        params string[] arguments)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workingDirectory);
         ArgumentNullException.ThrowIfNull(arguments);
@@ -46,7 +60,7 @@ internal static class EvaluationCommand
 
         startInfo.ArgumentList.Add("-NoProfile");
         startInfo.ArgumentList.Add("-File");
-        startInfo.ArgumentList.Add(ScriptPath);
+        startInfo.ArgumentList.Add(scriptPath);
         foreach (var argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
@@ -60,7 +74,7 @@ internal static class EvaluationCommand
         if (!process.WaitForExit(Timeout))
         {
             process.Kill(entireProcessTree: true);
-            throw new TimeoutException("scripts/run-evaluation.ps1 did not finish within " + Timeout);
+            throw new TimeoutException(scriptName + " did not finish within " + Timeout);
         }
 
         return new CommandResult(

@@ -345,3 +345,31 @@ Credential transport for all real-library modes: pre-provisioned process environ
 | pair inspect | `LAMUFLIX_EVALUATION_MODE=compare` | required `SELECTED_ID` + `OTHER_ID` (positive ints, distinct) | `artifacts/recommendations/pair-{selectedId}-{otherId}.json` | Same mode marker; OTHER_ID selects pair-only path |
 | quality | `LAMUFLIX_EVALUATION_MODE=quality` | optional `JUDGED_PAIRS_PATH`, `BARS`, `STRONG_ONLY_BAR`, `OUTPUT_PATH` | `artifacts/recommendations/quality.json`; bars default `0.15,0.20,0.225,0.25,0.30,0.35,0.40`; strong-only default `0.225` | Judged-pairs path unversioned |
 | Capture/Diff | `pwsh -NoProfile -File scripts/run-recommendation-snapshot.ps1 ...` | script params (nonsecret) | under `artifacts/recommendations/` | IntegrationTests adapt `EvaluationCommand` for script launch; N/A connection string |
+
+### Phase 6 (T013–T015) snapshot and diff receipts
+
+| Check | Value |
+|---|---|
+| `scripts/run-recommendation-snapshot.ps1` modes | `Capture` (default) and `Diff`; PowerShell 7; no new package |
+| Capture defaults | `-BaseUrl http://localhost:3100`; `-OutputPath artifacts/recommendations/capture.json`; For you `take=30`, each Related `take=10` |
+| Seed contract | `-SeedIds` accepts five ordered positive ids (comma or space separated); validated before any HTTP request; duplicates, non-integers, non-positive and wrong counts rejected |
+| Seed titles in help | A Fistful of Dollars, About Time, A Few Good Men, Aladdin, The Wind Rises |
+| Literal default ids | **pending T019** — the one-time home-library lookup populates the default and help; until then `-SeedIds` is required (no fixture id 90) |
+| Envelope conformance | same field set and order as `RecommendationArtifactSerializer` (`mode`, `targets`, `lists[kind,targetId,take,status,rows[rank,movieId,title,score,reasons[kind,text]]]`); no `schemaVersion`, timestamp, host or elapsed |
+| Publication | canonical compact UTF-8, no BOM, no terminal newline, invariant finite numerics, `.partial` write then atomic move; nothing is published on failure |
+| Empty Related | recorded `status: "empty"` with zero rows, not an error |
+| Diff groups | always prints `moved up`, `moved down`, `entered`, `left`, `reasons changed` plus a summary line, even when all are empty |
+| Diff compatibility | same-mode only (capture/capture or compare/compare), identical targets, matching list kinds/targets/takes; mixed modes, malformed JSON, schema violations and duplicate ids rejected |
+| `dotnet test tests/LamuFlix.Evaluation.IntegrationTests --filter RecommendationSnapshotCommandTests` | 34 passed, 0 failed (byte-identical repeated captures; exact API order; explicit takes; seed validation without HTTP; empty Related; HTTP/JSON/schema/duplicate rejection with no artifact; five Diff groups; cross-mode rejection; compare/compare acceptance; pt-BR adversarial finite numerics) |
+| `dotnet test tests/LamuFlix.Evaluation.IntegrationTests` (full project) | 66 passed, 0 failed |
+| `dotnet test tests/LamuFlix.Evaluation` | 146 passed, 0 failed (synthetic publish unchanged) |
+| `dotnet test tests/LamuFlix.UnitTests` | 4032 passed, 1 skipped, 0 failed |
+| `pwsh -NoProfile -File ./scripts/run-evaluation.ps1` | exit 0; summary byte-identical to the T002 receipt above |
+| `./scripts/run-roslyn-analyzers.ps1` | exit 0, passed |
+| `./scripts/run-cyclomatic-complexity.ps1` | exit 0, passed (threshold 15) |
+| `./scripts/run-jetbrains-inspectcode.ps1` | exit 0, passed (no WARNING+) |
+| `dotnet format --verify-no-changes` | exit 0 |
+| Production `src/` seam | none — script plus `tests/` only |
+| Test-only `Process.Start` | `EvaluationCommand.RunSnapshot` launches the script under `LamuFlix.Evaluation.IntegrationTests`; the existing `run-evaluation.ps1` path is preserved |
+| New dependency | `WireMock.Net` PackageReference on `LamuFlix.Evaluation.IntegrationTests.csproj` using the existing central pin; no version change |
+| Runtime acceptance | Phase B — `artifacts/recommendations/` captures, five Diff groups on real data and literal seed ids remain open until T019/T020 |
