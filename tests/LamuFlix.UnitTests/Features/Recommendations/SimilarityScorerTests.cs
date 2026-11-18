@@ -856,6 +856,91 @@ public sealed class SimilarityScorerTests
         result.Reasons.ShouldAllBe(reason => reason.Kind == ReasonKind.Structural);
     }
 
+    [Fact]
+    public void Score_PopulatedBreakdown_ContributionsSumToScore()
+    {
+        // arrange
+        var first = Features(
+            genres: ["Drama", "Comedy"],
+            directors: ["Alpha", "Beta"],
+            writers: ["Gamma"],
+            cast: ["Delta"],
+            releaseYear: 2001,
+            runtime: 104,
+            imdbRating: 7.8m,
+            keywords: [11, 22],
+            collectionId: 7);
+        var second = Features(
+            genres: ["Drama"],
+            directors: ["Alpha"],
+            writers: ["Gamma", "Zeta"],
+            cast: ["Delta", "Epsilon"],
+            releaseYear: 2004,
+            runtime: 118,
+            imdbRating: 7.1m,
+            keywords: [22, 33],
+            collectionId: 7);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, new SimilarityWeights(), GenreTable());
+
+        // assert
+        result.Breakdown.ShouldNotBeEmpty();
+        result.Breakdown.Sum(entry => entry.Contribution).ShouldBe(result.Score, 1e-12);
+    }
+
+    [Fact]
+    public void Score_ZeroWeightIdentityBranch_ContributionsSumToScoreWithoutChangingReasons()
+    {
+        // arrange
+        var movie = Features(directors: ["Alpha"], releaseYear: 2000);
+
+        // act
+        var result = SimilarityScorer.Score(movie, movie, Only(), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(1.0);
+        Text(result).ShouldBe(["Identical feature profile"]);
+        result.Breakdown.Sum(entry => entry.Contribution).ShouldBe(result.Score, 1e-12);
+        result.Breakdown.ShouldContain(entry =>
+            entry.Name == "IdentityFallback"
+            && entry.Value.Equals(1.0)
+            && entry.Weight.Equals(0.0)
+            && entry.Contribution.Equals(1.0));
+    }
+
+    [Fact]
+    public void Score_NonIdentityZeroWeightBranch_ContributionsSumToZeroWithoutIdentityFallback()
+    {
+        // arrange
+        var first = Features(directors: ["Alpha"]);
+        var second = Features(directors: ["Beta"]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(0.0);
+        Text(result).ShouldBeEmpty();
+        result.Breakdown.Sum(entry => entry.Contribution).ShouldBe(0.0, 1e-12);
+        result.Breakdown.ShouldNotContain(entry => entry.Name == "IdentityFallback");
+    }
+
+    [Fact]
+    public void Score_UncollectedCriteria_AreAbsentFromBreakdown()
+    {
+        // arrange
+        var first = Features(collectionId: 42);
+        var second = Features(collectionId: 42);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, new SimilarityWeights(), GenreTable());
+
+        // assert
+        result.Breakdown.Select(entry => entry.Name).ShouldBe(["Collection"]);
+        result.Breakdown.Sum(entry => entry.Contribution).ShouldBe(result.Score, 1e-12);
+    }
+
     private static string[] Text(SimilarityResult result) =>
         [.. result.Reasons.Select(reason => reason.Text)];
 

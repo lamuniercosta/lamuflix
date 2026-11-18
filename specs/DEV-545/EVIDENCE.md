@@ -56,6 +56,23 @@ Recorded by the Build lane immediately before the T003 shared-contract edits, so
 | Synthetic publish receipt at T002 | `pwsh -NoProfile -File ./scripts/run-evaluation.ps1` exit 0; summary `{"schemaVersion":1,"fixtureId":"dev-356-baseline","seed":356,"cutoff":10,"observationCount":12,"hitCount":9,"reciprocalRankSum":2.7484126984126984,"hitRateAt10":0.75,"mrr":0.22903439153439153}` |
 | T003 evaluation-project test receipt | `dotnet test tests/LamuFlix.Evaluation` — 112 passed, 0 failed |
 
+### Phase 3 (T004–T006) breakdown seam receipts
+
+| Check | Value |
+|---|---|
+| `dotnet test tests/LamuFlix.UnitTests --filter "FullyQualifiedName~Features.Recommendations"` | 635 passed, 0 failed (includes `SimilarityResultBreakdownTests`, `SimilarityScorerTests` extended, breakdown sum property) |
+| `dotnet test tests/LamuFlix.UnitTests` (full project) | 4032 passed, 1 skipped, 0 failed |
+| `dotnet test tests/LamuFlix.Evaluation` | 112 passed, 0 failed |
+| `pwsh -NoProfile -File ./scripts/run-evaluation.ps1` | exit 0; summary byte-identical to the T002 receipt above (synthetic publish unchanged) |
+| `./scripts/run-roslyn-analyzers.ps1` | exit 0, passed |
+| `./scripts/run-cyclomatic-complexity.ps1` | exit 0, passed (threshold 15) |
+| `./scripts/run-jetbrains-inspectcode.ps1` | exit 0, passed (no WARNING+) |
+| `dotnet format --verify-no-changes` | exit 0 |
+| Expected-score fixture edits | none — `SimilarityScorerTests` expected scores untouched; new assertions added only |
+| Public DTO / OpenAPI / TS | untouched (`SimilarityResult`/`CriterionContribution` are internal Core types, not DTOs) |
+| Blend constructions | `SimilarityResult` two-argument construction keeps `Breakdown` empty (asserted in `SimilarityResultBreakdownTests`) |
+
+
 
 ## 1. Seed ID lookup (Q2)
 
