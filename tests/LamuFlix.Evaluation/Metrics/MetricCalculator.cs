@@ -8,12 +8,33 @@ namespace LamuFlix.Evaluation.Metrics;
 public static class MetricCalculator
 {
     public const int Cutoff = 10;
+    public const int NearCutoff = 3;
+    public const int FirstRank = 1;
 
     public static EvaluationMetrics Compute(IReadOnlyList<EvaluationObservation> observations)
     {
-        ArgumentNullException.ThrowIfNull(observations);
+        var accumulation = Accumulate(observations);
+        var observationCount = accumulation.AttemptedCount;
 
-        var hitCount = 0;
+        return new EvaluationMetrics(
+            observationCount,
+            accumulation.HitAtCutoff,
+            accumulation.ReciprocalRankSum,
+            observationCount == 0 ? 0.0 : (double)accumulation.HitAtCutoff / observationCount,
+            observationCount == 0 ? 0.0 : accumulation.ReciprocalRankSum / observationCount);
+    }
+
+    public static RankAccumulation Accumulate(IReadOnlyList<EvaluationObservation> observations) =>
+        Accumulate(observations, Cutoff);
+
+    public static RankAccumulation Accumulate(IReadOnlyList<EvaluationObservation> observations, int reciprocalRankCutoff)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(reciprocalRankCutoff);
+
+        var hitAtFirst = 0;
+        var hitAtNear = 0;
+        var hitAtCutoff = 0;
         var reciprocalRankSum = 0.0;
 
         foreach (var observation in observations)
@@ -24,18 +45,33 @@ public static class MetricCalculator
                 continue;
             }
 
-            hitCount++;
-            reciprocalRankSum += 1.0 / rank;
+            if (rank <= FirstRank)
+            {
+                hitAtFirst++;
+            }
+
+            if (rank <= NearCutoff)
+            {
+                hitAtNear++;
+            }
+
+            if (rank <= Cutoff)
+            {
+                hitAtCutoff++;
+            }
+
+            if (rank <= reciprocalRankCutoff)
+            {
+                reciprocalRankSum += 1.0 / rank;
+            }
         }
 
-        var observationCount = observations.Count;
-
-        return new EvaluationMetrics(
-            observationCount,
-            hitCount,
-            reciprocalRankSum,
-            observationCount == 0 ? 0.0 : (double)hitCount / observationCount,
-            observationCount == 0 ? 0.0 : reciprocalRankSum / observationCount);
+        return new RankAccumulation(
+            observations.Count,
+            hitAtFirst,
+            hitAtNear,
+            hitAtCutoff,
+            reciprocalRankSum);
     }
 
     private static int RankOf(EvaluationObservation observation)
@@ -52,7 +88,7 @@ public static class MetricCalculator
 
         EnsureUnique(observation.Ranking);
 
-        for (var index = 0; index < observation.Ranking.Length && index < Cutoff; index++)
+        for (var index = 0; index < observation.Ranking.Length; index++)
         {
             if (observation.Ranking[index] == observation.Target)
             {
