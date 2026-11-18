@@ -104,7 +104,7 @@ internal sealed class ImporterDouble : IMovieFolderImporter
 
     public void Release() => release.TrySetResult();
 
-    public async Task<MovieId> ImportAsync(LibraryPath folder, CancellationToken cancellationToken)
+    public async Task<MovieId> ImportAsync(LibraryPath folder, CancellationToken cancellationToken, bool skipDuplicateCheck = false)
     {
         var call = Interlocked.Increment(ref calls);
         Interlocked.Increment(ref createdScopes);

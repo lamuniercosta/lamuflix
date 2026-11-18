@@ -21,10 +21,6 @@ export function formatRating(value: null | number | string | undefined): string 
   return Number.isFinite(number) ? number.toFixed(1) : null;
 }
 
-/**
- * The caller-safe failure reason to show beside Failed. Non-Failed states and absent details yield
- * null so the view keeps its existing Failed label without inventing cause wording (DEV-522).
- */
 export function failureDetail(
   status: MovieSummaryResponse['enrichmentStatus'],
   failureMessage: null | undefined | string,
