@@ -72,6 +72,22 @@ Recorded by the Build lane immediately before the T003 shared-contract edits, so
 | Public DTO / OpenAPI / TS | untouched (`SimilarityResult`/`CriterionContribution` are internal Core types, not DTOs) |
 | Blend constructions | `SimilarityResult` two-argument construction keeps `Breakdown` empty (asserted in `SimilarityResultBreakdownTests`) |
 
+### Phase 4 (T007–T009) read-only loader and hidden-seed adapter receipts
+
+| Check | Value |
+|---|---|
+| `dotnet test tests/LamuFlix.Evaluation` | 112 passed, 0 failed (synthetic evaluation unchanged) |
+| `dotnet test tests/LamuFlix.Evaluation.IntegrationTests` (full project) | 28 passed, 0 failed (7 new `RealLibraryReadOnlyLoaderTests` + 21 existing command tests) |
+| `pwsh -NoProfile -File ./scripts/run-evaluation.ps1` | exit 0; summary byte-identical to the T002 receipt above (synthetic publish unchanged) |
+| `./scripts/run-roslyn-analyzers.ps1` | exit 0, passed |
+| `./scripts/run-cyclomatic-complexity.ps1` | exit 0, passed (threshold 15) |
+| `./scripts/run-jetbrains-inspectcode.ps1` | exit 0, passed (no WARNING+) |
+| `dotnet format --verify-no-changes` | exit 0 |
+| Production `src/` seam | none added — loader + hidden-seed adapter are runner-local under `tests/LamuFlix.Evaluation/RealLibrary/` (Q3 preferred path) |
+| Credential transport | presence-only `RealLibrarySnapshotLoader.IsCredentialPresent(Func<string,string?>)`; no value read, echoed, or logged |
+| Read-only proof | `ChangeTracker.Entries()` empty after load; write-command interceptor count 0 on load and on hidden-seed ranking |
+| New dependency | `Testcontainers.PostgreSql` PackageReference on `LamuFlix.Evaluation.IntegrationTests.csproj` using the existing central pin; no version change |
+
 
 
 ## 1. Seed ID lookup (Q2)

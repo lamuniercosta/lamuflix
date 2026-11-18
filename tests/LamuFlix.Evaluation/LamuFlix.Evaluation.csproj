@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LamuFlix.Core\LamuFlix.Core.csproj" />
+    <ProjectReference Include="..\..\src\LamuFlix.Infrastructure\LamuFlix.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
