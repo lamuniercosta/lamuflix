@@ -6,12 +6,6 @@ using System.Text.Json;
 
 namespace LamuFlix.Evaluation.RealLibrary;
 
-/// <summary>
-/// Deterministic compact UTF-8 quality report: coverage lines, band samples and judged-pair shares,
-/// published through the same `.partial` then atomic-move pattern as the other evaluation outputs.
-/// Numbers are invariant and finite-only; unavailable values are explicit JSON nulls. No timestamps,
-/// host or elapsed metadata.
-/// </summary>
 public static class QualityReportSerializer
 {
     private const string PartialSuffix = ".partial";

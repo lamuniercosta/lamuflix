@@ -8,14 +8,6 @@ using System.Text.Json;
 
 namespace LamuFlix.Evaluation.RealLibrary;
 
-/// <summary>
-/// Reads the owner-authored, unversioned judged-pairs file from under the ignored
-/// <c>artifacts/recommendations/</c> directory. Entries are directed: a judgment from
-/// <c>movieId</c> to <c>otherId</c> says nothing about the reverse direction. Malformed JSON,
-/// missing fields, an unknown verdict and duplicate directed entries are rejected outright so a bad
-/// file never produces a partial success. A missing file is not an error: it simply yields no
-/// judgments, which the report discloses as null shares.
-/// </summary>
 public static class JudgedPairReader
 {
     public static ImmutableArray<JudgedPair> ReadOrDefault(string path)
@@ -174,10 +166,6 @@ public sealed class JudgedPairsFormatException : Exception
 
 public static class JudgedSharesCalculator
 {
-    /// <summary>
-    /// Shares over the valid judged pairs of one verdict only. Skipped pairs never reach this point,
-    /// so the denominator is exactly the valid pairs; zero valid pairs give null, never zero.
-    /// </summary>
     public static JudgedShares Compute(
         ImmutableArray<JudgedPairOutcome> outcomes,
         ImmutableArray<double> bars,

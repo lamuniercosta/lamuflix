@@ -52,7 +52,7 @@ public sealed class BandSampleSelectorTests
     [Fact]
     public void Select_orders_by_full_digest_bytes_lexicographically_not_by_ids()
     {
-        // arrange — the golden vectors prove the digest order is not the numeric id order
+        // arrange
         var golden = LoadGolden();
         var candidates = golden.Vectors.Select(vector => new DirectedPair(vector.SelectedId, vector.OtherId));
 

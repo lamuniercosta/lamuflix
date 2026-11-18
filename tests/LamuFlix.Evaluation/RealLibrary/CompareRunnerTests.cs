@@ -40,7 +40,7 @@ public sealed class CompareRunnerTests
     [Fact]
     public void Run_never_drops_an_enriched_row_whose_vector_is_missing_and_emits_null_plot_diagnostics()
     {
-        // arrange — movie 3 has no persisted vector at all
+        // arrange
         var snapshot = Snapshot(
             Movies(
                 BuildMovie(1, "Selected", genres: ["Drama"]),
@@ -94,7 +94,7 @@ public sealed class CompareRunnerTests
     [Fact]
     public void Run_ranks_usable_pairs_by_cosine_descending_then_id_ascending()
     {
-        // arrange — cosines tie between 2 and 3, so the id breaks the tie
+        // arrange
         var snapshot = Snapshot(
             Movies(
                 BuildMovie(1, "Selected", genres: ["Drama"]),
@@ -143,7 +143,7 @@ public sealed class CompareRunnerTests
     [Fact]
     public void Run_with_no_usable_selected_vector_emits_all_null_plot_ranks_and_discloses_it()
     {
-        // arrange — the selected movie has no persisted vector
+        // arrange
         var snapshot = Snapshot(
             Movies(BuildMovie(1, "Selected", genres: ["Drama"]), BuildMovie(2, "Other", genres: ["Drama"])),
             Vectors((2, Vector(1.0))));

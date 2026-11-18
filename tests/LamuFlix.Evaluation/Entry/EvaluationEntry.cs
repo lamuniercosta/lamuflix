@@ -67,10 +67,6 @@ public static class EvaluationEntry
         return EvaluationReplayOptions.Default(seed, readVariable(TmdbSignalsVariable));
     }
 
-    /// <summary>
-    /// True only when <see cref="ModeVariable"/> names a real-library mode. Ordinary `dotnet test`
-    /// without that marker stays inert, so real-library execution is always an explicit opt-in.
-    /// </summary>
     public static bool IsRealLibraryRequested(Func<string, string?> readVariable)
     {
         ArgumentNullException.ThrowIfNull(readVariable);
@@ -78,11 +74,6 @@ public static class EvaluationEntry
         return readVariable(ModeVariable) is LeaveOneOutModeValue or CompareModeValue or QualityModeValue;
     }
 
-    /// <summary>
-    /// Runs the requested real-library mode against a pre-provisioned process environment connection
-    /// string. Returns null when no real-library marker is set. The credential value is validated for
-    /// presence only and is never returned, printed, or logged.
-    /// </summary>
     public static async Task<string?> RunRealLibraryAsync(
         Func<string, string?> readVariable,
         CancellationToken ct)
@@ -160,19 +151,19 @@ public static class EvaluationEntry
         return Task.FromResult<string?>(outputPath);
     }
 
-    private static string ResolveRealLibraryOutput(Func<string, string?> readVariable)
+    internal static string ResolveRealLibraryOutput(Func<string, string?> readVariable)
     {
         var declared = readVariable(OutputPathVariable);
         if (!string.IsNullOrWhiteSpace(declared))
         {
-            return Path.GetFullPath(declared);
+            return EvaluationPaths.ResolveRelative(declared);
         }
 
         return readVariable(ModeVariable) switch
         {
-            LeaveOneOutModeValue => Path.GetFullPath(DefaultLeaveOneOutOutputRelative),
-            QualityModeValue => Path.GetFullPath(DefaultQualityOutputRelative),
-            _ => Path.GetFullPath(DefaultCompareOutput(readVariable)),
+            LeaveOneOutModeValue => EvaluationPaths.Resolve(null, DefaultLeaveOneOutOutputRelative),
+            QualityModeValue => EvaluationPaths.Resolve(null, DefaultQualityOutputRelative),
+            _ => EvaluationPaths.ResolveRelative(DefaultCompareOutput(readVariable)),
         };
     }
 
@@ -252,10 +243,6 @@ public static class EvaluationEntry
     }
 }
 
-/// <summary>
-/// Applies real-library mode and non-secret markers to an environment and restores every prior value
-/// on dispose, so a copyable operator example never leaves real-library mode enabled behind it.
-/// </summary>
 public sealed class RealLibraryModeScope : IDisposable
 {
     private readonly Action<string, string?> write;

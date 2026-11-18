@@ -248,12 +248,12 @@ public sealed class EvaluationEntryModeTests
                    (name, value) => environment[name] = value,
                    markers))
         {
-            // assert within the scope
+            // assert
             environment[EvaluationEntry.ModeVariable].ShouldBe(EvaluationEntry.LeaveOneOutModeValue);
             environment[EvaluationEntry.SelectedIdVariable].ShouldBe("101");
         }
 
-        // assert after the scope
+        // assert
         environment[EvaluationEntry.ModeVariable].ShouldBe(EvaluationEntry.ModeValue);
         environment[EvaluationEntry.OutputPathVariable].ShouldBe("prior.json");
         environment.ContainsKey(EvaluationEntry.SelectedIdVariable).ShouldBeTrue();
@@ -280,5 +280,76 @@ public sealed class EvaluationEntryModeTests
 
         // assert
         environment[EvaluationEntry.ModeVariable].ShouldBeNull();
+    }
+
+    [Fact]
+    public void ResolveRealLibraryOutput_resolves_a_relative_output_under_the_repository_root()
+    {
+        // arrange
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [EvaluationEntry.ModeVariable] = EvaluationEntry.LeaveOneOutModeValue,
+            [EvaluationEntry.OutputPathVariable] = "artifacts/recommendations/custom-loo.json",
+        };
+
+        // act
+        var output = EvaluationEntry.ResolveRealLibraryOutput(name => environment.GetValueOrDefault(name));
+
+        // assert
+        output.ShouldBe(
+            Path.GetFullPath(Path.Combine(EvaluationPaths.Root, "artifacts", "recommendations", "custom-loo.json")));
+    }
+
+    [Fact]
+    public void ResolveRealLibraryOutput_preserves_an_absolute_output_override()
+    {
+        // arrange
+        var expected = Path.Combine(Path.GetTempPath(), "lamuflix-evaluation-" + Guid.NewGuid().ToString("N") + ".json");
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [EvaluationEntry.ModeVariable] = EvaluationEntry.LeaveOneOutModeValue,
+            [EvaluationEntry.OutputPathVariable] = expected,
+        };
+
+        // act
+        var output = EvaluationEntry.ResolveRealLibraryOutput(name => environment.GetValueOrDefault(name));
+
+        // assert
+        output.ShouldBe(Path.GetFullPath(expected));
+    }
+
+    [Fact]
+    public void ResolveRealLibraryOutput_defaults_leave_one_out_under_the_repository_root()
+    {
+        // arrange
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [EvaluationEntry.ModeVariable] = EvaluationEntry.LeaveOneOutModeValue,
+        };
+
+        // act
+        var output = EvaluationEntry.ResolveRealLibraryOutput(name => environment.GetValueOrDefault(name));
+
+        // assert
+        output.ShouldBe(
+            Path.GetFullPath(Path.Combine(EvaluationPaths.Root, "artifacts", "recommendations", "leave-one-out.json")));
+    }
+
+    [Fact]
+    public void ResolveRealLibraryOutput_defaults_compare_under_the_repository_root()
+    {
+        // arrange
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [EvaluationEntry.ModeVariable] = EvaluationEntry.CompareModeValue,
+            [EvaluationEntry.SelectedIdVariable] = "101",
+        };
+
+        // act
+        var output = EvaluationEntry.ResolveRealLibraryOutput(name => environment.GetValueOrDefault(name));
+
+        // assert
+        output.ShouldBe(
+            Path.GetFullPath(Path.Combine(EvaluationPaths.Root, "artifacts", "recommendations", "compare-101.json")));
     }
 }

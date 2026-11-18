@@ -27,10 +27,6 @@ public sealed record RecommendationArtifactList(
     string Status,
     ImmutableArray<RecommendationArtifactRow> Rows)
 {
-    /// <summary>
-    /// Pair-inspect matched entity names for this directed pair, taken from runner-local loaded
-    /// feature names. Empty for capture lists and whole-library compares.
-    /// </summary>
     public ImmutableArray<RecommendationMatchedName> MatchedNames { get; init; } =
         ImmutableArray<RecommendationMatchedName>.Empty;
 }

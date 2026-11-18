@@ -550,8 +550,6 @@ public sealed class RecommendationSnapshotCommandTests : IDisposable
 
     private static void StubSuccessfulLibrary(WireMockServer server, bool reordered = false)
     {
-        // The reordered library moves 66 above 77, enters 88 and drops 55, so one Diff run exercises
-        // all five groups: 66 moved up, 77 moved down, 88 entered, 55 left, 77 reasons changed.
         var forYou = reordered
             ? "[{\"id\":66,\"title\":\"Beta\",\"score\":0.7,\"reasons\":[]},"
               + "{\"id\":77,\"title\":\"Alpha\",\"score\":0.5,\"reasons\":[{\"kind\":\"structural\",\"text\":\"Same director: Ada\"}]},"

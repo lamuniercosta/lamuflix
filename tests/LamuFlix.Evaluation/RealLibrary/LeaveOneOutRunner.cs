@@ -11,13 +11,6 @@ using LamuFlix.Evaluation.Metrics;
 
 namespace LamuFlix.Evaluation.RealLibrary;
 
-/// <summary>
-/// Leave-one-out ranking recovery over the real library. Each liked and watched seed is ranked from a
-/// fresh in-memory copy of one immutable, no-tracking snapshot, so nothing is written back. The real
-/// <see cref="GetForYouRecommendationsQueryHandler"/> does the ranking with take equal to the eligible
-/// candidate count; the HTTP endpoint and its validator are bypassed, which makes the absolute HR/MRR
-/// figures harness-relative rather than comparable to production serving.
-/// </summary>
 public static class LeaveOneOutRunner
 {
     private const string BypassDisclosure =
@@ -87,11 +80,6 @@ public static class LeaveOneOutRunner
         return index < 0 ? 0 : index + 1;
     }
 
-    /// <summary>
-    /// The eligible candidate count for one hidden seed: every other loaded movie the For-you handler
-    /// would rank, i.e. enriched-or-other library rows that are neither watched nor disliked in the
-    /// hidden-seed copy. The hidden seed itself stays an eligible target.
-    /// </summary>
     private static int EligibleCandidateCount(RealLibrarySnapshot snapshot, MovieId seed) =>
         snapshot.Movies.Count(movie => movie.Id == seed || (!movie.IsWatched && !movie.Review.IsDisliked));
 

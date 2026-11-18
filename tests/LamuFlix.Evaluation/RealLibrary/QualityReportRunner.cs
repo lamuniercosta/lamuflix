@@ -11,14 +11,6 @@ using LamuFlix.Core.Options;
 
 namespace LamuFlix.Evaluation.RealLibrary;
 
-/// <summary>
-/// Quality coverage, deterministic band samples and directed judged-pair shares over the real library.
-/// Every enriched movie is scored against every other enriched movie with the production
-/// <see cref="SimilarityScorer"/>, so the four coverage buckets always partition the enriched selected
-/// population. Strong matches come only from supported criteria that already exist: a supported
-/// criterion value of 1 for Collection or Director. Themes is never synthesized before DEV-518, and the
-/// identity-fallback diagnostic entry is never strong-eligible.
-/// </summary>
 public static class QualityReportRunner
 {
     public const string BarsVariable = "LAMUFLIX_EVALUATION_BARS";
@@ -32,10 +24,6 @@ public static class QualityReportRunner
     public static readonly ImmutableArray<double> DefaultBars =
         [0.15, 0.20, 0.225, 0.25, 0.30, 0.35, 0.40];
 
-    /// <summary>
-    /// Strong-match criteria that already exist in production scoring. Themes is deliberately absent:
-    /// it arrives with DEV-518 and must never be synthesized here.
-    /// </summary>
     public static readonly ImmutableArray<string> StrongCriteria = ["Collection", "Director"];
 
     private static readonly ImmutableArray<string> Disclosures =
@@ -120,7 +108,7 @@ public static class QualityReportRunner
     }
 
     private static string ResolveJudgedPairsPath(string? text) =>
-        Path.GetFullPath(string.IsNullOrWhiteSpace(text) ? DefaultJudgedPairsRelative : text);
+        EvaluationPaths.Resolve(text, DefaultJudgedPairsRelative);
 
     private static double ParseFinite(string text, string name)
     {
@@ -165,11 +153,6 @@ public static class QualityReportRunner
         result.Breakdown.Any(criterion =>
             StrongCriteria.Contains(criterion.Name) && criterion.Value == 1.0);
 
-    /// <summary>
-    /// The whole-library Q5 ranking for every enriched selected movie: other enriched movies scored
-    /// with the production scorer, ordered by score descending then id ascending. Bar filtering happens
-    /// after this ranking, never instead of it.
-    /// </summary>
     private sealed class Ranking
     {
         private Ranking(int selectedCount, ImmutableArray<SelectedRanking> selected)
@@ -413,12 +396,13 @@ public static class QualityReportRunner
     }
 }
 
-// ReSharper disable NotAccessedPositionalProperty.Global // report contract consumed by tests and operators
+// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by serializers and tests
 public sealed record QualityParameters(
     ImmutableArray<double> Bars,
     double StrongOnlyBar,
     string JudgedPairsPath);
 
+// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by serializers and tests
 public sealed record QualityReport(
     ImmutableArray<double> Bars,
     double StrongOnlyBar,
@@ -428,6 +412,7 @@ public sealed record QualityReport(
     JudgedPairReport JudgedPairs,
     ImmutableArray<string> Disclosures);
 
+// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by serializers and tests
 public sealed record CoverageLine(
     double Bar,
     string Rule,
@@ -437,11 +422,13 @@ public sealed record CoverageLine(
     double? MedianTenthScore,
     int TenthScoreCount);
 
+// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by serializers and tests
 public sealed record CoverageBuckets(int Zero, int OneToThree, int FourToTen, int AboveTen)
 {
     public int Total => Zero + OneToThree + FourToTen + AboveTen;
 }
 
+// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by serializers and tests
 public sealed record JudgedPairOutcome(
     JudgedPair Pair,
     int Rank,
@@ -451,14 +438,17 @@ public sealed record JudgedPairOutcome(
     bool IsStrong,
     ImmutableArray<double> BarsMet);
 
+// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by serializers and tests
 public sealed record SkippedJudgedPair(JudgedPair Pair, string Reason);
 
+// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by serializers and tests
 public sealed record JudgedPairReport(
     ImmutableArray<JudgedPairOutcome> Valid,
     ImmutableArray<SkippedJudgedPair> Skipped,
     JudgedShares Good,
     JudgedShares Bad);
 
+// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by serializers and tests
 public sealed record JudgedShares(
     int ValidCount,
     double? RankOneShare,
@@ -466,6 +456,7 @@ public sealed record JudgedShares(
     double? StrongShare,
     ImmutableArray<BarShare> BarShares);
 
+// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by serializers and tests
 public sealed record BarShare(double Bar, double? Share);
 
 internal sealed record RankedResult(MovieId MovieId, SimilarityResult Result, int Rank = 0)
@@ -474,4 +465,3 @@ internal sealed record RankedResult(MovieId MovieId, SimilarityResult Result, in
 }
 
 internal sealed record SelectedRanking(MovieId SelectedId, ImmutableArray<RankedResult> Results);
-// ReSharper restore NotAccessedPositionalProperty.Global

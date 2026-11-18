@@ -8,13 +8,6 @@ using System.Text;
 
 namespace LamuFlix.Evaluation.RealLibrary;
 
-/// <summary>
-/// Deterministic band sampling for the quality report. A band is a directed, non-self pair of
-/// enriched movies; pairs are ordered by the full bytes of the SHA-256 digest of the UTF-8 invariant
-/// decimal text <c>selectedId:otherId</c> (no whitespace, no newline), then by ascending ids, so the
-/// same unchanged library always yields the same sample regardless of process, culture or enumeration
-/// order. Undersupplied bands are disclosed with their real available count rather than padded.
-/// </summary>
 public static class BandSampleSelector
 {
     public const int MaxSamplesPerBand = 12;
@@ -22,10 +15,6 @@ public static class BandSampleSelector
 
     private static readonly DirectedPairComparer DigestOrder = new();
 
-    /// <summary>
-    /// The pinned directed encoding digest: SHA-256 over UTF-8 of <c>selectedId + ":" + otherId</c>
-    /// using invariant decimal text with no whitespace and no trailing newline.
-    /// </summary>
     public static byte[] Digest(int selectedId, int otherId)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(selectedId);
@@ -39,10 +28,6 @@ public static class BandSampleSelector
         + ":"
         + otherId.ToString(CultureInfo.InvariantCulture);
 
-    /// <summary>
-    /// Selects up to <see cref="MaxSamplesPerBand"/> pairs from the already-qualified candidates of one
-    /// band, in digest order, and reports the qualified count so undersupply is visible.
-    /// </summary>
     public static BandSample Select(
         string label,
         double? lowerInclusive,
@@ -98,7 +83,7 @@ public static class BandSampleSelector
 
 public sealed record DirectedPair(int SelectedId, int OtherId);
 
-// ReSharper disable NotAccessedPositionalProperty.Global // report contract consumed by tests and operators
+// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by tests and operators
 public sealed record BandSample(
     string Label,
     double? LowerInclusive,
@@ -106,4 +91,3 @@ public sealed record BandSample(
     int AvailableCount,
     ImmutableArray<DirectedPair> Pairs,
     bool Undersupplied);
-// ReSharper restore NotAccessedPositionalProperty.Global
