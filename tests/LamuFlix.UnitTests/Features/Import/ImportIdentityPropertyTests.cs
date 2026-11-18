@@ -205,7 +205,7 @@ public sealed class ImportIdentityPropertyTests
 
             scanner.Scan(Arg.Any<LibraryPath>()).Returns(call => Scanned(call.Arg<LibraryPath>()));
             movies.SnapshotMoviePathsAsync(Arg.Any<CancellationToken>())
-                .Returns(_ => (IReadOnlyList<LibraryPath>)[.. stored]);
+                .Returns(_ => [.. stored]);
             movies.NextIdentityAsync(Arg.Any<CancellationToken>())
                 .Returns(_ => new MovieId(++nextId));
             movies.AddAsync(Arg.Any<Movie>(), Arg.Any<CancellationToken>())
@@ -298,7 +298,7 @@ public sealed class ImportIdentityPropertyTests
             var outbox = Substitute.For<IEnrichmentOutbox>();
 
             movies.SnapshotMoviePathsAsync(Arg.Any<CancellationToken>())
-                .Returns(_ => (IReadOnlyList<LibraryPath>)[]);
+                .Returns(_ => []);
             movies.FindFailedMoviesAsync(Arg.Any<CancellationToken>())
                 .Returns(_ => failed);
             movies.AddAsync(Arg.Any<Movie>(), Arg.Any<CancellationToken>())

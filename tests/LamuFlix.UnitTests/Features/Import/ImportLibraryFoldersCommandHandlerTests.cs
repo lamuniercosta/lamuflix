@@ -457,6 +457,111 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         result.IsValid.ShouldBeFalse();
     }
 
+    [Fact]
+    public async Task HandleAsync_NullCommand_ThrowsArgumentNull()
+    {
+        // arrange
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
+
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed - intentional null exercises the guard clause.
+        var act = () => handler.HandleAsync(null!, TestContext.Current.CancellationToken);
+
+        // assert
+        await Should.ThrowAsync<ArgumentNullException>(act);
+    }
+
+    [Fact]
+    public async Task HandleAsync_AlreadyCancelledToken_ThrowsBeforeImporting()
+    {
+        // arrange
+        using var source = new CancellationTokenSource();
+        await source.CancelAsync();
+        var token = source.Token;
+        movies.SnapshotMoviePathsAsync(Arg.Any<CancellationToken>()).Returns(new List<LibraryPath>());
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
+
+        // act
+        var act = () => handler.HandleAsync(
+            new ImportLibraryFoldersCommand(["Heat"], RetryFailed: false), token);
+
+        // assert
+        await Should.ThrowAsync<OperationCanceledException>(act);
+        await importer.DidNotReceive().ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_DuplicateConflictThenRepeat_CallsImporterOnce()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
+        importer.ImportAsync(new LibraryPath("Heat"), ct)
+            .ThrowsAsync(new DuplicateLibraryPathException("A movie already holds this library path."));
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
+
+        // act
+        var result = await handler.HandleAsync(
+            new ImportLibraryFoldersCommand(["Heat", "Heat"], RetryFailed: false), ct);
+
+        // assert
+        result.Imported.ShouldBe(0);
+        result.Skipped.ShouldBe(2);
+        result.Failures.ShouldBeEmpty();
+        await importer.Received(1).ImportAsync(new LibraryPath("Heat"), ct);
+    }
+
+    [Fact]
+    public async Task HandleAsync_RetryFailedWithCancelledToken_ThrowsBeforeRequeueing()
+    {
+        // arrange
+        using var source = new CancellationTokenSource();
+        await source.CancelAsync();
+        var token = source.Token;
+        movies.SnapshotMoviePathsAsync(Arg.Any<CancellationToken>()).Returns(new List<LibraryPath>());
+        movies.FindFailedMoviesAsync(Arg.Any<CancellationToken>()).Returns([MovieAt(1, EnrichmentStatus.Failed)]);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
+
+        // act
+        var act = () => handler.HandleAsync(
+            new ImportLibraryFoldersCommand([], RetryFailed: true), token);
+
+        // assert
+        await Should.ThrowAsync<OperationCanceledException>(act);
+        outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_FaultResyncsFromSnapshot_SoRepeatReachesImporterAgain()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        movies.SnapshotMoviePathsAsync(Arg.Any<CancellationToken>()).Returns(new List<LibraryPath>());
+        var heatCalls = 0;
+        importer.ImportAsync(new LibraryPath("Heat"), ct).Returns<MovieId>(_ =>
+        {
+            heatCalls++;
+            if (heatCalls == 1)
+            {
+                return new MovieId(1);
+            }
+
+            throw new DuplicateLibraryPathException("A movie already holds this library path.");
+        });
+        importer.ImportAsync(new LibraryPath("Gone"), ct).ThrowsAsync(new InvalidOperationException("boom"));
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
+
+        // act
+        var result = await handler.HandleAsync(
+            new ImportLibraryFoldersCommand(["Heat", "Gone", "Heat"], RetryFailed: false), ct);
+
+        // assert
+        result.Imported.ShouldBe(1);
+        result.Skipped.ShouldBe(1);
+        result.Failures.Select(failure => failure.Folder).ShouldBe(["Gone"]);
+        await importer.Received(2).ImportAsync(new LibraryPath("Heat"), ct);
+    }
+
     private static Movie MovieAt(int id, EnrichmentStatus status) =>
         Movie.Rehydrate(
             new MovieId(id),

@@ -437,6 +437,23 @@ public sealed class ImportMovieFolderCommandHandlerTests
         await movies.Received(1).SaveChangesAsync(ct);
     }
 
+    [Fact]
+    public async Task HandleAsync_AbsolutePathOutsideActiveRoot_ReportsFolderPathError()
+    {
+        // arrange
+        var ct = CancellationToken.None;
+
+        // act
+        var exception = await Should.ThrowAsync<ValidationException>(
+            () => handler.HandleAsync(
+                new ImportMovieFolderCommand(new LibraryPath("D:/elsewhere/Heat (1995)")), ct));
+
+        // assert
+        exception.Errors.ShouldContainKey("folderPath");
+        exception.Errors["folderPath"].ShouldHaveSingleItem().ShouldContain("Folder path must be");
+        exception.Errors["folderPath"].ShouldHaveSingleItem().ShouldContain("Library:RootPath");
+    }
+
     private static IOptions<LibraryOptions> Library(params string[] legacyRoots) =>
         Microsoft.Extensions.Options.Options.Create(new LibraryOptions { RootPath = Root, LegacyRootPaths = legacyRoots });
 
