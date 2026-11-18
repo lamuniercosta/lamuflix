@@ -190,13 +190,13 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
         outcomes.Count(succeeded => succeeded).ShouldBe(1);
         (await CheckAsync(provider)).Status.ShouldBeOneOf(HealthStatus.Healthy, HealthStatus.Degraded);
 
-        var requestsBeforeSuccess = probe.RequestCount;
+        var marker = $"recovery-{Guid.NewGuid():N}";
         probe.StubVectors(OllamaEmbeddingProbe.Vector());
         await provider.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>()
-            .GenerateAsync(["recovery"], cancellationToken: TestContext.Current.CancellationToken);
+            .GenerateAsync([marker], cancellationToken: TestContext.Current.CancellationToken);
         var entry = await CheckAsync(provider);
         entry.Status.ShouldBe(HealthStatus.Healthy);
-        probe.RequestCount.ShouldBe(requestsBeforeSuccess + 1);
+        probe.RequestCountFor(marker).ShouldBe(1);
     }
 
     [Fact]

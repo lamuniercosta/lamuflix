@@ -211,42 +211,47 @@ internal sealed class RabbitMqProbe(RabbitMqFixture fixture) : IAsyncLifetime
     {
         var clock = TimeProvider.System;
         var deadline = clock.GetUtcNow() + Bound;
-        while (clock.GetUtcNow() < deadline)
+        await using var channel = await OpenChannelAsync(cancellationToken);
+        var received = new TaskCompletionSource<ConsumedMessage?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var consumer = new AsyncEventingBasicConsumer(channel);
+        consumer.ReceivedAsync += (_, delivery) =>
         {
-            await using var channel = await OpenChannelAsync(cancellationToken);
-            var received = new TaskCompletionSource<ConsumedMessage?>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var consumer = new AsyncEventingBasicConsumer(channel);
-            consumer.ReceivedAsync += (_, delivery) =>
+            var snapshot = Snapshot(delivery);
+            if (accept(snapshot))
             {
-                var snapshot = Snapshot(delivery);
-                if (accept(snapshot))
+                received.TrySetResult(snapshot);
+            }
+
+            return Task.CompletedTask;
+        };
+        var tag = await channel.BasicConsumeAsync(queue, autoAck: true, consumer, cancellationToken);
+        try
+        {
+            while (clock.GetUtcNow() < deadline)
+            {
+                var remaining = deadline - clock.GetUtcNow();
+                var wait = remaining < PollInterval ? remaining : PollInterval;
+                if (wait <= TimeSpan.Zero)
                 {
-                    received.TrySetResult(snapshot);
+                    break;
                 }
 
-                return Task.CompletedTask;
-            };
-            var tag = await channel.BasicConsumeAsync(queue, autoAck: true, consumer, cancellationToken);
-            try
-            {
-                var delay = Task.Delay(PollInterval, cancellationToken);
-                if (await Task.WhenAny(received.Task, delay) == received.Task)
+                var completed = await Task.WhenAny(received.Task, Task.Delay(wait, cancellationToken));
+                if (completed == received.Task)
                 {
                     return await received.Task;
                 }
-
-                await delay;
             }
-            finally
+
+            return received.Task.IsCompleted ? await received.Task : null;
+        }
+        finally
+        {
+            if (channel.IsOpen)
             {
-                if (channel.IsOpen)
-                {
-                    await channel.BasicCancelAsync(tag, cancellationToken: CancellationToken.None);
-                }
+                await channel.BasicCancelAsync(tag, cancellationToken: CancellationToken.None);
             }
         }
-
-        return null;
     }
 
     private static ConsumedMessage Snapshot(BasicDeliverEventArgs delivery) =>
