@@ -306,12 +306,27 @@ finally {
 
 | Check | Result |
 |---|---|
-| Coverage partition sums verified | _pending_ |
-| Band/strong-only samples stable across repeat (SHA-256 directed encoding) | _pending_ |
-| Judged-pairs path (unversioned) | _pending_ |
-| Known-miss good pair retained unless owner changed | _pending_ |
-| Skipped IDs listed | _pending_ |
-| Output discloses LOO/full-take harness-relative metric validity where applicable | _pending_ |
+| Coverage partition sums verified | _pending_ (runtime, T020) — `QualityReportRunnerTests.Run_every_coverage_line_partitions_the_enriched_selected_population` proves every line's buckets sum to `EnrichmentStatus.Enriched` selected count on fixtures |
+| Band/strong-only samples stable across repeat (SHA-256 directed encoding) | `BandSampleSelectorTests` (golden vectors incl. direction reversal, digest-byte order, cross-enumeration stability) and `QualityReportRunnerTests.Run_repeats_identical_band_samples_on_unchanged_data` pass; runtime repeat remains T020 |
+| Judged-pairs path (unversioned) | owner-authored, never committed; default `artifacts/recommendations/judged-pairs.json`, override `LAMUFLIX_EVALUATION_JUDGED_PAIRS_PATH`; reader rejects malformed/duplicate directed entries |
+| Known-miss good pair retained unless owner changed | Phase B owner input (The Naked Gun → Hot Shots!); never written into the repo by the harness |
+| Skipped IDs listed | `QualityReportRunnerTests.Run_skips_unknown_and_unenriched_ids_visibly_and_excludes_them_from_denominators` (skipped visible with reason, excluded from denominators) |
+| Output discloses LOO/full-take harness-relative metric validity where applicable | Quality output carries its own disclosures (strong criteria limited to Collection/Director, no Themes synthesis, identity-fallback never strong, band `[lower,upper)` SHA-256 sampling, undersupply, directed judged-pair denominators) |
+
+### Phase 7 (T016–T018) quality receipts
+
+| Check | Value |
+|---|---|
+| `tests/LamuFlix.Evaluation/RealLibrary/QualityReportRunner.cs` | coverage table (score-only + score-or-strong per bar), four-bucket partition, ordinal first/tenth medians with counts and nulls, band + strong-only samples, judged-pair evaluation |
+| `tests/LamuFlix.Evaluation/RealLibrary/BandSampleSelector.cs` | `[lower,upper)` bands and strong-only band; SHA-256 over UTF-8 invariant-decimal `selectedId:otherId`; digest-byte order then ascending ids; up to 12 per band; undersupply disclosed |
+| `tests/LamuFlix.Evaluation/RealLibrary/JudgedPairReader.cs` | directed `movieId`/`otherId`/`verdict`/`note?` JSON under ignored `artifacts/recommendations/`; malformed, missing-field, unknown-verdict, self-pair and duplicate directed entries rejected without partial success |
+| `tests/LamuFlix.Evaluation/RealLibrary/QualityReportSerializer.cs` | canonical compact UTF-8, `.partial` then atomic move, invariant finite numerics, explicit nulls, no timestamp/host/elapsed |
+| Strong criteria | `["Collection", "Director"]` only; Themes never synthesized before DEV-518; identity-fallback (`Value` 1.0, `Weight` 0.0) excluded because the strong list names only real criteria |
+| Mode wiring | `LAMUFLIX_EVALUATION_MODE=quality`; optional `LAMUFLIX_EVALUATION_BARS`, `LAMUFLIX_EVALUATION_STRONG_ONLY_BAR`, `LAMUFLIX_EVALUATION_JUDGED_PAIRS_PATH`, `LAMUFLIX_EVALUATION_OUTPUT_PATH`; inert without the marker; presence-only credential |
+| Golden fixture | `RealLibrary/Fixtures/band-sample-hash.golden.json` (seven vectors, two direction-reversal pairs, digest order `3:4, 1:2, 34:12, 2:1, 12:34, 100:250, 7:9`) |
+| `dotnet test tests/LamuFlix.Evaluation --filter "FullyQualifiedName~QualityReportRunnerTests\|FullyQualifiedName~BandSampleSelectorTests"` | 55 passed, 0 failed |
+| `dotnet test tests/LamuFlix.Evaluation` (full project) | 203 passed, 0 failed (synthetic publish unchanged) |
+| Home-library judgments/measurements | **open** — Phase B (T020); no home IDs, verdicts or numbers invented here |
 
 ## 6. Scrub (T021)
 

@@ -18,6 +18,7 @@ public static class EvaluationEntry
     public const string ModeValue = "publish";
     public const string LeaveOneOutModeValue = "leave-one-out";
     public const string CompareModeValue = "compare";
+    public const string QualityModeValue = "quality";
     public const string FixturePathVariable = "LAMUFLIX_EVALUATION_FIXTURE_PATH";
     public const string OutputPathVariable = "LAMUFLIX_EVALUATION_OUTPUT_PATH";
     public const string SeedVariable = "LAMUFLIX_EVALUATION_SEED";
@@ -26,6 +27,7 @@ public static class EvaluationEntry
     public const string OtherIdVariable = "LAMUFLIX_EVALUATION_OTHER_ID";
 
     private const string DefaultLeaveOneOutOutputRelative = "artifacts/recommendations/leave-one-out.json";
+    private const string DefaultQualityOutputRelative = "artifacts/recommendations/quality.json";
     private const string DefaultCompareDirectoryRelative = "artifacts/recommendations";
 
     public static bool IsRequested(Func<string, string?> readVariable)
@@ -73,7 +75,7 @@ public static class EvaluationEntry
     {
         ArgumentNullException.ThrowIfNull(readVariable);
 
-        return readVariable(ModeVariable) is LeaveOneOutModeValue or CompareModeValue;
+        return readVariable(ModeVariable) is LeaveOneOutModeValue or CompareModeValue or QualityModeValue;
     }
 
     /// <summary>
@@ -98,9 +100,12 @@ public static class EvaluationEntry
         await using var db = RealLibrarySnapshotLoader.OpenContext(connectionString);
         var snapshot = await RealLibrarySnapshotLoader.LoadAsync(db, ct);
 
-        return readVariable(ModeVariable) == LeaveOneOutModeValue
-            ? await RunLeaveOneOutAsync(snapshot, outputPath, ct)
-            : await RunCompareAsync(snapshot, readVariable, outputPath, ct);
+        return readVariable(ModeVariable) switch
+        {
+            LeaveOneOutModeValue => await RunLeaveOneOutAsync(snapshot, outputPath, ct),
+            QualityModeValue => RunQuality(snapshot, readVariable, outputPath),
+            _ => await RunCompareAsync(snapshot, readVariable, outputPath, ct),
+        };
     }
 
     private static async Task<string?> RunLeaveOneOutAsync(
@@ -114,6 +119,20 @@ public static class EvaluationEntry
             TimeProvider.System,
             ct);
         LeaveOneOutReportSerializer.WriteToFile(result, outputPath);
+
+        return outputPath;
+    }
+
+    private static string RunQuality(
+        RealLibrarySnapshot snapshot,
+        Func<string, string?> readVariable,
+        string outputPath)
+    {
+        var report = QualityReportRunner.Run(
+            snapshot,
+            new RecommendationOptions(),
+            QualityReportRunner.ReadParameters(readVariable));
+        QualityReportSerializer.WriteToFile(report, outputPath);
 
         return outputPath;
     }
@@ -145,9 +164,12 @@ public static class EvaluationEntry
             return Path.GetFullPath(declared);
         }
 
-        return readVariable(ModeVariable) == LeaveOneOutModeValue
-            ? Path.GetFullPath(DefaultLeaveOneOutOutputRelative)
-            : Path.GetFullPath(DefaultCompareOutput(readVariable));
+        return readVariable(ModeVariable) switch
+        {
+            LeaveOneOutModeValue => Path.GetFullPath(DefaultLeaveOneOutOutputRelative),
+            QualityModeValue => Path.GetFullPath(DefaultQualityOutputRelative),
+            _ => Path.GetFullPath(DefaultCompareOutput(readVariable)),
+        };
     }
 
     private static string DefaultCompareOutput(Func<string, string?> readVariable)
