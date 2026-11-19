@@ -627,9 +627,13 @@ describe('MovieFeedbackActions sibling re-enable after Watched (DEV-524)', () =>
       unblockRefresh = () => resolve([]);
     });
     let reviewCalls = 0;
+    let watchedCalls = 0;
     const reviewGate = deferred();
     server.use(
-      http.post('*/api/movies/:id/watched', () => new HttpResponse(null, { status: 500 })),
+      http.post('*/api/movies/:id/watched', () => {
+        watchedCalls += 1;
+        return new HttpResponse(null, { status: watchedCalls === 1 ? 500 : 204 });
+      }),
       http.put('*/api/movies/:id/review', async () => {
         reviewCalls += 1;
         await reviewGate.promise;
@@ -664,6 +668,16 @@ describe('MovieFeedbackActions sibling re-enable after Watched (DEV-524)', () =>
       expect(screen.getByRole('button', { name: LIKE_MARKED })).toBeInTheDocument(),
     );
     expect(screen.getByRole('alert')).toHaveTextContent(MOVIE_FEEDBACK_SAVE_ERROR);
+
+    fireEvent.click(screen.getByRole('button', { name: RETRY_SAVE }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: WATCHED_MARKED })).toBeEnabled());
+    expect(screen.getByRole('button', { name: LIKE_MARKED })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(watchedCalls).toBe(2);
   });
 
   it('re-enables the Like sibling after a failed Watched while the refresh is still in flight', async () => {
