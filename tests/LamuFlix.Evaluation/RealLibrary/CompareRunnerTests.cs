@@ -35,6 +35,8 @@ public sealed class CompareRunnerTests
         rows[1].Score.ShouldBeGreaterThanOrEqualTo(rows[2].Score);
         report.IsPairInspect.ShouldBeFalse();
         report.SelectedVectorUsable.ShouldBeTrue();
+        report.SelectedId.ShouldBe(1);
+        report.OtherId.ShouldBeNull();
     }
 
     [Fact]
@@ -197,6 +199,8 @@ public sealed class CompareRunnerTests
         var rows = report.Envelope.Lists[0].Rows;
         rows.ShouldHaveSingleItem().MovieId.ShouldBe(2);
         report.IsPairInspect.ShouldBeTrue();
+        report.SelectedId.ShouldBe(1);
+        report.OtherId.ShouldBe(2);
         report.Envelope.Targets.ShouldBe([1, 2]);
 
         report.MatchedNames.ShouldContain(new RecommendationMatchedName("Director", "Ada"));
