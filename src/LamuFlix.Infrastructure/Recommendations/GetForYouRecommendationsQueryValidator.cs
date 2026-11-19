@@ -16,5 +16,6 @@ public sealed class GetForYouRecommendationsQueryValidator : AbstractValidator<G
 
         RuleFor(query => query.Take).GreaterThan(0);
         RuleFor(query => query.Take).LessThanOrEqualTo(candidatePoolSize);
+        RuleFor(query => query.Offset).GreaterThanOrEqualTo(0);
     }
 }

@@ -37,6 +37,82 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     private readonly IRecommendationProfileSource profileSource = Substitute.For<IRecommendationProfileSource>();
     private readonly List<MovieQuery> browseQueries = [];
 
+    [Fact]
+    public async Task HandleAsync_ExcludingEligibleMoviePromotesNextMovieAndPagesWithHasMore()
+    {
+        var first = NewMovie(2, genres: ["Drama"], collectionId: 44);
+        var second = NewMovie(3, genres: ["Drama"], collectionId: 44);
+        var handler = NewHandler();
+        ArrangeLibrary(first, second);
+        ArrangeProfile(Inputs(PlayedHistory(90, "Drama")), Profile(("Drama", 1.0)));
+
+        var result = await handler.HandleAsync(
+            new GetForYouRecommendationsQuery(1, excludedMovieIds: ImmutableHashSet.Create(first.Id)),
+            CancellationToken.None);
+
+        result.Items.Select(item => item.Summary.Id).ShouldBe([second.Id]);
+        result.HasMore.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task HandleAsync_HugeOffsetReturnsEmptyWithoutMmrSelection()
+    {
+        var handler = NewHandler();
+        ArrangeLibrary(NewMovie(2, genres: ["Drama"]));
+        ArrangeProfile(Inputs(PlayedHistory(90, "Drama")), Profile(("Drama", 1.0)));
+
+        var result = await handler.HandleAsync(
+            new GetForYouRecommendationsQuery(10, int.MaxValue),
+            CancellationToken.None);
+
+        result.Items.ShouldBeEmpty();
+        result.HasMore.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task HandleAsync_PagesAreStableDisjointSlicesWithExactHasMoreBoundary()
+    {
+        var handler = NewHandler();
+        ArrangeLibrary(
+            NewMovie(4, genres: ["Drama"]),
+            NewMovie(2, genres: ["Drama"], collectionId: 44),
+            NewMovie(3, genres: ["Drama"], collectionId: 44),
+            NewMovie(5, genres: ["Drama"], collectionId: 45));
+        ArrangeProfile(Inputs(PlayedHistory(90, "Drama")), Profile(("Drama", 1.0)));
+
+        var firstPage = await handler.HandleAsync(new GetForYouRecommendationsQuery(2), CancellationToken.None);
+        var secondPage = await handler.HandleAsync(new GetForYouRecommendationsQuery(2, 2), CancellationToken.None);
+        var beyondEnd = await handler.HandleAsync(new GetForYouRecommendationsQuery(2, 3), CancellationToken.None);
+        var fullRanking = await handler.HandleAsync(new GetForYouRecommendationsQuery(3), CancellationToken.None);
+
+        firstPage.Items.Count.ShouldBe(2);
+        firstPage.HasMore.ShouldBeTrue();
+        secondPage.Items.Count.ShouldBe(1);
+        secondPage.HasMore.ShouldBeFalse();
+        beyondEnd.Items.ShouldBeEmpty();
+        beyondEnd.HasMore.ShouldBeFalse();
+        firstPage.Items.Select(item => item.Summary.Id)
+            .Intersect(secondPage.Items.Select(item => item.Summary.Id)).ShouldBeEmpty();
+        firstPage.Items.Concat(secondPage.Items).Select(item => item.Summary.Id).ShouldNotContain(new MovieId(3));
+        firstPage.Items.Concat(secondPage.Items).Select(item => item.Summary.Id)
+            .ShouldBe(fullRanking.Items.Select(item => item.Summary.Id));
+    }
+
+    [Fact]
+    public async Task HandleAsync_UnknownValidExclusionDoesNotChangeResults()
+    {
+        var handler = NewHandler();
+        ArrangeLibrary(NewMovie(2, genres: ["Drama"]), NewMovie(3, genres: ["Drama"]));
+        ArrangeProfile(Inputs(PlayedHistory(90, "Drama")), Profile(("Drama", 1.0)));
+
+        var baseline = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+        var withUnknownId = await handler.HandleAsync(
+            new GetForYouRecommendationsQuery(excludedMovieIds: ImmutableHashSet.Create(new MovieId(999))),
+            CancellationToken.None);
+
+        withUnknownId.Items.Select(item => item.Summary.Id).ShouldBe(baseline.Items.Select(item => item.Summary.Id));
+    }
+
     public GetForYouRecommendationsQueryHandlerTests()
     {
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(Counts));
@@ -1213,7 +1289,8 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
         return handler
             .HandleAsync(new GetForYouRecommendationsQuery(take), CancellationToken.None)
             .GetAwaiter()
-            .GetResult();
+            .GetResult()
+            .Items;
     }
 
     private static TasteProfile ProfileWithDramaPreference() =>
@@ -1289,7 +1366,8 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
         int id,
         string[]? genres = null,
         bool isWatched = false,
-        bool isNotInterested = false)
+        bool isNotInterested = false,
+        int? collectionId = null)
     {
         var title = $"Movie {id}";
 
@@ -1304,7 +1382,9 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
                 genres: genres,
                 directors: null,
                 actors: null,
-                writers: null),
+                writers: null,
+                collectionId: collectionId,
+                collectionName: collectionId is null ? null : $"Collection {collectionId}"),
             EnrichmentStatus.Enriched,
             Now,
             1,

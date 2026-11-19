@@ -12,6 +12,21 @@ public sealed class GetForYouRecommendationsQueryTests
 
         // assert
         query.Take.ShouldBe(10);
+        query.Offset.ShouldBe(0);
+        query.ExcludedMovieIds.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Constructor_ExclusionsAreDeduplicatedAndOffsetIsRetained()
+    {
+        var movieId = new LamuFlix.Core.Domain.MovieId(7);
+
+        var query = new GetForYouRecommendationsQuery(
+            offset: 3,
+            excludedMovieIds: System.Collections.Immutable.ImmutableHashSet.Create(movieId, movieId));
+
+        query.Offset.ShouldBe(3);
+        query.ExcludedMovieIds.ShouldBe([movieId]);
     }
 
     [Theory]

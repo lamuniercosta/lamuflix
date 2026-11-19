@@ -22,6 +22,8 @@ internal static class RecommendationEndpoints
 {
     private const int DefaultTake = 10;
     private const string TakeKey = "take";
+    private const string OffsetKey = "offset";
+    private const string ExcludeKey = "exclude";
 
     internal static RouteGroupBuilder MapRecommendationEndpoints(this RouteGroupBuilder api)
     {
@@ -35,27 +37,30 @@ internal static class RecommendationEndpoints
         api.MapGet("/recommendations/for-you", GetForYouRecommendationsAsync)
             .WithName("GetForYouRecommendations")
             .WithSummary("Get personalized recommendations from the taste profile")
-            .Produces<List<RecommendedMovieDto>>()
+            .Produces<ForYouRecommendationsPageDto>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         return api;
     }
 
-    private static async Task<Results<Ok<List<RecommendedMovieDto>>, BadRequest>> GetForYouRecommendationsAsync(
+    private static async Task<Results<Ok<ForYouRecommendationsPageDto>, BadRequest>> GetForYouRecommendationsAsync(
         HttpRequest request,
-        IQueryHandler<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>> handler,
+        IQueryHandler<GetForYouRecommendationsQuery, ForYouRecommendationsPage> handler,
         IOptions<RecommendationOptions> options,
         CancellationToken cancellationToken)
     {
         var take = ParseTake(request.Query, options.Value.CandidatePoolSize);
+        var offset = ParseOffset(request.Query);
+        var excludedMovieIds = ParseExcludedMovieIds(request.Query, options.Value.MaxExcludeCount);
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var recommended = await handler.HandleAsync(new GetForYouRecommendationsQuery(take), cancellationToken);
+        var page = await handler.HandleAsync(
+            new GetForYouRecommendationsQuery(take, offset, excludedMovieIds), cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        return TypedResults.Ok<List<RecommendedMovieDto>>([.. recommended.Select(ToDto)]);
+        return TypedResults.Ok(new ForYouRecommendationsPageDto([.. page.Items.Select(ToDto)], page.HasMore));
     }
 
     private static async Task<Results<Ok<List<RecommendedMovieDto>>, BadRequest, NotFound>> GetRecommendationsAsync(
@@ -116,6 +121,50 @@ internal static class RecommendationEndpoints
         }
 
         return take;
+    }
+
+    private static int ParseOffset(IQueryCollection query)
+    {
+        if (!query.TryGetValue(OffsetKey, out var values))
+        {
+            return 0;
+        }
+
+        if (values.Count != 1
+            || !int.TryParse(values[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var offset)
+            || offset < 0)
+        {
+            throw new BadHttpRequestException($"'{OffsetKey}' must be a single nonnegative integer.");
+        }
+
+        return offset;
+    }
+
+    private static ImmutableHashSet<MovieId> ParseExcludedMovieIds(IQueryCollection query, int maxExcludeCount)
+    {
+        if (!query.TryGetValue(ExcludeKey, out var values))
+        {
+            return ImmutableHashSet<MovieId>.Empty;
+        }
+
+        if (values.Count > maxExcludeCount)
+        {
+            throw new BadHttpRequestException($"'{ExcludeKey}' must contain no more than the configured maximum number of values.");
+        }
+
+        var ids = ImmutableHashSet.CreateBuilder<MovieId>();
+        foreach (var value in values)
+        {
+            if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)
+                || !MovieId.TryCreate(id, out var movieId))
+            {
+                throw new BadHttpRequestException($"'{ExcludeKey}' values must be valid movie IDs.");
+            }
+
+            ids.Add(movieId);
+        }
+
+        return ids.ToImmutable();
     }
 
     private static RecommendedMovieReasonDto ToReasonDto(Reason reason) =>

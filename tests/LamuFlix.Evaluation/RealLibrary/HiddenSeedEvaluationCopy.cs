@@ -72,7 +72,7 @@ public sealed class HiddenSeedEvaluationCopy
     {
         ArgumentOutOfRangeException.ThrowIfNegative(take);
 
-        return await CreateHandler().HandleAsync(new GetForYouRecommendationsQuery(take), ct);
+        return (await CreateHandler().HandleAsync(new GetForYouRecommendationsQuery(take), ct)).Items;
     }
 
     private GetForYouRecommendationsQueryHandler CreateHandler() =>

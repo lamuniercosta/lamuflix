@@ -161,9 +161,9 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                 typeof(ImmutableList<RecommendedMovie>)
             },
             {
-                typeof(IQueryHandler<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>>),
+                typeof(IQueryHandler<GetForYouRecommendationsQuery, ForYouRecommendationsPage>),
                 typeof(GetForYouRecommendationsQuery),
-                typeof(ImmutableList<RecommendedMovie>)
+                typeof(ForYouRecommendationsPage)
             },
         };
 

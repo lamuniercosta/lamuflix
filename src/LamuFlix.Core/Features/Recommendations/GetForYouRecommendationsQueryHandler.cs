@@ -20,22 +20,26 @@ public sealed class GetForYouRecommendationsQueryHandler(
     IRecommendationProfileSource profileSource,
     GenreWeightsCalculator genreWeightsCalculator,
     IOptions<RecommendationOptions> options)
-    : IQueryHandler<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>>
+    : IQueryHandler<GetForYouRecommendationsQuery, ForYouRecommendationsPage>
 {
     private const int BrowsePageSize = 100;
 
-    public async Task<ImmutableList<RecommendedMovie>> HandleAsync(
+    public async Task<ForYouRecommendationsPage> HandleAsync(
         GetForYouRecommendationsQuery query,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         var eligible = await AcquireEligibleMoviesAsync(cancellationToken);
+        if (query.ExcludedMovieIds is { Count: > 0 } excludedMovieIds)
+        {
+            eligible.RemoveAll(movie => excludedMovieIds.Contains(movie.Id));
+        }
         cancellationToken.ThrowIfCancellationRequested();
 
         if (eligible.Count == 0)
         {
-            return ImmutableList<RecommendedMovie>.Empty;
+            return new ForYouRecommendationsPage(ImmutableList<RecommendedMovie>.Empty, false);
         }
 
         var profile = await profileSource.GetTasteProfileAsync(cancellationToken);
@@ -49,7 +53,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
 
         if (!HasPositiveSignal(profileInputs.Movies))
         {
-            return ImmutableList<RecommendedMovie>.Empty;
+            return new ForYouRecommendationsPage(ImmutableList<RecommendedMovie>.Empty, false);
         }
 
         var genreWeights = await genreWeightsCalculator.GetAsync(cancellationToken);
@@ -66,14 +70,23 @@ public sealed class GetForYouRecommendationsQueryHandler(
 
         scored = ApplyCollectionCut(scored, recommendationOptions.MaxPerCollection);
 
+        if (query.Offset >= scored.Count)
+        {
+            return new ForYouRecommendationsPage(ImmutableList<RecommendedMovie>.Empty, false);
+        }
+
         var relevanceOffset = BlendScorer.NonNegativeOffset(scored.Select(item => item.Result.Score));
+        var take = Math.Min(query.Take, recommendationOptions.CandidatePoolSize);
+        var selectionLimit = (int)Math.Min(
+            (long)scored.Count,
+            (long)query.Offset + take + 1);
         var selectedIds = MmrSelector.Select(
             [.. scored.Select(item => new MmrCandidate(
                 item.Movie.Id,
                 item.Result.Score + relevanceOffset,
                 item.Features,
                 item.BestSeedId))],
-            Math.Min(query.Take, recommendationOptions.CandidatePoolSize),
+            selectionLimit,
             recommendationOptions.MmrLambda,
             recommendationOptions.Weights,
             genreWeights,
@@ -82,15 +95,17 @@ public sealed class GetForYouRecommendationsQueryHandler(
 
         var byId = scored.ToDictionary(item => item.Movie.Id);
 
-        return
-        [
-            .. selectedIds
+        var items = selectedIds
                 .Select(id => byId[id])
+                .Skip(query.Offset)
+                .Take(take)
                 .Select(item => new RecommendedMovie(
                     MovieSummaryMapper.From(item.Movie),
                     item.Result.Score,
-                    item.Result.Reasons)),
-        ];
+                    item.Result.Reasons))
+                .ToImmutableList();
+
+        return new ForYouRecommendationsPage(items, selectedIds.Count > (long)query.Offset + take);
     }
 
     private async Task<List<Movie>> AcquireEligibleMoviesAsync(CancellationToken cancellationToken)
