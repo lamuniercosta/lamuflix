@@ -619,6 +619,53 @@ describe('MovieFeedbackActions sibling re-enable after Watched (DEV-524)', () =>
     unblockRefresh();
   });
 
+  it('keeps the failed Watched notice after Like starts during the refresh (F1)', async () => {
+    // arrange
+    let refreshes = 0;
+    let unblockRefresh!: () => void;
+    const refreshGate = new Promise<unknown>((resolve) => {
+      unblockRefresh = () => resolve([]);
+    });
+    let reviewCalls = 0;
+    const reviewGate = deferred();
+    server.use(
+      http.post('*/api/movies/:id/watched', () => new HttpResponse(null, { status: 500 })),
+      http.put('*/api/movies/:id/review', async () => {
+        reviewCalls += 1;
+        await reviewGate.promise;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const client = makeQueryClient();
+    const clients: MovieFeedbackClients = { libraryClient: client, detailsClient: client };
+    watch(client, ['browseMovies'], () => {
+      refreshes += 1;
+      return refreshes === 1 ? Promise.resolve({ items: [] }) : refreshGate;
+    });
+    renderActions(client, { clients });
+    await waitFor(() => expect(refreshes).toBe(1));
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: WATCHED_IDLE }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(MOVIE_FEEDBACK_SAVE_ERROR);
+    fireEvent.click(screen.getByRole('button', { name: LIKE_IDLE }));
+
+    // assert
+    await waitFor(() => expect(reviewCalls).toBe(1));
+    expect(screen.getByRole('alert')).toHaveTextContent(MOVIE_FEEDBACK_SAVE_ERROR);
+    expect(screen.getByRole('button', { name: RETRY_SAVE })).toBeInTheDocument();
+
+    reviewGate.resolve();
+    await waitFor(() => expect(screen.getByRole('button', { name: LIKE_MARKED })).toBeEnabled());
+    expect(screen.getByRole('alert')).toHaveTextContent(MOVIE_FEEDBACK_SAVE_ERROR);
+
+    unblockRefresh();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: LIKE_MARKED })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(MOVIE_FEEDBACK_SAVE_ERROR);
+  });
+
   it('re-enables the Like sibling after a failed Watched while the refresh is still in flight', async () => {
     // arrange
     let refreshes = 0;
