@@ -190,16 +190,18 @@ function dispatch(
   clients: MovieFeedbackClients,
 ): void {
   const optimistic = optimisticFlags(action, before);
-  const run = (entries.get(key)?.run ?? 0) + 1;
+  const prev = entries.get(key);
+  const run = (prev?.run ?? 0) + 1;
+  const preserveFailure = prev?.error ? prev : null;
 
   write(key, {
     ...optimistic,
     pending: action,
     reconciling: false,
-    error: null,
+    error: preserveFailure ? preserveFailure.error : null,
     refreshError: null,
-    lastAction: action,
-    before,
+    lastAction: preserveFailure?.lastAction ?? action,
+    before: preserveFailure?.before ?? before,
     broadRefresh: true,
     run,
   });
@@ -225,12 +227,14 @@ function dispatch(
       return;
     }
 
+    const preservesUnrelatedFailure =
+      current.error !== null && current.lastAction !== current.pending;
     write(key, {
       ...current,
       ...optimistic,
       pending: null,
       reconciling: true,
-      error: null,
+      error: preservesUnrelatedFailure ? current.error : null,
       broadRefresh: true,
     });
     await reconcile(key, movieId, clients, true, true, run);
