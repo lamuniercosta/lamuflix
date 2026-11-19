@@ -9,4 +9,7 @@ public sealed record SimilarityResult(double Score, ImmutableList<Reason> Reason
 }
 // ReSharper restore NotAccessedPositionalProperty.Global
 
-public sealed record CriterionContribution(string Name, double Value, double Weight, double Contribution);
+public sealed record CriterionContribution(string Name, double Value, double Weight, double Contribution)
+{
+    public ImmutableList<string> Evidence { get; init; } = ImmutableList<string>.Empty;
+}

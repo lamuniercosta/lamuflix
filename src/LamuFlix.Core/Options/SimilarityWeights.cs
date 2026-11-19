@@ -10,28 +10,19 @@ public sealed record SimilarityWeights
     public double Director { get; init; } = 3.0;
 
     [Range(0.0, double.MaxValue)]
-    public double Writers { get; init; } = 2.0;
+    public double Themes { get; init; } = 3.0;
+
+    [Range(0.0, double.MaxValue)]
+    public double Plot { get; init; } = 2.0;
 
     [Range(0.0, double.MaxValue)]
     public double Cast { get; init; } = 2.0;
 
     [Range(0.0, double.MaxValue)]
-    public double Genres { get; init; } = 3.0;
+    public double Genres { get; init; } = 2.0;
 
     [Range(0.0, double.MaxValue)]
-    public double YearProximity { get; init; } = 1.0;
-
-    [Range(0.0, double.MaxValue)]
-    public double RuntimeProximity { get; init; } = 0.5;
-
-    [Range(0.0, double.MaxValue)]
-    public double RatingBoost { get; init; } = 0.5;
-
-    [Range(0.0, double.MaxValue)]
-    public double Keyword { get; init; } = 1.0;
-
-    [Range(0.0, double.MaxValue)]
-    public double Collection { get; init; } = 2.0;
+    public double Collection { get; init; } = 3.0;
 
     [Range(0.0, double.MaxValue)]
     public double ReviewPlotWeight { get; init; } = 1.0;

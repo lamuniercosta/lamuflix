@@ -37,7 +37,22 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public double RecencyDecayLambda { get; init; } = Math.Log(2.0) / 30.0;
 
-    public double SimilarStoryThreshold { get; init; } = 0.5;
+    public IReadOnlyList<string>? ThemeStoplist { get; init; } =
+        ["aftercreditsstinger", "duringcreditsstinger", "sequel", "3d animation"];
+
+    public int MinimumKeywordMovies { get; init; } = 2;
+
+    public double ThemesCeiling { get; init; } = 0.35;
+
+    public double PlotFloor { get; init; } = 0.16;
+
+    public double PlotCeiling { get; init; } = 0.45;
+
+    public double ThemesDisplayThreshold { get; init; } = 0.3;
+
+    public double PlotDisplayThreshold { get; init; } = 0.5;
+
+    public double GenreDisplayThreshold { get; init; } = 0.5;
 
     public double BlendSelectedWeight { get; init; } = 1.0;
 
@@ -83,6 +98,11 @@ public sealed record RecommendationOptions : IValidatableObject
             yield return result;
         }
 
+        foreach (var result in ValidateScoring())
+        {
+            yield return result;
+        }
+
         foreach (var result in ValidatePool())
         {
             yield return result;
@@ -91,11 +111,6 @@ public sealed record RecommendationOptions : IValidatableObject
 
     private IEnumerable<ValidationResult> ValidateBlend()
     {
-        foreach (var result in ValidateThreshold())
-        {
-            yield return result;
-        }
-
         foreach (var result in ValidateBlendCoefficients())
         {
             yield return result;
@@ -140,6 +155,53 @@ public sealed record RecommendationOptions : IValidatableObject
         }
     }
 
+    private IEnumerable<ValidationResult> ValidateScoring()
+    {
+        if (Weights is not null)
+        {
+            var total = Weights.Collection + Weights.Director + Weights.Themes + Weights.Plot + Weights.Cast + Weights.Genres;
+            if (!double.IsFinite(total) || total <= 0.0)
+            {
+                yield return new ValidationResult(
+                    "The sum of the six similarity weights must be finite and greater than 0.0.",
+                    [nameof(Weights)]);
+            }
+        }
+
+        if (!double.IsFinite(ThemesCeiling) || ThemesCeiling <= 0.0)
+        {
+            yield return new ValidationResult("ThemesCeiling must be finite and greater than 0.0.", [nameof(ThemesCeiling)]);
+        }
+
+        if (!double.IsFinite(PlotFloor) || PlotFloor is < -1.0 or > 1.0)
+        {
+            yield return new ValidationResult("PlotFloor must be finite and between -1.0 and 1.0.", [nameof(PlotFloor)]);
+        }
+
+        if (!double.IsFinite(PlotCeiling) || PlotCeiling is < -1.0 or > 1.0 || PlotFloor >= PlotCeiling)
+        {
+            yield return new ValidationResult("PlotCeiling must be finite, between -1.0 and 1.0, and greater than PlotFloor.", [nameof(PlotCeiling)]);
+        }
+
+        foreach (var (value, name) in new[]
+                 {
+                     (ThemesDisplayThreshold, nameof(ThemesDisplayThreshold)),
+                     (PlotDisplayThreshold, nameof(PlotDisplayThreshold)),
+                     (GenreDisplayThreshold, nameof(GenreDisplayThreshold)),
+                 })
+        {
+            if (!double.IsFinite(value) || value is < 0.0 or > 1.0)
+            {
+                yield return new ValidationResult($"{name} must be finite and between 0.0 and 1.0.", [name]);
+            }
+        }
+
+        if (MinimumKeywordMovies < 1)
+        {
+            yield return new ValidationResult("MinimumKeywordMovies must be at least 1.", [nameof(MinimumKeywordMovies)]);
+        }
+    }
+
     private IEnumerable<ValidationResult> ValidatePool()
     {
         if (CandidatePoolSize < Take)
@@ -156,19 +218,6 @@ public sealed record RecommendationOptions : IValidatableObject
         }
     }
 
-    private IEnumerable<ValidationResult> ValidateThreshold()
-    {
-        if (!double.IsFinite(SimilarStoryThreshold) || SimilarStoryThreshold is < -1.0 or > 1.0)
-        {
-            yield return new ValidationResult(
-                string.Format(
-                    CultureInfo.InvariantCulture,
-                    "{0} must be a finite value between -1 and 1; got {1}.",
-                    nameof(SimilarStoryThreshold),
-                    SimilarStoryThreshold),
-                [nameof(SimilarStoryThreshold)]);
-        }
-    }
 
     private IEnumerable<ValidationResult> ValidateBlendCoefficients()
     {
