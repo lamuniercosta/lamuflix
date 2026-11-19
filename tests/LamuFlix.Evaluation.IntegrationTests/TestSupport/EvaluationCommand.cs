@@ -80,7 +80,7 @@ internal static class EvaluationCommand
             throw new TimeoutException(scriptName + " did not finish within " + Timeout);
         }
 
-        var readers = new Task<string>[] { standardOutput, standardError };
+        Task[] readers = [standardOutput, standardError];
         if (!Task.WaitAll(readers, StreamDrainTimeout))
         {
             process.Kill(entireProcessTree: true);
