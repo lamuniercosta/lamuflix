@@ -105,19 +105,15 @@ public static class MmrSelector
                 continue;
             }
 
-            var candidate = candidates[index];
-            if ((candidate.BestSeedId is { } seedId && seedCounts.GetValueOrDefault(seedId) >= maxPerBestSeed)
-                || (candidate.Features.CollectionId is { } collectionId
-                    && collectionCounts.GetValueOrDefault(collectionId) >= maxPerCollection))
+            if (IsCapped(candidates[index], seedCounts, collectionCounts, maxPerBestSeed, maxPerCollection))
             {
                 selected[index] = true;
                 continue;
             }
 
-            var objective = (lambda * candidates[index].Relevance)
-                - ((1.0 - lambda) * maximumRedundancy[index]);
+            var objective = Objective(candidates[index].Relevance, maximumRedundancy[index], lambda);
 
-            if (bestIndex < 0 || IsBetter(candidates[index], objective, candidates[bestIndex], bestObjective))
+            if (ShouldReplace(bestIndex, candidates[index], objective, candidates, bestObjective))
             {
                 bestIndex = index;
                 bestObjective = objective;
@@ -126,6 +122,34 @@ public static class MmrSelector
 
         return bestIndex;
     }
+
+    private static bool IsCapped(
+        MmrCandidate candidate,
+        Dictionary<MovieId, int> seedCounts,
+        Dictionary<int, int> collectionCounts,
+        int maxPerBestSeed,
+        int maxPerCollection)
+    {
+        if (candidate.BestSeedId is { } seedId
+            && seedCounts.GetValueOrDefault(seedId) >= maxPerBestSeed)
+        {
+            return true;
+        }
+
+        return candidate.Features.CollectionId is { } collectionId
+            && collectionCounts.GetValueOrDefault(collectionId) >= maxPerCollection;
+    }
+
+    private static double Objective(double relevance, double redundancy, double lambda) =>
+        (lambda * relevance) - ((1.0 - lambda) * redundancy);
+
+    private static bool ShouldReplace(
+        int bestIndex,
+        MmrCandidate candidate,
+        double objective,
+        IReadOnlyList<MmrCandidate> candidates,
+        double bestObjective) =>
+        bestIndex < 0 || IsBetter(candidate, objective, candidates[bestIndex], bestObjective);
 
     private static bool IsBetter(
         MmrCandidate candidate,
