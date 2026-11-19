@@ -61,6 +61,10 @@ internal static class EvaluationCommand
             StandardErrorEncoding = Encoding.UTF8,
         };
 
+        startInfo.Environment["DOTNET_CLI_USE_MSBUILD_SERVER"] = "false";
+        startInfo.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+        startInfo.Environment["UseSharedCompilation"] = "false";
+
         startInfo.ArgumentList.Add("-NoProfile");
         startInfo.ArgumentList.Add("-File");
         startInfo.ArgumentList.Add(scriptPath);
