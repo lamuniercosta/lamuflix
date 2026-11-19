@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -447,7 +447,7 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
         using var stub = LoopbackWireMock.StartHttps();
-        stub.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        stub.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create().WithStatusCode(429).WithHeader("Retry-After", "12"));
         await using var host = CreateHost(
             library.Root,

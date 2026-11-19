@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -48,13 +48,14 @@ public sealed class OpenSubtitlesSubtitleProvider(
             endpoint,
             Options.DownloadAllowedHosts,
             "The configured subtitle provider search endpoint is not an allowed https host.");
-        var request = new SearchRequest(
+        var searchEndpoint = WithSearchParameters(
+            endpoint!,
             string.IsNullOrWhiteSpace(search.MovieHash) ? null : search.MovieHash,
             string.IsNullOrWhiteSpace(search.MovieHash) ? search.Title : null,
             JoinLanguages(search.PreferredLanguages));
 
         using var response = await SendAsync(
-            () => new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = JsonContent.Create(request, options: SerializerOptions) },
+            () => new HttpRequestMessage(HttpMethod.Get, searchEndpoint),
             cancellationToken);
         EnsureAccepted(response, "The subtitle provider rejected the search request.");
         var candidates = await ReadCandidatesAsync(response, search.MovieHash is not null, cancellationToken);
@@ -329,12 +330,29 @@ public sealed class OpenSubtitlesSubtitleProvider(
                 .Where(language => !string.IsNullOrWhiteSpace(language))
                 .Select(language => language.Trim().ToLowerInvariant()));
 
-    // ReSharper disable NotAccessedPositionalProperty.Local // Serialized by System.Text.Json as the OpenSubtitles request body, never read in code.
-    private sealed record SearchRequest(
-        [property: JsonPropertyName("moviehash")] string? MovieHash,
-        [property: JsonPropertyName("query")] string? Query,
-        [property: JsonPropertyName("languages")] string Languages);
+    private static Uri WithSearchParameters(Uri endpoint, string? movieHash, string? query, string languages)
+    {
+        var parameters = new List<string>();
+        if (!string.IsNullOrWhiteSpace(movieHash))
+        {
+            parameters.Add($"moviehash={Uri.EscapeDataString(movieHash)}");
+        }
 
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            parameters.Add($"query={Uri.EscapeDataString(query)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(languages))
+        {
+            parameters.Add($"languages={Uri.EscapeDataString(languages)}");
+        }
+
+        var builder = new UriBuilder(endpoint) { Query = string.Join("&", parameters) };
+        return builder.Uri;
+    }
+
+    // ReSharper disable NotAccessedPositionalProperty.Local // Serialized by System.Text.Json as the OpenSubtitles request body, never read in code.
     private sealed record DownloadRequest([property: JsonPropertyName("file_id")] long FileId);
     // ReSharper restore NotAccessedPositionalProperty.Local
 
