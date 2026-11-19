@@ -119,6 +119,11 @@ export default function LibraryView({
         replaceQuery(next, currentYear);
         setInternalQuery(next);
       }
+      try {
+        window.scrollTo(0, 0);
+      } catch {
+        /* scroll unavailable in this environment */
+      }
     },
     [query, currentYear, integrated, onQueryChange],
   );
