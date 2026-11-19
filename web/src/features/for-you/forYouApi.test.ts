@@ -53,7 +53,7 @@ describe('useForYou', () => {
 
     // assert
     expect(forYouQueryKey).toEqual(['forYou', 10]);
-    expect(queryClient.getQueryData(['forYou', 10])).toEqual(forYouRecommendations);
+    expect(queryClient.getQueryData(['forYou', 10])).toEqual(forYouRecommendations.items);
     expect(
       queryClient.getQueryCache().find({ queryKey: ['forYou', 10], exact: true }),
     ).toBeDefined();
@@ -93,7 +93,7 @@ describe('useForYou', () => {
   it('keeps a query identity distinct from the browse and related-movies keys', async () => {
     // arrange
     server.use(forYouHandler(forYouRecommendations));
-    const browseRow = forYouRecommendations[0];
+    const browseRow = forYouRecommendations.items[0];
     const seeded = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     seeded.setQueryData(['browseMovies', { page: 1 }], {
       items: [browseRow],
@@ -111,7 +111,7 @@ describe('useForYou', () => {
       totalCount: 1,
     });
     expect(seeded.getQueryData(['relatedMovies', 7])).toEqual([browseRow]);
-    expect(seeded.getQueryData(['forYou', 10])).toEqual(forYouRecommendations);
+    expect(seeded.getQueryData(['forYou', 10])).toEqual(forYouRecommendations.items);
     expect(seeded.getQueryData(['forYou', 10])).not.toEqual([browseRow]);
   });
 

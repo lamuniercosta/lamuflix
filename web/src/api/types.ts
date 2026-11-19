@@ -164,6 +164,10 @@ export interface components {
       id: number;
       enrichmentStatus: components["schemas"]["EnrichmentStatus"];
     };
+    ForYouRecommendationsPageDto: {
+      items: components["schemas"]["RecommendedMovieDto"][];
+      hasMore: boolean;
+    };
     GenreDto: {
       /** Format: int32 */
       id: number | string;
@@ -1457,13 +1461,15 @@ export interface operations {
       query?: {
         /** @description The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize. */
         take?: number;
+        offset?: number;
+        exclude?: number[];
       };
     };
     responses: {
       /** @description OK */
       200: {
         content: {
-          "application/json": components["schemas"]["RecommendedMovieDto"][];
+          "application/json": components["schemas"]["ForYouRecommendationsPageDto"];
         };
       };
       /** @description Bad Request */

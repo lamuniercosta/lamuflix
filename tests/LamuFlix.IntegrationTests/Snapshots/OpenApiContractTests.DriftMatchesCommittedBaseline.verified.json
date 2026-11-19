@@ -2124,6 +2124,25 @@
               "type": "integer",
               "default": 10
             }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "exclude",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
           }
         ],
         "responses": {
@@ -2132,10 +2151,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/RecommendedMovieDto"
-                  }
+                  "$ref": "#/components/schemas/ForYouRecommendationsPageDto"
                 }
               }
             }
@@ -2269,6 +2285,24 @@
           },
           "enrichmentStatus": {
             "$ref": "#/components/schemas/EnrichmentStatus"
+          }
+        }
+      },
+      "ForYouRecommendationsPageDto": {
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecommendedMovieDto"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
           }
         }
       },

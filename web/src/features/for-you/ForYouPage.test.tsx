@@ -47,7 +47,11 @@ describe('ForYouPage', () => {
 
   it('shows the empty-state text for a successful empty response', async () => {
     // arrange
-    server.use(http.get('*/api/recommendations/for-you', () => HttpResponse.json([])));
+    server.use(
+      http.get('*/api/recommendations/for-you', () =>
+        HttpResponse.json({ items: [], hasMore: false }),
+      ),
+    );
 
     // act
     renderPage();

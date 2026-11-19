@@ -14,6 +14,8 @@ internal sealed class RecommendationsOperationTransformer : IOpenApiOperationTra
     private const string GetRecommendationsOperationId = "GetRecommendations";
     private const string GetForYouRecommendationsOperationId = "GetForYouRecommendations";
     private const string TakeParameterName = "take";
+    private const string OffsetParameterName = "offset";
+    private const string ExcludeParameterName = "exclude";
     private const string TakeDescription =
         "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.";
 
@@ -29,24 +31,51 @@ internal sealed class RecommendationsOperationTransformer : IOpenApiOperationTra
 
         operation.Parameters ??= [];
 
-        if (ContainsTakeParameter(operation.Parameters))
+        if (!ContainsTakeParameter(operation.Parameters))
         {
-            return Task.CompletedTask;
+            operation.Parameters.Add(new OpenApiParameter
+            {
+                Name = TakeParameterName,
+                In = ParameterLocation.Query,
+                Required = false,
+                Description = TakeDescription,
+                Schema = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.Integer,
+                    Default = JsonValue.Create(10),
+                    Minimum = "1",
+                },
+            });
         }
 
-        operation.Parameters.Add(new OpenApiParameter
+        if (string.Equals(operation.OperationId, GetForYouRecommendationsOperationId, StringComparison.Ordinal))
         {
-            Name = TakeParameterName,
-            In = ParameterLocation.Query,
-            Required = false,
-            Description = TakeDescription,
-            Schema = new OpenApiSchema
+            operation.Parameters.Add(new OpenApiParameter
             {
-                Type = JsonSchemaType.Integer,
-                Default = JsonValue.Create(10),
-                Minimum = "1",
-            },
-        });
+                Name = OffsetParameterName,
+                In = ParameterLocation.Query,
+                Required = false,
+                Schema = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.Integer,
+                    Default = JsonValue.Create(0),
+                    Minimum = "0",
+                },
+            });
+            operation.Parameters.Add(new OpenApiParameter
+            {
+                Name = ExcludeParameterName,
+                In = ParameterLocation.Query,
+                Required = false,
+                Style = ParameterStyle.Form,
+                Explode = true,
+                Schema = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.Array,
+                    Items = new OpenApiSchema { Type = JsonSchemaType.Integer },
+                },
+            });
+        }
 
         return Task.CompletedTask;
     }
