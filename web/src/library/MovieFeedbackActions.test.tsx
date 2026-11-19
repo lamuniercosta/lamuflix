@@ -580,7 +580,83 @@ describe('MovieFeedbackActions navigation isolation', () => {
     expect(zIndex).not.toBeNull();
     expect(Number(zIndex![1])).toBeGreaterThan(1);
   });
+});
 
+describe('MovieFeedbackActions sibling re-enable after Watched (DEV-524)', () => {
+  it('re-enables the Like sibling while the library refresh is still in flight (success)', async () => {
+    // arrange
+    let refreshes = 0;
+    let unblockRefresh!: () => void;
+    const refreshGate = new Promise<unknown>((resolve) => {
+      unblockRefresh = () => resolve([]);
+    });
+    let reviewCalls = 0;
+    server.use(
+      http.post('*/api/movies/:id/watched', () => new HttpResponse(null, { status: 204 })),
+      http.put('*/api/movies/:id/review', () => {
+        reviewCalls += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const client = makeQueryClient();
+    watch(client, ['browseMovies'], () => {
+      refreshes += 1;
+      return refreshes === 1 ? Promise.resolve({ items: [] }) : refreshGate;
+    });
+    renderActions(client);
+    await waitFor(() => expect(refreshes).toBe(1));
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: WATCHED_IDLE }));
+    await waitFor(() => expect(screen.getByRole('button', { name: WATCHED_MARKED })).toBeEnabled());
+
+    // assert
+    const like = screen.getByRole('button', { name: LIKE_IDLE });
+    expect(like).toBeEnabled();
+    fireEvent.click(like);
+    await waitFor(() => expect(reviewCalls).toBe(1));
+
+    unblockRefresh();
+  });
+
+  it('re-enables the Like sibling after a failed Watched while the refresh is still in flight', async () => {
+    // arrange
+    let refreshes = 0;
+    let unblockRefresh!: () => void;
+    const refreshGate = new Promise<unknown>((resolve) => {
+      unblockRefresh = () => resolve([]);
+    });
+    let reviewCalls = 0;
+    server.use(
+      http.post('*/api/movies/:id/watched', () => new HttpResponse(null, { status: 500 })),
+      http.put('*/api/movies/:id/review', () => {
+        reviewCalls += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const client = makeQueryClient();
+    watch(client, ['browseMovies'], () => {
+      refreshes += 1;
+      return refreshes === 1 ? Promise.resolve({ items: [] }) : refreshGate;
+    });
+    renderActions(client);
+    await waitFor(() => expect(refreshes).toBe(1));
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: WATCHED_IDLE }));
+    await waitFor(() => expect(screen.getByRole('button', { name: WATCHED_IDLE })).toBeEnabled());
+
+    // assert
+    const like = screen.getByRole('button', { name: LIKE_IDLE });
+    expect(like).toBeEnabled();
+    fireEvent.click(like);
+    await waitFor(() => expect(reviewCalls).toBe(1));
+
+    unblockRefresh();
+  });
+});
+
+describe('MovieFeedbackActions navigation isolation', () => {
   it('renders the watchlist icon only once inside the shared row', () => {
     // arrange / act
     renderActions(makeQueryClient(), { isInWatchlist: true });
