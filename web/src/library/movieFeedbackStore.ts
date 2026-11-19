@@ -44,6 +44,7 @@ export interface MovieFeedbackState extends MovieFeedbackFlags {
 interface Entry extends MovieFeedbackFlags {
   pending: MovieFeedbackAction | null;
   reconciling: boolean;
+  run: number;
   error: string | null;
   refreshError: string | null;
   lastAction: MovieFeedbackAction | null;
@@ -158,6 +159,7 @@ async function reconcile(
   clients: MovieFeedbackClients,
   broadRefresh: boolean,
   succeeded: boolean,
+  run: number,
 ): Promise<void> {
   const targets = refreshTargets(movieId, clients, broadRefresh);
   await Promise.all(
@@ -167,7 +169,7 @@ async function reconcile(
   );
 
   const current = entries.get(key);
-  if (!current) {
+  if (!current || current.run !== run) {
     return;
   }
   const refreshFailed =
@@ -188,6 +190,7 @@ function dispatch(
   clients: MovieFeedbackClients,
 ): void {
   const optimistic = optimisticFlags(action, before);
+  const run = (entries.get(key)?.run ?? 0) + 1;
 
   write(key, {
     ...optimistic,
@@ -198,13 +201,14 @@ function dispatch(
     lastAction: action,
     before,
     broadRefresh: true,
+    run,
   });
 
   void (async () => {
     const outcome = await networkCalls[action](movieId);
 
     const current = entries.get(key);
-    if (!current) {
+    if (!current || current.run !== run) {
       return;
     }
 
@@ -217,7 +221,7 @@ function dispatch(
         error: MOVIE_FEEDBACK_SAVE_ERROR,
         broadRefresh: false,
       });
-      await reconcile(key, movieId, clients, false, false);
+      await reconcile(key, movieId, clients, false, false, run);
       return;
     }
 
@@ -229,7 +233,7 @@ function dispatch(
       error: null,
       broadRefresh: true,
     });
-    await reconcile(key, movieId, clients, true, true);
+    await reconcile(key, movieId, clients, true, true, run);
   })();
 }
 
@@ -251,12 +255,12 @@ export function useMovieFeedback(
   const reconciling = entry ? entry.reconciling : false;
   const error = entry ? entry.error : null;
   const refreshError = entry ? entry.refreshError : null;
-  const blocked = pending || reconciling;
+  const blocked = pending;
 
   const start = useCallback(
     (action: MovieFeedbackAction) => {
       const current = entries.get(key);
-      if (current && isBusy(current)) {
+      if (current && current.pending !== null) {
         return;
       }
 
@@ -298,7 +302,7 @@ export function useMovieFeedback(
       return;
     }
     write(key, { ...current, reconciling: true, refreshError: null });
-    void reconcile(key, movieId, clients, current.broadRefresh, true);
+    void reconcile(key, movieId, clients, current.broadRefresh, true, current.run);
   }, [key, movieId, clients]);
 
   return {
