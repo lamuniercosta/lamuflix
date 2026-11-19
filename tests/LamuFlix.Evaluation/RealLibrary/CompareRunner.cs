@@ -396,7 +396,6 @@ public static class CompareRunner
         bool InPool);
 }
 
-// ReSharper disable once NotAccessedPositionalProperty.Global // positional report contract consumed by tests and operators
 public sealed record CompareReport(
     RecommendationArtifactEnvelope Envelope,
     int SelectedId,
