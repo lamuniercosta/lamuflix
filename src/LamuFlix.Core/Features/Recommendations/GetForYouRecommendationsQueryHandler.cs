@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
@@ -63,13 +64,21 @@ public sealed class GetForYouRecommendationsQueryHandler(
             recommendationOptions,
             cancellationToken);
 
+        scored = ApplyCollectionCut(scored, recommendationOptions.MaxPerCollection);
+
         var relevanceOffset = BlendScorer.NonNegativeOffset(scored.Select(item => item.Result.Score));
         var selectedIds = MmrSelector.Select(
-            [.. scored.Select(item => new MmrCandidate(item.Movie.Id, item.Result.Score + relevanceOffset, item.Features))],
-            query.Take,
+            [.. scored.Select(item => new MmrCandidate(
+                item.Movie.Id,
+                item.Result.Score + relevanceOffset,
+                item.Features,
+                item.BestSeedId))],
+            Math.Min(query.Take, recommendationOptions.CandidatePoolSize),
             recommendationOptions.MmrLambda,
             recommendationOptions.Weights,
-            genreWeights);
+            genreWeights,
+            recommendationOptions.MaxPerBestSeed,
+            recommendationOptions.MaxPerCollection);
 
         var byId = scored.ToDictionary(item => item.Movie.Id);
 
@@ -211,12 +220,36 @@ public sealed class GetForYouRecommendationsQueryHandler(
             scored.Add(new ScoredCandidate(
                 movie,
                 features,
+                reviewAffinity.LikedSource?.MovieId,
                 new SimilarityResult(
                     score,
                     BuildReasons(profileSimilarity, reviewAffinity, contribution, options))));
         }
 
         return scored;
+    }
+
+    private static List<ScoredCandidate> ApplyCollectionCut(
+        IReadOnlyList<ScoredCandidate> candidates,
+        int maxPerCollection)
+    {
+        var retained = new HashSet<MovieId>();
+        foreach (var group in candidates
+                     .Where(candidate => candidate.Features.CollectionId is not null)
+                     .GroupBy(candidate => candidate.Features.CollectionId!.Value))
+        {
+            foreach (var candidate in group
+                         .OrderBy(candidate => candidate.Features.ReleaseYear is null)
+                         .ThenBy(candidate => candidate.Features.ReleaseYear?.Value)
+                         .ThenBy(candidate => candidate.Movie.Id.Value)
+                         .Take(maxPerCollection))
+            {
+                retained.Add(candidate.Movie.Id);
+            }
+        }
+
+        return [.. candidates.Where(candidate =>
+            candidate.Features.CollectionId is null || retained.Contains(candidate.Movie.Id))];
     }
 
 
@@ -250,5 +283,6 @@ public sealed class GetForYouRecommendationsQueryHandler(
     private readonly record struct ScoredCandidate(
         Movie Movie,
         MovieFeatures Features,
+        MovieId? BestSeedId,
         SimilarityResult Result);
 }

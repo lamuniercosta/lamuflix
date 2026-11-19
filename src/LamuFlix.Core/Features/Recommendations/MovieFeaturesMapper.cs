@@ -32,7 +32,7 @@ public static class MovieFeaturesMapper
             metadata.MetaScore,
             metadata.Synopsis,
             KeywordIds(signals),
-            includeSignals ? metadata.CollectionId : null);
+            metadata.CollectionId);
     }
 
     private static IReadOnlyList<string> MergeCast(

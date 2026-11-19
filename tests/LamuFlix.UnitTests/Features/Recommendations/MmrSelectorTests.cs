@@ -397,6 +397,34 @@ public sealed class MmrSelectorTests
     }
 
     [Fact]
+    public void Select_CapsAcrossFullRanking_SkipsBoundaryCandidatesAndKeepsStandaloneSeedSlots()
+    {
+        var candidates = Pool(
+            new MmrCandidate(new MovieId(1), 1.0, Features(collectionId: 7), new MovieId(90)),
+            new MmrCandidate(new MovieId(2), 0.9, Features(collectionId: 8), new MovieId(90)),
+            new MmrCandidate(new MovieId(3), 0.8, Features(collectionId: 9), new MovieId(91)),
+            new MmrCandidate(new MovieId(4), 0.7, Features(collectionId: 7), new MovieId(91)),
+            new MmrCandidate(new MovieId(5), 0.6, Features()));
+
+        var result = MmrSelector.Select(candidates, 5, 1.0, Only(), UniformGenres(), 1, 1);
+
+        result.ShouldBe([new MovieId(1), new MovieId(3), new MovieId(5)]);
+    }
+
+    [Fact]
+    public void Select_ActiveCaps_PreserveAscendingMovieIdTieBreak()
+    {
+        var candidates = Pool(
+            new MmrCandidate(new MovieId(5), 1.0, Features(), new MovieId(90)),
+            new MmrCandidate(new MovieId(2), 1.0, Features(), new MovieId(90)),
+            new MmrCandidate(new MovieId(3), 0.5, Features(), new MovieId(91)));
+
+        var result = MmrSelector.Select(candidates, 2, 1.0, Only(), UniformGenres(), 1, 1);
+
+        result.ShouldBe([new MovieId(2), new MovieId(3)]);
+    }
+
+    [Fact]
     public void Select_CrossTakeResultsArePrefixes()
     {
         // arrange
@@ -468,7 +496,8 @@ public sealed class MmrSelectorTests
         int? runtime = null,
         decimal? imdbRating = null,
         int? metaScore = null,
-        string? fullPlot = null) =>
+        string? fullPlot = null,
+        int? collectionId = null) =>
         new(
             genres,
             directors,
@@ -478,5 +507,6 @@ public sealed class MmrSelectorTests
             runtime.HasValue ? new Runtime(runtime.Value) : null,
             imdbRating.HasValue ? new ImdbRating(imdbRating.Value) : null,
             metaScore,
-            fullPlot);
+            fullPlot,
+            collectionId: collectionId);
 }

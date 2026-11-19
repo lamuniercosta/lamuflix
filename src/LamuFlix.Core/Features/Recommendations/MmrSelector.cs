@@ -13,7 +13,9 @@ public static class MmrSelector
         int take,
         double lambda,
         SimilarityWeights weights,
-        GenreWeights genreWeights)
+        GenreWeights genreWeights,
+        int maxPerBestSeed = int.MaxValue,
+        int maxPerCollection = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(weights);
@@ -22,6 +24,8 @@ public static class MmrSelector
         ValidateWeights(weights);
         ValidateLambda(lambda);
         ValidateTake(take);
+        ValidateCap(maxPerBestSeed, nameof(maxPerBestSeed));
+        ValidateCap(maxPerCollection, nameof(maxPerCollection));
         ValidateCandidates(candidates);
 
         if (candidates.Count == 0 || take == 0)
@@ -29,7 +33,7 @@ public static class MmrSelector
             return ImmutableList<MovieId>.Empty;
         }
 
-        return SelectOrdered(candidates, Math.Min(take, candidates.Count), lambda, weights, genreWeights);
+        return SelectOrdered(candidates, Math.Min(take, candidates.Count), lambda, weights, genreWeights, maxPerBestSeed, maxPerCollection);
     }
 
     private static ImmutableList<MovieId> SelectOrdered(
@@ -37,21 +41,40 @@ public static class MmrSelector
         int count,
         double lambda,
         SimilarityWeights weights,
-        GenreWeights genreWeights)
+        GenreWeights genreWeights,
+        int maxPerBestSeed,
+        int maxPerCollection)
     {
         var selected = new bool[candidates.Count];
         var maximumRedundancy = new double[candidates.Count];
         var selectedFeatures = new List<MovieFeatures>(count);
+        var seedCounts = new Dictionary<MovieId, int>();
+        var collectionCounts = new Dictionary<int, int>();
         var builder = ImmutableList.CreateBuilder<MovieId>();
 
-        for (var step = 0; step < count; step++)
+        while (builder.Count < count)
         {
-            var chosen = ChooseNext(candidates, selected, maximumRedundancy, lambda);
+            var chosen = ChooseNext(candidates, selected, maximumRedundancy, lambda, seedCounts, collectionCounts, maxPerBestSeed, maxPerCollection);
+            if (chosen < 0)
+            {
+                break;
+            }
+
             selected[chosen] = true;
             builder.Add(candidates[chosen].MovieId);
             selectedFeatures.Add(candidates[chosen].Features);
+            var candidate = candidates[chosen];
+            if (candidate.BestSeedId is { } seedId)
+            {
+                seedCounts[seedId] = seedCounts.GetValueOrDefault(seedId) + 1;
+            }
 
-            if (step == count - 1)
+            if (candidate.Features.CollectionId is { } collectionId)
+            {
+                collectionCounts[collectionId] = collectionCounts.GetValueOrDefault(collectionId) + 1;
+            }
+
+            if (builder.Count == count)
             {
                 break;
             }
@@ -66,7 +89,11 @@ public static class MmrSelector
         IReadOnlyList<MmrCandidate> candidates,
         bool[] selected,
         double[] maximumRedundancy,
-        double lambda)
+        double lambda,
+        Dictionary<MovieId, int> seedCounts,
+        Dictionary<int, int> collectionCounts,
+        int maxPerBestSeed,
+        int maxPerCollection)
     {
         var bestIndex = -1;
         var bestObjective = 0.0;
@@ -75,6 +102,15 @@ public static class MmrSelector
         {
             if (selected[index])
             {
+                continue;
+            }
+
+            var candidate = candidates[index];
+            if ((candidate.BestSeedId is { } seedId && seedCounts.GetValueOrDefault(seedId) >= maxPerBestSeed)
+                || (candidate.Features.CollectionId is { } collectionId
+                    && collectionCounts.GetValueOrDefault(collectionId) >= maxPerCollection))
+            {
+                selected[index] = true;
                 continue;
             }
 
@@ -190,6 +226,14 @@ public static class MmrSelector
                 nameof(take),
                 take,
                 "Take cannot be negative.");
+        }
+    }
+
+    private static void ValidateCap(int cap, string paramName)
+    {
+        if (cap < 1)
+        {
+            throw new ArgumentOutOfRangeException(paramName, cap, "Caps must be greater than zero.");
         }
     }
 
