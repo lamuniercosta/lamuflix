@@ -38,6 +38,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
     private readonly ILogger<EfMovieRepository> logger;
     private readonly TimeSpan claimLease;
     private readonly GenreWeightsCache cache;
+    private readonly KeywordWeightsCache keywordWeightsCache;
     private readonly HybridCachedRecommendationProfileSource? tasteProfileCache;
     private readonly Dictionary<MovieId, TrackedMovie> identityMap = [];
 
@@ -51,7 +52,8 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         IEnrichmentStatusNotifier notifier,
         ILogger<EfMovieRepository> logger,
         GenreWeightsCache? cache = null,
-        HybridCachedRecommendationProfileSource? tasteProfileCache = null)
+        HybridCachedRecommendationProfileSource? tasteProfileCache = null,
+        KeywordWeightsCache? keywordWeightsCache = null)
     {
         this.db = db;
         this.timeProvider = timeProvider;
@@ -59,6 +61,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         this.logger = logger;
         claimLease = options.Value.ClaimLease;
         this.cache = cache ?? new GenreWeightsCache();
+        this.keywordWeightsCache = keywordWeightsCache ?? new KeywordWeightsCache();
         this.tasteProfileCache = tasteProfileCache;
         if (claimLease <= TimeSpan.Zero)
         {
@@ -112,6 +115,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             }
 
             cache.Invalidate();
+            keywordWeightsCache.Invalidate();
             await InvalidateTasteProfileAsync(ct);
         }
 
@@ -222,6 +226,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         }
 
         cache.Invalidate();
+        keywordWeightsCache.Invalidate();
         try
         {
             await InvalidateTasteProfileAsync(ct);

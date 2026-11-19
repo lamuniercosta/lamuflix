@@ -11,7 +11,9 @@ public static class MovieCatalogServiceCollectionExtensions
     public static IServiceCollection AddMovieCatalog(this IServiceCollection services)
     {
         services.TryAddSingleton<GenreWeightsCache>();
+        services.TryAddSingleton<KeywordWeightsCache>();
         services.TryAddScoped<GenreWeightsCalculator>();
+        services.TryAddScoped<KeywordWeightsCalculator>();
         services.AddScoped<IMovieCatalog, EfMovieCatalog>();
         return services;
     }

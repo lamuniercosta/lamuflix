@@ -9,7 +9,7 @@ public static class MovieFeaturesMapper
 {
     public static MovieFeatures From(Movie movie) => From(movie, includeSignals: false);
 
-    public static MovieFeatures From(Movie movie, bool includeSignals)
+    public static MovieFeatures From(Movie movie, bool includeSignals, IEnumerable<float>? plotEmbedding = null)
     {
         ArgumentNullException.ThrowIfNull(movie);
 
@@ -32,7 +32,10 @@ public static class MovieFeaturesMapper
             metadata.MetaScore,
             metadata.Synopsis,
             KeywordIds(signals),
-            metadata.CollectionId);
+            metadata.CollectionId,
+            KeywordNames(signals),
+            includeSignals ? metadata.CollectionName : null,
+            plotEmbedding);
     }
 
     private static IReadOnlyList<string> MergeCast(
@@ -42,4 +45,7 @@ public static class MovieFeaturesMapper
 
     private static IEnumerable<int>? KeywordIds(MovieSignalSnapshot? signals) =>
         signals?.Keywords.Select(keyword => keyword.Id);
+
+    private static IEnumerable<string>? KeywordNames(MovieSignalSnapshot? signals) =>
+        signals?.Keywords.Select(keyword => keyword.Name);
 }

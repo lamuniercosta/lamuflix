@@ -41,8 +41,10 @@ public static class PersistenceServiceCollectionExtensions
             .AddSerializer(profileSerializer);
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<GenreWeightsCache>();
+        services.TryAddSingleton<KeywordWeightsCache>();
         services.TryAddScoped<IMovieCatalog, EfMovieCatalog>();
         services.TryAddScoped<GenreWeightsCalculator>();
+        services.TryAddScoped<KeywordWeightsCalculator>();
         services.AddOptions<TasteProfileCacheOptions>()
             .BindConfiguration(TasteProfileCacheOptions.SectionName)
             .Validate(

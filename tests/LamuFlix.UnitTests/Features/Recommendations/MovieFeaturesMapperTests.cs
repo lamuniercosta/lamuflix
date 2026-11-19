@@ -129,6 +129,25 @@ public sealed class MovieFeaturesMapperTests
     }
 
     [Fact]
+    public void From_IncludesKeywordNamesCollectionNameAndOptionalPlotEmbedding()
+    {
+        var metadata = new MovieMetadata(
+            "Title",
+            collectionId: 7,
+            collectionName: "Collection",
+            signals: new MovieSignalSnapshot(
+                keywordAvailability: SignalAvailability.Available,
+                keywords: [new MovieKeyword(42, "Heist")],
+                collectionAvailability: SignalAvailability.Available));
+
+        var features = MovieFeaturesMapper.From(CreateMovie(metadata), includeSignals: true, plotEmbedding: [0.25f, 0.75f]);
+
+        features.KeywordNames.ShouldBe(["Heist"]);
+        features.CollectionName.ShouldBe("Collection");
+        features.PlotEmbedding.ShouldBe([0.25f, 0.75f]);
+    }
+
+    [Fact]
     public void From_OnlyDirectors_PreservesDirectorsAndLeavesOtherFieldsEmpty()
     {
         // arrange

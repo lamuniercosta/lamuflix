@@ -145,6 +145,16 @@ public sealed class HiddenSeedEvaluationCopy
             return Task.FromResult(snapshot.GenreCounts);
         }
 
+        public Task<KeywordCounts> GetKeywordCountsAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            var counts = snapshot.Movies
+                .SelectMany(movie => movie.Metadata?.Signals?.Keywords.Select(keyword => (movie.Id, keyword.Name)) ?? [])
+                .GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => (long)group.Select(item => item.Id).Distinct().Count(), StringComparer.OrdinalIgnoreCase);
+            return Task.FromResult(new KeywordCounts(snapshot.Movies.Length, counts));
+        }
+
         public Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
