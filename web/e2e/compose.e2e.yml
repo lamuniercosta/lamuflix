@@ -3,10 +3,21 @@ services:
     environment:
       Ollama__Endpoint: http://127.0.0.1:${E2E_STUB_PORT}/
       Tmdb__Enabled: 'false'
+      # Trust the ephemeral E2E subtitle-provider certificate mounted below.
+      SSL_CERT_FILE: /e2e/tls/cert.pem
     volumes:
+      # Downloaded subtitle candidates are published into the movie folder, so the
+      # staged library is writable for this stack only.
+      - ${LIBRARY_PATH}:/media/library
       - type: bind
         source: ${E2E_SETTINGS_FILE}
         target: /app/appsettings.Production.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${E2E_STUB_TLS_CERT_FILE}
+        target: /e2e/tls/cert.pem
         read_only: true
         bind:
           create_host_path: false
@@ -19,11 +30,26 @@ services:
         condition: service_started
     environment:
       E2E_STUB_PORT: ${E2E_STUB_PORT}
+      E2E_STUB_TLS_PORT: ${E2E_STUB_TLS_PORT}
       E2E_STUB_RESPONSES_FILE: /e2e/responses.json
+      E2E_STUB_TLS_CERT_FILE: /e2e/tls/cert.pem
+      E2E_STUB_TLS_KEY_FILE: /e2e/tls/key.pem
       E2E_WAIT_BUDGET_MS: ${E2E_WAIT_BUDGET_MS}
     volumes:
       - ${E2E_STUB_SCRIPT}:/e2e/stub.mjs:ro
       - ${E2E_STUB_RESPONSES_FILE}:/e2e/responses.json:ro
+      - type: bind
+        source: ${E2E_STUB_TLS_CERT_FILE}
+        target: /e2e/tls/cert.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${E2E_STUB_TLS_KEY_FILE}
+        target: /e2e/tls/key.pem
+        read_only: true
+        bind:
+          create_host_path: false
     command: ['node', '/e2e/stub.mjs', 'serve']
     healthcheck:
       test: ['CMD', 'node', '/e2e/stub.mjs', 'health']
