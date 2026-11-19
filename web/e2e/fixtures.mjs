@@ -119,6 +119,16 @@ export const SUBTITLE_FIXTURES = {
 
 const SRT_CUE_WINDOW = '00:00:00,000 --> 00:00:59,000';
 
+export const SUBTITLE_PROVIDER_FIXTURE = {
+  movieTitle: 'Big Buck Bunny',
+  language: 'en',
+  fileId: 910525,
+  release: 'Big Buck Bunny 2008 1080p DEV525-FIXTURE',
+  downloadCount: 1234,
+  cueText: 'Fixture subtitle applied from the provider stub.',
+  srt: `1\n${SRT_CUE_WINDOW}\nFixture subtitle applied from the provider stub.\n`,
+};
+
 function writeSidecar(directory, track) {
   const body =
     track.cueText === null

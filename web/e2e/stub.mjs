@@ -1,15 +1,23 @@
 import { readFileSync } from 'node:fs';
 import { createServer, request as httpRequest } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
 
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.E2E_STUB_PORT ?? '18080');
+const TLS_PORT = Number(process.env.E2E_STUB_TLS_PORT ?? '18443');
 const WAIT_BUDGET_MS = Number(process.env.E2E_WAIT_BUDGET_MS ?? '120000');
 const RESPONSES_FILE = process.env.E2E_STUB_RESPONSES_FILE;
+const TLS_CERT_FILE = process.env.E2E_STUB_TLS_CERT_FILE;
+const TLS_KEY_FILE = process.env.E2E_STUB_TLS_KEY_FILE;
 const CONTROL_PREFIX = '/__e2e/';
+const SEARCH_PATH = '/api/v1/subtitles';
+const DOWNLOAD_PATH = '/api/v1/download';
+const DOWNLOAD_PAYLOAD_PREFIX = '/subtitle-fixture/';
 
 const arms = [];
 const held = new Map();
 const unexpectedRequests = [];
+const subtitleProviderRequests = [];
 let nextHoldId = 1;
 
 function now() {
@@ -28,7 +36,7 @@ function sleep(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-function loadResponses() {
+function loadFixture() {
   if (!RESPONSES_FILE) {
     throw new Error('E2E_STUB_RESPONSES_FILE is required');
   }
@@ -38,7 +46,7 @@ function loadResponses() {
     throw new Error('stub responses file must contain a responses array');
   }
 
-  return parsed.responses;
+  return { responses: parsed.responses, subtitleProvider: parsed.subtitleProvider ?? null };
 }
 
 function foundBody(title, year) {
@@ -221,7 +229,8 @@ async function handleEmbed(request, response) {
   });
 }
 
-async function handleControl(request, response, url, responses) {
+async function handleControl(request, response, url, fixture) {
+  const responses = fixture.responses;
   const action = url.pathname.slice(CONTROL_PREFIX.length);
 
   if (request.method === 'GET' && action === 'health') {
@@ -239,6 +248,7 @@ async function handleControl(request, response, url, responses) {
         year: record.year,
       })),
       unexpectedRequests,
+      subtitleProviderRequests,
     });
     return;
   }
@@ -286,15 +296,141 @@ async function handleControl(request, response, url, responses) {
   sendJson(response, 404, { error: 'unknown control action' });
 }
 
+function recordSubtitleRequest(request, url, outcome) {
+  const entry = {
+    method: request.method,
+    path: url.pathname,
+    query: Object.fromEntries(url.searchParams.entries()),
+    outcome,
+    at: now(),
+  };
+  subtitleProviderRequests.push(entry);
+  log('subtitle-provider-request', entry);
+  return entry;
+}
+
+function subtitleSearchResponse(subtitle) {
+  return {
+    total_count: 1,
+    data: [
+      {
+        attributes: {
+          language: subtitle.language,
+          download_count: subtitle.downloadCount,
+          release: subtitle.release,
+          files: [{ file_id: subtitle.fileId, file_name: `${subtitle.release}.srt` }],
+        },
+      },
+    ],
+  };
+}
+
+function subtitleDownloadLink(subtitle) {
+  return `https://${HOST}:${TLS_PORT}${DOWNLOAD_PAYLOAD_PREFIX}${subtitle.fileId}.srt`;
+}
+
+async function handleSubtitleProvider(request, response, url, subtitle) {
+  if (!subtitle) {
+    recordUnexpected(null, null, 'subtitle-provider-not-configured');
+    sendJson(response, 500, { status: 500, error: 'Subtitle provider fixture is not configured' });
+    return;
+  }
+
+  if (url.pathname === SEARCH_PATH) {
+    // The OpenSubtitles v1 search route is a GET. A POST proves the diagnosed pre-fix trigger.
+    if (request.method !== 'GET') {
+      recordSubtitleRequest(request, url, 'search-method-rejected');
+      sendJson(response, 404, { status: 404, error: 'Not Found' });
+      return;
+    }
+
+    const languages = (url.searchParams.get('languages') ?? '')
+      .split(',')
+      .map((language) => language.trim().toLowerCase())
+      .filter(Boolean);
+    const query = url.searchParams.get('query');
+    const movieHash = url.searchParams.get('moviehash');
+
+    if (!languages.includes(subtitle.language)) {
+      recordSubtitleRequest(request, url, 'search-unexpected-language');
+      recordUnexpected(null, null, 'subtitle-search-language');
+      sendJson(response, 200, { total_count: 0, data: [] });
+      return;
+    }
+
+    if (movieHash && !query) {
+      recordSubtitleRequest(request, url, 'search-hash-empty');
+      sendJson(response, 200, { total_count: 0, data: [] });
+      return;
+    }
+
+    if (query && query.toLowerCase().includes(subtitle.movieTitle.toLowerCase())) {
+      recordSubtitleRequest(request, url, 'search-candidates-returned');
+      sendJson(response, 200, subtitleSearchResponse(subtitle));
+      return;
+    }
+
+    recordSubtitleRequest(request, url, 'search-unexpected-query');
+    recordUnexpected(null, null, 'subtitle-search-query');
+    sendJson(response, 200, { total_count: 0, data: [] });
+    return;
+  }
+
+  if (url.pathname === DOWNLOAD_PATH) {
+    if (request.method !== 'POST') {
+      recordSubtitleRequest(request, url, 'download-method-rejected');
+      sendJson(response, 405, { status: 405, error: 'Method Not Allowed' });
+      return;
+    }
+
+    const body = await readBody(request);
+    if (Number(body.file_id) !== subtitle.fileId) {
+      recordSubtitleRequest(request, url, 'download-unknown-file-id');
+      recordUnexpected(null, null, 'subtitle-download-file-id');
+      sendJson(response, 406, { message: 'Invalid file_id' });
+      return;
+    }
+
+    recordSubtitleRequest(request, url, 'download-accepted');
+    sendJson(response, 200, {
+      link: subtitleDownloadLink(subtitle),
+      file_name: `${subtitle.release}.srt`,
+      requests: 1,
+      remaining: subtitle.downloadCount,
+    });
+    return;
+  }
+
+  if (url.pathname === `${DOWNLOAD_PAYLOAD_PREFIX}${subtitle.fileId}.srt`) {
+    if (request.method !== 'GET') {
+      recordSubtitleRequest(request, url, 'download-payload-method-rejected');
+      sendJson(response, 405, { status: 405, error: 'Method Not Allowed' });
+      return;
+    }
+
+    recordSubtitleRequest(request, url, 'download-payload-served');
+    response.writeHead(200, {
+      'content-type': 'application/x-subrip; charset=utf-8',
+      'content-length': Buffer.byteLength(subtitle.srt),
+    });
+    response.end(subtitle.srt);
+    return;
+  }
+
+  recordSubtitleRequest(request, url, 'unexpected-request');
+  recordUnexpected(null, null, 'subtitle-request-path');
+  sendJson(response, 404, { status: 404, error: 'Not Found' });
+}
+
 function serve() {
-  const responses = loadResponses();
+  const fixture = loadFixture();
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? '/', `http://${HOST}:${PORT}`);
     const handler = url.pathname.startsWith(CONTROL_PREFIX)
-      ? handleControl(request, response, url, responses)
+      ? handleControl(request, response, url, fixture)
       : url.pathname === '/api/embed' && request.method === 'POST'
         ? handleEmbed(request, response)
-        : handleProvider(request, response, url, responses);
+        : handleProvider(request, response, url, fixture.responses);
 
     Promise.resolve(handler).catch((error) => {
       log('request-error', { message: error.message });
@@ -308,11 +444,38 @@ function serve() {
     log('stub-listening', { host: HOST, port: PORT });
   });
 
+  const tlsServer = serveSubtitleProvider(fixture.subtitleProvider);
+
   const stop = () => {
+    tlsServer?.close();
     server.close(() => process.exit(0));
   };
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
+}
+
+function serveSubtitleProvider(subtitle) {
+  if (!subtitle || !TLS_CERT_FILE || !TLS_KEY_FILE) {
+    return null;
+  }
+
+  const server = createHttpsServer(
+    { cert: readFileSync(TLS_CERT_FILE), key: readFileSync(TLS_KEY_FILE) },
+    (request, response) => {
+      const url = new URL(request.url ?? '/', `https://${HOST}:${TLS_PORT}`);
+      Promise.resolve(handleSubtitleProvider(request, response, url, subtitle)).catch((error) => {
+        log('subtitle-request-error', { message: error.message });
+        sendJson(response, 500, { error: error.message });
+      });
+    },
+  );
+
+  server.requestTimeout = 0;
+  server.headersTimeout = 0;
+  server.listen(TLS_PORT, HOST, () => {
+    log('subtitle-provider-listening', { host: HOST, port: TLS_PORT });
+  });
+  return server;
 }
 
 function controlRequest(action, payload) {

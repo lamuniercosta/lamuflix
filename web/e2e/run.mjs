@@ -1,7 +1,15 @@
 import { execFile, execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +19,7 @@ import {
   RESERVED_MOVIE,
   SEED_MOVIES,
   SUBTITLE_FIXTURES,
+  SUBTITLE_PROVIDER_FIXTURE,
 } from './fixtures.mjs';
 import { loadDev471Fixture, stageDev471Fixture } from './fixtures/dev471/prepare.mjs';
 
@@ -34,8 +43,12 @@ const STACK_START_TIMEOUT_MS = 1_800_000;
 const TEARDOWN_TIMEOUT_MS = 180_000;
 const STUB_SERVICE = 'omdb-stub';
 const STUB_PORT = 18080;
+const STUB_TLS_PORT = 18443;
 const BASE_URL = 'http://localhost:3000';
 const DOCKER = process.env.DOCKER ?? 'docker';
+const TLS_DIR = path.join(runtimeDir, 'tls');
+const TLS_CERT_FILE = path.join(TLS_DIR, 'cert.pem');
+const TLS_KEY_FILE = path.join(TLS_DIR, 'key.pem');
 
 const DEV471_SPEC = 'dev471-compose-smoke.e2e.ts';
 const SMOKE_MODE = process.env.E2E_SMOKE_MODE === 'dev471';
@@ -105,6 +118,9 @@ function writeComposeEnv(credentials) {
     envLine('E2E_STUB_SCRIPT', composePath(stubScript)),
     envLine('E2E_STUB_RESPONSES_FILE', composePath(responsesFile)),
     envLine('E2E_STUB_PORT', String(STUB_PORT)),
+    envLine('E2E_STUB_TLS_PORT', String(STUB_TLS_PORT)),
+    envLine('E2E_STUB_TLS_CERT_FILE', composePath(TLS_CERT_FILE)),
+    envLine('E2E_STUB_TLS_KEY_FILE', composePath(TLS_KEY_FILE)),
     envLine('E2E_WAIT_BUDGET_MS', String(WAIT_BUDGET_MS)),
   ];
   writeFileSync(envFile, `${lines.join('\n')}\n`);
@@ -112,6 +128,10 @@ function writeComposeEnv(credentials) {
 
 function providerBaseUrl() {
   return process.env.E2E_OMDB_BASE_URL ?? `http://127.0.0.1:${STUB_PORT}/`;
+}
+
+function subtitleProviderBaseUrl() {
+  return `https://127.0.0.1:${STUB_TLS_PORT}/`;
 }
 
 function validateProviderSettings(settings) {
@@ -127,6 +147,19 @@ function validateProviderSettings(settings) {
   if (!String(settings.Thumbnails?.CacheDirectory ?? '').startsWith('/')) {
     throw new Error('generated settings must set an absolute Thumbnails:CacheDirectory');
   }
+
+  const subtitleBaseUrl = settings.Subtitles?.OpenSubtitles?.BaseUrl;
+  const parsedSubtitleBaseUrl = new URL(subtitleBaseUrl ?? '');
+  if (
+    parsedSubtitleBaseUrl.protocol !== 'https:' ||
+    parsedSubtitleBaseUrl.hostname !== '127.0.0.1'
+  ) {
+    throw new Error('Subtitles:OpenSubtitles:BaseUrl must be https on the literal host 127.0.0.1');
+  }
+
+  if (!settings.Subtitles?.OpenSubtitles?.DownloadAllowedHosts?.includes('127.0.0.1')) {
+    throw new Error('Subtitles:OpenSubtitles:DownloadAllowedHosts must allow the fixture host');
+  }
 }
 
 function writeSettings(settings) {
@@ -139,6 +172,7 @@ function buildSettings() {
   const rabbitUser = rememberSecret(`lamuflix_${randomSecretsuffix(8)}`);
   const rabbitCredential = rememberSecret(randomSecret());
   const omdbApiKey = rememberSecret(randomSecret(16));
+  const subtitleApiKey = rememberSecret(randomSecret(16));
 
   const settings = {
     Features: { LocalPlay: false },
@@ -175,6 +209,18 @@ function buildSettings() {
     Thumbnails: {
       Enabled: true,
       CacheDirectory: '/tmp/thumbnails',
+    },
+    Subtitles: {
+      SaveEnabled: true,
+      PreferredLanguages: [SUBTITLE_PROVIDER_FIXTURE.language],
+      OpenSubtitles: {
+        ApiKey: subtitleApiKey,
+        BaseUrl: subtitleProviderBaseUrl(),
+        UserAgent: 'LamuFlix-E2E/DEV-525',
+        DownloadAllowedHosts: ['127.0.0.1'],
+        MaxDownloadBytes: 1048576,
+        RequestTimeout: '00:00:15',
+      },
     },
   };
 
@@ -256,7 +302,10 @@ function writeStubResponses(fixture) {
       },
     });
   }
-  writeFileSync(responsesFile, `${JSON.stringify({ responses }, null, 2)}\n`);
+  writeFileSync(
+    responsesFile,
+    `${JSON.stringify({ responses, subtitleProvider: SUBTITLE_PROVIDER_FIXTURE }, null, 2)}\n`,
+  );
 }
 
 function writeContext(fixture) {
@@ -276,6 +325,14 @@ function writeContext(fixture) {
     manualMatchMovies,
     reservedMovie: { title: RESERVED_MOVIE.title, year: RESERVED_MOVIE.year },
     reservedFolders: { ...RESERVED_MOVIE.folders },
+    subtitleProvider: {
+      movieTitle: SUBTITLE_PROVIDER_FIXTURE.movieTitle,
+      language: SUBTITLE_PROVIDER_FIXTURE.language,
+      fileId: SUBTITLE_PROVIDER_FIXTURE.fileId,
+      release: SUBTITLE_PROVIDER_FIXTURE.release,
+      downloadCount: SUBTITLE_PROVIDER_FIXTURE.downloadCount,
+      cueText: SUBTITLE_PROVIDER_FIXTURE.cueText,
+    },
     subtitleFixtures: {
       listed: {
         title: SUBTITLE_FIXTURES.listed.title,
@@ -307,10 +364,73 @@ function prepare() {
   const { settings, credentials } = buildSettings();
   writeSettings(settings);
   writeComposeEnv(credentials);
+  generateCertificates();
   generateFixtures({ sampleLibraryDir, libraryDir });
+  allowContainerLibraryWrites(libraryDir);
   const fixture = SMOKE_MODE ? dev471Fixture() : null;
   writeStubResponses(fixture);
   writeContext(fixture);
+}
+
+function generateCertificates() {
+  mkdirSync(TLS_DIR, { recursive: true });
+  try {
+    execFileSync(
+      'openssl',
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-nodes',
+        '-sha256',
+        '-days',
+        '2',
+        '-subj',
+        '/CN=127.0.0.1',
+        '-addext',
+        'subjectAltName=IP:127.0.0.1',
+        '-keyout',
+        TLS_KEY_FILE,
+        '-out',
+        TLS_CERT_FILE,
+      ],
+      { stdio: 'ignore', windowsHide: true },
+    );
+  } catch (error) {
+    throw new Error(
+      'generating the ephemeral E2E subtitle-provider certificate requires the openssl CLI on PATH',
+      { cause: error },
+    );
+  }
+}
+
+function allowContainerLibraryWrites(root) {
+  // The api container runs as the non-root "app" user and publishes downloaded
+  // subtitles into the movie folders, so the staged library must be writable by
+  // that user on Linux bind mounts.
+  const pending = [root];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        fsChmod(full, 0o777);
+        pending.push(full);
+      } else if (entry.isFile()) {
+        fsChmod(full, 0o666);
+      }
+    }
+  }
+  fsChmod(root, 0o777);
+}
+
+function fsChmod(target, mode) {
+  try {
+    chmodSync(target, mode);
+  } catch {
+    // Bind mounts that do not carry POSIX modes (Windows hosts) accept writes anyway.
+  }
 }
 
 function dev471Fixture() {
