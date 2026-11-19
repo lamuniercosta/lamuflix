@@ -370,8 +370,8 @@ async function handleSubtitleProvider(request, response, url, subtitle) {
       return;
     }
 
-    recordSubtitleRequest(request, url, 'search-unexpected-query');
-    recordUnexpected(null, null, 'subtitle-search-query');
+    // Other seeded movies legitimately search the provider; only the fixture title yields candidates.
+    recordSubtitleRequest(request, url, 'search-no-candidates');
     sendJson(response, 200, { total_count: 0, data: [] });
     return;
   }

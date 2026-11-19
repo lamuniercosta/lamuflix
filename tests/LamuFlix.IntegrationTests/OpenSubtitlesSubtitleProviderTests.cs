@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -107,12 +107,13 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         candidates[0].ReleaseName.ShouldBe("Dune.2021.1080p.BluRay.x264-GROUP");
         candidates[1].FileId.ShouldBe(201);
         candidates[1].ReleaseName.ShouldBe("Dune.2021.WEB-DL.H264");
-        var (body, apiKeys, userAgents) = SearchRequest();
+        var (url, apiKeys, userAgents) = SearchRequest();
         apiKeys.ShouldBe([ApiKey]);
         userAgents.ShouldBe([UserAgent]);
-        body.ShouldContain("\"moviehash\":\"a1b2c3d4e5f60718\"");
-        body.ShouldContain("\"languages\":\"en,pt-br\"");
-        body.ShouldNotContain("\"query\"");
+        new Uri(url).Query.ShouldNotBeEmpty();
+        QueryValue(url, "moviehash").ShouldBe(Hash);
+        QueryValue(url, "languages").ShouldBe("en,pt-br");
+        QueryValue(url, "query").ShouldBeNull();
     }
 
     [Fact]
@@ -128,15 +129,16 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
             TestContext.Current.CancellationToken);
 
         // assert
-        SearchRequest().Body.ShouldContain("\"query\":\"Blade Runner\"");
-        SearchRequest().Body.ShouldNotContain("\"moviehash\"");
+        var (url, _, _) = SearchRequest();
+        QueryValue(url, "query").ShouldBe("Blade Runner");
+        QueryValue(url, "moviehash").ShouldBeNull();
     }
 
     [Fact]
     public async Task SearchAsync_RejectedApiKey_FailsWithoutExposingTheKey()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create().WithStatusCode(401).WithBody("{\"message\":\"unauthorized\"}"));
         var provider = Provider();
 
@@ -206,7 +208,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task SearchAsync_TooManyRequestsWithDeltaSeconds_PropagatesTheRetryAfterDelay()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create().WithStatusCode(429).WithHeader("Retry-After", "42"));
         var provider = Provider();
 
@@ -225,7 +227,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     {
         // arrange
         var retryAt = Now.AddMinutes(3);
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create().WithStatusCode(429)
                 .WithHeader("Retry-After", retryAt.ToString("R", CultureInfo.InvariantCulture)));
         var provider = Provider();
@@ -252,7 +254,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
             response = response.WithHeader("Retry-After", retryAfter);
         }
 
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost()).RespondWith(response);
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet()).RespondWith(response);
         var provider = Provider();
 
         // act
@@ -273,7 +275,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     {
         // arrange
         using var destination = LoopbackWireMock.StartHttps();
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create().WithStatusCode(status).WithHeader("Location", destination.Urls[0]));
         var provider = Provider();
 
@@ -292,7 +294,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task SearchAsync_ServerError_FailsAsAProviderFailureWithoutRetrying()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create().WithStatusCode(503));
         var provider = Provider();
 
@@ -310,7 +312,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task SearchAsync_ResponseSlowerThanTheRequestTimeout_FailsAsAProviderTimeout()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200).WithBody(SearchBody).WithDelay(TimeSpan.FromSeconds(3)));
         var provider = Provider(configure: options => options with { RequestTimeout = TimeSpan.FromMilliseconds(400) });
 
@@ -327,7 +329,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task SearchAsync_CallerCancellation_PropagatesCancellationRatherThanAProviderTimeout()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200).WithBody(SearchBody).WithDelay(TimeSpan.FromSeconds(3)));
         var provider = Provider(configure: options => options with { RequestTimeout = TimeSpan.FromSeconds(30) });
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
@@ -558,7 +560,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task SearchAsync_QuotaHeaders_MapRemainingAndRetryAfterIntoResetAtUtc()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
                 .WithHeader("X-RateLimit-Remaining", "17")
@@ -599,7 +601,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task SearchAsync_ZeroRemainingDownloads_ReportsAnExhaustedQuota()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
                 .WithHeader("X-RateLimit-Remaining", "0")
@@ -620,7 +622,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task SearchAsync_NonNumericRemainingHeader_IsTreatedAsUnknown()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
                 .WithHeader("X-RateLimit-Remaining", "soon")
@@ -726,7 +728,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     }
 
     private void StubSearch(string body) =>
-        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200).WithBody(body));
 
     private void StubDownload(string payload)
@@ -740,12 +742,28 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         server.Given(Request.Create().WithPath(DownloadPath).UsingPost())
             .RespondWith(response.WithBody($"{{\"link\":\"{link ?? BaseUrl + LinkPath}\"}}"));
 
-    private (string Body, string[] ApiKeys, string[] UserAgents) SearchRequest()
+    private (string Url, string[] ApiKeys, string[] UserAgents) SearchRequest()
     {
         var entries = server.LogEntries.Where(entry => entry.RequestMessage is { Path: SearchPath }).ToArray();
         entries.Length.ShouldBe(1);
         var message = entries[0].RequestMessage.ShouldNotBeNull();
-        return (message.Body.ShouldNotBeNull(), HeaderValues(message.Headers, "Api-Key"), HeaderValues(message.Headers, "User-Agent"));
+        message.Method.ShouldBe("GET");
+        return (message.Url.ShouldNotBeNull(), HeaderValues(message.Headers, "Api-Key"), HeaderValues(message.Headers, "User-Agent"));
+    }
+
+    private static string? QueryValue(string url, string name)
+    {
+        var query = new Uri(url).Query.TrimStart('?');
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (parts.Length == 2 && string.Equals(Uri.UnescapeDataString(parts[0]), name, StringComparison.Ordinal))
+            {
+                return Uri.UnescapeDataString(parts[1]);
+            }
+        }
+
+        return null;
     }
 
     private (string Body, string Method) LinkGetRequest()
