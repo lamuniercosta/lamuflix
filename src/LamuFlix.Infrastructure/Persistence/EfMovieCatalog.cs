@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,6 +13,29 @@ namespace LamuFlix.Infrastructure.Persistence;
 
 public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
 {
+    public async Task<KeywordCounts> GetKeywordCountsAsync(CancellationToken ct)
+    {
+        var rows = await dbContext.Database.SqlQuery<KeywordCountRow>($"""
+            WITH library AS (
+                SELECT COUNT(*)::bigint AS total_movies FROM movies
+            ), keyword_counts AS (
+                SELECT keywords.name AS keyword_name, COUNT(DISTINCT movie_keywords.movie_id)::bigint AS movie_count
+                FROM movie_keywords
+                JOIN keywords ON keywords.id = movie_keywords.keyword_id
+                JOIN movies ON movies.id = movie_keywords.movie_id
+                GROUP BY keywords.name
+            )
+            SELECT library.total_movies AS "TotalMovies", keyword_counts.keyword_name AS "KeywordName",
+                COALESCE(keyword_counts.movie_count, 0)::bigint AS "MovieCount"
+            FROM library LEFT JOIN keyword_counts ON TRUE
+            """).ToListAsync(ct);
+
+        return new KeywordCounts(
+            rows[0].TotalMovies,
+            rows.Where(row => row.KeywordName is not null)
+                .ToImmutableDictionary(row => row.KeywordName!, row => row.MovieCount, StringComparer.OrdinalIgnoreCase));
+    }
+
     public async Task<PagedResult<MovieSummary>> BrowseAsync(MovieQuery query, CancellationToken ct)
     {
         var filtered = dbContext.Movies.AsNoTracking()
@@ -256,6 +280,13 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         EnrichmentFailureCategory? FailureCategory);
 
     private sealed record KeywordRow(int Id, string Name);
+}
+
+internal sealed class KeywordCountRow
+{
+    public long TotalMovies { get; set; }
+    public string? KeywordName { get; set; }
+    public long MovieCount { get; set; }
 }
 
 // ReSharper disable UnusedAutoPropertyAccessor.Global // EF SqlQueryRaw materialization sets these properties reflectively.

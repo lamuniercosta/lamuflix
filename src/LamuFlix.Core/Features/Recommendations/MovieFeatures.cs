@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using LamuFlix.Core.Domain;
 
 namespace LamuFlix.Core.Features.Recommendations;
@@ -18,7 +19,10 @@ public sealed record MovieFeatures
         int? metaScore = null,
         string? fullPlot = null,
         IEnumerable<int>? keywords = null,
-        int? collectionId = null)
+        int? collectionId = null,
+        IEnumerable<string>? keywordNames = null,
+        string? collectionName = null,
+        IEnumerable<float>? plotEmbedding = null)
     {
         RequirePositiveCollectionId(collectionId);
 
@@ -33,6 +37,9 @@ public sealed record MovieFeatures
         FullPlot = fullPlot;
         Keywords = NormalizeKeywords(keywords);
         CollectionId = collectionId;
+        KeywordNames = Normalize(keywordNames);
+        CollectionName = collectionName;
+        PlotEmbedding = plotEmbedding?.ToImmutableArray() ?? ImmutableArray<float>.Empty;
     }
 
     public ImmutableHashSet<string> Genres { get; }
@@ -57,6 +64,12 @@ public sealed record MovieFeatures
 
     public int? CollectionId { get; }
 
+    public ImmutableHashSet<string> KeywordNames { get; }
+
+    public string? CollectionName { get; }
+
+    public ImmutableArray<float> PlotEmbedding { get; }
+
     public bool Equals(MovieFeatures? other) =>
         other is not null && SetsEqual(other) && ScalarsEqual(other);
 
@@ -65,7 +78,8 @@ public sealed record MovieFeatures
         && Directors.SetEquals(other.Directors)
         && Writers.SetEquals(other.Writers)
         && Cast.SetEquals(other.Cast)
-        && Keywords.SetEquals(other.Keywords);
+        && Keywords.SetEquals(other.Keywords)
+        && KeywordNames.SetEquals(other.KeywordNames);
 
     private bool ScalarsEqual(MovieFeatures other) =>
         ReleaseYear == other.ReleaseYear
@@ -73,6 +87,8 @@ public sealed record MovieFeatures
         && ImdbRating == other.ImdbRating
         && MetaScore == other.MetaScore
         && CollectionId == other.CollectionId
+        && string.Equals(CollectionName, other.CollectionName, StringComparison.Ordinal)
+        && PlotEmbedding.SequenceEqual(other.PlotEmbedding)
         && string.Equals(FullPlot, other.FullPlot, StringComparison.Ordinal);
 
     public override int GetHashCode()
@@ -83,11 +99,17 @@ public sealed record MovieFeatures
         hash.Add(SetHash(Writers));
         hash.Add(SetHash(Cast));
         hash.Add(KeywordSetHash(Keywords));
+        hash.Add(SetHash(KeywordNames));
+        foreach (var value in PlotEmbedding)
+        {
+            hash.Add(value);
+        }
         hash.Add(ReleaseYear);
         hash.Add(Runtime);
         hash.Add(ImdbRating);
         hash.Add(MetaScore);
         hash.Add(CollectionId);
+        hash.Add(CollectionName is null ? 0 : StringComparer.Ordinal.GetHashCode(CollectionName));
         hash.Add(FullPlot is null ? 0 : StringComparer.Ordinal.GetHashCode(FullPlot));
         return hash.ToHashCode();
     }

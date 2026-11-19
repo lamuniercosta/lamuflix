@@ -210,6 +210,9 @@ public sealed class GenreWeightsCalculatorTests
 
         public Task<GenreCounts> GetGenreCountsAsync(CancellationToken ct) => Task.FromResult(counts);
 
+        public Task<KeywordCounts> GetKeywordCountsAsync(CancellationToken ct) =>
+            Task.FromResult(new KeywordCounts(0, new Dictionary<string, long>()));
+
         public Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct) =>
             throw new NotSupportedException();
 

@@ -70,3 +70,9 @@ Honest labels only: PASS / FAIL / SKIPPED (scope-empty) / SKIP / N/A / Could not
 - [ ] No credentials, connection strings, or secrets in evidence paths or this file
 - [ ] Snapshot artifacts remain unversioned under ignored outputs
 - [ ] `git status` clean of personal captures before claiming delivery readiness
+
+## 7. Phase 3 keyword-count query plan (T003/T007)
+
+- PostgreSQL Testcontainers run against 1,000 movies and 1,000 `movie_keywords` memberships using `EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)` for the production grouping query.
+- Plan: sequential scans of `movies`, `movie_keywords`, and `keywords`; hash joins; a quicksort using 56 kB; `GroupAggregate`; one aggregate for library `N`; 36 shared buffer hits. Planning time 0.358 ms; execution time 0.800 ms.
+- Cost disposition: one full scan of the library population and keyword memberships is inherent in calculating `N` and all `n_k`; the existing plan is low-cost at this representative size and the operation is cached per process. No new index or schema change is justified. Planner estimates (225 movies / 2,260 memberships) differed from actual rows (1,000 / 1,000), so larger-library planning should be rechecked if the catalog grows materially.
