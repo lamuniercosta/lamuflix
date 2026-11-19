@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace LamuFlix.Evaluation.IntegrationTests.TestSupport;
 
@@ -18,7 +19,9 @@ internal sealed record CommandResult(int ExitCode, string StandardOutput, string
 
 internal static class EvaluationCommand
 {
-    private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(15);
+    internal static readonly TimeSpan Timeout = TimeSpan.FromMinutes(8);
+
+    internal static readonly TimeSpan StreamDrainTimeout = TimeSpan.FromSeconds(30);
 
     public static string RepositoryRoot { get; } = FindRepositoryRoot();
 
@@ -75,6 +78,16 @@ internal static class EvaluationCommand
         {
             process.Kill(entireProcessTree: true);
             throw new TimeoutException(scriptName + " did not finish within " + Timeout);
+        }
+
+        var readers = new Task<string>[] { standardOutput, standardError };
+        if (!Task.WaitAll(readers, StreamDrainTimeout))
+        {
+            process.Kill(entireProcessTree: true);
+            if (!Task.WaitAll(readers, StreamDrainTimeout))
+            {
+                throw new TimeoutException(scriptName + " streams did not close within " + StreamDrainTimeout);
+            }
         }
 
         return new CommandResult(
