@@ -201,7 +201,7 @@ function dispatch(
     error: preserveFailure ? preserveFailure.error : null,
     refreshError: null,
     lastAction: preserveFailure?.lastAction ?? action,
-    before: preserveFailure?.before ?? before,
+    before: preserveFailure && preserveFailure.lastAction !== action ? preserveFailure.before : before,
     broadRefresh: true,
     run,
   });
@@ -294,7 +294,13 @@ export function useMovieFeedback(
     if (isBusy(current)) {
       return;
     }
-    dispatch(key, movieId, current.lastAction, current.before, clients);
+    dispatch(
+      key,
+      movieId,
+      current.lastAction,
+      { isWatched: current.isWatched, review: current.review },
+      clients,
+    );
   }, [key, movieId, clients]);
 
   const retryRefresh = useCallback(() => {
