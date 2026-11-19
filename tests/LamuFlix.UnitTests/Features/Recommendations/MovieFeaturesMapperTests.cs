@@ -24,7 +24,9 @@ public sealed class MovieFeaturesMapperTests
             directors: new[] { "Director A", "Director B" },
             actors: new[] { "Actor A", "Actor B" },
             genres: new[] { "Drama", "Sci-Fi" },
-            writers: new[] { "Writer A" });
+            writers: new[] { "Writer A" },
+            collectionId: 42,
+            collectionName: "Collection");
         var movie = CreateMovie(metadata);
 
         // act
@@ -40,6 +42,7 @@ public sealed class MovieFeaturesMapperTests
         features.ImdbRating.ShouldBe(new ImdbRating(8.0m));
         features.MetaScore.ShouldBe(94);
         features.FullPlot.ShouldBe("A linguist works with the military.");
+        features.CollectionId.ShouldBe(42);
     }
 
     [Theory]
@@ -640,7 +643,7 @@ public sealed class MovieFeaturesMapperTests
     }
 
     [Fact]
-    public void From_DisabledSignals_KeepsBaseCastOnlyAndOmitsKeywordAndCollectionTerms()
+    public void From_DisabledSignals_KeepsBaseCastAndCollectionMetadataOnly()
     {
         // arrange
         var movie = CreateMovie(SignalMetadata(
@@ -657,7 +660,7 @@ public sealed class MovieFeaturesMapperTests
         // assert
         features.Cast.SetEquals(["Actor A", "Actor B"]).ShouldBeTrue();
         features.Keywords.ShouldBeEmpty();
-        features.CollectionId.ShouldBeNull();
+        features.CollectionId.ShouldBe(2344);
     }
 
     [Fact]

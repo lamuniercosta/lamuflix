@@ -170,7 +170,7 @@ public sealed class MovieFeaturesPropertyTests
 
     [Property(MaxTest = 100, Replay = "336010,100019")]
     [Trait("Category", "Property")]
-    public bool From_EnabledSignals_MergeFullCastIntoBaseCast(int[]? keywords, int castSeed)
+    public bool From_EnabledSignals_MergeFullCastIntoBaseCastAndKeepCollectionIdentity(int[]? keywords, int castSeed)
     {
         // arrange
         var positiveKeywords = PositiveKeywords(keywords);
@@ -194,7 +194,7 @@ public sealed class MovieFeaturesPropertyTests
         // assert
         return disabled.Cast.SetEquals(["Base Actor"])
             && disabled.Keywords.Count == 0
-            && disabled.CollectionId is null
+            && disabled.CollectionId == 42
             && enabled.Cast.SetEquals(["Base Actor", fullCast[0]])
             && enabled.Keywords.SetEquals(positiveKeywords)
             && enabled.CollectionId == 42;

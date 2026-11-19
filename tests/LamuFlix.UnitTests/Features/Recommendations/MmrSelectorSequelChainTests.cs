@@ -77,6 +77,23 @@ public sealed class MmrSelectorSequelChainTests
     }
 
     [Fact]
+    public void Select_SeedCapAcrossSequelChain_LeavesStandaloneOutsidersEligible()
+    {
+        var result = MmrSelector.Select(
+                BuildFixture(),
+                Take,
+                Lambda,
+                GenreOnlyWeights,
+                UniformGenreWeights,
+                maxPerBestSeed: 1)
+            .Select(id => id.Value)
+            .ToArray();
+
+        result.Count(id => SequelIds.Contains(id)).ShouldBe(1);
+        result.Count(OutsiderIds.Contains).ShouldBe(OutsiderIds.Length);
+    }
+
+    [Fact]
     public void StepTwoMarginalObjectives_MatchDocumentedOutsiderAndNextSequelScores()
     {
         // arrange
@@ -108,7 +125,8 @@ public sealed class MmrSelectorSequelChainTests
             pool.Add(new MmrCandidate(
                 new MovieId(SequelIds[index]),
                 SequelRelevances[index],
-                new MovieFeatures(genres: ["Franchise"])));
+                new MovieFeatures(genres: ["Franchise"]),
+                new MovieId(900)));
         }
 
         for (var index = 0; index < OutsiderIds.Length; index++)

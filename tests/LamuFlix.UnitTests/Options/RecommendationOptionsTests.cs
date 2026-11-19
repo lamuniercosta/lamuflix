@@ -84,6 +84,71 @@ public sealed class RecommendationOptionsTests
     }
 
     [Fact]
+    public void Defaults_RecommendationCaps_MatchTheAgreedValues()
+    {
+        var options = new RecommendationOptions();
+
+        options.MaxPerBestSeed.ShouldBe(3);
+        options.MaxPerCollection.ShouldBe(1);
+        options.MaxExcludeCount.ShouldBe(50);
+    }
+
+    [Theory]
+    [InlineData(1, 1, 0)]
+    public void TryValidateObject_RecommendationCapBoundaries_AreAccepted(
+        int maxPerBestSeed,
+        int maxPerCollection,
+        int maxExcludeCount)
+    {
+        var options = new RecommendationOptions
+        {
+            MaxPerBestSeed = maxPerBestSeed,
+            MaxPerCollection = maxPerCollection,
+            MaxExcludeCount = maxExcludeCount,
+        };
+
+        Validate(options).ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(0, 1, 0)]
+    [InlineData(1, 0, 0)]
+    [InlineData(1, 1, -1)]
+    public void TryValidateObject_InvalidRecommendationCaps_ReportsTheInvalidMember(
+        int maxPerBestSeed,
+        int maxPerCollection,
+        int maxExcludeCount)
+    {
+        var options = new RecommendationOptions
+        {
+            MaxPerBestSeed = maxPerBestSeed,
+            MaxPerCollection = maxPerCollection,
+            MaxExcludeCount = maxExcludeCount,
+        };
+
+        var results = Validate(options);
+
+        results.SelectMany(result => result.MemberNames).ShouldContain(
+            maxPerBestSeed < 1 ? nameof(RecommendationOptions.MaxPerBestSeed)
+            : maxPerCollection < 1 ? nameof(RecommendationOptions.MaxPerCollection)
+            : nameof(RecommendationOptions.MaxExcludeCount));
+    }
+
+    [Theory]
+    [InlineData(nameof(RecommendationOptions.MaxPerBestSeed), "0")]
+    [InlineData(nameof(RecommendationOptions.MaxPerCollection), "0")]
+    [InlineData(nameof(RecommendationOptions.MaxExcludeCount), "-1")]
+    public void StartupValidation_InvalidRecommendationCaps_FailsValidation(string memberName, string value)
+    {
+        var values = ValidRequired();
+        values[$"{RecommendationOptions.SectionName}:{memberName}"] = value;
+
+        var exception = ValidateStartup(values);
+
+        exception.Message.ShouldContain(memberName);
+    }
+
+    [Fact]
     public void Defaults_SimilarStoryThreshold_IsTheAmendedCalibratedMidpoint()
     {
         // arrange

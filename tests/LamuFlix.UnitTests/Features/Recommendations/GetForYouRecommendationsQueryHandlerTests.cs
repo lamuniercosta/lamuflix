@@ -289,7 +289,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(60), CancellationToken.None);
 
         // assert
-        result.Count.ShouldBe(60);
+        result.Count.ShouldBe(50);
         browseQueries.Count.ShouldBe(2);
         browseQueries[0].Page.Number.ShouldBe(1);
         browseQueries[1].Page.Number.ShouldBe(2);
@@ -408,6 +408,69 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         result.Count.ShouldBe(1);
         result[0].Score.ShouldBe(1.0, 1e-12);
         result[0].Reasons.ShouldBe([Reason.Personal("Matches your Drama interest")]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_CollectionCutKeepsEarliestKnownYearThenLowestMovieId()
+    {
+        var handler = NewHandler();
+        ArrangeLibrary(
+            NewMovie(3, genres: ["Drama"], collectionId: 7),
+            NewMovie(4, genres: ["Drama"], collectionId: 7, releaseYear: 2000),
+            NewMovie(2, genres: ["Drama"], collectionId: 7, releaseYear: 2000),
+            NewMovie(5, genres: ["Drama"]));
+        ArrangeProfile(Inputs(WatchedHistory(90, "Drama")), Profile(("Drama", 1.0)));
+
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        result.Select(item => item.Summary.Id.Value).ShouldContain(2);
+        result.Select(item => item.Summary.Id.Value).ShouldNotContain(3);
+        result.Select(item => item.Summary.Id.Value).ShouldNotContain(4);
+        result.Select(item => item.Summary.Id.Value).ShouldContain(5);
+    }
+
+    [Fact]
+    public async Task HandleAsync_CandidatePoolSizeBoundsTakeWithoutTruncatingEligibleCandidates()
+    {
+        var handler = NewHandler(candidatePoolSize: 2, mmrLambda: 1.0);
+        ArrangeLibrary(
+            NewMovie(2, genres: ["Comedy"]),
+            NewMovie(3, genres: ["Comedy"]),
+            NewMovie(4, genres: ["Drama"]),
+            NewMovie(10, genres: ["Drama"]));
+        ArrangeProfile(Inputs(WatchedHistory(90, "Drama")), Profile(("Drama", 1.0)));
+
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(10), CancellationToken.None);
+
+        result.Count.ShouldBe(2);
+        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 4, 10 });
+    }
+
+    [Fact]
+    public async Task HandleAsync_SeedSaturationDoesNotBackfillCollectionMember()
+    {
+        var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0, maxPerBestSeed: 1);
+        var first = NewMovie(2, genres: ["Drama"]);
+        var representative = NewMovie(3, genres: ["Drama"], releaseYear: 2000, collectionId: 7);
+        var laterMember = NewMovie(4, genres: ["Drama"], releaseYear: 2001, collectionId: 7);
+        ArrangeLibrary(first, representative, laterMember);
+
+        var firstVector = PlotVector(primary: 1.0f);
+        var laterVector = PlotVector(primary: 0.0f, secondary: 1.0f);
+        var inputs = new RecommendationProfileInputs(
+            [WatchedHistory(90, "Drama"), WatchedHistory(91, "Drama")],
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty
+                .Add(first.Id, firstVector)
+                .Add(representative.Id, firstVector)
+                .Add(laterMember.Id, laterVector),
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty
+                .Add(new MovieId(90), firstVector)
+                .Add(new MovieId(91), laterVector));
+        ArrangeProfile(inputs, TwoLikedSources(firstVector));
+
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(3), CancellationToken.None);
+
+        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2 });
     }
 
     [Fact]
@@ -695,6 +758,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
     private GetForYouRecommendationsQueryHandler NewHandler(
         int candidatePoolSize = 50,
+        int maxPerBestSeed = 3,
         double blendSelectedWeight = 1.0,
         double blendProfileWeight = 1.0,
         double alreadyWatchedPenalty = 0.25,
@@ -708,6 +772,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             Microsoft.Extensions.Options.Options.Create(new RecommendationOptions
             {
                 CandidatePoolSize = candidatePoolSize,
+                MaxPerBestSeed = maxPerBestSeed,
                 BlendSelectedWeight = blendSelectedWeight,
                 BlendProfileWeight = blendProfileWeight,
                 AlreadyWatchedPenalty = alreadyWatchedPenalty,
@@ -952,11 +1017,12 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         bool withMetadata = true,
         bool isInWatchlist = false,
         bool isWatched = false,
-        bool isNotInterested = false)
+        bool isNotInterested = false,
+        int? collectionId = null)
     {
         var movieTitle = title ?? $"Movie {id}";
         var metadata = withMetadata
-            ? BuildMetadata(movieTitle, posterUrl, releaseYear, runtimeMinutes, imdbRating, genres, directors, actors, writers)
+            ? BuildMetadata(movieTitle, posterUrl, releaseYear, runtimeMinutes, imdbRating, genres, directors, actors, writers, collectionId)
             : null;
 
         return Movie.Rehydrate(
@@ -984,7 +1050,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         string[]? genres,
         string[]? directors,
         string[]? actors,
-        string[]? writers) =>
+        string[]? writers,
+        int? collectionId) =>
         new(
             movieTitle,
             posterUrl: posterUrl,
@@ -994,7 +1061,9 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             directors: directors,
             actors: actors,
             genres: genres,
-            writers: writers);
+            writers: writers,
+            collectionId: collectionId,
+            collectionName: collectionId.HasValue ? $"Collection {collectionId}" : null);
 }
 
 public sealed class GetForYouRecommendationsQueryHandlerPropertyTests

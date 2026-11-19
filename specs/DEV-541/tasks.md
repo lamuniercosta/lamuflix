@@ -7,7 +7,7 @@ description: "Task list for DEV-541 deterministic For-You ranking and paging"
 
 **Input**: Design documents — public `specs/DEV-541/spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q10), `CONCLUSIONS.md`; Maestri notes `DEV-541`, `recon-DEV-541`; `specs/PRODUCT.md`.
 
-**Status**: PLAN FROZEN · Phase 2 step 6 complete. See [PLAN_ADJUDICATION.md](PLAN_ADJUDICATION.md). Gate 1, Build and runtime acceptance are pending.
+**Status**: PLAN FROZEN · Phase 2 step 6 complete. See [PLAN_ADJUDICATION.md](PLAN_ADJUDICATION.md). Gate 1 verified. Build and runtime acceptance are pending.
 
 **Tests**: Required (`brief.md` Acceptance evidence; FR-001–FR-012; SC-001–SC-006; SMOKE-001). TDD optional. Use existing unit/integration/OpenAPI/web test homes. No new test framework/dependency. Never mock the data-access driver for behaviour that depends on real translation.
 
@@ -27,12 +27,12 @@ description: "Task list for DEV-541 deterministic For-You ranking and paging"
 Phase 0   Spec-PR prep → T000   (Bernstein/Rigger produce/open; user merges; Keel Gate 1 merge record) — blocks T001+
 Phase 1   T001          (Wisp caller recon confirmation) — prerequisite for Core and every later phase
 Phase 2   T002 → T006   (US1 Core options/ranking/caps + unit tests) — after T001
-Phase 3   T007 → T010   (US2/US3 query paging + API validator/endpoint/DTO + HTTP tests) — after Core
+Phase 3   T007/T008 → T009 → T004a → T010   (query paging/exclusions + exclusion regressions + HTTP boundary) — after Phase 2
 Phase 4   T011 → T014   (US4 OpenAPI snapshot, generated contract, mocks, confirmed caller unwrap) — after API
 Phase 5   T015 → T017   (focused verification + Size M gates + review bar + SMOKE disposition) — after OpenAPI/web
 ```
 
-Ordering per brief Q7 (`brief.md` Task order; Q7): **Gate 1 → T001 → Core (T002–T006) → API (T007–T010) → OpenAPI/web (T011–T014) → verification (T015–T017)**. T001 must complete before Core starts. Web migration (T013–T014) also uses the T001 file list and pickup deltas.
+Ordering per brief Q7 (`brief.md` Task order; Q7): **Gate 1 → T001 → Core (T002–T006) → query and API (T007–T010, including T004a after T009) → OpenAPI/web (T011–T014) → verification (T015–T017)**. T001 must complete before Core starts. T004a carries the two US1 assertions that require the query exclusion contract (brief Q3–Q4). Web migration (T013–T014) also uses the T001 file list and pickup deltas.
 
 ---
 
@@ -41,7 +41,7 @@ Ordering per brief Q7 (`brief.md` Task order; Q7): **Gate 1 → T001 → Core (T
 **Purpose**: Produce/open the spec PR, then confirm ordinary owner Gate 1 merge before Build work.
 **Checkpoint**: Spec PR opened by Rigger under Bernstein coordination; verified user-merge receipt in `CONCLUSIONS.md`, or stop. No Build tasks before that receipt.
 
-- [ ] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-541 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-541 in `specs/DEV-541/CONCLUSIONS.md`. Receipt only. T001–T017 MUST NOT proceed without verified merge (brief; Q7/Q10).
+- [X] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-541 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-541 in `specs/DEV-541/CONCLUSIONS.md`. Receipt only. T001–T017 MUST NOT proceed without verified merge (brief; Q7/Q10).
 
 ---
 
@@ -51,7 +51,7 @@ Ordering per brief Q7 (`brief.md` Task order; Q7): **Gate 1 → T001 → Core (T
 **Independent Test**: Written recon confirms the challenge baseline against pickup HEAD and records exact file paths for the mechanical migration and any pickup deltas.
 **Order**: T001 after T000; blocks T002+.
 
-- [ ] T001 **Wisp**. Confirm the Sentry F1 and Compass F3 baseline against pickup HEAD. Review `web/src/features/for-you/forYouApi.ts`, `forYouApi.test.ts`, `ForYouPage.tsx`, `ForYouPage.test.tsx`, and `web/src/mocks/forYou.test.ts` with the fixture in `web/src/mocks/fixtures.ts`. Record exact compatibility edits, callers needing verification only, and evidence for any deltas in `recon-DEV-541`. The earlier recon could not enumerate the callers. **STOP** `needs recon:` if the pickup inventory cannot be established before Core proceeds (Q6/Q7).
+- [X] T001 **Wisp**. Confirm the Sentry F1 and Compass F3 baseline against pickup HEAD. Review `web/src/features/for-you/forYouApi.ts`, `forYouApi.test.ts`, `ForYouPage.tsx`, `ForYouPage.test.tsx`, and `web/src/mocks/forYou.test.ts` with the fixture in `web/src/mocks/fixtures.ts`. Record exact compatibility edits, callers needing verification only, and evidence for any deltas in `recon-DEV-541`. The earlier recon could not enumerate the callers. **STOP** `needs recon:` if the pickup inventory cannot be established before Core proceeds (Q6/Q7).
 
 **Checkpoint**: T002+ unlock only after T001 completes. T013/T014 use the confirmed file list and pickup deltas.
 
@@ -60,29 +60,29 @@ Ordering per brief Q7 (`brief.md` Task order; Q7): **Gate 1 → T001 → Core (T
 ## Phase 2: User Story 1 - Capped deterministic For-You ranking (Priority: P1) 🎯 MVP
 
 **Goal**: Options, collection release-order cut, and capped MMR selection produce one deterministic full ranking.
-**Independent Test / coverage labels**: Existing unit suites prove default caps, standalones, release-year/null/tie order, exclusion-driven promotion, seed-saturation non-backfill, movie-ID ties, unknown-valid-ID no-effect, and Q5 beyond-`CandidatePoolSize` selection with take still bounded (FR-001–FR-005; SC-001/SC-003).
-**Order**: T002 → T006 after T001.
+**Independent Test / coverage labels**: Existing unit suites prove default caps, standalones, release-year/null/tie order, seed-saturation non-backfill, movie-ID ties, and Q5 beyond-`CandidatePoolSize` selection with take still bounded (FR-001–FR-005; SC-001/SC-003).
+**Order**: T002–T006 after T001. T004 runs against the T005–T006 ranking implementation at the Phase 2 checkpoint.
 
 ### Tests for User Story 1
 
-- [ ] T002 [P] [US1] **Build lane**. Extend `tests/LamuFlix.UnitTests/Options/RecommendationOptionsTests.cs` (and related existing options tests as needed) to verify best-seed cap 3, `MaxPerCollection` 1, and `MaxExcludeCount` 50 matching default `CandidatePoolSize`. Verify each cap accepts 1 and rejects 0 and the exclude limit accepts 0 and rejects -1. Exercise the existing data-annotation / `ValidateOnStart` path for the new options (FR-004/FR-008, constitution VII).
-- [ ] T003 [P] [US1] **Build lane**. Extend `tests/LamuFlix.UnitTests/Features/Recommendations/MmrSelectorTests.cs` and `MmrSelectorSequelChainTests.cs` for whole-ranking seed/collection caps, the cap boundary including the last eligible and first skipped candidate, standalone seed-only consumption, and ascending movie-ID tie-break with caps active (FR-001/FR-004, SC-003).
-- [ ] T004 [P] [US1] **Build lane**. Extend `tests/LamuFlix.UnitTests/Features/Recommendations/MovieFeaturesMapperTests.cs` and `GetForYouRecommendationsQueryHandlerTests.cs` for collection release-year cut (null last, movie-ID ties), exclusion-driven promotion, non-backfill under seed saturation, **handler regression: unknown valid IDs have no effect**, and **Q5 regression: a result beyond `CandidatePoolSize` in the eligible input can be selected while `take` remains bounded by `CandidatePoolSize`** (FR-002/FR-003/FR-005; SC-001).
+- [X] T002 [P] [US1] **Build lane**. Extend `tests/LamuFlix.UnitTests/Options/RecommendationOptionsTests.cs` (and related existing options tests as needed) to verify best-seed cap 3, `MaxPerCollection` 1, and `MaxExcludeCount` 50 matching default `CandidatePoolSize`. Verify each cap accepts 1 and rejects 0 and the exclude limit accepts 0 and rejects -1. Exercise the existing data-annotation / `ValidateOnStart` path for the new options (FR-004/FR-008, constitution VII).
+- [X] T003 [P] [US1] **Build lane**. Extend `tests/LamuFlix.UnitTests/Features/Recommendations/MmrSelectorTests.cs` and `MmrSelectorSequelChainTests.cs` for whole-ranking seed/collection caps, the cap boundary including the last eligible and first skipped candidate, standalone seed-only consumption, and ascending movie-ID tie-break with caps active (FR-001/FR-004, SC-003).
+- [X] T004 [P] [US1] **Build lane**. Extend `tests/LamuFlix.UnitTests/Features/Recommendations/MovieFeaturesMapperTests.cs` and `GetForYouRecommendationsQueryHandlerTests.cs` for collection release-year cut (null last, movie-ID ties), non-backfill under seed saturation, and **Q5 regression: a result beyond `CandidatePoolSize` in the eligible input can be selected while `take` remains bounded by `CandidatePoolSize`** (FR-002/FR-003/FR-005; SC-001).
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] **Build lane**. Update `src/LamuFlix.Core/Options/RecommendationOptions.cs` with typed best-seed cap, `MaxPerCollection` and `MaxExcludeCount`. Use `const` defaults of 3, 1 and 50 respectively and avoid mutation-sensitive static initialization. Add range annotations for ranking caps ≥ 1 and raw exclude limit ≥ 0 under existing `ValidateOnStart()` registration. `CandidatePoolSize` bounds take only for For-You (FR-004/FR-005/FR-008, constitution VII).
-- [ ] T006 [US1] **Build lane**. Implement collection cut and capped selection across `GetForYouRecommendationsQueryHandler.cs`, `MmrSelector.cs`, and `MovieFeaturesMapper.cs` (extend `MmrCandidate.cs` only if required). Preserve existing strong-match eligibility. Ensure identical inputs yield a stable full ranking before paging (FR-001–FR-005). Make T002–T004 assertions pass.
+- [X] T005 [US1] **Build lane**. Update `src/LamuFlix.Core/Options/RecommendationOptions.cs` with typed best-seed cap, `MaxPerCollection` and `MaxExcludeCount`. Use `const` defaults of 3, 1 and 50 respectively and avoid mutation-sensitive static initialization. Add range annotations for ranking caps ≥ 1 and raw exclude limit ≥ 0 under existing `ValidateOnStart()` registration. `CandidatePoolSize` bounds take only for For-You (FR-004/FR-005/FR-008, constitution VII).
+- [X] T006 [US1] **Build lane**. Implement collection cut and capped selection across `GetForYouRecommendationsQueryHandler.cs`, `MmrSelector.cs`, and `MovieFeaturesMapper.cs` (extend `MmrCandidate.cs` only if required). Preserve existing strong-match eligibility. Ensure identical inputs yield a stable full ranking before paging (FR-001–FR-005). Make T002–T004 assertions pass.
 
-**Checkpoint**: US1 independently testable via unit suites.
+**Checkpoint**: T002–T004 pass against the T005–T006 implementation. Start Phase 3 once this ranking checkpoint is met. The US1 exclusion regressions are required at the Phase 3 checkpoint.
 
 ---
 
 ## Phase 3: User Stories 2–3 - Paging, exclusions, HTTP envelope (Priority: P1)
 
 **Goal**: Query carries offset/exclusions; handler slices with overflow-safe hasMore; endpoint validates inputs at the HTTP boundary and returns `{ items, hasMore }` with ProblemDetails+`traceId` on validation failures.
-**Independent Test / coverage labels**: Unit + `RecommendationEndpointTests.cs` prove slices, hasMore boundaries, empty/beyond-end, large offset, duplicate/raw-limit exclude HTTP cases, invalid/nonpositive exclude, malformed/negative/repeated offset 400 with ProblemDetails+`traceId`, nonzero valid offset dispatch, deduplicated query dispatch, defaults, wrapped JSON, and movie-specific endpoint unchanged (FR-006–FR-009; SC-002/SC-004).
-**Order**: T007 → T010 after T006.
+**Independent Test / coverage labels**: Unit + `RecommendationEndpointTests.cs` prove exclusion-driven promotion, unknown-valid-ID no-effect, slices, hasMore boundaries, empty/beyond-end, large offset, duplicate/raw-limit exclude HTTP cases, invalid/nonpositive exclude, malformed/negative/repeated offset 400 with ProblemDetails+`traceId`, nonzero valid offset dispatch, deduplicated query dispatch, defaults, wrapped JSON, and movie-specific endpoint unchanged (FR-006–FR-009; SC-002/SC-004).
+**Order**: Start T007–T008 after the Phase 2 checkpoint. Complete T009, then pass T004a before T010. T004a follows T007 and T009 because they also edit the handler suite or supply its query contract.
 
 ### Tests for User Stories 2–3
 
@@ -91,10 +91,11 @@ Ordering per brief Q7 (`brief.md` Task order; Q7): **Gate 1 → T001 → Core (T
 
 ### Implementation for User Stories 2–3
 
-- [ ] T009 [US2] **Build lane**. Add `src/LamuFlix.Core/Features/Recommendations/ForYouRecommendationsPage.cs` as the Core page result. Update the query, handler and existing `HandlerRegistration.cs` binding to use it. Add offset and exclusions to the query and validate normalized invariants, including nonnegative offset, in `GetForYouRecommendationsQueryValidator.cs`. If offset reaches the eligible post-cut count, return an empty page with false hasMore before MMR. Otherwise select up to `offset + take + 1` using widened arithmetic and clamping to that count. Slice `[offset, offset + take)` and set hasMore from selected index `offset + take`. `CandidatePoolSize` remains the take ceiling (FR-005–FR-008).
+- [ ] T009 [US2] **Build lane**. Add `src/LamuFlix.Core/Features/Recommendations/ForYouRecommendationsPage.cs` as the Core page result. Update the query, handler and existing `HandlerRegistration.cs` binding to use it. Add offset and exclusions to the query and validate normalized invariants, including nonnegative offset, in `GetForYouRecommendationsQueryValidator.cs`. Filter excluded IDs before the collection release-year cut and MMR (brief Q3–Q4). If offset reaches the eligible post-cut count, return an empty page with false hasMore before MMR. Otherwise select up to `offset + take + 1` using widened arithmetic and clamping to that count. Slice `[offset, offset + take)` and set hasMore from selected index `offset + take`. `CandidatePoolSize` remains the take ceiling (FR-005–FR-008).
+- [ ] T004a [US1] **Build lane**. After T009, extend `tests/LamuFlix.UnitTests/Features/Recommendations/GetForYouRecommendationsQueryHandlerTests.cs` through the Core query exclusion contract. Prove that excluding the earliest eligible collection member promotes the next eligible member and that unknown valid movie IDs have no effect on the result. Pass both regressions before T010 (FR-002/FR-003, brief Q3–Q4, SC-001).
 - [ ] T010 [US3] **Build lane**. In `RecommendationEndpoints.cs` enforce the existing take rules and ParseTake pattern for offset. Missing offset defaults to zero. Reject multiple values, parse failures and negatives before dispatch. Count raw repeated exclude values before deduplication at the HTTP boundary. Parse each with `NumberStyles.Integer` and `CultureInfo.InvariantCulture` before `MovieId.TryCreate`, then deduplicate valid IDs. Use `BadHttpRequestException` and static error messages for 400 ProblemDetails with `traceId`. Map to the For-You-only envelope using `src/LamuFlix.Api/Endpoints/ForYouRecommendationsPageDto.cs` with the existing item DTO. Make T007–T008 pass (FR-007–FR-009, constitution V).
 
-**Checkpoint**: US2/US3 independently testable via unit + HTTP integration.
+**Checkpoint**: T004a passes and US2/US3 are independently testable via unit + HTTP integration.
 
 ---
 
@@ -142,14 +143,14 @@ Ordering per brief Q7 (`brief.md` Task order; Q7): **Gate 1 → T001 → Core (T
 
 ### User Story Dependencies
 
-- **US1 (P1)**: After T001 — no dependency on US2–US4.
-- **US2/US3 (P1)**: After US1 ranking exists to slice and expose.
+- **US1 (P1)**: Ranking work follows T001. Its exclusion regressions in T004a require the Core query contract in T009.
+- **US2/US3 (P1)**: Query work follows the Phase 2 ranking checkpoint. T010 follows T009 and T004a.
 - **US4 (P2)**: After US3 envelope exists; web unwrap only for T001-recorded files plus brief-named mocks.
 
 ### Parallel Opportunities
 
 - T002, T003, T004 may run in parallel (different test files) after T001, before/alongside T005–T006 as long as assertions land against the final Core behaviour.
-- T007 may proceed in parallel with early T008 scaffolding only after T006; prefer T009 before asserting HTTP JSON in T008/T010.
+- T007 may proceed in parallel with early T008 scaffolding after the Phase 2 checkpoint. Run T004a after T009 and before T010.
 - T011 contract work precedes T012 generation, T013 fixture migration, and T014 caller and test adaptation.
 
 ### Parallel Example: User Story 1 tests
@@ -157,7 +158,7 @@ Ordering per brief Q7 (`brief.md` Task order; Q7): **Gate 1 → T001 → Core (T
 ```bash
 Task: "Extend RecommendationOptionsTests for cap defaults and ValidateOnStart knobs"
 Task: "Extend MmrSelectorTests for whole-ranking caps"
-Task: "Extend handler/mapper tests for collection cut, unknown IDs, and Q5 beyond-pool selection"
+Task: "Extend handler/mapper tests for collection cut, seed-saturation non-backfill, and Q5 beyond-pool selection"
 ```
 
 ---
@@ -169,14 +170,14 @@ Task: "Extend handler/mapper tests for collection cut, unknown IDs, and Q5 beyon
 1. Complete T000 Gate 1
 2. Complete T001 caller recon (prerequisite for Core)
 3. Complete US1 Core ranking/caps
-4. **STOP and VALIDATE** unit evidence for deterministic capped ranking (including unknown-ID and Q5 regressions)
-5. Then add paging/HTTP envelope (US2/US3) before contract migration
+4. **STOP and VALIDATE** unit evidence for deterministic capped ranking (including the Q5 regression)
+5. Add the Core query contract (T009), pass the US1 exclusion regressions (T004a), then implement the HTTP boundary (T010) before contract migration
 
 ### Incremental Delivery
 
 1. T001 recon → inventory recorded
 2. US1 ranking → unit green
-3. US2/US3 paging + HTTP envelope → integration green (ProblemDetails+`traceId` included)
+3. Core query paging/exclusions → US1 exclusion regressions green → HTTP envelope → integration green (ProblemDetails+`traceId` included)
 4. US4 contract/mocks/callers → web gate green
 5. T015 focused evidence → T016 Gauge configured gate bar → T017 Phase 4 axes + Keel disposition + independent SMOKE pending/evidence → separate Phase 5 merge bar and user merge
 

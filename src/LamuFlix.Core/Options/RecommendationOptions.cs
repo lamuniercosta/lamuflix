@@ -11,11 +11,26 @@ public sealed record RecommendationOptions : IValidatableObject
 {
     public const string SectionName = "Recommendations";
 
+    public const int DefaultMaxPerBestSeed = 3;
+
+    public const int DefaultMaxPerCollection = 1;
+
+    public const int DefaultMaxExcludeCount = 50;
+
     [Range(1, int.MaxValue)]
     public int Take { get; init; } = 10;
 
     [Range(1, int.MaxValue)]
     public int CandidatePoolSize { get; init; } = 50;
+
+    [Range(1, int.MaxValue)]
+    public int MaxPerBestSeed { get; init; } = DefaultMaxPerBestSeed;
+
+    [Range(1, int.MaxValue)]
+    public int MaxPerCollection { get; init; } = DefaultMaxPerCollection;
+
+    [Range(0, int.MaxValue)]
+    public int MaxExcludeCount { get; init; } = DefaultMaxExcludeCount;
 
     [Range(0.0, 1.0)]
     public double MmrLambda { get; init; } = 0.7;

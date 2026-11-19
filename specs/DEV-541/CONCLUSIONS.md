@@ -158,4 +158,12 @@ The confirmed decisions are ready for the Phase 2 brief and Spec Kit drafting by
 - Plan challenge is frozen by Keel with all 21 findings dispositioned and `/speckit-analyze` clean (`brief.md`, `plan.md`, `tasks.md`).
 - No ticket contradiction or constitution departure exists (`spec.md` §Owner question — Gate 1; `brief.md` Q1–Q10; `specs/PRODUCT.md` §5).
 
+---
 
+## Gate 1 Merge Receipt
+
+**Verdict**: Gate 1 verified.
+
+- Owner Lamunier Costa (`lamuniercosta`) merged the spec PR into `main` on 2026-11-19 at 17:16:23 UTC. [Spec PR #447](https://github.com/lamuniercosta/lamuflix/pull/447)
+- Merge commit: `a79e38dfd9d930e7e123df36487c943240f31943`.
+- Phase A base: `1ac83297c1ba8ffc936987e8b198ce8dc612b01a`.
