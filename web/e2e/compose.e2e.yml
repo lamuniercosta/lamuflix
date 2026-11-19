@@ -3,11 +3,8 @@ services:
     environment:
       Ollama__Endpoint: http://127.0.0.1:${E2E_STUB_PORT}/
       Tmdb__Enabled: 'false'
-      # Trust the ephemeral E2E subtitle-provider certificate mounted below.
       SSL_CERT_FILE: /e2e/tls/cert.pem
     volumes:
-      # Downloaded subtitle candidates are published into the movie folder, so the
-      # staged library is writable for this stack only.
       - ${LIBRARY_PATH}:/media/library
       - type: bind
         source: ${E2E_SETTINGS_FILE}
