@@ -29,7 +29,7 @@ export function useForYou() {
       if (error || data === undefined) {
         throw new ForYouError(response.status);
       }
-      return data;
+      return data.items;
     },
   });
 }

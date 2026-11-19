@@ -775,7 +775,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     }
 
     [Fact]
-    public async Task Document_GetForYouRecommendations_DocumentsDtoArrayAndProblemResponses()
+    public async Task Document_GetForYouRecommendations_DocumentsPageEnvelopeAndProblemResponses()
     {
         // arrange
         await using var development = CreateDevelopmentHost();
@@ -809,12 +809,40 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         takeSchema.GetProperty("minimum").GetInt32().ShouldBe(1);
         takeSchema.TryGetProperty("maximum", out _).ShouldBeFalse();
 
+        var offset = parameters["offset"];
+        OptionalQuery(offset);
+        offset.GetProperty("schema").GetProperty("type").GetString().ShouldBe("integer");
+        offset.GetProperty("schema").GetProperty("default").GetInt32().ShouldBe(0);
+        offset.GetProperty("schema").GetProperty("minimum").GetInt32().ShouldBe(0);
+        var exclude = parameters["exclude"];
+        OptionalQuery(exclude);
+        if (exclude.TryGetProperty("style", out var style))
+        {
+            style.GetString().ShouldBe("form");
+        }
+        if (exclude.TryGetProperty("explode", out var explode))
+        {
+            explode.GetBoolean().ShouldBeTrue();
+        }
+        exclude.GetProperty("schema").GetProperty("type").GetString().ShouldBe("array");
+        exclude.GetProperty("schema").GetProperty("items").GetProperty("type").GetString()
+            .ShouldBe("integer");
+
         var responses = operation.GetProperty("responses");
         var successSchema = responses.GetProperty("200").GetProperty("content")
             .GetProperty("application/json").GetProperty("schema");
-        successSchema.GetProperty("type").GetString().ShouldBe("array");
-        successSchema.GetProperty("items").GetProperty("$ref").GetString()
+        successSchema.GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/ForYouRecommendationsPageDto");
+        var pageSchema = parsed.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("ForYouRecommendationsPageDto");
+        pageSchema.GetProperty("type").GetString().ShouldBe("object");
+        pageSchema.GetProperty("required").EnumerateArray().Select(property => property.GetString())
+            .ShouldBe(["items", "hasMore"], ignoreOrder: true);
+        var pageProperties = pageSchema.GetProperty("properties");
+        pageProperties.GetProperty("items").GetProperty("type").GetString().ShouldBe("array");
+        pageProperties.GetProperty("items").GetProperty("items").GetProperty("$ref").GetString()
             .ShouldBe("#/components/schemas/RecommendedMovieDto");
+        pageProperties.GetProperty("hasMore").GetProperty("type").GetString().ShouldBe("boolean");
         foreach (var status in new[] { "400", "422" })
         {
             var problemSchema = responses.GetProperty(status).GetProperty("content")
