@@ -53,20 +53,6 @@ public sealed class RecommendationOptionsTests
         isExpected.ShouldBeTrue();
     }
 
-    public static TheoryData<double, bool> SimilarStoryThresholdEdges =>
-        new()
-        {
-            { -1.0, true },
-            { -0.5, true },
-            { 0.0, true },
-            { 0.5, true },
-            { 1.0, true },
-            { -1.0001, false },
-            { 1.0001, false },
-            { double.NaN, false },
-            { double.PositiveInfinity, false },
-            { double.NegativeInfinity, false },
-        };
 
     [Fact]
     public void Defaults_TakeCandidatePoolSizeAndMmrLambda_MatchTheAgreedValues()
@@ -149,13 +135,20 @@ public sealed class RecommendationOptionsTests
     }
 
     [Fact]
-    public void Defaults_SimilarStoryThreshold_IsTheAmendedCalibratedMidpoint()
+    public void Defaults_ThemesOptions_MatchTheNormativeContract()
     {
         // arrange
         var options = new RecommendationOptions();
 
         // act / assert
-        options.SimilarStoryThreshold.ShouldBe(0.5);
+        options.ThemeStoplist.ShouldBe(["aftercreditsstinger", "duringcreditsstinger", "sequel", "3d animation"]);
+        options.MinimumKeywordMovies.ShouldBe(2);
+        options.ThemesCeiling.ShouldBe(0.35);
+        options.PlotFloor.ShouldBe(0.16);
+        options.PlotCeiling.ShouldBe(0.45);
+        options.ThemesDisplayThreshold.ShouldBe(0.3);
+        options.PlotDisplayThreshold.ShouldBe(0.5);
+        options.GenreDisplayThreshold.ShouldBe(0.5);
     }
 
     [Fact]
@@ -252,6 +245,64 @@ public sealed class RecommendationOptionsTests
         results.ShouldBeEmpty();
     }
 
+    [Fact]
+    public void TryValidateObject_AllScoringWeightsZero_IsRejected()
+    {
+        // arrange
+        var options = new RecommendationOptions
+        {
+            Weights = new SimilarityWeights { Collection = 0, Director = 0, Themes = 0, Plot = 0, Cast = 0, Genres = 0 },
+        };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        results.SelectMany(result => result.MemberNames).ShouldContain(nameof(RecommendationOptions.Weights));
+    }
+
+    [Theory]
+    [InlineData(nameof(RecommendationOptions.ThemesCeiling), 0.0)]
+    [InlineData(nameof(RecommendationOptions.PlotFloor), 1.1)]
+    [InlineData(nameof(RecommendationOptions.PlotCeiling), double.NaN)]
+    [InlineData(nameof(RecommendationOptions.MinimumKeywordMovies), 0.0)]
+    [InlineData(nameof(RecommendationOptions.ThemesDisplayThreshold), double.PositiveInfinity)]
+    [InlineData(nameof(RecommendationOptions.PlotDisplayThreshold), -0.1)]
+    [InlineData(nameof(RecommendationOptions.GenreDisplayThreshold), 1.1)]
+    public void TryValidateObject_InvalidScoringSetting_IsRejected(string member, double value)
+    {
+        // arrange
+        var options = member switch
+        {
+            nameof(RecommendationOptions.ThemesCeiling) => new RecommendationOptions { ThemesCeiling = value },
+            nameof(RecommendationOptions.PlotFloor) => new RecommendationOptions { PlotFloor = value },
+            nameof(RecommendationOptions.PlotCeiling) => new RecommendationOptions { PlotCeiling = value },
+            nameof(RecommendationOptions.MinimumKeywordMovies) => new RecommendationOptions { MinimumKeywordMovies = (int)value },
+            nameof(RecommendationOptions.ThemesDisplayThreshold) => new RecommendationOptions { ThemesDisplayThreshold = value },
+            nameof(RecommendationOptions.PlotDisplayThreshold) => new RecommendationOptions { PlotDisplayThreshold = value },
+            _ => new RecommendationOptions { GenreDisplayThreshold = value },
+        };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        results.SelectMany(result => result.MemberNames).ShouldContain(member);
+    }
+
+    [Fact]
+    public void TryValidateObject_EqualPlotBounds_AreRejected()
+    {
+        // arrange
+        var options = new RecommendationOptions { PlotFloor = 0.45, PlotCeiling = 0.45 };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        results.SelectMany(result => result.MemberNames).ShouldContain(nameof(RecommendationOptions.PlotCeiling));
+    }
+
     [Theory]
     [MemberData(nameof(TakeEdges))]
     public void TryValidateObject_Take_AtEachEdge_MatchesThePositiveRange(int take, bool expectedValid)
@@ -296,21 +347,6 @@ public sealed class RecommendationOptionsTests
         AssertEdge(results, nameof(RecommendationOptions.MmrLambda), expectedValid);
     }
 
-    [Theory]
-    [MemberData(nameof(SimilarStoryThresholdEdges))]
-    public void TryValidateObject_SimilarStoryThreshold_AtEachEdge_MatchesTheFiniteUnitRange(
-        double similarStoryThreshold,
-        bool expectedValid)
-    {
-        // arrange
-        var options = new RecommendationOptions { SimilarStoryThreshold = similarStoryThreshold };
-
-        // act
-        var results = Validate(options);
-
-        // assert
-        AssertEdge(results, nameof(RecommendationOptions.SimilarStoryThreshold), expectedValid);
-    }
 
     [Fact]
     public void TryValidateObject_CandidatePoolSizeBelowTake_ReportsCandidatePoolSize()
@@ -363,7 +399,7 @@ public sealed class RecommendationOptionsTests
         values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.Take)}"] = "7";
         values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.CandidatePoolSize)}"] = "25";
         values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.MmrLambda)}"] = "0.5";
-        values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.SimilarStoryThreshold)}"] = "0.6";
+        values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.ThemesCeiling)}"] = "0.4";
         values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.Weights)}:{nameof(SimilarityWeights.Director)}"] = "4";
         using var provider = Build(values);
 
@@ -378,7 +414,7 @@ public sealed class RecommendationOptionsTests
         bound.Take.ShouldBe(7);
         bound.CandidatePoolSize.ShouldBe(25);
         bound.MmrLambda.ShouldBe(0.5);
-        bound.SimilarStoryThreshold.ShouldBe(0.6);
+        bound.ThemesCeiling.ShouldBe(0.4);
         bound.Weights.Director.ShouldBe(4);
         bound.BlendSelectedWeight.ShouldBe(1.0);
         bound.BlendProfileWeight.ShouldBe(1.0);
@@ -445,39 +481,6 @@ public sealed class RecommendationOptionsTests
         exception.Message.ShouldContain(nameof(RecommendationOptions.BlendProfileWeight));
     }
 
-    [Fact]
-    public void StartupValidation_SimilarStoryThresholdDefaults_ToTheCalibratedMidpoint()
-    {
-        // arrange
-        var values = ValidRequired();
-        using var provider = Build(values);
-
-        // act
-        foreach (var validator in provider.GetServices<IStartupValidator>())
-        {
-            validator.Validate();
-        }
-
-        // assert
-        provider.GetRequiredService<IOptions<RecommendationOptions>>().Value
-            .SimilarStoryThreshold.ShouldBe(0.5);
-    }
-
-    [Theory]
-    [InlineData("1.0001")]
-    [InlineData("-1.0001")]
-    public void StartupValidation_SimilarStoryThresholdOutsideUnitRange_FailsValidation(string value)
-    {
-        // arrange
-        var values = ValidRequired();
-        values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.SimilarStoryThreshold)}"] = value;
-
-        // act
-        var exception = ValidateStartup(values);
-
-        // assert
-        exception.Message.ShouldContain(nameof(RecommendationOptions.SimilarStoryThreshold));
-    }
 
     [Fact]
     public void StartupValidation_NegativeNestedWeight_FailsValidation()

@@ -13,12 +13,12 @@ public sealed class SimilarityWeightsTests
         var members = new[]
         {
             nameof(SimilarityWeights.Director),
-            nameof(SimilarityWeights.Writers),
+            nameof(SimilarityWeights.Themes),
+            nameof(SimilarityWeights.Plot),
             nameof(SimilarityWeights.Cast),
             nameof(SimilarityWeights.Genres),
-            nameof(SimilarityWeights.YearProximity),
-            nameof(SimilarityWeights.RuntimeProximity),
-            nameof(SimilarityWeights.RatingBoost),
+            nameof(SimilarityWeights.Collection),
+            nameof(SimilarityWeights.ReviewPlotWeight),
         };
         var data = new TheoryData<string, double, bool>();
         foreach (var member in members)
@@ -26,6 +26,9 @@ public sealed class SimilarityWeightsTests
             data.Add(member, 0.0, true);
             data.Add(member, -0.0001, false);
             data.Add(member, double.MaxValue, true);
+            data.Add(member, double.NaN, false);
+            data.Add(member, double.PositiveInfinity, false);
+            data.Add(member, double.NegativeInfinity, false);
         }
 
         return data;
@@ -38,23 +41,16 @@ public sealed class SimilarityWeightsTests
         var options = new SimilarityWeights();
 
         // act
-        var defaults = (
-            options.Director,
-            options.Writers,
-            options.Cast,
-            options.Genres,
-            options.YearProximity,
-            options.RuntimeProximity,
-            options.RatingBoost);
+        var defaults = (options.Collection, options.Director, options.Themes, options.Plot, options.Cast, options.Genres);
 
         // assert
+        defaults.Collection.ShouldBe(3.0);
         defaults.Director.ShouldBe(3.0);
-        defaults.Writers.ShouldBe(2.0);
+        defaults.Themes.ShouldBe(3.0);
+        defaults.Plot.ShouldBe(2.0);
         defaults.Cast.ShouldBe(2.0);
-        defaults.Genres.ShouldBe(3.0);
-        defaults.YearProximity.ShouldBe(1.0);
-        defaults.RuntimeProximity.ShouldBe(0.5);
-        defaults.RatingBoost.ShouldBe(0.5);
+        defaults.Genres.ShouldBe(2.0);
+        options.ReviewPlotWeight.ShouldBe(1.0);
     }
 
     [Fact]
@@ -97,12 +93,12 @@ public sealed class SimilarityWeightsTests
         memberName switch
         {
             nameof(SimilarityWeights.Director) => options with { Director = value },
-            nameof(SimilarityWeights.Writers) => options with { Writers = value },
+            nameof(SimilarityWeights.Themes) => options with { Themes = value },
+            nameof(SimilarityWeights.Plot) => options with { Plot = value },
             nameof(SimilarityWeights.Cast) => options with { Cast = value },
             nameof(SimilarityWeights.Genres) => options with { Genres = value },
-            nameof(SimilarityWeights.YearProximity) => options with { YearProximity = value },
-            nameof(SimilarityWeights.RuntimeProximity) => options with { RuntimeProximity = value },
-            nameof(SimilarityWeights.RatingBoost) => options with { RatingBoost = value },
+            nameof(SimilarityWeights.Collection) => options with { Collection = value },
+            nameof(SimilarityWeights.ReviewPlotWeight) => options with { ReviewPlotWeight = value },
             _ => throw new ArgumentOutOfRangeException(nameof(memberName), memberName, null),
         };
 

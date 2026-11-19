@@ -1,495 +1,230 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Text;
+using System.Linq;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 
 namespace LamuFlix.Core.Features.Recommendations;
 
 public static class SimilarityScorer
 {
-    private const double YearDecayRate = 0.1;
-    private const double RuntimeDecayRate = 0.01;
-    private const double RatingScale = 10.0;
-    private const int MaxSimilarYearGap = 5;
-    private const int MaxSimilarRuntimeGapMinutes = 15;
-    private const double MaxSimilarRatingGap = 1.0;
-    private const string IdentityReason = "Identical feature profile";
-    private const string SharedKeywordsReason = "Shared keywords";
-    private const string SameCollectionReason = "Same franchise collection";
-    private const string IdentityFallbackCriterion = "IdentityFallback";
-    private const string DirectorCriterion = "Director";
-    private const string WritersCriterion = "Writers";
-    private const string CastCriterion = "Cast";
-    private const string GenresCriterion = "Genres";
-    private const string KeywordCriterion = "Keyword";
-    private const string CollectionCriterion = "Collection";
-    private const string YearCriterion = "YearProximity";
-    private const string RuntimeCriterion = "RuntimeProximity";
-    private const string RatingCriterion = "RatingBoost";
-
     public static SimilarityResult Score(
         MovieFeatures a,
         MovieFeatures b,
-        SimilarityWeights weights,
-        GenreWeights genreWeights)
+        RecommendationOptions options,
+        GenreWeights genreWeights,
+        KeywordCounts keywordCounts)
     {
         ArgumentNullException.ThrowIfNull(a);
         ArgumentNullException.ThrowIfNull(b);
-        ArgumentNullException.ThrowIfNull(weights);
+        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(genreWeights);
+        ArgumentNullException.ThrowIfNull(keywordCounts);
+        ValidateKeywordCounts(keywordCounts);
 
-        ValidateWeights(weights);
-
-        var terms = CollectTerms(a, b, weights, genreWeights);
-        var maxWeight = MaxWeight(terms);
-
-        if (maxWeight <= 0.0)
+        var failures = options.Validate(new System.ComponentModel.DataAnnotations.ValidationContext(options)).ToArray();
+        if (failures.Length > 0)
         {
-            return ZeroWeightResult(a, b, terms);
+            throw new ArgumentOutOfRangeException(nameof(options), "Similarity scoring options are invalid.");
         }
 
-        return new SimilarityResult(ComputeScore(terms, maxWeight), CollectReasons(terms))
+        var weights = options.Weights;
+        var denominator = weights.Collection + weights.Director + weights.Themes + weights.Plot + weights.Cast + weights.Genres;
+        var terms = new[]
         {
-            Breakdown = CollectBreakdown(terms),
+            Create("Collection", weights.Collection, CollectionValue(a, b), CollectionEvidence(a, b)),
+            Create("Director", weights.Director, SetValue(a.Directors, b.Directors), SharedNames(a.Directors, b.Directors)),
+            Create("Themes", weights.Themes, ThemesValue(a, b, options, keywordCounts), ThemeEvidence(a, b, options, keywordCounts)),
+            Create("Plot", weights.Plot, PlotValue(a, b, options), Array.Empty<string>()),
+            Create("Cast", weights.Cast, Math.Min(1.0, SharedNames(a.Cast, b.Cast).Count / 2.0), SharedNames(a.Cast, b.Cast)),
+            Create("Genre", weights.Genres, genreWeights.Similarity(a.Genres, b.Genres), SharedNames(a.Genres, b.Genres)),
         };
-    }
 
-    private static ImmutableArray<Term> CollectTerms(
-        MovieFeatures a,
-        MovieFeatures b,
-        SimilarityWeights weights,
-        GenreWeights genreWeights)
-    {
-        var builder = ImmutableArray.CreateBuilder<Term>();
-
-        AddSetTerm(builder, a.Directors, b.Directors, weights.Director, SetLabel.Director, DirectorCriterion);
-        AddSetTerm(builder, a.Writers, b.Writers, weights.Writers, SetLabel.Writers, WritersCriterion);
-        AddSetTerm(builder, a.Cast, b.Cast, weights.Cast, SetLabel.Cast, CastCriterion);
-        AddKeywordTerm(builder, a.Keywords, b.Keywords, weights.Keyword);
-        AddCollectionTerm(builder, a.CollectionId, b.CollectionId, weights.Collection);
-        AddGenreTerm(builder, a.Genres, b.Genres, weights.Genres, genreWeights);
-        AddYearTerm(builder, a.ReleaseYear, b.ReleaseYear, weights.YearProximity);
-        AddRuntimeTerm(builder, a.Runtime, b.Runtime, weights.RuntimeProximity);
-        AddRatingTerm(builder, a.ImdbRating, b.ImdbRating, weights.RatingBoost);
-
-        return builder.ToImmutable();
-    }
-
-    private static void AddSetTerm(
-        ImmutableArray<Term>.Builder builder,
-        ImmutableHashSet<string> first,
-        ImmutableHashSet<string> second,
-        double weight,
-        SetLabel label,
-        string name)
-    {
-        if (first.Count > 0 && second.Count > 0)
+        var breakdown = terms.Select(term => new CriterionContribution(
+            term.Name,
+            term.Value,
+            term.Weight,
+            term.Weight * term.Value / denominator)
         {
-            var similarity = Jaccard(first, second);
-            var reason = IsEligible(weight, similarity) ? SetReason(label, first, second) : null;
-            builder.Add(new Term(name, weight, similarity, reason));
-        }
-    }
-
-    private static void AddKeywordTerm(
-        ImmutableArray<Term>.Builder builder,
-        ImmutableHashSet<int> first,
-        ImmutableHashSet<int> second,
-        double weight)
-    {
-        if (first.Count > 0 && second.Count > 0)
-        {
-            var similarity = Jaccard(first, second);
-            var reason = IsEligible(weight, similarity) ? SharedKeywordsReason : null;
-            builder.Add(new Term(KeywordCriterion, weight, similarity, reason));
-        }
-    }
-
-    private static void AddCollectionTerm(
-        ImmutableArray<Term>.Builder builder,
-        int? first,
-        int? second,
-        double weight)
-    {
-        if (first is not null && second is not null)
-        {
-            var similarity = first == second ? 1.0 : 0.0;
-            var reason = IsEligible(weight, similarity) ? SameCollectionReason : null;
-            builder.Add(new Term(CollectionCriterion, weight, similarity, reason));
-        }
-    }
-
-    private static void AddGenreTerm(
-        ImmutableArray<Term>.Builder builder,
-        ImmutableHashSet<string> first,
-        ImmutableHashSet<string> second,
-        double weight,
-        GenreWeights genreWeights)
-    {
-        if (first.Count > 0 && second.Count > 0)
-        {
-            var similarity = genreWeights.Similarity(first, second);
-            var reason = IsEligible(weight, similarity)
-                ? SetReason(SetLabel.Genres, first, second)
-                : null;
-            builder.Add(new Term(GenresCriterion, weight, similarity, reason));
-        }
-    }
-
-    private static void AddYearTerm(
-        ImmutableArray<Term>.Builder builder,
-        ReleaseYear? first,
-        ReleaseYear? second,
-        double weight)
-    {
-        if (first is not null && second is not null)
-        {
-            var similarity = Proximity(YearDecayRate, first.Value, second.Value);
-            builder.Add(new Term(
-                YearCriterion,
-                weight,
-                similarity,
-                IsSimilarYear(weight, first.Value, second.Value) ? "Similar release years" : null));
-        }
-    }
-
-    private static void AddRuntimeTerm(
-        ImmutableArray<Term>.Builder builder,
-        Runtime? first,
-        Runtime? second,
-        double weight)
-    {
-        if (first is not null && second is not null)
-        {
-            var similarity = Proximity(RuntimeDecayRate, first.Minutes, second.Minutes);
-            builder.Add(new Term(
-                RuntimeCriterion,
-                weight,
-                similarity,
-                IsSimilarRuntime(weight, first.Minutes, second.Minutes) ? "Similar runtime" : null));
-        }
-    }
-
-    private static void AddRatingTerm(
-        ImmutableArray<Term>.Builder builder,
-        ImdbRating? first,
-        ImdbRating? second,
-        double weight)
-    {
-        if (first is not null && second is not null)
-        {
-            var similarity = RatingProximity(first.Value, second.Value);
-            builder.Add(new Term(
-                RatingCriterion,
-                weight,
-                similarity,
-                IsSimilarRating(weight, first.Value, second.Value) ? "Similar rating" : null));
-        }
-    }
-
-    private static double ComputeScore(ImmutableArray<Term> terms, double maxWeight)
-    {
-        var numerator = 0.0;
-        var denominator = 0.0;
-        var allOne = true;
-
+            Evidence = [.. term.Evidence],
+        }).ToImmutableList();
+        var reasons = ImmutableList.CreateBuilder<Reason>();
         foreach (var term in terms)
         {
-            var scaledWeight = term.Weight / maxWeight;
-            numerator += scaledWeight * term.Similarity;
-            denominator += scaledWeight;
-
-            if (term.Weight > 0.0 && term.Similarity < 1.0)
+            if (term.Value <= 0.0 || term.Evidence.Count == 0 && term.Name != "Plot")
             {
-                allOne = false;
+                continue;
             }
-        }
 
-        return allOne
-            ? 1.0
-            : Math.Clamp(numerator / denominator, 0.0, 1.0);
-    }
-
-    private static ImmutableList<CriterionContribution> CollectBreakdown(ImmutableArray<Term> terms)
-    {
-        var denominator = 0.0;
-        foreach (var term in terms)
-        {
-            denominator += term.Weight;
-        }
-
-        var builder = ImmutableList.CreateBuilder<CriterionContribution>();
-        foreach (var term in terms)
-        {
-            builder.Add(new CriterionContribution(
-                term.Name,
-                term.Similarity,
-                term.Weight,
-                WeightedContribution(term, denominator)));
-        }
-
-        return builder.ToImmutable();
-    }
-
-    private static double WeightedContribution(Term term, double denominator) =>
-        denominator > 0.0 && term.Weight > 0.0
-            ? term.Weight * term.Similarity / denominator
-            : 0.0;
-
-    private static ImmutableList<Reason> CollectReasons(ImmutableArray<Term> terms)
-    {
-        var builder = ImmutableList.CreateBuilder<Reason>();
-
-        foreach (var term in terms)
-        {
-            if (term.Reason is { } reason)
+            var threshold = term.Name switch
             {
-                builder.Add(Reason.Structural(reason));
-            }
-        }
-
-        return builder.ToImmutable();
-    }
-
-    private static SimilarityResult ZeroWeightResult(
-        MovieFeatures a,
-        MovieFeatures b,
-        ImmutableArray<Term> terms) =>
-        IsIdenticalProfile(a, b) && HasScoringFeature(a)
-            ? new SimilarityResult(1.0, ImmutableList.Create(Reason.Structural(IdentityReason)))
-            {
-                Breakdown = CollectZeroWeightBreakdown(terms, includeIdentityFallback: true),
-            }
-            : new SimilarityResult(0.0, ImmutableList<Reason>.Empty)
-            {
-                Breakdown = CollectZeroWeightBreakdown(terms, includeIdentityFallback: false),
+                "Themes" => options.ThemesDisplayThreshold,
+                "Plot" => options.PlotDisplayThreshold,
+                "Genre" => options.GenreDisplayThreshold,
+                _ => 0.0,
             };
+            if (term.Value < threshold)
+            {
+                continue;
+            }
 
-    private static ImmutableList<CriterionContribution> CollectZeroWeightBreakdown(
-        ImmutableArray<Term> terms,
-        bool includeIdentityFallback)
-    {
-        var builder = ImmutableList.CreateBuilder<CriterionContribution>();
-
-        foreach (var term in terms)
-        {
-            builder.Add(new CriterionContribution(term.Name, term.Similarity, term.Weight, 0.0));
+            var text = term.Name switch
+            {
+                "Collection" => $"Same collection: {term.Evidence[0]}",
+                "Director" => $"Same director: {string.Join(", ", term.Evidence)}",
+                "Themes" => $"Shared themes: {string.Join(", ", term.Evidence)}",
+                "Plot" => "Similar story",
+                "Cast" => $"Shares cast: {string.Join(", ", term.Evidence)}",
+                _ => $"Same genres: {string.Join(", ", term.Evidence)}",
+            };
+            reasons.Add(Reason.Structural(text));
         }
 
-        if (includeIdentityFallback)
-        {
-            builder.Add(new CriterionContribution(IdentityFallbackCriterion, 1.0, 0.0, 1.0));
-        }
-
-        return builder.ToImmutable();
+        return new SimilarityResult(breakdown.Sum(entry => entry.Contribution), reasons.ToImmutable()) { Breakdown = breakdown };
     }
 
-    private static double MaxWeight(ImmutableArray<Term> terms)
+    private static ScoringTerm Create(string name, double weight, double value, IReadOnlyList<string> evidence) =>
+        new(name, weight, Math.Clamp(value, 0.0, 1.0), evidence);
+
+    private static double CollectionValue(MovieFeatures a, MovieFeatures b) =>
+        a.CollectionId is not null && b.CollectionId is not null && a.CollectionId == b.CollectionId ? 1.0 : 0.0;
+
+    private static IReadOnlyList<string> CollectionEvidence(MovieFeatures a, MovieFeatures b)
     {
-        var max = 0.0;
-        foreach (var term in terms)
+        if (CollectionValue(a, b) == 0.0)
         {
-            if (term.Weight > max)
+            return Array.Empty<string>();
+        }
+
+        var name = string.IsNullOrWhiteSpace(a.CollectionName) ? b.CollectionName : a.CollectionName;
+        return string.IsNullOrWhiteSpace(name) ? Array.Empty<string>() : [name.Trim()];
+    }
+
+    private static double SetValue(ImmutableHashSet<string> a, ImmutableHashSet<string> b) =>
+        SharedNames(a, b).Count > 0 ? 1.0 : 0.0;
+
+    private static IReadOnlyList<string> SharedNames(IEnumerable<string> a, IEnumerable<string> b)
+    {
+        var left = CleanNames(a);
+        var right = CleanNames(b);
+        return [.. left.Where(name => right.Contains(name))
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(name => name, StringComparer.Ordinal)];
+    }
+
+    private static HashSet<string> CleanNames(IEnumerable<string> names) =>
+        names.Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderBy(name => name, StringComparer.Ordinal).First())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    private static double ThemesValue(MovieFeatures a, MovieFeatures b, RecommendationOptions options, KeywordCounts counts)
+    {
+        if (counts.TotalMovies <= 0)
+        {
+            return 0.0;
+        }
+
+        var weights = KeywordWeights(options, counts);
+        var left = CleanNames(a.KeywordNames).Where(weights.ContainsKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var right = CleanNames(b.KeywordNames).Where(weights.ContainsKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var leftNorm = left.Sum(name => Math.Pow(weights[name], 2));
+        var rightNorm = right.Sum(name => Math.Pow(weights[name], 2));
+        if (leftNorm <= 0.0 || rightNorm <= 0.0)
+        {
+            return 0.0;
+        }
+
+        var numerator = left.Intersect(right, StringComparer.OrdinalIgnoreCase).Sum(name => Math.Pow(weights[name], 2));
+        return Math.Min(1.0, numerator / (Math.Sqrt(leftNorm) * Math.Sqrt(rightNorm)) / options.ThemesCeiling);
+    }
+
+    private static IReadOnlyList<string> ThemeEvidence(MovieFeatures a, MovieFeatures b, RecommendationOptions options, KeywordCounts counts)
+    {
+        var weights = KeywordWeights(options, counts);
+        return [.. CleanNames(a.KeywordNames).Intersect(CleanNames(b.KeywordNames), StringComparer.OrdinalIgnoreCase)
+            .Where(weights.ContainsKey)
+            .Select(name => weights.Keys.First(keyword => string.Equals(keyword, name, StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(name => weights[name])
+            .ThenBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(name => name, StringComparer.Ordinal)
+            .Take(3)];
+    }
+
+    private static Dictionary<string, double> KeywordWeights(RecommendationOptions options, KeywordCounts counts)
+    {
+        var stoplist = (options.ThemeStoplist ?? Array.Empty<string>())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, count) in counts.MoviesWithKeyword)
+        {
+            if (string.IsNullOrWhiteSpace(name) || stoplist.Contains(name.Trim())
+                || count < options.MinimumKeywordMovies || count <= 0 || count > counts.TotalMovies)
             {
-                max = term.Weight;
+                continue;
+            }
+
+            result[name.Trim()] = Math.Log((double)counts.TotalMovies / count);
+        }
+
+        return result;
+    }
+
+    private static void ValidateKeywordCounts(KeywordCounts counts)
+    {
+        if (counts.TotalMovies < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(counts), "The keyword-count snapshot total cannot be negative.");
+        }
+
+        foreach (var (name, count) in counts.MoviesWithKeyword)
+        {
+            if (string.IsNullOrWhiteSpace(name) || count <= 0 || count > counts.TotalMovies)
+            {
+                throw new ArgumentOutOfRangeException(nameof(counts), "Keyword counts must be between 1 and the library movie total.");
             }
         }
-
-        return max;
     }
 
-    private static bool IsIdenticalProfile(MovieFeatures a, MovieFeatures b) =>
-        AreSetsIdentical(a, b) && AreScalarsIdentical(a, b);
-
-    private static bool AreSetsIdentical(MovieFeatures a, MovieFeatures b) =>
-        a.Directors.SetEquals(b.Directors)
-        && a.Writers.SetEquals(b.Writers)
-        && a.Cast.SetEquals(b.Cast)
-        && a.Genres.SetEquals(b.Genres)
-        && a.Keywords.SetEquals(b.Keywords);
-
-    private static bool AreScalarsIdentical(MovieFeatures a, MovieFeatures b) =>
-        a.ReleaseYear == b.ReleaseYear
-        && a.Runtime == b.Runtime
-        && a.ImdbRating == b.ImdbRating
-        && a.CollectionId == b.CollectionId;
-
-    private static bool HasScoringFeature(MovieFeatures movie) =>
-        HasSetFeature(movie) || HasScalarFeature(movie);
-
-    private static bool HasSetFeature(MovieFeatures movie) =>
-        movie.Directors.Count > 0
-        || movie.Writers.Count > 0
-        || movie.Cast.Count > 0
-        || movie.Genres.Count > 0
-        || movie.Keywords.Count > 0;
-
-    private static bool HasScalarFeature(MovieFeatures movie) =>
-        movie.ReleaseYear is not null
-        || movie.Runtime is not null
-        || movie.ImdbRating is not null
-        || movie.CollectionId is not null;
-
-    private static double Proximity(double decayRate, double first, double second) =>
-        Math.Exp(-decayRate * Math.Abs(first - second));
-
-    private static double RatingProximity(decimal first, decimal second) =>
-        1.0 - Math.Abs((double)first - (double)second) / RatingScale;
-
-    private static double Jaccard(ImmutableHashSet<string> first, ImmutableHashSet<string> second)
+    private static double PlotValue(MovieFeatures a, MovieFeatures b, RecommendationOptions options)
     {
-        var intersection = SharedTokens(first, second).Count;
-        var union = first.Count + second.Count - intersection;
-        return (double)intersection / union;
-    }
-
-    private static double Jaccard(ImmutableHashSet<int> first, ImmutableHashSet<int> second)
-    {
-        var intersection = 0;
-        foreach (var value in first)
+        if (a.PlotEmbedding.IsDefaultOrEmpty || b.PlotEmbedding.IsDefaultOrEmpty
+            || a.PlotEmbedding.Length != b.PlotEmbedding.Length)
         {
-            if (second.Contains(value))
+            return 0.0;
+        }
+
+        var dot = 0.0;
+        var left = 0.0;
+        var right = 0.0;
+        for (var index = 0; index < a.PlotEmbedding.Length; index++)
+        {
+            var x = a.PlotEmbedding[index];
+            var y = b.PlotEmbedding[index];
+            if (!float.IsFinite(x) || !float.IsFinite(y))
             {
-                intersection++;
+                return 0.0;
             }
+
+            dot += x * y;
+            left += x * x;
+            right += y * y;
         }
 
-        var union = first.Count + second.Count - intersection;
-        return (double)intersection / union;
-    }
-
-    private static bool IsSimilarYear(double weight, int first, int second) =>
-        weight > 0.0 && Math.Abs(first - second) <= MaxSimilarYearGap;
-
-    private static bool IsSimilarRuntime(double weight, int first, int second) =>
-        weight > 0.0 && Math.Abs(first - second) <= MaxSimilarRuntimeGapMinutes;
-
-    private static bool IsSimilarRating(double weight, decimal first, decimal second) =>
-        weight > 0.0 && Math.Abs((double)first - (double)second) <= MaxSimilarRatingGap;
-
-    private static bool IsEligible(double weight, double similarity) =>
-        weight > 0.0 && similarity > 0.0;
-
-
-    private static string SetReason(
-        SetLabel label,
-        ImmutableHashSet<string> first,
-        ImmutableHashSet<string> second)
-    {
-        var tokens = DisplayTokens(SharedTokens(first, second));
-        return tokens.Count == 0
-            ? Fallback(label)
-            : Format(label, string.Join(", ", tokens));
-    }
-
-    private static List<string> SharedTokens(
-        ImmutableHashSet<string> first,
-        ImmutableHashSet<string> second)
-    {
-        var tokens = new List<string>();
-
-        foreach (var value in first)
+        if (left == 0.0 || right == 0.0)
         {
-            if (second.TryGetValue(value, out var other))
-            {
-                tokens.Add(string.CompareOrdinal(value, other) <= 0 ? value : other);
-            }
+            return 0.0;
         }
 
-        return tokens;
+        var cosine = Math.Clamp(dot / (Math.Sqrt(left) * Math.Sqrt(right)), -1.0, 1.0);
+        return Math.Clamp((cosine - options.PlotFloor) / (options.PlotCeiling - options.PlotFloor), 0.0, 1.0);
     }
 
-    private static List<string> DisplayTokens(List<string> tokens)
-    {
-        tokens.Sort(CompareTokens);
-        var display = new List<string>(tokens.Count);
+    private readonly record struct ScoringTerm(string Name, double Weight, double Value, IReadOnlyList<string> Evidence);
 
-        foreach (var token in tokens)
-        {
-            var text = Sanitize(token);
-            if (text.Length > 0)
-            {
-                display.Add(text);
-            }
-        }
-
-        return display;
-    }
-
-    private static int CompareTokens(string first, string second)
-    {
-        var insensitive = StringComparer.OrdinalIgnoreCase.Compare(first, second);
-        return insensitive != 0 ? insensitive : StringComparer.Ordinal.Compare(first, second);
-    }
-
-    private static string Sanitize(string? value)
-    {
-        if (value is null)
-        {
-            return string.Empty;
-        }
-
-        var builder = new StringBuilder(value.Length);
-
-        foreach (var character in value)
-        {
-            builder.Append(char.IsControl(character) ? ' ' : character);
-        }
-
-        return builder.ToString().Trim();
-    }
-
-    private static string Format(SetLabel label, string names) =>
-        label switch
-        {
-            SetLabel.Director => $"Same director: {names}",
-            SetLabel.Writers => $"Shared writers: {names}",
-            SetLabel.Cast => $"Features {names}",
-            _ => $"Shares {names}",
-        };
-
-    private static string Fallback(SetLabel label) =>
-        label switch
-        {
-            SetLabel.Director => "Shared director",
-            SetLabel.Writers => "Shared writers",
-            SetLabel.Cast => "Shared cast",
-            _ => "Shared genres",
-        };
-
-    private static void ValidateWeights(SimilarityWeights weights)
-    {
-        ValidateWeight(weights.Director, nameof(weights));
-        ValidateWeight(weights.Writers, nameof(weights));
-        ValidateWeight(weights.Cast, nameof(weights));
-        ValidateWeight(weights.Genres, nameof(weights));
-        ValidateWeight(weights.YearProximity, nameof(weights));
-        ValidateWeight(weights.RuntimeProximity, nameof(weights));
-        ValidateWeight(weights.RatingBoost, nameof(weights));
-        ValidateWeight(weights.Keyword, nameof(weights));
-        ValidateWeight(weights.Collection, nameof(weights));
-    }
-
-    private static void ValidateWeight(double weight, string paramName)
-    {
-        if (weight < 0.0 || !double.IsFinite(weight))
-        {
-            throw new ArgumentOutOfRangeException(
-                paramName,
-                weight,
-                "Similarity weights must be non-negative and finite.");
-        }
-    }
-
-    private enum SetLabel
-    {
-        Director,
-        Writers,
-        Cast,
-        Genres,
-    }
-
-    private readonly record struct Term(string Name, double Weight, double Similarity, string? Reason);
 }
