@@ -43,13 +43,12 @@ public sealed class OpenSubtitlesSubtitleProvider(
     {
         ArgumentNullException.ThrowIfNull(search);
 
-        var endpoint = SubtitleRequestUriPolicy.TryBuildEndpoint(Options.BaseUrl, SearchPath);
-        EnsurePermitted(
-            endpoint,
+        var endpoint = EnsurePermitted(
+            SubtitleRequestUriPolicy.TryBuildEndpoint(Options.BaseUrl, SearchPath),
             Options.DownloadAllowedHosts,
             "The configured subtitle provider search endpoint is not an allowed https host.");
         var searchEndpoint = WithSearchParameters(
-            endpoint!,
+            endpoint,
             string.IsNullOrWhiteSpace(search.MovieHash) ? null : search.MovieHash,
             string.IsNullOrWhiteSpace(search.MovieHash) ? search.Title : null,
             JoinLanguages(search.PreferredLanguages));
@@ -66,9 +65,8 @@ public sealed class OpenSubtitlesSubtitleProvider(
     {
         ArgumentNullException.ThrowIfNull(candidate);
 
-        var endpoint = SubtitleRequestUriPolicy.TryBuildEndpoint(Options.BaseUrl, DownloadPath);
-        EnsurePermitted(
-            endpoint,
+        var endpoint = EnsurePermitted(
+            SubtitleRequestUriPolicy.TryBuildEndpoint(Options.BaseUrl, DownloadPath),
             Options.DownloadAllowedHosts,
             "The configured subtitle provider download endpoint is not an allowed https host.");
 
@@ -81,9 +79,8 @@ public sealed class OpenSubtitlesSubtitleProvider(
         EnsureAccepted(response, "The subtitle provider rejected the download request.");
         var quota = QuotaFrom(response);
 
-        var link = await ReadDownloadLinkAsync(response, cancellationToken);
-        EnsurePermitted(
-            link,
+        var link = EnsurePermitted(
+            await ReadDownloadLinkAsync(response, cancellationToken),
             Options.DownloadAllowedHosts,
             "The subtitle provider returned a download link that is not an allowed https host.");
 
@@ -307,12 +304,14 @@ public sealed class OpenSubtitlesSubtitleProvider(
         return null;
     }
 
-    private static void EnsurePermitted(Uri? uri, IReadOnlyList<string> allowedHosts, string message)
+    private static Uri EnsurePermitted(Uri? uri, IReadOnlyList<string> allowedHosts, string message)
     {
-        if (!SubtitleRequestUriPolicy.IsPermitted(uri, allowedHosts))
+        if (uri is null || !SubtitleRequestUriPolicy.IsPermitted(uri, allowedHosts))
         {
             throw new SubtitleProviderFailureException(message);
         }
+
+        return uri;
     }
 
     private bool IsProviderApiHost(Uri? uri)
