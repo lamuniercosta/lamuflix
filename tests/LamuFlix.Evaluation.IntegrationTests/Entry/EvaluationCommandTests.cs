@@ -13,6 +13,21 @@ public sealed class EvaluationCommandTests
     private const string DefaultSeed = "356";
 
     [Fact]
+    public void Timeouts_FitWithinTheCiInactivityWatchdog()
+    {
+        // arrange
+        var watchdog = TimeSpan.FromMinutes(10);
+
+        // act
+        var budget = EvaluationCommand.Timeout
+            + EvaluationCommand.StreamDrainTimeout
+            + EvaluationCommand.StreamDrainTimeout;
+
+        // assert
+        budget.ShouldBeLessThan(watchdog);
+    }
+
+    [Fact]
     public void Help_PrintsTheDocumentedSurfaceWithoutPublishing()
     {
         // arrange
