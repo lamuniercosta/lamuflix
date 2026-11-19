@@ -58,3 +58,14 @@
 - **Legacy reason retirement and `Reason.cs`**: Retire `RecommendationReasonBuilder` and unused `ToReasonDto`/`Kind` mapping per ticket Technical Design, and delete `Reason.cs` only if Phase B pickup proves zero remaining callers (orphaned dead code); otherwise preserve unrelated callers intact (Charter §2.3 item 6 and dead-code rule, `recon-DEV-542:16–18,57`).
 - **Upstream contract invariants**: Do not alter API status codes, invent fallback labels/seeds, or drop recommendations for malformed upstream seeds or unknown criteria; stop at the Phase B pickup checkpoint if upstream invariants cannot be demonstrated, and route any observed runtime defect back to Patron for disposition (Charter §2.3 item 4, `CONCLUSIONS.md` Q4, `recon-DEV-542:52–57,63`).
 
+---
+
+## Gate 1 Ruling
+
+**Verdict.** `gate1: provisional` — zero structural owner checkboxes.
+
+- **Checklist & Analyze**: `checklists/requirements.md` User-Visible Outcome items are all ticked (`[x]`), `/speckit-analyze` is clean, and all 28 plan challenge findings are adjudicated (`PLAN FROZEN` in `PLAN_ADJUDICATION.md`).
+- **Owner escalations**: Zero structural owner checkboxes (no ticket contradiction or constitution departure under Charter §2.3).
+- **Status**: `spec.md` marked `**Status**: gate1: provisional`; ordinary owner Gate 1 awaits user merge of the spec PR (`T000`).
+
+
