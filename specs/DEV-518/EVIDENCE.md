@@ -1,35 +1,35 @@
 # DEV-518 evidence runbook
 
-Status: Phase A slots only — fill during Phase B. Do not invent measurements, seed IDs, or publication success here. Never credentials.
+Status: T002 baseline captured at pickup HEAD; T003+ remain pending. Do not invent measurements, seed IDs, or publication success here. Never credentials.
 
 ## 0. Provenance
 
 | Field | Value |
 |---|---|
-| Pickup SHA | _pending_ |
-| Baseline capture SHA | _pending_ |
+| Pickup SHA | `c516859dba97da61c0b8c42a083a8d59b29c8b46` |
+| Baseline capture SHA | `c516859dba97da61c0b8c42a083a8d59b29c8b46` |
 | After capture SHA | _pending_ |
 | Gate-checked SHA | _pending_ |
-| DEV-545 tooling SHA / notes | _pending_ |
+| DEV-545 tooling SHA / notes | `scripts/run-recommendation-snapshot.ps1` SHA-256 `ae07c64c1137ea2357cb9ff1fd54011d577034f83eef5670183c5de30a10b7e8`; captured from `http://localhost:3100` at pickup HEAD before DEV-518 scoring edits; DEV-545 seed lookup receipt: `specs/DEV-545/EVIDENCE.md` §0, T019a. |
 
 ## 1. Five Related seed IDs (DEV-545 ordered titles)
 
 | # | Title | Home library ID |
 |---|---|---|
-| 1 | A Fistful of Dollars | _pending_ |
-| 2 | About Time | _pending_ |
-| 3 | A Few Good Men | _pending_ |
-| 4 | Aladdin | _pending_ |
-| 5 | The Wind Rises | _pending_ |
+| 1 | A Fistful of Dollars | `575` |
+| 2 | About Time | `518` |
+| 3 | A Few Good Men | `515` |
+| 4 | Aladdin | `519` |
+| 5 | The Wind Rises | `831` |
 
-Lookup notes / command references (no secrets): _pending_
+Lookup notes / command references (no secrets): DEV-545 one-time home-library lookup documented in `specs/DEV-545/EVIDENCE.md` §0; explicit `-SeedIds 575,518,515,519,831` supplied to the capture command.
 
 ## 2. Before snapshots (must precede scoring edits)
 
 | Artifact | Path / hash | Status |
 |---|---|---|
-| Related ×5 baseline | _pending_ | pending |
-| For You baseline (Genres default comparison) | _pending_ | pending |
+| Related ×5 baseline | `artifacts/recommendations/DEV-518-baseline.json`; SHA-256 `b104dacc7e3a610e07d1f3d07c8d9baf7f68ce9b145c27c2ab1900f6edab5ba8` | captured: five ordered targets, each HTTP success with 10 rows |
+| For You baseline (Genres default comparison) | `artifacts/recommendations/DEV-518-baseline.json`; SHA-256 `b104dacc7e3a610e07d1f3d07c8d9baf7f68ce9b145c27c2ab1900f6edab5ba8` | captured: HTTP success with 30 rows |
 
 ## 3. After snapshots
 
