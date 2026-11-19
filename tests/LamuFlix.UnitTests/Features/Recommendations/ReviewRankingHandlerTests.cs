@@ -453,7 +453,7 @@ public sealed class ReviewRankingHandlerTests
                 new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
                 Microsoft.Extensions.Options.Options.Create(options));
 
-            return await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+            return (await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None)).Items;
         }
     }
 

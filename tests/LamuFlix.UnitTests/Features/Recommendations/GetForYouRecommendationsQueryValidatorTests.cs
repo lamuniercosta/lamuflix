@@ -9,6 +9,22 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 public sealed class GetForYouRecommendationsQueryValidatorTests
 {
     [Theory]
+    [InlineData(0, true)]
+    [InlineData(12, true)]
+    [InlineData(-1, false)]
+    [InlineData(int.MinValue, false)]
+    public async Task Validate_OffsetEnforcesNonnegativeBounds(int offset, bool isValid)
+    {
+        var result = await NewValidator(50).ValidateAsync(
+            new GetForYouRecommendationsQuery(offset: offset), CancellationToken.None);
+
+        result.IsValid.ShouldBe(isValid);
+        if (!isValid)
+        {
+            result.Errors.ShouldContain(failure => failure.PropertyName == nameof(GetForYouRecommendationsQuery.Offset));
+        }
+    }
+    [Theory]
     [InlineData(1, 50)]
     [InlineData(5, 50)]
     [InlineData(10, 50)]

@@ -223,7 +223,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
         repeated.StatusCode.ShouldBe(HttpStatusCode.OK);
         repeatedBody.GetRawText().ShouldBe(body.GetRawText());
-        var items = body.EnumerateArray().ToList();
+        var items = body.GetProperty("items").EnumerateArray().ToList();
         var ids = items.Select(item => item.GetProperty("id").GetInt32()).ToList();
         ids.ShouldContain(enrichedId);
         ids.ShouldContain(vectorlessId);
@@ -264,8 +264,9 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
-        body.ValueKind.ShouldBe(JsonValueKind.Array);
-        body.EnumerateArray().ShouldBeEmpty();
+        body.ValueKind.ShouldBe(JsonValueKind.Object);
+        body.GetProperty("items").EnumerateArray().ShouldBeEmpty();
+        body.GetProperty("hasMore").GetBoolean().ShouldBeFalse();
     }
 
     [Fact]
@@ -306,12 +307,12 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
 
         // assert
         before.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var cachedItem = beforeBody.EnumerateArray()
+        var cachedItem = beforeBody.GetProperty("items").EnumerateArray()
             .Single(item => item.GetProperty("id").GetInt32() == candidateId);
         ReasonKinds(cachedItem).ShouldNotContain("personal");
         marked.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         after.StatusCode.ShouldBe(HttpStatusCode.OK);
-        afterBody.EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ShouldNotContain(candidateId);
+        afterBody.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ShouldNotContain(candidateId);
     }
 
     [Fact]

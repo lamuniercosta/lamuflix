@@ -67,7 +67,7 @@ internal static class HandlerRegistration
         services.AddScoped<GetForYouRecommendationsQueryValidator>();
         services.AddScoped<IValidator<GetForYouRecommendationsQuery>>(
             serviceProvider => serviceProvider.GetRequiredService<GetForYouRecommendationsQueryValidator>());
-        services.AddHandler<GetForYouRecommendationsQueryHandler, GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>>();
+        services.AddHandler<GetForYouRecommendationsQueryHandler, GetForYouRecommendationsQuery, ForYouRecommendationsPage>();
         services.AddHandler<DeleteMovieCommandHandler, DeleteMovieCommand, Unit>();
         services.AddHandler<GetGenresQueryHandler, GetGenresQuery, IReadOnlyList<GenreFacet>>();
         services.AddHandler<GetCollectionsQueryHandler, GetCollectionsQuery, IReadOnlyList<CollectionFacet>>();

@@ -56,8 +56,8 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>> handler =
         Substitute.For<IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>>();
-    private readonly IQueryHandler<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>> forYouHandler =
-        Substitute.For<IQueryHandler<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>>>();
+    private readonly IQueryHandler<GetForYouRecommendationsQuery, ForYouRecommendationsPage> forYouHandler =
+        Substitute.For<IQueryHandler<GetForYouRecommendationsQuery, ForYouRecommendationsPage>>();
 
     private GetRecommendationsQuery? DispatchedQuery { get; set; }
 
@@ -639,15 +639,17 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
-        body.GetArrayLength().ShouldBe(2);
-        body.EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ShouldBe([51, 52]);
-        body[0].GetProperty("score").GetDouble().ShouldBe(4.5);
-        PropertyNames(body[0]).ShouldBe(DtoFieldNames);
-        ReasonKinds(body[0]).ShouldBe(["personal", "personal"]);
-        ReasonTexts(body[0]).ShouldBe(["Matches your Drama interest", "Matches your viewing history"]);
-        body[1].GetProperty("score").GetDouble().ShouldBe(-1.25);
-        ReasonKinds(body[1]).ShouldBe(["structural"]);
-        ReasonTexts(body[1]).ShouldBe(["No shared features identified"]);
+        body.GetProperty("hasMore").GetBoolean().ShouldBeFalse();
+        var items = body.GetProperty("items");
+        items.GetArrayLength().ShouldBe(2);
+        items.EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ShouldBe([51, 52]);
+        items[0].GetProperty("score").GetDouble().ShouldBe(4.5);
+        PropertyNames(items[0]).ShouldBe(DtoFieldNames);
+        ReasonKinds(items[0]).ShouldBe(["personal", "personal"]);
+        ReasonTexts(items[0]).ShouldBe(["Matches your Drama interest", "Matches your viewing history"]);
+        items[1].GetProperty("score").GetDouble().ShouldBe(-1.25);
+        ReasonKinds(items[1]).ShouldBe(["structural"]);
+        ReasonTexts(items[1]).ShouldBe(["No shared features identified"]);
     }
 
     [Theory]
@@ -669,8 +671,9 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        body.ValueKind.ShouldBe(JsonValueKind.Array);
-        body.GetArrayLength().ShouldBe(itemCount);
+        body.ValueKind.ShouldBe(JsonValueKind.Object);
+        body.GetProperty("items").GetArrayLength().ShouldBe(itemCount);
+        body.GetProperty("hasMore").GetBoolean().ShouldBeFalse();
     }
 
     [Fact]
@@ -689,8 +692,9 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
-        body.ValueKind.ShouldBe(JsonValueKind.Array);
-        body.GetArrayLength().ShouldBe(0);
+        body.ValueKind.ShouldBe(JsonValueKind.Object);
+        body.GetProperty("items").GetArrayLength().ShouldBe(0);
+        body.GetProperty("hasMore").GetBoolean().ShouldBeFalse();
         DispatchedForYouQuery.ShouldNotBeNull().Take.ShouldBe(10);
     }
 
@@ -734,6 +738,77 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         DispatchedForYouQuery.ShouldNotBeNull().Take.ShouldBe(take);
+    }
+
+    [Fact]
+    public async Task GetForYouRecommendations_OffsetAndDuplicateExcludes_DispatchNormalizedQuery()
+    {
+        ForYouHandlerReturns();
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+
+        var response = await client.GetAsync($"{ForYouRoute}?offset=4&exclude=7&exclude=7&exclude=8",
+            TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        DispatchedForYouQuery.ShouldNotBeNull().Offset.ShouldBe(4);
+        DispatchedForYouQuery!.ExcludedMovieIds.ShouldBe(ImmutableHashSet.Create(new MovieId(7), new MovieId(8)));
+    }
+
+    [Fact]
+    public async Task GetForYouRecommendations_HugeOffset_ReturnsEmptyEnvelope()
+    {
+        ForYouHandlerReturns();
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+
+        var response = await client.GetAsync($"{ForYouRoute}?offset={int.MaxValue.ToString(CultureInfo.InvariantCulture)}",
+            TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        body.GetProperty("items").GetArrayLength().ShouldBe(0);
+        body.GetProperty("hasMore").GetBoolean().ShouldBeFalse();
+        DispatchedForYouQuery.ShouldNotBeNull().Offset.ShouldBe(int.MaxValue);
+    }
+
+    [Fact]
+    public async Task GetForYouRecommendations_ExcludeRawLimitCountsRepeatedValuesBeforeDeduplication()
+    {
+        ForYouHandlerReturns();
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var query = string.Join("&", Enumerable.Repeat("exclude=7", 51));
+
+        var response = await client.GetAsync($"{ForYouRoute}?{query}", TestContext.Current.CancellationToken);
+
+        var problem = await ReadProblemAsync(response, HttpStatusCode.BadRequest, TestContext.Current.CancellationToken);
+        problem.GetRawText().ShouldNotContain("exclude=7");
+        await forYouHandler.DidNotReceiveWithAnyArgs()
+            .HandleAsync(Arg.Any<GetForYouRecommendationsQuery>(), TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [InlineData("offset=")]
+    [InlineData("offset=abc")]
+    [InlineData("offset=-1")]
+    [InlineData("offset=2147483648")]
+    [InlineData("offset=1&offset=2")]
+    [InlineData("exclude=")]
+    [InlineData("exclude=0")]
+    [InlineData("exclude=-1")]
+    [InlineData("exclude=2147483648")]
+    public async Task GetForYouRecommendations_InvalidOffsetOrExclude_ReturnsBadRequestWithoutDispatching(string query)
+    {
+        ForYouHandlerReturns();
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+
+        var response = await client.GetAsync($"{ForYouRoute}?{query}", TestContext.Current.CancellationToken);
+
+        await ReadProblemAsync(response, HttpStatusCode.BadRequest, TestContext.Current.CancellationToken);
+        await forYouHandler.DidNotReceiveWithAnyArgs()
+            .HandleAsync(Arg.Any<GetForYouRecommendationsQuery>(), TestContext.Current.CancellationToken);
     }
 
     [Theory]
@@ -788,7 +863,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         await using var host = CreateHost(composeForYouHandler: true);
         using var scope = host.Services.CreateScope();
         var composed = scope.ServiceProvider
-            .GetRequiredService<IQueryHandler<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>>>();
+            .GetRequiredService<IQueryHandler<GetForYouRecommendationsQuery, ForYouRecommendationsPage>>();
         var cancellationToken = TestContext.Current.CancellationToken;
 
         // act
@@ -797,7 +872,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
             cancellationToken));
 
         // assert
-        composed.ShouldBeOfType<TracingDecorator<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>>>();
+        composed.ShouldBeOfType<TracingDecorator<GetForYouRecommendationsQuery, ForYouRecommendationsPage>>();
         failure.Errors.Keys.ShouldContain("Take");
     }
 
@@ -812,7 +887,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     private static IEnumerable<string?> ReasonKinds(JsonElement item) =>
         item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetProperty("kind").GetString());
 
-    private static async Task ReadProblemAsync(
+    private static async Task<JsonElement> ReadProblemAsync(
         HttpResponseMessage response,
         HttpStatusCode expected,
         CancellationToken cancellationToken)
@@ -822,6 +897,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
         problem.GetProperty("status").GetInt32().ShouldBe((int)expected);
         problem.TryGetProperty("traceId", out _).ShouldBeTrue(problem.GetRawText());
+        return problem;
     }
 
     private static Movie MovieIn(EnrichmentStatus status)
@@ -887,7 +963,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
 
     private void ForYouHandlerReturns(params RecommendedMovie[] items)
     {
-        ImmutableList<RecommendedMovie> results = [.. items];
+        var results = new ForYouRecommendationsPage([.. items], false);
         forYouHandler.HandleAsync(
                 Arg.Do<GetForYouRecommendationsQuery>(query => DispatchedForYouQuery = query),
                 Arg.Any<CancellationToken>())
