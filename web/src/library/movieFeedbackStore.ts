@@ -201,7 +201,8 @@ function dispatch(
     error: preserveFailure ? preserveFailure.error : null,
     refreshError: null,
     lastAction: preserveFailure?.lastAction ?? action,
-    before: preserveFailure && preserveFailure.lastAction !== action ? preserveFailure.before : before,
+    before:
+      preserveFailure && preserveFailure.lastAction !== action ? preserveFailure.before : before,
     broadRefresh: true,
     run,
   });
