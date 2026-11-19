@@ -337,7 +337,6 @@ async function handleSubtitleProvider(request, response, url, subtitle) {
   }
 
   if (url.pathname === SEARCH_PATH) {
-    // The OpenSubtitles v1 search route is a GET. A POST proves the diagnosed pre-fix trigger.
     if (request.method !== 'GET') {
       recordSubtitleRequest(request, url, 'search-method-rejected');
       sendJson(response, 404, { status: 404, error: 'Not Found' });
@@ -370,7 +369,6 @@ async function handleSubtitleProvider(request, response, url, subtitle) {
       return;
     }
 
-    // Other seeded movies legitimately search the provider; only the fixture title yields candidates.
     recordSubtitleRequest(request, url, 'search-no-candidates');
     sendJson(response, 200, { total_count: 0, data: [] });
     return;

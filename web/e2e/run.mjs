@@ -406,9 +406,6 @@ function generateCertificates() {
 }
 
 function allowContainerLibraryWrites(root) {
-  // The api container runs as the non-root "app" user and publishes downloaded
-  // subtitles into the movie folders, so the staged library must be writable by
-  // that user on Linux bind mounts.
   const pending = [root];
   while (pending.length > 0) {
     const current = pending.pop();
