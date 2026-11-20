@@ -6,7 +6,7 @@ description: "Task list for DEV-543 For you nearest-seed ranking"
 
 **Input**: Design documents from `specs/DEV-543/` — `spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q8), `CONCLUSIONS.md`, `ASSUMPTIONS.md`, `EVIDENCE.md`; Maestri notes `DEV-543`, historical `recon-DEV-543` / `recon-DEV-543-2` (see `DRAFTING_RECEIPT.md` recovery gap); `specs/PRODUCT.md`.
 
-**Status**: **PLAN FROZEN**. Gate 1 / T000 pending. Plan challenge dispositions are in [PLAN_ADJUDICATION.md](PLAN_ADJUDICATION.md). Build work starts after a verified Gate 1 merge receipt.
+**Status**: **PLAN FROZEN**. Gate 1 verified and T000 complete. The merge receipt is in [CONCLUSIONS.md](CONCLUSIONS.md). Plan challenge dispositions are in [PLAN_ADJUDICATION.md](PLAN_ADJUDICATION.md).
 
 **Tests**: Required (`brief.md` Acceptance and verification; FR-001–FR-012). TDD optional. Unit + integration suites must pass; OpenAPI snapshot unchanged. DEV-545 harness for quality/runtime evidence. Compose UI smoke for SMOKE-001/SMOKE-002 (verification only; no `/web` source edits) against a recorded build identity and fixture with both rail changes present. Follow aaron-csharp-testing: Method_Condition_Expected names, AAA headers, Shouldly and the existing mocking library. Use Testcontainers for actual persistence behavior.
 
@@ -47,7 +47,7 @@ Ordering per brief Task order. **T002 completion is a hard dependency for T003, 
 **Purpose**: Produce/open the spec PR, then confirm ordinary owner Gate 1 merge before Build work.
 **Checkpoint**: Spec PR opened by Rigger under Bernstein coordination; verified user-merge receipt in `CONCLUSIONS.md`, or stop. No Build tasks before that receipt.
 
-- [ ] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-543 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-543 in `specs/DEV-543/CONCLUSIONS.md`. Receipt only. T001–T025 MUST NOT proceed without verified merge. Proposed ADR 0047 is claimed and drafted for the **delivery** PR (T017–T019).
+- [x] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-543 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-543 in `specs/DEV-543/CONCLUSIONS.md`. Receipt only. T001–T025 MUST NOT proceed without verified merge. Proposed ADR 0047 is claimed and drafted for the **delivery** PR (T017–T019).
 
 ---
 
