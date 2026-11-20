@@ -17,6 +17,7 @@ public sealed class OpenSubtitlesEmulatorTests
     private const string UserAgent = "LamuFlix/1.0 (emulator self-test)";
     private const string SearchPath = OpenSubtitlesEmulator.SearchPath;
     private const string DownloadPath = OpenSubtitlesEmulator.DownloadPath;
+    private const string JsonAccept = "application/json";
     private static readonly HttpClient Client = new(new HttpClientHandler
     {
         AllowAutoRedirect = false,
@@ -178,7 +179,7 @@ public sealed class OpenSubtitlesEmulatorTests
         using var emulator = new OpenSubtitlesEmulator(ApiKey);
 
         // act
-        var reply = await SendAsync(HttpMethod.Post, Url(emulator, DownloadPath, null), ApiKey, UserAgent, TestContext.Current.CancellationToken, "{\"file_id\":101}");
+        var reply = await SendAsync(HttpMethod.Post, Url(emulator, DownloadPath, null), ApiKey, UserAgent, TestContext.Current.CancellationToken, "{\"file_id\":101}", JsonAccept);
 
         // assert
         reply.Status.ShouldBe(HttpStatusCode.OK);
@@ -186,6 +187,21 @@ public sealed class OpenSubtitlesEmulatorTests
         reply.Body.ShouldContain("\"remaining\":99");
         reply.Body.ShouldContain("\"reset_time_utc\":\"");
         reply.Headers.Keys.ShouldNotContain("X-RateLimit-Remaining");
+    }
+
+    [Fact]
+    public async Task Download_WithoutAJsonAcceptHeader_ReturnsTheServiceUnavailableHtmlPage()
+    {
+        // arrange
+        using var emulator = new OpenSubtitlesEmulator(ApiKey);
+
+        // act
+        var reply = await SendAsync(HttpMethod.Post, Url(emulator, DownloadPath, null), ApiKey, UserAgent, TestContext.Current.CancellationToken, "{\"file_id\":101}");
+
+        // assert
+        reply.Status.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        reply.Headers["Content-Type"].ShouldStartWith("text/html");
+        reply.Body.ShouldContain("Error 503 - OpenSubtitles.com");
     }
 
     [Fact]
@@ -218,7 +234,8 @@ public sealed class OpenSubtitlesEmulatorTests
         string? key,
         string? userAgent,
         CancellationToken ct,
-        string? jsonBody = null) => SendAsync(method, new Uri(url), key, userAgent, ct, jsonBody);
+        string? jsonBody = null,
+        string? accept = null) => SendAsync(method, new Uri(url), key, userAgent, ct, jsonBody, accept);
 
     private static async Task<Reply> SendAsync(
         HttpMethod method,
@@ -226,9 +243,15 @@ public sealed class OpenSubtitlesEmulatorTests
         string? key,
         string? userAgent,
         CancellationToken ct,
-        string? jsonBody = null)
+        string? jsonBody = null,
+        string? accept = null)
     {
         using var request = new HttpRequestMessage(method, uri);
+        if (accept is not null)
+        {
+            request.Headers.TryAddWithoutValidation("Accept", accept);
+        }
+
         if (key is not null)
         {
             request.Headers.TryAddWithoutValidation("Api-Key", key);

@@ -43,7 +43,7 @@ Runs before authentication, so a non-canonical request gets a 301 even with no k
 | Valid key, POST `/subtitles` | 404 | `{"status":404,"error":"Not Found"}` |
 
 - Key header: `Api-Key: <key>`. Probes sent `User-Agent: LamuFlix v1.0`.
-- `Accept: application/json` made no difference to the 403 result.
+- `Accept: application/json` made no difference to the 403 result. It does matter for an authorized download (section 5).
 - Responses carry `Access-Control-Allow-Origin: *`.
 
 ## 4. Search: `GET /api/v1/subtitles`
@@ -78,7 +78,19 @@ Other fields are present (values not recorded). `comments` and `uploader` hold u
 
 ## 5. Download: `POST /api/v1/download`
 
-Request: `Content-Type: application/json`, body `{"file_id": <integer>}` from `files[].file_id`. Needs `Api-Key` (403 without).
+Request: `Content-Type: application/json`, `Accept: application/json`, body `{"file_id": <integer>}` from `files[].file_id`. Needs `Api-Key` (403 without).
+
+**`Accept` is required** (observed 2026-11-20, back-to-back probes with the same valid key, User-Agent and body):
+
+| `Accept` header | Status | Body |
+|---|---|---|
+| absent | 503 | `text/html` error page titled "Error 503 - OpenSubtitles.com"; `Server: cloudflare`, `Via: 1.1 kong/3.9.1` |
+| `application/json` | 200 | The JSON body below |
+
+- The 503 repeated on every request without the header over several minutes, so it is not an outage. Chunked and `Content-Length` bodies behaved the same.
+- Search (`GET /subtitles`) returned 200 with no `Accept` header.
+- Whether a missing key without `Accept` gives 403 or 503 was not observed. Emulators check the key first.
+- `GET /api/v1/infos/user` with only `Api-Key` returns 401; it needs a login Bearer token, so a 401 there does not mean the key is bad.
 
 Response 200:
 

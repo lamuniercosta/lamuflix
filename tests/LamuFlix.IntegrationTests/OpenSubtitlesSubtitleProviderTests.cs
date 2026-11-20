@@ -28,6 +28,8 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     private const string DownloadPath = OpenSubtitlesEmulator.DownloadPath;
     private const string ApiKeyHeader = "Api-Key";
     private const string UserAgentHeader = "User-Agent";
+    private const string AcceptHeader = "Accept";
+    private const string JsonMediaType = "application/json";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
     private static readonly DateTimeOffset Now = new(2026, 3, 4, 5, 6, 7, TimeSpan.Zero);
     private static readonly DateTimeOffset ResetAt = new(2026, 3, 4, 23, 59, 59, 999, TimeSpan.Zero);
@@ -348,9 +350,11 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         // assert
         Encoding.UTF8.GetString(content.Content).ShouldBe(OpenSubtitlesScenario.DefaultSrt);
         DownloadRequestBody().ShouldContain("\"file_id\":101");
+        HeaderValues(Only(emulator.Api, DownloadPath).Headers, AcceptHeader).ShouldBe([JsonMediaType]);
         var link = LinkGetRequest();
         link.Method.ShouldBe("GET");
         HeaderValues(link.Headers, ApiKeyHeader).ShouldBeEmpty();
+        HeaderValues(link.Headers, AcceptHeader).ShouldBeEmpty();
     }
 
     [Fact]

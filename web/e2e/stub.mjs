@@ -409,6 +409,23 @@ function sendCanonicalRedirect(response, canonical) {
   response.end(body);
 }
 
+// The real /download answers 503 with this HTML page when the request lacks Accept: application/json.
+function sendServiceUnavailablePage(response) {
+  const body =
+    '<!DOCTYPE html>\n<html><head><title>Error 503 - OpenSubtitles.com</title></head>' +
+    '<body><h1>Error 503</h1></body></html>\n';
+  response.writeHead(503, {
+    server: 'cloudflare',
+    'content-type': 'text/html',
+    'content-length': Buffer.byteLength(body),
+  });
+  response.end(body);
+}
+
+function acceptsJson(request) {
+  return (request.headers.accept ?? '').toLowerCase().includes('application/json');
+}
+
 // The key itself is never logged; only the outcome label and the reason are recorded.
 function apiAuthFailure(request) {
   if (!request.headers['user-agent']) {
@@ -574,6 +591,13 @@ async function handleSubtitleDownload(request, response, url, subtitle) {
   if (request.method !== 'POST') {
     recordSubtitleRequest(request, url, 'download-method-rejected');
     sendJson(response, 405, { status: 405, error: 'Method Not Allowed' });
+    return;
+  }
+
+  if (!acceptsJson(request)) {
+    recordSubtitleRequest(request, url, 'download-missing-json-accept');
+    recordUnexpected(null, null, 'subtitle-download-accept');
+    sendServiceUnavailablePage(response);
     return;
   }
 
