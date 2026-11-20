@@ -9,6 +9,7 @@ interface E2EContext {
 }
 
 type BrowseResponse = components['schemas']['BrowseMoviesResponse'];
+type ForYouPage = components['schemas']['ForYouRecommendationsPageDto'];
 type ForYouItem = components['schemas']['RecommendedMovieDto'];
 
 function loadContext(): E2EContext {
@@ -33,7 +34,7 @@ async function readBrowse(request: APIRequestContext): Promise<BrowseResponse> {
 async function readForYou(request: APIRequestContext): Promise<ForYouItem[]> {
   const response = await request.get(`${context.baseURL}/api/recommendations/for-you?take=10`);
   expect(response.ok()).toBe(true);
-  return (await response.json()) as ForYouItem[];
+  return ((await response.json()) as ForYouPage).items;
 }
 
 function reasonText(reason: string | { text: string }): string {

@@ -752,7 +752,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         DispatchedForYouQuery.ShouldNotBeNull().Offset.ShouldBe(4);
-        DispatchedForYouQuery!.ExcludedMovieIds.ShouldBe(ImmutableHashSet.Create(new MovieId(7), new MovieId(8)));
+        DispatchedForYouQuery.ShouldNotBeNull().ExcludedMovieIds.ShouldBe(ImmutableHashSet.Create(new MovieId(7), new MovieId(8)));
     }
 
     [Fact]

@@ -516,7 +516,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             NewMovie(10, genres: ["Drama"]));
         ArrangeProfile(Inputs(WatchedHistory(90, "Drama")), Profile(("Drama", 1.0)));
 
-        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(10), CancellationToken.None);
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         result.Count.ShouldBe(2);
         result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 4, 10 });
