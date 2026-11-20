@@ -733,7 +733,7 @@ describe('MovieDetailsView related movies integration', () => {
     expect(requests).toEqual([]);
 
     release();
-    expect(await screen.findByText('No related movies yet.')).toBeInTheDocument();
+    expect(await screen.findByText('No close match in your library.')).toBeInTheDocument();
   });
 
   it('does not request recommendations when the host movie fails to load', async () => {
@@ -957,7 +957,7 @@ describe('MovieDetailsView feedback actions', () => {
     );
     renderView();
     await screen.findByRole('heading', { name: 'Dune' });
-    await screen.findByText('No related movies yet.');
+    await screen.findByText('No close match in your library.');
 
     // act
     fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Dune' }));
@@ -991,7 +991,7 @@ describe('MovieDetailsView feedback actions', () => {
 
     // assert
     await screen.findByRole('heading', { name: 'Dune' });
-    await screen.findByText('No related movies yet.');
+    await screen.findByText('No close match in your library.');
     expect(container.querySelector('.related-movie-reason')).toBeNull();
   });
 });

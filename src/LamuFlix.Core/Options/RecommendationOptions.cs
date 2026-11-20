@@ -331,7 +331,7 @@ public sealed record RecommendationOptions : IValidatableObject
             yield return new ValidationResult(
                 string.Format(
                     CultureInfo.InvariantCulture,
-                    "{0} must be greater than or equal to {1}; got {2} and {3}.",
+                    "{0} caps the requested {1} and must be greater than or equal to it; got {2} and {3}.",
                     nameof(CandidatePoolSize),
                     nameof(Take),
                     CandidatePoolSize,

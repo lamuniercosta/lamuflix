@@ -13,7 +13,7 @@ import './RelatedMovies.css';
 
 const SECTION_LABEL = 'Related movies';
 const LOADING_LABEL = 'Loading related movies…';
-const EMPTY_LABEL = 'No related movies yet.';
+const EMPTY_LABEL = 'No close match in your library.';
 const ERROR_LABEL = 'Could not load related movies.';
 
 function openRecommendedMovie(id: number | string): void {

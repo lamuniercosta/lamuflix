@@ -713,7 +713,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         var take = parameters["take"];
         OptionalQuery(take);
         take.GetProperty("description").GetString().ShouldBe(
-            "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.");
+            "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize, which caps take and does not size any candidate load.");
         var takeSchema = take.GetProperty("schema");
         takeSchema.GetProperty("type").GetString().ShouldBe("integer");
         takeSchema.GetProperty("default").GetInt32().ShouldBe(10);
@@ -802,7 +802,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         var take = parameters["take"];
         OptionalQuery(take);
         take.GetProperty("description").GetString().ShouldBe(
-            "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.");
+            "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize, which caps take and does not size any candidate load.");
         var takeSchema = take.GetProperty("schema");
         takeSchema.GetProperty("type").GetString().ShouldBe("integer");
         takeSchema.GetProperty("default").GetInt32().ShouldBe(10);

@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 describe('RelatedMovies', () => {
-  it('shows the empty message without a carousel for a successful empty response', async () => {
+  it('SMOKE-001 shows the empty message without a carousel for a successful empty response', async () => {
     // arrange
     server.use(recommendationsHandler([]));
 
@@ -68,7 +68,7 @@ describe('RelatedMovies', () => {
     renderRelated(1);
 
     // assert
-    expect(await screen.findByText('No related movies yet.')).toBeInTheDocument();
+    expect(await screen.findByText('No close match in your library.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Related movies' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Related movies' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Previous' })).not.toBeInTheDocument();
@@ -99,10 +99,10 @@ describe('RelatedMovies', () => {
     release();
 
     // assert
-    expect(await screen.findByText('No related movies yet.')).toBeInTheDocument();
+    expect(await screen.findByText('No close match in your library.')).toBeInTheDocument();
   });
 
-  it('renders populated cards in API order inside the carousel', async () => {
+  it('SMOKE-002 renders every movie under the Related heading in API order without padding', async () => {
     // arrange
     server.use(recommendationsHandler(relatedMovies as RecommendedMovie[]));
 
@@ -110,6 +110,7 @@ describe('RelatedMovies', () => {
     renderRelated(1);
 
     // assert
+    expect(screen.getByRole('heading', { name: 'Related movies' })).toBeInTheDocument();
     const region = await screen.findByRole('region', { name: 'Related movies' });
     const items = within(region).getAllByRole('listitem');
     expect(items).toHaveLength(3);
@@ -119,7 +120,7 @@ describe('RelatedMovies', () => {
       'Prisoners',
     ]);
     expect(screen.queryByText(/0\.82/)).not.toBeInTheDocument();
-    expect(screen.queryByText('No related movies yet.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No close match in your library.')).not.toBeInTheDocument();
   });
 
   it('renders every Reason verbatim and in order as inert text', async () => {
@@ -299,7 +300,7 @@ describe('RelatedMovies', () => {
     // assert
     const notice = await screen.findByRole('alert');
     expect(notice).toHaveTextContent('Could not load related movies.');
-    expect(screen.queryByText('No related movies yet.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No close match in your library.')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Related movies' })).not.toBeInTheDocument();
 
     // act
@@ -320,7 +321,7 @@ describe('RelatedMovies', () => {
 
     // assert
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load related movies.');
-    expect(screen.queryByText('No related movies yet.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No close match in your library.')).not.toBeInTheDocument();
     expect(screen.queryByText('Movie not found.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
