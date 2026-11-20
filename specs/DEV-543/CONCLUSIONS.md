@@ -108,4 +108,10 @@ Confirmed — cap the fix and review loop at two rounds (remediation plus verifi
 - `specs/DEV-543/checklists/requirements.md:32-36` has all "User-Visible Outcome" items ticked (`SMOKE-001` and `SMOKE-002` in `specs/DEV-543/spec.md:18-32`).
 - Zero ticket contradictions or constitution departures (`specs/DEV-543/spec.md:8-10`, `specs/DEV-543/plan.md:37-59`, `specs/PRODUCT.md` §5); ordinary owner Gate 1 merge remains with the user on the spec PR (`T000`).
 
+---
 
+## Gate 1 — Verified spec PR merge
+
+- [Spec PR #450](https://github.com/lamuniercosta/lamuflix/pull/450) merged into `main` on 2026-11-19 at 17:17:09 UTC. GitHub reports merge commit `18e012145a9a8b2f1a3c00b1437611870b5a2433`.
+- Phase A base `1ac83297c1ba8ffc936987e8b198ce8dc612b01a` is an ancestor of the spec merge commit. The merge commit is an ancestor of the `feature/DEV-543` pickup HEAD `34c10f3e`.
+- T000 complete. T001 is the next checkpoint.
