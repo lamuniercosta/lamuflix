@@ -17,11 +17,21 @@ public sealed record RecommendationOptions : IValidatableObject
 
     private const int DefaultMaxExcludeCount = 50;
 
+    private static readonly string[] DefaultStrongReasonCriteria = ["Collection", "Director", "Themes"];
+
+    internal static readonly string[] SupportedStrongReasonCriteria = ["Collection", "Director", "Themes"];
+
     [Range(1, int.MaxValue)]
     public int Take { get; init; } = 10;
 
     [Range(1, int.MaxValue)]
     public int CandidatePoolSize { get; init; } = 50;
+
+    public const double DefaultMinimumSimilarity = 0.225;
+
+    public double MinimumSimilarity { get; init; } = DefaultMinimumSimilarity;
+
+    public IReadOnlyList<string>? StrongReasonCriteria { get; init; } = DefaultStrongReasonCriteria;
 
     [Range(1, int.MaxValue)]
     public int MaxPerBestSeed { get; init; } = DefaultMaxPerBestSeed;
@@ -106,6 +116,75 @@ public sealed record RecommendationOptions : IValidatableObject
         foreach (var result in ValidatePool())
         {
             yield return result;
+        }
+
+        foreach (var result in ValidateStrongMatch())
+        {
+            yield return result;
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateStrongMatch()
+    {
+        foreach (var result in ValidateMinimumSimilarity())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateStrongReasonCriteria())
+        {
+            yield return result;
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateMinimumSimilarity()
+    {
+        if (!double.IsFinite(MinimumSimilarity) || MinimumSimilarity is < 0.0 or > 1.0)
+        {
+            yield return new ValidationResult(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} must be finite and between 0.0 and 1.0; got {1}.",
+                    nameof(MinimumSimilarity),
+                    MinimumSimilarity),
+                [nameof(MinimumSimilarity)]);
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateStrongReasonCriteria()
+    {
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - configuration binder can set the collection to null via reflection.
+        if (StrongReasonCriteria is null)
+        {
+            yield return new ValidationResult(
+                $"The {nameof(StrongReasonCriteria)} field is required.",
+                [nameof(StrongReasonCriteria)]);
+            yield break;
+        }
+
+        var supported = new HashSet<string>(SupportedStrongReasonCriteria, StringComparer.OrdinalIgnoreCase);
+        foreach (var criterion in StrongReasonCriteria)
+        {
+            if (criterion is null)
+            {
+                yield return new ValidationResult(
+                    $"{nameof(StrongReasonCriteria)} cannot contain null entries.",
+                    [nameof(StrongReasonCriteria)]);
+                yield break;
+            }
+
+            if (!supported.Contains(criterion))
+            {
+                yield return new ValidationResult(
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "{0} entry '{1}' is not supported; allowed values are {2}.",
+                        nameof(StrongReasonCriteria),
+                        criterion,
+                        string.Join(", ", SupportedStrongReasonCriteria)),
+                    [nameof(StrongReasonCriteria)]);
+                yield break;
+            }
         }
     }
 

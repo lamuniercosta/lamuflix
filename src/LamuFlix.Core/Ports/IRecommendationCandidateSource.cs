@@ -12,4 +12,6 @@ public interface IRecommendationCandidateSource
         MovieId selectedMovieId,
         int? collectionId,
         CancellationToken ct);
+
+    Task<IReadOnlyList<RecommendationLibraryEntry>> GetLibraryFeaturesAsync(CancellationToken ct);
 }
