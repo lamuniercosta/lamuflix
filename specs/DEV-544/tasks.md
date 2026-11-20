@@ -20,7 +20,7 @@ Work in the file boundary in plan.md and brief.md. Obtain a cited Patron ruling 
 
 ## Phase 2: Before snapshot
 
-- [ ] T002 After T001, capture the DEV-545 before snapshot on the 2026-11-16 home-library fixture before production edits. Retain a readable artifact and record its path, SHA-256, fixture identity and source revision in the evidence headed to the PR. At the first production edit, independently check that the file exists and the digest and identities match this receipt. Stop if it is missing or stale.
+- [x] T002 After T001, capture the DEV-545 before snapshot on the 2026-11-16 home-library fixture before production edits. Retain a readable artifact and record its path, SHA-256, fixture identity and source revision in the evidence headed to the PR. At the first production edit, independently check that the file exists and the digest and identities match this receipt. Stop if it is missing or stale. **Closure (2026-11-20)**: `artifacts/recommendations/DEV-544-baseline.json` (39233 bytes) SHA-256 `ff5841af6ba67def4a780e28059e6814cf8089b6c8dc94f47edaf38cf2078b20`, repeat capture identical, exit 0; fixture 2026-11-16 home library (449 movies, 449 Enriched, seeds 575/518/515/519/831); captured runtime source `8a2deb9b` via promote `cd8de7d4` at capture base `b680e2be`. Receipt in `EVIDENCE.md` §§0–3, including the disclosed pre-DEV-518 deployed revision that T021 must resolve before the before/after diff is claimed.
 
 ## Phase 3: Options and library/Related compile boundary
 
