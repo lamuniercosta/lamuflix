@@ -40,6 +40,17 @@
   - **DEV-501 public contract and other §2.3 boundaries remain untouched (`artifacts/DEV-525/T001-evidence.md` lines 131–135; `specs/DEV-525/CONCLUSIONS.md` Q1; `lamuflix-team-charter` §2.3 items 1–5)**: The fix is confined to the outbound provider adapter and its integration test class inside the existing subtitle vertical slice; `SubtitleEndpoints.cs`, `SearchSubtitlesQueryHandler.cs`, `SubtitlesTab.tsx`, `useSubtitleAcquisition.ts`, `web/src/api/openapi.json`, and `web/src/api/types.ts` require no changes, and no new dependency, layer, schema change, public API shape change, or `Features:LocalPlay`/`Process.Start`/secret change is introduced.
 
 ---
+## Owner Ruling (2026-11-20): Real-API contract alignment after the Phase 3 fix
+- **Verdict**: Approved by the owner in session. Align the adapter with the observed live contract (`specs/DEV-525/provider-contract.md`):
+  - canonical sorted lowercase search query;
+  - `type=movie`;
+  - download quota read from the `/download` body, with search quota `Unknown`;
+  - a shared real-API emulator for both integration suites and the E2E stub.
+
+  T008 and T009 run locally with a dedicated dev key. Rebase and push are approved.
+- **Basis**: the keyed live probe showed a `301` canonical redirect on non-canonical queries. The adapter refuses redirects by design, so every real search failed although T007 was green against a stub that did not model it. Quota fields live in the download body, not in headers. Production edits stay within the file authorized by the Phase 1 ruling (`OpenSubtitlesSubtitleProvider.cs`); the other changes are test-only emulator files under Q2's scoped test-only envelope. The DEV-501 public contract is unchanged.
+
+---
 ## Phase 5 Step 6 Ruling: PR #448 closing bar disposition for T008, T009, and T011
 - **Verdict**: Execute T008, T009, and T011 before merge bar (none waived) — ticket acceptance criteria and frozen spec/plan closing-bar obligations cannot be waived without a charter §2.3(a) ticket-text escalation (`DEV-525` ticket Wanted 1–3 & Done when 1–3; `lamuflix-team-charter` §2.3; `specs/DEV-525/CONCLUSIONS.md` Q1–Q3; `specs/DEV-525/spec.md` FR-008, FR-013, SC-002, SC-003, SC-005; `specs/DEV-525/tasks.md` T008, T009, T011, T013).
 - **Basis**:
