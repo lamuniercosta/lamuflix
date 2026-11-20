@@ -54,6 +54,9 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
 
     private readonly Fixture fixture = new();
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
+    private readonly IRecommendationCandidateSource candidateSource = Substitute.For<IRecommendationCandidateSource>();
+    private readonly IRecommendationProfileSource profileSource = Substitute.For<IRecommendationProfileSource>();
+    private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
     private readonly IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>> handler =
         Substitute.For<IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>>();
     private readonly IQueryHandler<GetForYouRecommendationsQuery, ForYouRecommendationsPage> forYouHandler =
@@ -298,6 +301,45 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         body.ValueKind.ShouldBe(JsonValueKind.Array);
         body.GetArrayLength().ShouldBe(0);
         await handler.DidNotReceiveWithAnyArgs().HandleAsync(Arg.Any<GetRecommendationsQuery>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task GetRecommendations_UnreachableBarWithEmptyStrongReasonCriteria_ReturnsOkEmptyArray()
+    {
+        // arrange
+        var selected = MovieIn(EnrichmentStatus.Enriched);
+        movies.GetAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(selected);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            LibraryEntry(selected, PlotVector(primary: 1f)),
+            LibraryEntry(OtherMovie(id: KnownId + 1, genres: ["Drama"]), plotEmbedding: null),
+        ]);
+        profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>()).Returns(EmptyProfile());
+        profileSource.GetProfileInputsAsync(
+                Arg.Any<IReadOnlyCollection<MovieId>>(),
+                Arg.Any<IReadOnlyCollection<MovieId>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new RecommendationProfileInputs(
+                [],
+                ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty));
+        catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>())
+            .Returns(new GenreCounts(2, new Dictionary<string, long> { ["Drama"] = 2 }));
+        catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>())
+            .Returns(new KeywordCounts(2, new Dictionary<string, long>()));
+        var options = new RecommendationOptions { MinimumSimilarity = 1.0, StrongReasonCriteria = [] };
+        await using var host = CreateHost(relatedHandler: RelatedHandler(options));
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(Route(KnownId), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
+        body.ValueKind.ShouldBe(JsonValueKind.Array);
+        body.GetArrayLength().ShouldBe(0);
     }
 
     [Theory]
@@ -924,6 +966,39 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         return movie;
     }
 
+    private static Movie OtherMovie(int id, string[] genres)
+    {
+        var movie = Movie.Create(
+            new MovieId(id),
+            Faker.Lorem.GetFirstWord(),
+            new LibraryPath($"C:/library/candidate-{id}.mkv"),
+            new MediaFormat("mkv"));
+        movie.MarkEnriched(new MovieMetadata(movie.Title, genres: genres), DateTimeOffset.UnixEpoch);
+        return movie;
+    }
+
+    private static RecommendationLibraryEntry LibraryEntry(Movie movie, float[]? plotEmbedding) =>
+        new(MovieFeaturesMapper.From(movie, includeSignals: true, plotEmbedding), MovieSummaryMapper.From(movie));
+
+    private static float[] PlotVector(float primary)
+    {
+        var vector = new float[EmbeddingDimensions.Value];
+        vector[0] = primary;
+        return vector;
+    }
+
+    private static TasteProfile EmptyProfile() =>
+        new(ImmutableDictionary<string, double>.Empty, ImmutableArray<float>.Empty);
+
+    private GetRecommendationsQueryHandler RelatedHandler(RecommendationOptions options) =>
+        new(
+            movies,
+            candidateSource,
+            profileSource,
+            new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
+            new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
+            Microsoft.Extensions.Options.Options.Create(options));
+
     private static RecommendedMovie Recommendation(MovieSummary summary, double score, params string[] reasons) =>
         new(summary, score, [.. reasons.Select(Reason.Structural)]);
 
@@ -973,7 +1048,8 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     private WebApplicationFactory<Program> CreateHost(
         int configuredTake = 10,
         int candidatePoolSize = DefaultCandidatePoolSize,
-        bool composeForYouHandler = false) =>
+        bool composeForYouHandler = false,
+        IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>? relatedHandler = null) =>
         factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
@@ -987,7 +1063,8 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
             builder.ConfigureTestServices(services =>
             {
                 services.Replace(ServiceDescriptor.Singleton(movies));
-                services.Replace(ServiceDescriptor.Singleton(handler));
+                services.Replace(ServiceDescriptor.Singleton(
+                    relatedHandler ?? handler));
 
                 if (!composeForYouHandler)
                 {
