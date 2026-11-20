@@ -60,12 +60,16 @@
 
 ---
 
-## Gate 1 Ruling
+## Provisional Gate 1 Ruling
 
 **Verdict.** `gate1: provisional` — zero structural owner checkboxes.
 
 - **Checklist & Analyze**: `checklists/requirements.md` User-Visible Outcome items are all ticked (`[x]`), `/speckit-analyze` is clean, and all 28 plan challenge findings are adjudicated (`PLAN FROZEN` in `PLAN_ADJUDICATION.md`).
 - **Owner escalations**: Zero structural owner checkboxes (no ticket contradiction or constitution departure under Charter §2.3).
-- **Status**: `spec.md` marked `**Status**: gate1: provisional`; ordinary owner Gate 1 awaits user merge of the spec PR (`T000`).
+- **Status**: `spec.md` marked `**Status**: gate1: provisional`; ordinary owner Gate 1 awaited user merge of the spec PR (`T000`).
 
+## Gate 1 Spec-PR Merge Receipt
 
+Gate 1 is complete (T000). GitHub reports that [spec PR #449](https://github.com/lamuniercosta/lamuflix/pull/449) merged into `main` on 2026-11-19 at 17:16:44 UTC as `cb7f9b894e1aaea78a7229b4bae41d19aab3e12e`.
+
+The DEV-542 note in LamuFlix notes records Phase A base `1ac83297c1ba8ffc936987e8b198ce8dc612b01a`. Git confirms that this base precedes the spec merge and that the merge is an ancestor of the `feature/DEV-542` pickup HEAD `34c10f3e312176a67d2aa140f11ecd838adc7783`.
