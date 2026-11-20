@@ -157,22 +157,58 @@ public sealed record RecommendationOptions : IValidatableObject
 
     private IEnumerable<ValidationResult> ValidateScoring()
     {
-        if (Weights is not null)
+        foreach (var result in ValidateWeightTotal())
         {
-            var total = Weights.Collection + Weights.Director + Weights.Themes + Weights.Plot + Weights.Cast + Weights.Genres;
-            if (!double.IsFinite(total) || total <= 0.0)
-            {
-                yield return new ValidationResult(
-                    "The sum of the six similarity weights must be finite and greater than 0.0.",
-                    [nameof(Weights)]);
-            }
+            yield return result;
         }
 
+        foreach (var result in ValidateThemesCeiling())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidatePlotBounds())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateDisplayThresholds())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateMinimumKeywordMovies())
+        {
+            yield return result;
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateWeightTotal()
+    {
+        if (Weights is null)
+        {
+            yield break;
+        }
+
+        var total = Weights.Collection + Weights.Director + Weights.Themes + Weights.Plot + Weights.Cast + Weights.Genres;
+        if (!double.IsFinite(total) || total <= 0.0)
+        {
+            yield return new ValidationResult(
+                "The sum of the six similarity weights must be finite and greater than 0.0.",
+                [nameof(Weights)]);
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateThemesCeiling()
+    {
         if (!double.IsFinite(ThemesCeiling) || ThemesCeiling <= 0.0)
         {
             yield return new ValidationResult("ThemesCeiling must be finite and greater than 0.0.", [nameof(ThemesCeiling)]);
         }
+    }
 
+    private IEnumerable<ValidationResult> ValidatePlotBounds()
+    {
         if (!double.IsFinite(PlotFloor) || PlotFloor is < -1.0 or > 1.0)
         {
             yield return new ValidationResult("PlotFloor must be finite and between -1.0 and 1.0.", [nameof(PlotFloor)]);
@@ -182,7 +218,10 @@ public sealed record RecommendationOptions : IValidatableObject
         {
             yield return new ValidationResult("PlotCeiling must be finite, between -1.0 and 1.0, and greater than PlotFloor.", [nameof(PlotCeiling)]);
         }
+    }
 
+    private IEnumerable<ValidationResult> ValidateDisplayThresholds()
+    {
         foreach (var (value, name) in new[]
                  {
                      (ThemesDisplayThreshold, nameof(ThemesDisplayThreshold)),
@@ -195,7 +234,10 @@ public sealed record RecommendationOptions : IValidatableObject
                 yield return new ValidationResult($"{name} must be finite and between 0.0 and 1.0.", [name]);
             }
         }
+    }
 
+    private IEnumerable<ValidationResult> ValidateMinimumKeywordMovies()
+    {
         if (MinimumKeywordMovies < 1)
         {
             yield return new ValidationResult("MinimumKeywordMovies must be at least 1.", [nameof(MinimumKeywordMovies)]);
