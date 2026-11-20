@@ -73,3 +73,14 @@
 Gate 1 is complete (T000). GitHub reports that [spec PR #449](https://github.com/lamuniercosta/lamuflix/pull/449) merged into `main` on 2026-11-19 at 17:16:44 UTC as `cb7f9b894e1aaea78a7229b4bae41d19aab3e12e`.
 
 The DEV-542 note in LamuFlix notes records Phase A base `1ac83297c1ba8ffc936987e8b198ce8dc612b01a`. Git confirms that this base precedes the spec merge and that the merge is an ancestor of the `feature/DEV-542` pickup HEAD `34c10f3e312176a67d2aa140f11ecd838adc7783`.
+
+---
+
+## T001 Pickup Dependency Checkpoint Ruling — Reschedule DEV-542 Build on DEV-518 (#455) and DEV-543
+
+**Verdict.** Confirmed: stop DEV-542 Phase B at T001 without production edits, set DEV-542 in `chain` to `awaiting-merge: DEV-518 (#455); depends on DEV-543`, and proceed immediately to start the next eligible `queued` ticket (`DEV-543`).
+
+- **T001 dependency checkpoint gate (`CONCLUSIONS.md` Q4 & Plan Challenge Ruling, `tasks.md` T001)**: DEV-542 explicitly requires real upstream For You seed attribution (`movieId`, title, `liked`/`watched`/`watchlist` signal) from DEV-543 and ordered criterion evidence from DEV-518 on `main` before any production edits (`FR-012`, `recon-DEV-542:52–57,63,90`). Because DEV-518 (`PR #455`) is awaiting merge and DEV-543 has not yet built/landed on `main`, DEV-542 must stop at T001 rather than stack branches or invent fallback provenance (`task-chain` §2: all tickets branch from `origin/main`, no stacking).
+- **Non-blocking queue disposition (`task-chain` §2)**: Under `task-chain` §2 ("Next row = the first `queued` row that does not need code from an unmerged PR. A row that does gets status `awaiting-merge: DEV-### (#n)` (the PR it needs) and is skipped"), mark DEV-542 `awaiting-merge: DEV-518 (#455); depends on DEV-543` (which does not count toward the 2-in-flight limit) and re-run `DEV-542` Phase 1 rebase/pickup once both `DEV-518` (#455) and `DEV-543` have merged to `main`.
+- **Chain continuation (`task-chain` §2)**: Advance the build chain immediately to the next eligible `queued` row (`DEV-543`, and `DEV-544` if eligible within the 2-in-flight limit).
+
