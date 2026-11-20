@@ -126,6 +126,7 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
         new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.RetryDelay)}", settings.RabbitMq.RetryDelay.ToString("c", CultureInfo.InvariantCulture)),
         new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}", settings.OmdbBaseUrl),
         new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}", MetadataProviderProbe.SentinelApiKey),
+        new($"{TmdbOptions.SectionName}:{nameof(TmdbOptions.Enabled)}", "false"),
         new($"{OmdbQuotaOptions.SectionName}:{nameof(OmdbQuotaOptions.DailyLimit)}", QuotaDailyLimit),
         new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", ClaimLease),
         new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.SweepInterval)}", "00:01:00"),

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
@@ -31,7 +32,11 @@ public sealed class SubtitleAcquisitionOptionsCompositionTests(ApiHostFactory fa
     public void StartedComposition_SurfacesUnconfiguredAcquisitionAsAPrepareTimeFailureNotAStartupFailure()
     {
         // arrange
-        using var scope = factory.Services.CreateScope();
+        using var unconfigured = new ApiHostFactory(retainSweeper: false, additionalSettings: new Dictionary<string, string?>
+        {
+            [$"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.ApiKey)}"] = string.Empty,
+        });
+        using var scope = unconfigured.Services.CreateScope();
 
         // act
         var exception = Should.Throw<OptionsValidationException>(
