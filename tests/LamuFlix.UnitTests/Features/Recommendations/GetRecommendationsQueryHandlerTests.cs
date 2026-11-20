@@ -1433,6 +1433,25 @@ public sealed class GetRecommendationsQueryHandlerTests
         result.Select(item => item.Summary.Id).Distinct().Count().ShouldBe(4);
     }
 
+    [Fact]
+    public async Task HandleAsync_NonSeedCollection_RetainsBothMoviesWhenSlotsAllow()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = NewMovie(1, genres: ["Drama"]);
+        var pool = Candidates(
+            NewMovie(2, genres: ["Drama"], collectionId: 8, collectionName: "Other Franchise"),
+            NewMovie(3, genres: ["Drama"], collectionId: 8, collectionName: "Other Franchise"));
+        Arrange(selected, pool);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 2), CancellationToken.None);
+
+        // assert
+        result.Count.ShouldBe(2);
+        result.Select(item => item.Summary.Id.Value).ShouldBe([2, 3]);
+    }
+
     private void Arrange(Movie selected, IReadOnlyList<RecommendationCandidate> pool)
     {
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);

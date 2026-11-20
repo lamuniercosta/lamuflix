@@ -86,9 +86,7 @@ public sealed class GetRecommendationsQueryHandler(
             recommendationOptions.MmrLambda,
             recommendationOptions,
             genreWeights,
-            keywordCounts,
-            recommendationOptions.MaxPerBestSeed,
-            recommendationOptions.MaxPerCollection);
+            keywordCounts);
 
         var groupedIds = SeedCollectionGrouper.Group(
             mmrCandidates,
