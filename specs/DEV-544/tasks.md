@@ -6,17 +6,17 @@ description: "Task list for DEV-544 whole-library Related strong matches"
 
 **Input** — Design documents in `specs/DEV-544/`: spec, plan, brief, conclusions and adjudication. Authority includes the DEV-544 ticket, `DEV-544` and `recon-DEV-544` notes, and `specs/PRODUCT.md`.
 
-**Status** — **PLAN FROZEN**. T000 awaits the verified owner Gate 1 merge. Build tasks are unchecked.
+**Status** — **PLAN FROZEN**. The verified owner Gate 1 merge and Phase 1 pickup receipt are recorded in CONCLUSIONS.md. T002 is the next unchecked task.
 
 Work in the file boundary in plan.md and brief.md. Obtain a cited Patron ruling for other tracked rewrites or protected surfaces. Use published DEV-518 contracts and the existing API generation chain. The phase headings guide local execution. Stable task IDs preserve the analysis and findings references. Follow the dependencies and phase order below. `[P]` means parallelizable once its prerequisites are complete, in disjoint files.
 
 ## Phase 0: Gate 1
 
-- [ ] T000 **Bernstein** coordinates and **Rigger** prepares and opens the DEV-544 spec PR. Only the user merges. **Keel** records the verified owner merge receipt in `specs/DEV-544/CONCLUSIONS.md`. All Build tasks depend on this receipt.
+- [x] T000 **Bernstein** coordinates and **Rigger** prepares and opens the DEV-544 spec PR. Only the user merges. **Keel** records the verified owner merge receipt in `specs/DEV-544/CONCLUSIONS.md`. All Build tasks depend on this receipt.
 
 ## Phase 1: Read-only pickup
 
-- [ ] T001 After T000, **Wisp** checks picked HEAD and landed main against the plan. Use a compile-reference search for `IRecommendationCandidateSource`, `RecommendationCandidate`, `GetCandidatesAsync` and `GetLibraryFeaturesAsync` in source and tests. Confirm all listed files and actual symbol/test identities, options startup validation, the enriched movie metadata/signals versus optional embedding projection, selected-only fallback, and the profile-input seam with zero candidate IDs and liked-source evidence. Confirm the merged DEV-518 six-criterion breakdown, exact emitted names, normalized Themes and configured ceiling, Plot handling for absent or unusable vectors, and Plot reason presentation. Inventory Related web tests, both take descriptions by operation/parameter, the contract workflow and ArchitectureTests. Confirm the For you scope boundary. **Gauge** records the pre-edit baseline. Stop for a dependency blocker to Bernstein if the merged scorer contract is absent. Stop with `needs recon` for a missing seam or required fact. Keel can amend tasks separately for demonstrated drift and must obtain authority before extending the file boundary.
+- [x] T001 After T000, **Wisp** checks picked HEAD and landed main against the plan. Use a compile-reference search for `IRecommendationCandidateSource`, `RecommendationCandidate`, `GetCandidatesAsync` and `GetLibraryFeaturesAsync` in source and tests. Confirm all listed files and actual symbol/test identities, options startup validation, the enriched movie metadata/signals versus optional embedding projection, selected-only fallback, and the profile-input seam with zero candidate IDs and liked-source evidence. Confirm the merged DEV-518 six-criterion breakdown, exact emitted names, normalized Themes and configured ceiling, Plot handling for absent or unusable vectors, and Plot reason presentation. Inventory Related web tests, both take descriptions by operation/parameter, the contract workflow and ArchitectureTests. Confirm the For you scope boundary. **Gauge** records the pre-edit baseline. Stop for a dependency blocker to Bernstein if the merged scorer contract is absent. Stop with `needs recon` for a missing seam or required fact. Keel can amend tasks separately for demonstrated drift and must obtain authority before extending the file boundary.
 
 ## Phase 2: Before snapshot
 
