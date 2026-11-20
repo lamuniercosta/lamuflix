@@ -56,10 +56,8 @@ public sealed class EfRecommendationCandidateSource(
     {
         ct.ThrowIfCancellationRequested();
 
-        // Retained port signature: the same-collection union is gone, so the collection id no longer narrows the load.
         _ = collectionId;
 
-        // Retained selected-relative contract: a missing or unusable selected vector yields no candidates.
         var selectedVector = await ReadSelectedVectorAsync(selectedMovieId, ct);
         if (selectedVector is null)
         {

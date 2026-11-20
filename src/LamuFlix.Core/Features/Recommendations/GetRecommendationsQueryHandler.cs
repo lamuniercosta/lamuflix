@@ -20,7 +20,6 @@ public sealed class GetRecommendationsQueryHandler(
     IOptions<RecommendationOptions> options)
     : IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>
 {
-    private const double StrongReasonValueTolerance = 1e-9;
     public async Task<ImmutableList<RecommendedMovie>> HandleAsync(
         GetRecommendationsQuery query,
         CancellationToken cancellationToken)
@@ -304,10 +303,6 @@ public sealed class GetRecommendationsQueryHandler(
         }
     }
 
-    /// <summary>
-    /// Classifies a raw DEV-518 pair result before taste blend and the watched penalty. Below-bar candidates
-    /// qualify only when an enabled configured strong-reason criterion is exactly 1.0.
-    /// </summary>
     private static MatchTier Classify(
         SimilarityResult similarity,
         double minimumSimilarity,
@@ -336,7 +331,7 @@ public sealed class GetRecommendationsQueryHandler(
 
     private static bool IsStrongReason(CriterionContribution contribution, IReadOnlySet<string> strongReasonCriteria)
     {
-        if (contribution.Weight <= 0.0 || contribution.Value < 1.0 - StrongReasonValueTolerance)
+        if (contribution.Weight <= 0.0 || contribution.Value < 1.0)
         {
             return false;
         }

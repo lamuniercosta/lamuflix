@@ -16,7 +16,6 @@ public static class MovieFeaturesMapper
         var metadata = movie.Metadata;
         if (metadata is null)
         {
-            // The optional plot embedding survives a missing metadata projection: it is the Plot criterion input.
             return new MovieFeatures(plotEmbedding: plotEmbedding);
         }
 
