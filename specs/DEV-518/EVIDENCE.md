@@ -1,6 +1,6 @@
 # DEV-518 evidence runbook
 
-Status: T002 baseline captured at pickup HEAD; T003+ remain pending. Do not invent measurements, seed IDs, or publication success here. Never credentials.
+Status: T002 baseline captured at pickup HEAD; Phase 6 T015-T018 evidence recorded. Before/after comparisons, gates, and home-library acceptance remain pending. Do not invent measurements, seed IDs, or publication success here. Never credentials.
 
 ## 0. Provenance
 
@@ -76,3 +76,37 @@ Honest labels only: PASS / FAIL / SKIPPED (scope-empty) / SKIP / N/A / Could not
 - PostgreSQL Testcontainers run against 1,000 movies and 1,000 `movie_keywords` memberships using `EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)` for the production grouping query.
 - Plan: sequential scans of `movies`, `movie_keywords`, and `keywords`; hash joins; a quicksort using 56 kB; `GroupAggregate`; one aggregate for library `N`; 36 shared buffer hits. Planning time 0.358 ms; execution time 0.800 ms.
 - Cost disposition: one full scan of the library population and keyword memberships is inherent in calculating `N` and all `n_k`; the existing plan is low-cost at this representative size and the operation is cached per process. No new index or schema change is justified. Planner estimates (225 movies / 2,260 memberships) differed from actual rows (1,000 / 1,000), so larger-library planning should be rechecked if the catalog grows materially.
+
+## 8. Six-criteria compare output proof (T017, after T016 and T017)
+
+Captured from the candidate branch by serializing a real compare-mode artifact built from the `CompareRunnerTests` pair fixture (`RecommendationArtifactSerializer.SerializeToUtf8Bytes`). The capture was a temporary harness; the retained regression `CompareRunnerTests.Run_pair_diagnostics_expose_all_six_ordered_criteria_and_contributions` pins the same contract: criterion order, the 3/3/3/2/2/2 weights, `weight x value / 15` per contribution, contributions summing to Score, and a non-zero Plot value from the persisted embedding.
+
+```json
+{"mode":"compare","targets":[1,2],"lists":[{"kind":"compare","targetId":1,"take":null,"status":"ok","rows":[{"rank":1,"movieId":2,"title":"Other","score":0.7333333333333333,"reasons":[{"kind":"structural","text":"Same collection: Franchise"},{"kind":"structural","text":"Same director: Ada"},{"kind":"structural","text":"Similar story"},{"kind":"structural","text":"Shares cast: Ann"},{"kind":"structural","text":"Same genres: Drama"}],"diagnostics":{"breakdown":[{"criterion":"Collection","value":1,"weight":3,"contribution":0.2},{"criterion":"Director","value":1,"weight":3,"contribution":0.2},{"criterion":"Themes","value":0,"weight":3,"contribution":0},{"criterion":"Plot","value":1,"weight":2,"contribution":0.13333333333333333},{"criterion":"Cast","value":0.5,"weight":2,"contribution":0.06666666666666667},{"criterion":"Genre","value":1,"weight":2,"contribution":0.13333333333333333}],"rawPlotCosine":1,"plotRank":1,"inPool":true}}],"matchedNames":[{"criterion":"Cast","name":"Ann"},{"criterion":"Collection","name":"Franchise"},{"criterion":"Director","name":"Ada"},{"criterion":"Genre","name":"Drama"},{"criterion":"Themes","name":"heist"}]}]}
+```
+
+Notes on the capture: all six criteria and their contributions print in table order; the reasons list follows the same order; matched names use the Themes criterion name and carry no Writer entry; Themes is 0 in this fixture because the fixture snapshot declares no keyword-count population, which exercises the zero-norm case rather than a missing criterion.
+
+## 9. T018 legacy absence scan and suite re-run
+
+Scan scope: `src/LamuFlix.Core/Features/Recommendations`, `src/LamuFlix.Core/Options`, `tests/LamuFlix.UnitTests/Features/Recommendations`, `tests/LamuFlix.UnitTests/Options`, plus the evaluation and evaluation-integration fixture surfaces aligned in T017.
+
+| Token / pattern | Hits | Verdict |
+|---|---|---|
+| `YearProximity`, `RuntimeProximity`, `RatingBoost` | 0 | absent |
+| `SimilarStoryThreshold` | 0 | absent |
+| `Similar release years`, `Similar runtime`, `Similar rating`, `Shared writers`, `Identical feature profile` | 0 | absent |
+| `SimilarityWeights.Keyword`, `Weights.Keyword`, `Keyword =` in weight initializers | 0 | absent |
+| `"keyword"` / `"Keyword"` weight keys in fixtures, config, and evaluation settings | 0 | absent after the T017 fixture alignment |
+| `Writers` | `MovieFeatures.Writers`, its mapper pass-through, immutability/hash members, and `MovieFeaturesMapperTests` | retained by design: T005 keeps the type field while the ordered scorer never reads it |
+
+Re-run on the candidate branch:
+
+| Suite | Result |
+|---|---|
+| `LamuFlix.Evaluation` | 211 passed, 0 failed (10 failed at the Phase 5 checkpoint; all ten were stale evaluation fixtures and expectations, corrected without weakening assertions) |
+| `LamuFlix.Evaluation.IntegrationTests` | 68 passed, 0 failed |
+| `LamuFlix.UnitTests` | 4072 passed, 1 skipped, 0 failed |
+| `LamuFlix.ArchitectureTests` | 16 passed, 0 failed |
+
+These are test results, not gate receipts. The required static gates, format check, mutation run, after snapshots, and home-library acceptance remain T019-T021 work.

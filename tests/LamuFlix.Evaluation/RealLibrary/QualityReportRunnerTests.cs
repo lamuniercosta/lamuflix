@@ -16,7 +16,7 @@ namespace LamuFlix.Evaluation.RealLibrary;
 
 public sealed class QualityReportRunnerTests
 {
-    private static readonly ImmutableArray<double> SingleBar = [0.7];
+    private static readonly ImmutableArray<double> SingleBar = [0.35];
 
     [Fact]
     public void Run_every_coverage_line_partitions_the_enriched_selected_population()
@@ -70,14 +70,14 @@ public sealed class QualityReportRunnerTests
         var report = Run(StrongCollectionSnapshot(), new RecommendationOptions(), SingleBar);
 
         // assert
-        var scoreOnly = Line(report, 0.7, QualityReportRunner.ScoreOnlyRule);
-        var scoreOrStrong = Line(report, 0.7, QualityReportRunner.ScoreOrStrongRule);
+        var scoreOnly = Line(report, 0.35, QualityReportRunner.ScoreOnlyRule);
+        var scoreOrStrong = Line(report, 0.35, QualityReportRunner.ScoreOrStrongRule);
 
         scoreOnly.Buckets.ShouldBe(new CoverageBuckets(Zero: 1, OneToThree: 2, FourToTen: 0, AboveTen: 0));
         scoreOrStrong.Buckets.ShouldBe(new CoverageBuckets(Zero: 0, OneToThree: 3, FourToTen: 0, AboveTen: 0));
-        scoreOrStrong.MedianFirstScore.ShouldBe(1.0);
+        scoreOrStrong.MedianFirstScore.ShouldNotBeNull().ShouldBe(6.0 / 15.0, 1e-12);
         scoreOrStrong.FirstScoreCount.ShouldBe(3);
-        scoreOnly.MedianFirstScore.ShouldBe(1.0);
+        scoreOnly.MedianFirstScore.ShouldNotBeNull().ShouldBe(6.0 / 15.0, 1e-12);
         scoreOnly.FirstScoreCount.ShouldBe(2);
     }
 
@@ -104,13 +104,13 @@ public sealed class QualityReportRunnerTests
         var movies = Enumerable.Range(1, 12)
             .Select(id => BuildMovie(id, "Movie " + id.ToString(CultureInfo.InvariantCulture), genres: ["Drama"]))
             .ToArray();
-        var snapshot = Snapshot(movies);
+        var snapshot = Snapshot(movies, SharedPlotVectors(movies));
 
         // act
         var report = Run(snapshot, ZeroWeightOptions(), SingleBar, strongOnlyBar: 1.5);
 
         // assert
-        var line = Line(report, 0.7, QualityReportRunner.ScoreOnlyRule);
+        var line = Line(report, 0.35, QualityReportRunner.ScoreOnlyRule);
         line.Buckets.Total.ShouldBe(12);
         line.Buckets.AboveTen.ShouldBe(12);
         line.FirstScoreCount.ShouldBe(12);
@@ -134,8 +134,8 @@ public sealed class QualityReportRunnerTests
         var report = Run(snapshot, ZeroWeightOptions(), SingleBar, strongOnlyBar: 1.5);
 
         // assert
-        var scoreOnly = Line(report, 0.7, QualityReportRunner.ScoreOnlyRule);
-        var scoreOrStrong = Line(report, 0.7, QualityReportRunner.ScoreOrStrongRule);
+        var scoreOnly = Line(report, 0.35, QualityReportRunner.ScoreOnlyRule);
+        var scoreOrStrong = Line(report, 0.35, QualityReportRunner.ScoreOrStrongRule);
 
         scoreOnly.Buckets.Total.ShouldBe(3, "the fallback score still counts in coverage");
         scoreOrStrong.Buckets.ShouldBe(scoreOnly.Buckets, "the fallback entry is never strong-eligible");
@@ -160,16 +160,16 @@ public sealed class QualityReportRunnerTests
         var report = Run(
             StrongCollectionSnapshot(),
             new RecommendationOptions(),
-            [0.55, 0.65, 0.75],
-            strongOnlyBar: 0.225);
+            [0.30, 0.36, 0.40],
+            strongOnlyBar: 0.20);
 
         // assert
         report.Bands.Select(band => band.Label).ShouldBe(
-            ["[0.55,0.65)", "[0.65,0.75)", BandSampleSelector.StrongOnlyBandLabel]);
+            ["[0.3,0.36)", "[0.36,0.4)", BandSampleSelector.StrongOnlyBandLabel]);
 
         var band = report.Bands[0];
-        band.LowerInclusive.ShouldBe(0.55);
-        band.UpperExclusive.ShouldBe(0.65);
+        band.LowerInclusive.ShouldBe(0.30);
+        band.UpperExclusive.ShouldBe(0.36);
         band.AvailableCount.ShouldBe(2);
         band.Undersupplied.ShouldBeTrue();
         band.Pairs.ShouldBe([new DirectedPair(1, 2), new DirectedPair(2, 1)]);
@@ -178,9 +178,9 @@ public sealed class QualityReportRunnerTests
         report.Bands[1].Pairs.ShouldBeEmpty();
 
         var strongOnly = report.Bands[2];
-        strongOnly.UpperExclusive.ShouldBe(0.225);
+        strongOnly.UpperExclusive.ShouldBe(0.20);
         strongOnly.LowerInclusive.ShouldBeNull();
-        strongOnly.AvailableCount.ShouldBe(0, "no pair scores below 0.225");
+        strongOnly.AvailableCount.ShouldBe(0, "no strong pair scores below 0.20");
     }
 
     [Fact]
@@ -191,7 +191,7 @@ public sealed class QualityReportRunnerTests
             StrongCollectionSnapshot(),
             new RecommendationOptions(),
             [0.55, 0.65, 0.75],
-            strongOnlyBar: 0.65);
+            strongOnlyBar: 0.36);
 
         // assert
         var strongOnly = report.Bands.Single(band => band.Label == BandSampleSelector.StrongOnlyBandLabel);
@@ -213,8 +213,8 @@ public sealed class QualityReportRunnerTests
         var snapshot = Snapshot(movies);
 
         // act
-        var first = Run(snapshot, new RecommendationOptions(), [0.9, 1.1], strongOnlyBar: 0.1);
-        var second = Run(snapshot, new RecommendationOptions(), [0.9, 1.1], strongOnlyBar: 0.1);
+        var first = Run(snapshot, new RecommendationOptions(), [0.30, 0.36], strongOnlyBar: 0.1);
+        var second = Run(snapshot, new RecommendationOptions(), [0.30, 0.36], strongOnlyBar: 0.1);
 
         // assert
         second.Bands.Select(band => band.Pairs).ShouldBe(first.Bands.Select(band => band.Pairs));
@@ -243,7 +243,7 @@ public sealed class QualityReportRunnerTests
         good.RankOneShare.ShouldNotBeNull().ShouldBe(2.0 / 3.0, 1e-12);
         good.TopThreeShare.ShouldNotBeNull().ShouldBe(1.0, 1e-12);
         good.StrongShare.ShouldNotBeNull().ShouldBe(1.0, 1e-12);
-        good.BarShares.ShouldHaveSingleItem().Bar.ShouldBe(0.7);
+        good.BarShares.ShouldHaveSingleItem().Bar.ShouldBe(0.35);
         good.BarShares[0].Share.ShouldNotBeNull().ShouldBe(2.0 / 3.0, 1e-12);
 
         var bad = report.JudgedPairs.Bad;
@@ -313,13 +313,13 @@ public sealed class QualityReportRunnerTests
         // assert
         var recovered = report.JudgedPairs.Valid.Single(outcome => outcome.Pair.OtherId == 3);
         recovered.Rank.ShouldBe(1);
-        recovered.Score.ShouldBe(1.0);
+        recovered.Score.ShouldBe(6.0 / 15.0, 1e-12);
         recovered.IsRankOne.ShouldBeTrue();
-        recovered.BarsMet.ShouldBe([0.7]);
+        recovered.BarsMet.ShouldBe([0.35]);
 
         var sibling = report.JudgedPairs.Valid.Single(outcome => outcome.Pair.OtherId == 2);
         sibling.Rank.ShouldBe(2);
-        sibling.Score.ShouldBe(0.625, 1e-12);
+        sibling.Score.ShouldBe(5.0 / 15.0, 1e-12);
         sibling.IsRankOne.ShouldBeFalse();
         sibling.IsTopThree.ShouldBeTrue();
         sibling.IsStrong.ShouldBeTrue("Collection value is 1.0 even though the score is sub-bar");
@@ -555,7 +555,7 @@ public sealed class QualityReportRunnerTests
         second.ShouldBe(first);
 
         var text = Encoding.UTF8.GetString(first);
-        text.ShouldStartWith("{\"mode\":\"quality\",\"bars\":[0.7],\"strongOnlyBar\":0.225,");
+        text.ShouldStartWith("{\"mode\":\"quality\",\"bars\":[0.35],\"strongOnlyBar\":0.225,");
         text.ShouldContain("\"judgedPairs\":{");
         var lowered = text.ToLowerInvariant();
         lowered.ShouldNotContain("timestamp");
@@ -668,16 +668,23 @@ public sealed class QualityReportRunnerTests
     {
         Movie[] movies =
         [
-            BuildMovie(1, "Alpha", genres: ["Drama"], directors: ["Ada"], collection: (7, "Franchise")),
+            BuildMovie(1, "Alpha", genres: ["Drama"], directors: ["Ada"], cast: ["Ann"], collection: (7, "Franchise")),
             BuildMovie(2, "Bravo", genres: ["Drama"], directors: ["Bob"], collection: (7, "Franchise")),
-            BuildMovie(3, "Charlie", genres: ["Drama"], directors: ["Ada"]),
+            BuildMovie(3, "Charlie", genres: ["Drama"], directors: ["Ada"], cast: ["Ann"]),
             .. extra,
         ];
 
         return Snapshot(movies);
     }
 
-    private static RealLibrarySnapshot Snapshot(Movie[] movies)
+    private static ImmutableDictionary<MovieId, ImmutableArray<float>> SharedPlotVectors(Movie[] movies) =>
+        movies.ToImmutableDictionary(
+            movie => movie.Id,
+            _ => ImmutableArray.Create(1.0f, 0.0f));
+
+    private static RealLibrarySnapshot Snapshot(
+        Movie[] movies,
+        ImmutableDictionary<MovieId, ImmutableArray<float>>? plotEmbeddings = null)
     {
         var genres = movies
             .SelectMany(movie => movie.Metadata?.Genres ?? [])
@@ -687,7 +694,7 @@ public sealed class QualityReportRunnerTests
         return new RealLibrarySnapshot(
             [.. movies],
             [],
-            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
+            plotEmbeddings ?? ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
             new GenreCounts(movies.Length, genres));
     }
 
@@ -696,6 +703,7 @@ public sealed class QualityReportRunnerTests
         string title,
         ImmutableArray<string> genres = default,
         ImmutableArray<string> directors = default,
+        ImmutableArray<string> cast = default,
         (int Id, string Name)? collection = null,
         EnrichmentStatus? status = null) =>
         Movie.Rehydrate(
@@ -707,7 +715,7 @@ public sealed class QualityReportRunnerTests
             metadata: new MovieMetadata(
                 title,
                 directors: directors.IsDefault ? [] : directors,
-                actors: [],
+                actors: cast.IsDefault ? [] : cast,
                 genres: genres.IsDefault ? ["Drama"] : genres,
                 collectionId: collection?.Id,
                 collectionName: collection?.Name,

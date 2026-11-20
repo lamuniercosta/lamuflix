@@ -475,7 +475,7 @@ public sealed class EvaluationCommandTests
                 "lambda": 0.5,
                 "similarityWeights": {
                   "genres": 3.0,
-                  "keyword": 1.0,
+                  "themes": 1.0,
                   "collection": 2.0
                 }
               },

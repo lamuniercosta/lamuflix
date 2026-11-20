@@ -18,13 +18,12 @@ internal static class EvaluationCommandFixtures
           "ranking": {
             "lambda": 0.5,
             "similarityWeights": {
+              "collection": 1.0,
               "director": 1.0,
-              "writers": 1.0,
+              "themes": 1.0,
+              "plot": 1.0,
               "cast": 1.0,
-              "genres": 1.0,
-              "yearProximity": 1.0,
-              "runtimeProximity": 1.0,
-              "ratingBoost": 1.0
+              "genres": 1.0
             }
           },
           "catalog": [
@@ -40,13 +39,12 @@ internal static class EvaluationCommandFixtures
           "ranking": {
             "lambda": 0.5,
             "similarityWeights": {
+              "collection": 1.0,
               "director": 1.0,
-              "writers": 1.0,
+              "themes": 1.0,
+              "plot": 1.0,
               "cast": 1.0,
-              "genres": 1.0,
-              "yearProximity": 1.0,
-              "runtimeProximity": 1.0,
-              "ratingBoost": 1.0
+              "genres": 1.0
             }
           },
           "catalog": [

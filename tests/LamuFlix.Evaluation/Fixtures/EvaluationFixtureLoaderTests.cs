@@ -22,6 +22,8 @@ public sealed class EvaluationFixtureLoaderTests
             f => f.FixtureId.ShouldBe("baseline"),
             f => f.RankingInputs.Lambda.ShouldBe(0.7),
             f => f.RankingInputs.SimilarityWeights.Director.ShouldBe(3.0),
+            f => f.RankingInputs.SimilarityWeights.Themes.ShouldBe(3.0),
+            f => f.RankingInputs.SimilarityWeights.Plot.ShouldBe(2.0),
             f => f.RankingInputs.SimilarityWeights.Genres.ShouldBe(3.0),
             f => f.Catalog.Length.ShouldBe(2),
             f => f.Events.Length.ShouldBe(2));
@@ -186,13 +188,13 @@ public sealed class EvaluationFixtureLoaderTests
     public void LoadFromJson_NonFiniteSimilarityWeight_IsRejected()
     {
         // arrange
-        var json = Fixture().Replace("\"ratingBoost\": 0.5", "\"ratingBoost\": 1e400", StringComparison.Ordinal);
+        var json = Fixture().Replace("\"plot\": 2.0", "\"plot\": 1e400", StringComparison.Ordinal);
 
         // act
         var failure = Should.Throw<EvaluationFixtureValidationException>(() => Load(json));
 
         // assert
-        failure.Message.ShouldContain("ratingBoost");
+        failure.Message.ShouldContain("plot");
     }
 
     [Fact]
@@ -277,13 +279,12 @@ public sealed class EvaluationFixtureLoaderTests
           "ranking": {
             "lambda": 0.7,
             "similarityWeights": {
+              "collection": 3.0,
               "director": 3.0,
-              "writers": 2.0,
+              "themes": 3.0,
+              "plot": 2.0,
               "cast": 2.0,
-              "genres": 3.0,
-              "yearProximity": 1.0,
-              "runtimeProximity": 0.5,
-              "ratingBoost": 0.5
+              "genres": 3.0
             }
           },
           "catalog": [

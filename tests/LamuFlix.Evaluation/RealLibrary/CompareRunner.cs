@@ -124,7 +124,7 @@ public static class CompareRunner
         Movie selected,
         CancellationToken cancellationToken)
     {
-        var selectedFeatures = MovieFeaturesMapper.From(selected, includeSignals: true);
+        var selectedFeatures = Features(snapshot, selected);
         var scored = new List<ScoredMovie>();
 
         foreach (var movie in snapshot.Movies)
@@ -140,7 +140,7 @@ public static class CompareRunner
                 movie,
                 SimilarityScorer.Score(
                     selectedFeatures,
-                    MovieFeaturesMapper.From(movie, includeSignals: true),
+                    Features(snapshot, movie),
                     options,
                     snapshot.GenreWeights,
                     snapshot.KeywordCounts),
@@ -150,6 +150,12 @@ public static class CompareRunner
 
         return scored;
     }
+
+    private static MovieFeatures Features(RealLibrarySnapshot snapshot, Movie movie) =>
+        MovieFeaturesMapper.From(
+            movie,
+            includeSignals: true,
+            plotEmbedding: snapshot.PlotEmbeddings.TryGetValue(movie.Id, out var vector) ? vector : null);
 
     private static ImmutableDictionary<MovieId, int> PlotRanks(List<ScoredMovie> scored)
     {
@@ -261,10 +267,9 @@ public static class CompareRunner
         var builder = ImmutableArray.CreateBuilder<RecommendationMatchedName>();
 
         AddMatches(builder, "Director", selected.Metadata?.Directors, other.Metadata?.Directors);
+        AddMatches(builder, "Themes", KeywordNames(selected), KeywordNames(other));
         AddMatches(builder, "Cast", selected.Metadata?.Actors, other.Metadata?.Actors);
-        AddMatches(builder, "Writer", selected.Metadata?.Writers, other.Metadata?.Writers);
         AddMatches(builder, "Genre", selected.Metadata?.Genres, other.Metadata?.Genres);
-        AddMatches(builder, "Keyword", KeywordNames(selected), KeywordNames(other));
         AddCollection(builder, selected, other);
 
         return

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
+using System.Linq;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Evaluation.Replay;
@@ -59,5 +61,6 @@ public sealed record EvaluationCatalogMovie
             Features.MetaScore,
             Features.FullPlot,
             TmdbKeywords,
-            CollectionId);
+            CollectionId,
+            keywordNames: TmdbKeywords.Select(id => id.ToString(CultureInfo.InvariantCulture)));
 }
