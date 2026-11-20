@@ -121,6 +121,7 @@ function writeComposeEnv(credentials) {
     envLine('E2E_STUB_TLS_PORT', String(STUB_TLS_PORT)),
     envLine('E2E_STUB_TLS_CERT_FILE', composePath(TLS_CERT_FILE)),
     envLine('E2E_STUB_TLS_KEY_FILE', composePath(TLS_KEY_FILE)),
+    envLine('E2E_STUB_SUBTITLE_API_KEY', credentials.subtitleApiKey),
     envLine('E2E_WAIT_BUDGET_MS', String(WAIT_BUDGET_MS)),
   ];
   writeFileSync(envFile, `${lines.join('\n')}\n`);
@@ -157,8 +158,11 @@ function validateProviderSettings(settings) {
     throw new Error('Subtitles:OpenSubtitles:BaseUrl must be https on the literal host 127.0.0.1');
   }
 
-  if (!settings.Subtitles?.OpenSubtitles?.DownloadAllowedHosts?.includes('127.0.0.1')) {
-    throw new Error('Subtitles:OpenSubtitles:DownloadAllowedHosts must allow the fixture host');
+  const allowedHosts = settings.Subtitles?.OpenSubtitles?.DownloadAllowedHosts ?? [];
+  if (!allowedHosts.includes('127.0.0.1') || !allowedHosts.includes('localhost')) {
+    throw new Error(
+      'Subtitles:OpenSubtitles:DownloadAllowedHosts must allow the API host 127.0.0.1 and the link host localhost',
+    );
   }
 }
 
@@ -217,7 +221,7 @@ function buildSettings() {
         ApiKey: subtitleApiKey,
         BaseUrl: subtitleProviderBaseUrl(),
         UserAgent: 'LamuFlix-E2E/DEV-525',
-        DownloadAllowedHosts: ['127.0.0.1'],
+        DownloadAllowedHosts: ['127.0.0.1', 'localhost'],
         MaxDownloadBytes: 1048576,
         RequestTimeout: '00:00:15',
       },
@@ -232,6 +236,7 @@ function buildSettings() {
       postgresPassword: postgresCredential,
       rabbitUser,
       rabbitPassword: rabbitCredential,
+      subtitleApiKey,
     },
   };
 }
@@ -389,7 +394,7 @@ function generateCertificates() {
         '-subj',
         '/CN=127.0.0.1',
         '-addext',
-        'subjectAltName=IP:127.0.0.1',
+        'subjectAltName=IP:127.0.0.1,DNS:localhost',
         '-keyout',
         TLS_KEY_FILE,
         '-out',

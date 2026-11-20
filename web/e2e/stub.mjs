@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { createServer, request as httpRequest } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.E2E_STUB_PORT ?? '18080');
@@ -12,7 +14,19 @@ const TLS_KEY_FILE = process.env.E2E_STUB_TLS_KEY_FILE;
 const CONTROL_PREFIX = '/__e2e/';
 const SEARCH_PATH = '/api/v1/subtitles';
 const DOWNLOAD_PATH = '/api/v1/download';
-const DOWNLOAD_PAYLOAD_PREFIX = '/subtitle-fixture/';
+const SUBTITLE_DOWNLOAD_PREFIX = '/download/';
+const SUBTITLE_RESET_AFTER_MS = (17 * 60 + 9) * 60 * 1000;
+const SUBTITLE_API_KEY = process.env.E2E_STUB_SUBTITLE_API_KEY ?? '';
+const LINK_HOST = 'localhost';
+const API_RATE_LIMIT_HEADERS = {
+  'RateLimit-Limit': '5',
+  'RateLimit-Remaining': '4',
+  'RateLimit-Reset': '1',
+  'X-RateLimit-Limit-Second': '5',
+  'X-RateLimit-Remaining-Second': '4',
+};
+const IS_MAIN =
+  process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 
 const arms = [];
 const held = new Map();
@@ -309,24 +323,287 @@ function recordSubtitleRequest(request, url, outcome) {
   return entry;
 }
 
-function subtitleSearchResponse(subtitle) {
+// OpenSubtitles emulation. Shapes and rules follow specs/DEV-525/provider-contract.md.
+
+// Lowercases ASCII letters outside %XX escapes. Escapes stay byte-for-byte, which keeps
+// observed rows such as "%3A" and "%2B" unredirected (contract section 2).
+const PERCENT_ESCAPE_OR_LETTERS = /%[0-9A-Fa-f]{2}|[A-Za-z]+/g;
+
+function isPureAscii(text) {
+  return [...text].every((character) => character.codePointAt(0) < 0x80);
+}
+
+function percentDecode(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
+function lowerOutsideEscapes(value) {
+  return value.replace(PERCENT_ESCAPE_OR_LETTERS, (match) =>
+    match.startsWith('%') ? match : match.toLowerCase(),
+  );
+}
+
+function canonicalValue(value) {
+  const decoded = percentDecode(value);
+  const lowered = decoded !== null && isPureAscii(decoded) ? lowerOutsideEscapes(value) : value;
+  return lowered.replaceAll('%20', '+');
+}
+
+function compareNames(left, right) {
+  if (left.name === right.name) {
+    return 0;
+  }
+  return left.name < right.name ? -1 : 1;
+}
+
+// Canonical form of a raw query string (the text after "?" in req.url).
+export function canonicalSubtitleQuery(rawQuery) {
+  return rawQuery
+    .split('&')
+    .filter((pair) => pair.length > 0)
+    .map((pair) => {
+      const equals = pair.indexOf('=');
+      const name = (equals < 0 ? pair : pair.slice(0, equals)).toLowerCase();
+      const text = equals < 0 ? name : `${name}=${canonicalValue(pair.slice(equals + 1))}`;
+      return { name, text };
+    })
+    .sort(compareNames)
+    .map((entry) => entry.text)
+    .join('&');
+}
+
+function rawQueryOf(requestUrl) {
+  const index = (requestUrl ?? '').indexOf('?');
+  return index < 0 ? '' : requestUrl.slice(index + 1);
+}
+
+function sendApi(response, statusCode, payload) {
+  if (response.writableEnded || response.destroyed) {
+    return;
+  }
+
+  const body = JSON.stringify(payload);
+  response.writeHead(statusCode, {
+    'content-type': 'application/json',
+    'content-length': Buffer.byteLength(body),
+    ...API_RATE_LIMIT_HEADERS,
+  });
+  response.end(body);
+}
+
+function sendCanonicalRedirect(response, canonical) {
+  const body =
+    '<!DOCTYPE html>\n<html><head><title>301 Moved Permanently</title></head>' +
+    '<body><h1>301 Moved Permanently</h1></body></html>\n';
+  response.writeHead(301, {
+    Location: `${SEARCH_PATH}?${canonical}`,
+    'X-OS-Rule': 'canonical',
+    'X-Canonical': '1',
+    'content-type': 'text/html',
+    'content-length': Buffer.byteLength(body),
+  });
+  response.end(body);
+}
+
+// The key itself is never logged; only the outcome label and the reason are recorded.
+function apiAuthFailure(request) {
+  if (!request.headers['user-agent']) {
+    return {
+      reason: 'subtitle-user-agent-missing',
+      outcome: 'auth-user-agent-missing',
+      body: { error: 'User agent required' },
+    };
+  }
+
+  if (SUBTITLE_API_KEY.length === 0 || request.headers['api-key'] !== SUBTITLE_API_KEY) {
+    return {
+      reason: 'subtitle-api-key-rejected',
+      outcome: 'auth-api-key-rejected',
+      body: { message: 'You cannot consume this service' },
+    };
+  }
+
+  return null;
+}
+
+function yearFrom(release) {
+  const match = /\b(?:19|20)\d{2}\b/.exec(release);
+  return match ? Number(match[0]) : null;
+}
+
+function searchEntry(entry) {
+  const fileId = entry.fileId;
   return {
-    total_count: 1,
-    data: [
-      {
-        attributes: {
-          language: subtitle.language,
-          download_count: subtitle.downloadCount,
-          release: subtitle.release,
-          files: [{ file_id: subtitle.fileId, file_name: `${subtitle.release}.srt` }],
-        },
+    id: String(fileId),
+    type: 'subtitle',
+    attributes: {
+      subtitle_id: String(fileId),
+      language: entry.language,
+      download_count: entry.downloadCount,
+      hd: entry.hd,
+      fps: entry.fps,
+      release: entry.release,
+      feature_details: {
+        feature_type: entry.featureType,
+        title: entry.title,
+        year: yearFrom(entry.release),
       },
-    ],
+      url: `https://www.opensubtitles.com/en/subtitles/${fileId}`,
+      files: [{ file_id: fileId, cd_number: 1, file_name: `${entry.release}.srt` }],
+    },
   };
 }
 
+// The Movie entry keeps the release the E2E spec expects. The Episode entry is a decoy
+// that the real title search also returns.
+function searchEntries(subtitle) {
+  return [
+    searchEntry({
+      fileId: subtitle.fileId,
+      language: subtitle.language,
+      downloadCount: subtitle.downloadCount,
+      hd: true,
+      fps: 23.976,
+      release: subtitle.release,
+      featureType: 'Movie',
+      title: subtitle.movieTitle,
+    }),
+    searchEntry({
+      fileId: subtitle.fileId + 1,
+      language: subtitle.language,
+      downloadCount: 77,
+      hd: false,
+      fps: 25,
+      release: `${subtitle.movieTitle} S01E01 720p DEV525-EPISODE-DECOY`,
+      featureType: 'Episode',
+      title: subtitle.movieTitle,
+    }),
+  ];
+}
+
+function emptySearchBody() {
+  return { total_pages: 0, total_count: 0, per_page: 50, page: 1, data: [] };
+}
+
+function subtitleSearchBody(subtitle, type) {
+  const entries = searchEntries(subtitle).filter(
+    (entry) => type !== 'movie' || entry.attributes.feature_details.feature_type === 'Movie',
+  );
+  return {
+    total_pages: entries.length > 0 ? 1 : 0,
+    total_count: entries.length,
+    per_page: 50,
+    page: 1,
+    data: entries,
+  };
+}
+
+function subtitleDownloadToken(subtitle) {
+  return `e2e-token-${subtitle.fileId}`;
+}
+
+function subtitleDownloadName(subtitle) {
+  const slug = subtitle.release
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `${slug}.srt`;
+}
+
+function subtitleLinkPath(subtitle) {
+  return `${SUBTITLE_DOWNLOAD_PREFIX}${subtitleDownloadToken(subtitle)}/subfile/${subtitleDownloadName(subtitle)}`;
+}
+
+// The link lives on another authority (localhost) than the API BaseUrl (127.0.0.1),
+// matching the real www host, and the adapter therefore sends no Api-Key to it.
 function subtitleDownloadLink(subtitle) {
-  return `https://${HOST}:${TLS_PORT}${DOWNLOAD_PAYLOAD_PREFIX}${subtitle.fileId}.srt`;
+  return `https://${LINK_HOST}:${TLS_PORT}${subtitleLinkPath(subtitle)}`;
+}
+
+function subtitleDownloadBody(subtitle) {
+  return {
+    link: subtitleDownloadLink(subtitle),
+    file_name: `${subtitle.release}.srt`,
+    requests: 1,
+    remaining: 99,
+    message: 'You have 99 downloads remaining of your 100 daily allowance.',
+    reset_time: '17 hours and 9 minutes',
+    reset_time_utc: new Date(Date.now() + SUBTITLE_RESET_AFTER_MS).toISOString(),
+    uk: 'x',
+    uid: 1,
+    ts: 1,
+  };
+}
+
+function handleSubtitleSearch(request, response, url, subtitle) {
+  const languages = (url.searchParams.get('languages') ?? '')
+    .split(',')
+    .map((language) => language.trim().toLowerCase())
+    .filter(Boolean);
+  const query = url.searchParams.get('query');
+  const movieHash = url.searchParams.get('moviehash');
+
+  if (!languages.includes(subtitle.language)) {
+    recordSubtitleRequest(request, url, 'search-unexpected-language');
+    recordUnexpected(null, null, 'subtitle-search-language');
+    sendApi(response, 200, emptySearchBody());
+    return;
+  }
+
+  if (movieHash && !query) {
+    recordSubtitleRequest(request, url, 'search-hash-empty');
+    sendApi(response, 200, emptySearchBody());
+    return;
+  }
+
+  if (query && query.toLowerCase().includes(subtitle.movieTitle.toLowerCase())) {
+    recordSubtitleRequest(request, url, 'search-candidates-returned');
+    sendApi(response, 200, subtitleSearchBody(subtitle, url.searchParams.get('type')));
+    return;
+  }
+
+  recordSubtitleRequest(request, url, 'search-no-candidates');
+  sendApi(response, 200, emptySearchBody());
+}
+
+async function handleSubtitleDownload(request, response, url, subtitle) {
+  if (request.method !== 'POST') {
+    recordSubtitleRequest(request, url, 'download-method-rejected');
+    sendJson(response, 405, { status: 405, error: 'Method Not Allowed' });
+    return;
+  }
+
+  const body = await readBody(request);
+  if (Number(body.file_id) !== subtitle.fileId) {
+    recordSubtitleRequest(request, url, 'download-unknown-file-id');
+    recordUnexpected(null, null, 'subtitle-download-file-id');
+    sendJson(response, 406, { message: 'Invalid file_id' });
+    return;
+  }
+
+  recordSubtitleRequest(request, url, 'download-accepted');
+  sendApi(response, 200, subtitleDownloadBody(subtitle));
+}
+
+function handleSubtitleLink(request, response, url, subtitle) {
+  if (request.method !== 'GET') {
+    recordSubtitleRequest(request, url, 'download-payload-method-rejected');
+    sendJson(response, 405, { status: 405, error: 'Method Not Allowed' });
+    return;
+  }
+
+  recordSubtitleRequest(request, url, 'download-payload-served');
+  // write() before end() so no Content-Length is set, as on the real link.
+  response.writeHead(200, {
+    'content-type': 'text/plain',
+    'content-disposition': 'attachment',
+  });
+  response.write(subtitle.srt);
+  response.end();
 }
 
 async function handleSubtitleProvider(request, response, url, subtitle) {
@@ -336,82 +613,49 @@ async function handleSubtitleProvider(request, response, url, subtitle) {
     return;
   }
 
-  if (url.pathname === SEARCH_PATH) {
+  if (url.pathname === subtitleLinkPath(subtitle)) {
+    handleSubtitleLink(request, response, url, subtitle);
+    return;
+  }
+
+  const apiPath =
+    url.pathname.length > 1 && url.pathname.endsWith('/')
+      ? url.pathname.slice(0, -1)
+      : url.pathname;
+
+  if (apiPath === SEARCH_PATH && request.method === 'GET') {
+    const rawQuery = rawQueryOf(request.url);
+    const canonical = canonicalSubtitleQuery(rawQuery);
+    if (canonical !== rawQuery) {
+      recordSubtitleRequest(request, url, 'search-canonical-redirect');
+      sendCanonicalRedirect(response, canonical);
+      return;
+    }
+  }
+
+  if (apiPath === SEARCH_PATH || apiPath === DOWNLOAD_PATH) {
+    const failure = apiAuthFailure(request);
+    if (failure) {
+      recordSubtitleRequest(request, url, failure.outcome);
+      recordUnexpected(null, null, failure.reason);
+      sendJson(response, 403, failure.body);
+      return;
+    }
+  }
+
+  if (apiPath === SEARCH_PATH) {
     if (request.method !== 'GET') {
       recordSubtitleRequest(request, url, 'search-method-rejected');
-      sendJson(response, 404, { status: 404, error: 'Not Found' });
+      sendApi(response, 404, { status: 404, error: 'Not Found' });
       return;
     }
 
-    const languages = (url.searchParams.get('languages') ?? '')
-      .split(',')
-      .map((language) => language.trim().toLowerCase())
-      .filter(Boolean);
-    const query = url.searchParams.get('query');
-    const movieHash = url.searchParams.get('moviehash');
-
-    if (!languages.includes(subtitle.language)) {
-      recordSubtitleRequest(request, url, 'search-unexpected-language');
-      recordUnexpected(null, null, 'subtitle-search-language');
-      sendJson(response, 200, { total_count: 0, data: [] });
-      return;
-    }
-
-    if (movieHash && !query) {
-      recordSubtitleRequest(request, url, 'search-hash-empty');
-      sendJson(response, 200, { total_count: 0, data: [] });
-      return;
-    }
-
-    if (query && query.toLowerCase().includes(subtitle.movieTitle.toLowerCase())) {
-      recordSubtitleRequest(request, url, 'search-candidates-returned');
-      sendJson(response, 200, subtitleSearchResponse(subtitle));
-      return;
-    }
-
-    recordSubtitleRequest(request, url, 'search-no-candidates');
-    sendJson(response, 200, { total_count: 0, data: [] });
+    handleSubtitleSearch(request, response, url, subtitle);
     return;
   }
 
-  if (url.pathname === DOWNLOAD_PATH) {
-    if (request.method !== 'POST') {
-      recordSubtitleRequest(request, url, 'download-method-rejected');
-      sendJson(response, 405, { status: 405, error: 'Method Not Allowed' });
-      return;
-    }
-
-    const body = await readBody(request);
-    if (Number(body.file_id) !== subtitle.fileId) {
-      recordSubtitleRequest(request, url, 'download-unknown-file-id');
-      recordUnexpected(null, null, 'subtitle-download-file-id');
-      sendJson(response, 406, { message: 'Invalid file_id' });
-      return;
-    }
-
-    recordSubtitleRequest(request, url, 'download-accepted');
-    sendJson(response, 200, {
-      link: subtitleDownloadLink(subtitle),
-      file_name: `${subtitle.release}.srt`,
-      requests: 1,
-      remaining: subtitle.downloadCount,
-    });
-    return;
-  }
-
-  if (url.pathname === `${DOWNLOAD_PAYLOAD_PREFIX}${subtitle.fileId}.srt`) {
-    if (request.method !== 'GET') {
-      recordSubtitleRequest(request, url, 'download-payload-method-rejected');
-      sendJson(response, 405, { status: 405, error: 'Method Not Allowed' });
-      return;
-    }
-
-    recordSubtitleRequest(request, url, 'download-payload-served');
-    response.writeHead(200, {
-      'content-type': 'application/x-subrip; charset=utf-8',
-      'content-length': Buffer.byteLength(subtitle.srt),
-    });
-    response.end(subtitle.srt);
+  if (apiPath === DOWNLOAD_PATH) {
+    await handleSubtitleDownload(request, response, url, subtitle);
     return;
   }
 
@@ -532,7 +776,9 @@ async function control(action, args) {
 
 const mode = process.argv[2] ?? 'serve';
 
-if (mode === 'serve') {
+if (!IS_MAIN) {
+  // Imported by subtitle-canonical.selfcheck.mjs: expose helpers only, start nothing.
+} else if (mode === 'serve') {
   serve();
 } else if (mode === 'control') {
   const action = process.argv[3] ?? 'status';

@@ -31,6 +31,7 @@ services:
       E2E_STUB_RESPONSES_FILE: /e2e/responses.json
       E2E_STUB_TLS_CERT_FILE: /e2e/tls/cert.pem
       E2E_STUB_TLS_KEY_FILE: /e2e/tls/key.pem
+      E2E_STUB_SUBTITLE_API_KEY: ${E2E_STUB_SUBTITLE_API_KEY}
       E2E_WAIT_BUDGET_MS: ${E2E_WAIT_BUDGET_MS}
     volumes:
       - ${E2E_STUB_SCRIPT}:/e2e/stub.mjs:ro
