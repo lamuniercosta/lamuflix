@@ -29,5 +29,9 @@
   "Subtitles": {
     "SaveEnabled": false,
     "PreferredLanguages": []
+  },
+  "Recommendations": {
+    "MinimumSimilarity": 0.225,
+    "StrongReasonCriteria": ["Collection", "Director", "Themes"]
   }
 }
