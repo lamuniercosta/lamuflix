@@ -171,6 +171,41 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         none.Summary.Title.ShouldBe("None");
         none.Features.Genres.ShouldBeEmpty();
     }
+
+    [Fact]
+    public async Task GetLibraryFeaturesAsync_UncappedEnrichedLoad_KeepsOptionalEmbeddings()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedDefaultCappedPortfolioAsync(ct);
+        await SeedRecordsAsync(
+            ct,
+            Record(200, "No feature row", EnrichmentStatus.Enriched),
+            Record(201, "Zero vector", EnrichmentStatus.Enriched),
+            Record(202, "Pending", EnrichmentStatus.Pending));
+        await SeedVectorsAsync(ct, (201, new float[EmbeddingDimensions.Value]));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+        int[] expectedIds = [1, .. Enumerable.Range(100, 60), 200, 201];
+
+        // act
+        var library = await source.GetLibraryFeaturesAsync(ct);
+
+        // assert
+        library.Count.ShouldBe(63);
+        library.Select(entry => entry.Id.Value).Order().ShouldBe(expectedIds);
+        library.ShouldNotContain(entry => entry.Id == new MovieId(202));
+
+        library.Single(entry => entry.Id == new MovieId(1))
+            .Features.PlotEmbedding.Length.ShouldBe(EmbeddingDimensions.Value);
+        library.Single(entry => entry.Id == new MovieId(100))
+            .Features.PlotEmbedding.Length.ShouldBe(EmbeddingDimensions.Value);
+        library.Where(entry => entry.Id.Value is 200 or 201)
+            .ShouldAllBe(entry => entry.Features.PlotEmbedding.IsDefaultOrEmpty);
+        library.Single(entry => entry.Id == new MovieId(200))
+            .Summary.EnrichmentStatus.ShouldBe(EnrichmentStatus.Enriched);
+    }
+
     [Fact]
     public async Task GetCandidatesAsync_SeededMovies_MatchesRepositoryReadState()
     {
@@ -582,7 +617,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
     }
 
     [Fact]
-    public async Task GetCandidatesAsync_SeedCollection_IncludesEmbeddinglessEnrichedMembers()
+    public async Task GetCandidatesAsync_CollectionIdArgument_DoesNotNarrowTheWholeLibraryLoad()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -610,36 +645,41 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         candidates.Where(candidate => candidate.Library.Id.Value is 2 or 3)
             .ShouldAllBe(candidate => candidate.CosineSimilarity == 0.0);
     }
+
     [Fact]
-    public async Task GetCandidatesAsync_FranchiseMemberWithoutFeaturesRow_KeepsBaseStateAndSignals()
+    public async Task GetLibraryFeaturesAsync_MissingFeatureRow_KeepsNonPlotInputs()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
+        var signal = SignalRecord(2);
+        signal.Directors.Add(new DirectorRecord { Name = "Director One" });
         await SeedRecordsAsync(
             ct,
             Record(1, "Selected", EnrichmentStatus.Enriched),
-            SignalRecord(2));
+            signal);
         await SeedVectorsAsync(ct, (1, UnitVector()));
         await using var db = fixture.CreateMigratedContext();
         var source = Source(db);
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(1), 900, ct);
+        var library = await source.GetLibraryFeaturesAsync(ct);
 
         // assert
-        var library = candidates.ShouldHaveSingleItem().Library;
-        library.Summary.Title.ShouldBe("Signal member");
-        library.Features.Cast.Order(StringComparer.Ordinal).ShouldBe(["Base Actor", "Guest Actor"]);
-        library.Features.Genres.ShouldBe(["Drama"]);
-        library.Features.CollectionId.ShouldBe(900);
-        library.Features.CollectionName.ShouldBe("Franchise 900");
-        library.Features.Keywords.Select(keyword => keyword).Order().ShouldBe([101, 202]);
-        library.Features.KeywordNames.Order(StringComparer.Ordinal).ShouldBe(["Heist", "Noir"]);
-        library.Features.PlotEmbedding.ShouldBeEmpty();
+        var entry = library.Single(item => item.Id == new MovieId(2));
+        entry.Summary.Title.ShouldBe("Signal member");
+        entry.Summary.EnrichmentStatus.ShouldBe(EnrichmentStatus.Enriched);
+        entry.Features.Directors.ShouldBe(["Director One"]);
+        entry.Features.Cast.Order(StringComparer.Ordinal).ShouldBe(["Base Actor", "Guest Actor"]);
+        entry.Features.Genres.ShouldBe(["Drama"]);
+        entry.Features.CollectionId.ShouldBe(900);
+        entry.Features.CollectionName.ShouldBe("Franchise 900");
+        entry.Features.Keywords.Select(keyword => keyword).Order().ShouldBe([101, 202]);
+        entry.Features.KeywordNames.Order(StringComparer.Ordinal).ShouldBe(["Heist", "Noir"]);
+        entry.Features.PlotEmbedding.ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task GetCandidatesAsync_CollectionUnionCancelled_PropagatesCancellation()
+    public async Task GetCandidatesAsync_CollectionArgumentCancellation_Propagates()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
