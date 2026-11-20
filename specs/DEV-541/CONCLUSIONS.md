@@ -167,3 +167,13 @@ The confirmed decisions are ready for the Phase 2 brief and Spec Kit drafting by
 - Owner Lamunier Costa (`lamuniercosta`) merged the spec PR into `main` on 2026-11-19 at 17:16:23 UTC. [Spec PR #447](https://github.com/lamuniercosta/lamuflix/pull/447)
 - Merge commit: `a79e38dfd9d930e7e123df36487c943240f31943`.
 - Phase A base: `1ac83297c1ba8ffc936987e8b198ce8dc612b01a`.
+
+---
+
+## Phase 3 Step 6 Ruling — `ForYouRecommendationsPage` shape and `harness.yml` mutation config
+
+**Verdict**: (1) `ForYouRecommendationsPage` does not require `IReadOnlyList<RecommendedMovie>` — a pure positional record `ForYouRecommendationsPage(ImmutableList<RecommendedMovie> Items, bool HasMore)` satisfies the spec; (2) adding a `harness.yml` mutation exclusion or lowering any gate threshold is prohibited.
+
+- `specs/DEV-541/spec.md` (§Key Entities line 169; FR-006 line 159; FR-009 line 162), `specs/DEV-541/plan.md` (§Approach step 3 line 66), and `specs/DEV-541/tasks.md` (T009 line 94) specify `ForYouRecommendationsPage` only as the Core page record carrying the `Items` slice and `HasMore`, with no `IReadOnlyList<RecommendedMovie>` requirement; callers reading the slice should use `.Items`.
+- `AGENTS.md` (§Non-negotiables; §Configuration) and `specs/DEV-541/tasks.md` (Conventions line 16; T016 line 126) treat `harness.yml` as the single source of truth and prohibit editing `harness.yml` exclusions or lowering thresholds to bypass a failing mutation gate.
+
