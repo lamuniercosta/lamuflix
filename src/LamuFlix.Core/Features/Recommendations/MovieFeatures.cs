@@ -82,12 +82,17 @@ public sealed record MovieFeatures
         && KeywordNames.SetEquals(other.KeywordNames);
 
     private bool ScalarsEqual(MovieFeatures other) =>
+        ScalarsEqualCore(other) && ScalarsEqualText(other);
+
+    private bool ScalarsEqualCore(MovieFeatures other) =>
         ReleaseYear == other.ReleaseYear
         && Runtime == other.Runtime
         && ImdbRating == other.ImdbRating
         && MetaScore == other.MetaScore
-        && CollectionId == other.CollectionId
-        && string.Equals(CollectionName, other.CollectionName, StringComparison.Ordinal)
+        && CollectionId == other.CollectionId;
+
+    private bool ScalarsEqualText(MovieFeatures other) =>
+        string.Equals(CollectionName, other.CollectionName, StringComparison.Ordinal)
         && PlotEmbedding.SequenceEqual(other.PlotEmbedding)
         && string.Equals(FullPlot, other.FullPlot, StringComparison.Ordinal);
 

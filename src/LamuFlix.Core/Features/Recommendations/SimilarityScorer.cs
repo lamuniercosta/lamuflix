@@ -50,39 +50,9 @@ public static class SimilarityScorer
         {
             Evidence = [.. term.Evidence],
         }).ToImmutableList();
-        var reasons = ImmutableList.CreateBuilder<Reason>();
-        foreach (var term in terms)
-        {
-            if (term.Value <= 0.0 || term.Evidence.Count == 0 && term.Name != "Plot")
-            {
-                continue;
-            }
+        var reasons = BuildReasons(terms, options);
 
-            var threshold = term.Name switch
-            {
-                "Themes" => options.ThemesDisplayThreshold,
-                "Plot" => options.PlotDisplayThreshold,
-                "Genre" => options.GenreDisplayThreshold,
-                _ => 0.0,
-            };
-            if (term.Value < threshold)
-            {
-                continue;
-            }
-
-            var text = term.Name switch
-            {
-                "Collection" => $"Same collection: {term.Evidence[0]}",
-                "Director" => $"Same director: {string.Join(", ", term.Evidence)}",
-                "Themes" => $"Shared themes: {string.Join(", ", term.Evidence)}",
-                "Plot" => "Similar story",
-                "Cast" => $"Shares cast: {string.Join(", ", term.Evidence)}",
-                _ => $"Same genres: {string.Join(", ", term.Evidence)}",
-            };
-            reasons.Add(Reason.Structural(text));
-        }
-
-        return new SimilarityResult(breakdown.Sum(entry => entry.Contribution), reasons.ToImmutable()) { Breakdown = breakdown };
+        return new SimilarityResult(breakdown.Sum(entry => entry.Contribution), reasons) { Breakdown = breakdown };
     }
 
     private static ScoringTerm Create(string name, double weight, double value, IReadOnlyList<string> evidence) =>
@@ -163,8 +133,7 @@ public static class SimilarityScorer
         var result = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, count) in counts.MoviesWithKeyword)
         {
-            if (string.IsNullOrWhiteSpace(name) || stoplist.Contains(name.Trim())
-                || count < options.MinimumKeywordMovies || count <= 0 || count > counts.TotalMovies)
+            if (IsExcludedKeyword(name, count, options, counts, stoplist))
             {
                 continue;
             }
@@ -174,6 +143,16 @@ public static class SimilarityScorer
 
         return result;
     }
+
+    private static bool IsExcludedKeyword(string name, long count, RecommendationOptions options, KeywordCounts counts, HashSet<string> stoplist) =>
+        string.IsNullOrWhiteSpace(name)
+        || stoplist.Contains(name.Trim())
+        || IsOutOfKeywordRange(count, options, counts);
+
+    private static bool IsOutOfKeywordRange(long count, RecommendationOptions options, KeywordCounts counts) =>
+        count < options.MinimumKeywordMovies
+        || count <= 0
+        || count > counts.TotalMovies;
 
     private static void ValidateKeywordCounts(KeywordCounts counts)
     {
@@ -193,37 +172,98 @@ public static class SimilarityScorer
 
     private static double PlotValue(MovieFeatures a, MovieFeatures b, RecommendationOptions options)
     {
-        if (a.PlotEmbedding.IsDefaultOrEmpty || b.PlotEmbedding.IsDefaultOrEmpty
-            || a.PlotEmbedding.Length != b.PlotEmbedding.Length)
+        if (HasMismatchedEmbeddings(a, b))
         {
             return 0.0;
         }
 
-        var dot = 0.0;
-        var left = 0.0;
-        var right = 0.0;
-        for (var index = 0; index < a.PlotEmbedding.Length; index++)
+        var cosine = CosineSimilarity(a.PlotEmbedding, b.PlotEmbedding);
+        if (cosine is null)
         {
-            var x = a.PlotEmbedding[index];
-            var y = b.PlotEmbedding[index];
+            return 0.0;
+        }
+
+        return Math.Clamp((cosine.Value - options.PlotFloor) / (options.PlotCeiling - options.PlotFloor), 0.0, 1.0);
+    }
+
+    private static bool HasMismatchedEmbeddings(MovieFeatures a, MovieFeatures b) =>
+        a.PlotEmbedding.IsDefaultOrEmpty
+        || b.PlotEmbedding.IsDefaultOrEmpty
+        || a.PlotEmbedding.Length != b.PlotEmbedding.Length;
+
+    private static double? CosineSimilarity(ImmutableArray<float> left, ImmutableArray<float> right)
+    {
+        var dot = 0.0;
+        var leftNorm = 0.0;
+        var rightNorm = 0.0;
+        for (var index = 0; index < left.Length; index++)
+        {
+            var x = left[index];
+            var y = right[index];
             if (!float.IsFinite(x) || !float.IsFinite(y))
             {
-                return 0.0;
+                return null;
             }
 
             dot += x * y;
-            left += x * x;
-            right += y * y;
+            leftNorm += x * x;
+            rightNorm += y * y;
         }
 
-        if (left == 0.0 || right == 0.0)
+        if (leftNorm == 0.0 || rightNorm == 0.0)
         {
-            return 0.0;
+            return null;
         }
 
-        var cosine = Math.Clamp(dot / (Math.Sqrt(left) * Math.Sqrt(right)), -1.0, 1.0);
-        return Math.Clamp((cosine - options.PlotFloor) / (options.PlotCeiling - options.PlotFloor), 0.0, 1.0);
+        return Math.Clamp(dot / (Math.Sqrt(leftNorm) * Math.Sqrt(rightNorm)), -1.0, 1.0);
     }
+
+    private static ImmutableList<Reason> BuildReasons(ScoringTerm[] terms, RecommendationOptions options)
+    {
+        var reasons = ImmutableList.CreateBuilder<Reason>();
+        foreach (var term in terms)
+        {
+            var text = ReasonText(term, options);
+            if (text is not null)
+            {
+                reasons.Add(Reason.Structural(text));
+            }
+        }
+
+        return reasons.ToImmutable();
+    }
+
+    private static string? ReasonText(ScoringTerm term, RecommendationOptions options)
+    {
+        if (term.Value <= 0.0 || term.Value < DisplayThreshold(term.Name, options))
+        {
+            return null;
+        }
+
+        if (term.Evidence.Count == 0)
+        {
+            return term.Name == "Plot" ? "Similar story" : null;
+        }
+
+        return term.Name switch
+        {
+            "Collection" => $"Same collection: {term.Evidence[0]}",
+            "Director" => $"Same director: {string.Join(", ", term.Evidence)}",
+            "Themes" => $"Shared themes: {string.Join(", ", term.Evidence)}",
+            "Plot" => "Similar story",
+            "Cast" => $"Shares cast: {string.Join(", ", term.Evidence)}",
+            _ => $"Same genres: {string.Join(", ", term.Evidence)}",
+        };
+    }
+
+    private static double DisplayThreshold(string name, RecommendationOptions options) =>
+        name switch
+        {
+            "Themes" => options.ThemesDisplayThreshold,
+            "Plot" => options.PlotDisplayThreshold,
+            "Genre" => options.GenreDisplayThreshold,
+            _ => 0.0,
+        };
 
     private readonly record struct ScoringTerm(string Name, double Weight, double Value, IReadOnlyList<string> Evidence);
 
