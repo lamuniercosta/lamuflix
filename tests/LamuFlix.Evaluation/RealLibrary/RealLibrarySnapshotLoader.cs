@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
@@ -122,6 +123,7 @@ public static class RealLibrarySnapshotLoader
 public sealed class RealLibrarySnapshot
 {
     private readonly GenreWeights genreWeights;
+    private readonly KeywordCounts keywordCounts;
 
     public RealLibrarySnapshot(
         ImmutableArray<Movie> movies,
@@ -144,6 +146,7 @@ public sealed class RealLibrarySnapshot
         PlotEmbeddings = plotEmbeddings ?? throw new ArgumentNullException(nameof(plotEmbeddings));
         GenreCounts = genreCounts ?? throw new ArgumentNullException(nameof(genreCounts));
         genreWeights = GenreWeights.Calculate(GenreCounts);
+        keywordCounts = BuildKeywordCounts(Movies);
     }
 
     public ImmutableArray<Movie> Movies { get; }
@@ -156,7 +159,21 @@ public sealed class RealLibrarySnapshot
 
     public GenreWeights GenreWeights => genreWeights;
 
+    public KeywordCounts KeywordCounts => keywordCounts;
+
     public bool Contains(MovieId movieId) => Movies.Any(movie => movie.Id == movieId);
+
+    private static KeywordCounts BuildKeywordCounts(ImmutableArray<Movie> movies)
+    {
+        var counts = movies
+            .SelectMany(movie => movie.Metadata?.Signals?.Keywords.Select(keyword => (movie.Id, keyword.Name)) ?? [])
+            .GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => (long)group.Select(item => item.Id).Distinct().Count(),
+                StringComparer.OrdinalIgnoreCase);
+        return new KeywordCounts(movies.Length, counts);
+    }
 
     private static ImmutableArray<Movie> OrderByTitle(ImmutableArray<Movie> movies) =>
     [

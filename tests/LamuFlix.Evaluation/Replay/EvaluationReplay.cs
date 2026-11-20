@@ -1,9 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
+using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Evaluation.Fixtures;
 using LamuFlix.Evaluation.Metrics;
 
@@ -26,13 +28,25 @@ public static class EvaluationReplay
         ImmutableArray<MovieId> canonicalIds =
             [.. fixture.Catalog.Select(movie => movie.MovieId).OrderBy(movieId => movieId.Value)];
         var genreWeights = AsOfHistory.CatalogGenreWeights(fixture.Catalog);
+        var keywordCounts = AsOfHistory.CatalogKeywordCounts(fixture.Catalog);
+        var rankingOptions = new RecommendationOptions { Weights = fixture.RankingInputs.SimilarityWeights };
         var random = new Random(options.Seed);
 
         var observations = ImmutableArray.CreateBuilder<EvaluationObservationResult>(orderedEvents.Length);
         foreach (var target in orderedEvents)
         {
             observations.Add(
-                Score(fixture, orderedEvents, target, options, features, canonicalIds, genreWeights, random));
+                Score(
+                    fixture,
+                    orderedEvents,
+                    target,
+                    options,
+                    features,
+                    canonicalIds,
+                    genreWeights,
+                    keywordCounts,
+                    rankingOptions,
+                    random));
         }
 
         var results = observations.ToImmutable();
@@ -50,6 +64,8 @@ public static class EvaluationReplay
         Dictionary<MovieId, MovieFeatures> features,
         ImmutableArray<MovieId> canonicalIds,
         GenreWeights genreWeights,
+        KeywordCounts keywordCounts,
+        RecommendationOptions rankingOptions,
         Random random)
     {
         var clock = options.ObservationClock(target.Timestamp)
@@ -65,8 +81,9 @@ public static class EvaluationReplay
             candidates,
             MetricCalculator.Cutoff,
             fixture.RankingInputs.Lambda,
-            fixture.RankingInputs.SimilarityWeights,
-            genreWeights);
+            rankingOptions,
+            genreWeights,
+            keywordCounts);
 
         return new EvaluationObservationResult(
             target.EventId,

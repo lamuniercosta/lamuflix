@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
@@ -207,8 +207,9 @@ public static class QualityReportRunner
                     SimilarityScorer.Score(
                         selectedFeatures,
                         MovieFeaturesMapper.From(movie, includeSignals: true),
-                        options.Weights,
-                        snapshot.GenreWeights)));
+                        options,
+                        snapshot.GenreWeights,
+                        snapshot.KeywordCounts)));
             }
 
             var ordered = scored

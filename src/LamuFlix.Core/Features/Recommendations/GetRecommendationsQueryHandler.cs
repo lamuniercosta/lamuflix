@@ -17,11 +17,10 @@ public sealed class GetRecommendationsQueryHandler(
     IRecommendationCandidateSource candidates,
     IRecommendationProfileSource profileSource,
     GenreWeightsCalculator genreWeightsCalculator,
+    KeywordWeightsCalculator keywordWeightsCalculator,
     IOptions<RecommendationOptions> options)
     : IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>
 {
-    private const string SimilarStoryReason = "Similar story";
-
     public async Task<ImmutableList<RecommendedMovie>> HandleAsync(
         GetRecommendationsQuery query,
         CancellationToken cancellationToken)
@@ -49,6 +48,9 @@ public sealed class GetRecommendationsQueryHandler(
         var genreWeights = await genreWeightsCalculator.GetAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var keywordCounts = await keywordWeightsCalculator.GetAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
         var profile = await profileSource.GetTasteProfileAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -65,6 +67,7 @@ public sealed class GetRecommendationsQueryHandler(
             profile,
             profileInputs,
             genreWeights,
+            keywordCounts,
             recommendationOptions,
             cancellationToken);
 
@@ -76,16 +79,18 @@ public sealed class GetRecommendationsQueryHandler(
             mmrCandidates,
             query.Take,
             recommendationOptions.MmrLambda,
-            recommendationOptions.Weights,
-            genreWeights);
+            recommendationOptions,
+            genreWeights,
+            keywordCounts);
 
         var groupedIds = SeedCollectionGrouper.Group(
             mmrCandidates,
             selectedIds,
             selectedFeatures,
             query.Take,
-            recommendationOptions.Weights,
-            genreWeights);
+            recommendationOptions,
+            genreWeights,
+            keywordCounts);
 
         var byId = scored.ToDictionary(item => item.Movie.Id);
 
@@ -126,6 +131,7 @@ public sealed class GetRecommendationsQueryHandler(
         TasteProfile profile,
         RecommendationProfileInputs profileInputs,
         GenreWeights genreWeights,
+        KeywordCounts keywordCounts,
         RecommendationOptions options,
         CancellationToken cancellationToken)
     {
@@ -144,8 +150,9 @@ public sealed class GetRecommendationsQueryHandler(
             var similarity = SimilarityScorer.Score(
                 selectedFeatures,
                 features,
-                options.Weights,
-                genreWeights);
+                options,
+                genreWeights,
+                keywordCounts);
 
             var profileSimilarity = ProfileSimilarityCalculator.Evaluate(
                 genres,
@@ -174,14 +181,6 @@ public sealed class GetRecommendationsQueryHandler(
                 candidate.Movie.IsWatched ? 1.0 : 0.0,
                 0.0,
                 options);
-
-            if (candidate.CosineSimilarity > options.SimilarStoryThreshold)
-            {
-                similarity = similarity with
-                {
-                    Reasons = similarity.Reasons.Add(Reason.Structural(SimilarStoryReason)),
-                };
-            }
 
             scored.Add(new ScoredCandidate(
                 candidate.Movie,

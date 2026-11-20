@@ -1,7 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Ports;
 using LamuFlix.Evaluation.Fixtures;
 
@@ -9,6 +11,18 @@ namespace LamuFlix.Evaluation.Replay;
 
 internal static class AsOfHistory
 {
+    public static KeywordCounts CatalogKeywordCounts(ImmutableArray<EvaluationCatalogMovie> catalog)
+    {
+        var counts = catalog
+            .SelectMany(movie => movie.FeaturesFor(TmdbSignalsMode.Enabled).KeywordNames.Select(name => (movie.MovieId, Name: name)))
+            .GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => (long)group.Select(item => item.MovieId).Distinct().Count(),
+                StringComparer.OrdinalIgnoreCase);
+        return new KeywordCounts(catalog.Length, counts);
+    }
+
     public static ImmutableDictionary<MovieId, double> RelevanceScores(
         ImmutableArray<EvaluationCatalogMovie> catalog,
         ImmutableArray<EvaluationEvent> orderedEvents,

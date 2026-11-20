@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -25,6 +25,8 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
             ["Comedy"] = 20,
             ["Horror"] = 5,
         });
+
+    private static KeywordCounts EmptyKeywordCounts => new(0, new Dictionary<string, long>());
 
     [Property(MaxTest = 100, Replay = "340101,100003")]
     [Trait("Category", "Property")]
@@ -73,42 +75,17 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         return SameSequence(forward, reversed) && SameSequence(forward, sorted);
     }
 
-    [Property(MaxTest = 100, Replay = "340104,400017")]
-    [Trait("Category", "Property")]
-    public bool HandleAsync_StoryReasonPresentIffCosineStrictlyAboveThreshold(
-        int[] ids,
-        int[] cosineSeeds,
-        int thresholdSeed,
-        int takeSeed)
-    {
-        // arrange
-        var pool = BuildCandidates(ids, cosineSeeds);
-        var threshold = SyntheticCosine(thresholdSeed);
-
-        // act
-        var result = Handle(pool, Take(takeSeed), threshold);
-
-        // assert
-        var cosines = pool.ToDictionary(candidate => candidate.Movie.Id.Value, candidate => candidate.CosineSimilarity);
-        return result.All(item => HasStoryReason(item) == (cosines[item.Summary.Id.Value] > threshold));
-    }
-
     [Property(MaxTest = 100, Replay = "340105,500021")]
     [Trait("Category", "Property")]
-    public bool HandleAsync_ReasonsAreScorerPrefixThenAtMostOneStorySuffix(
-        int[] ids,
-        int[] cosineSeeds,
-        int thresholdSeed,
-        int takeSeed)
+    public bool HandleAsync_ReasonsAreScorerReasons(int[] ids, int[] cosineSeeds, int takeSeed)
     {
         // arrange
         var pool = BuildCandidates(ids, cosineSeeds);
-        var threshold = SyntheticCosine(thresholdSeed);
         var byId = pool.ToDictionary(candidate => candidate.Movie.Id.Value);
         var genreWeights = GenreWeights.Calculate(Counts);
 
         // act
-        var result = Handle(pool, Take(takeSeed), threshold);
+        var result = Handle(pool, Take(takeSeed));
 
         // assert
         foreach (var item in result)
@@ -122,6 +99,20 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         return true;
     }
 
+    [Property(MaxTest = 100, Replay = "340107,700031")]
+    [Trait("Category", "Property")]
+    public bool HandleAsync_CandidateCosine_DoesNotEmitStoryReason(int[] ids, int[] cosineSeeds, int takeSeed)
+    {
+        // arrange
+        var pool = BuildCandidates(ids, cosineSeeds);
+
+        // act
+        var result = Handle(pool, Take(takeSeed));
+
+        // assert
+        return !result.Any(HasStoryReason);
+    }
+
     private static bool ReasonsMatch(
         RecommendedMovie item,
         IReadOnlyDictionary<int, RecommendationCandidate> byId,
@@ -131,31 +122,17 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         var expected = SimilarityScorer.Score(
             MovieFeaturesMapper.From(SelectedMovie()),
             MovieFeaturesMapper.From(candidate.Movie),
-            new RecommendationOptions().Weights,
-            genreWeights);
-        var story = HasStoryReason(item);
+            new RecommendationOptions(),
+            genreWeights,
+            EmptyKeywordCounts);
 
-        return story
-            ? MatchesStorySuffix(item, expected)
-            : MatchesWithoutStorySuffix(item, expected);
-    }
-
-    private static bool MatchesStorySuffix(RecommendedMovie item, SimilarityResult expected) =>
-        item.Reasons.Count == expected.Reasons.Count + 1
-            && PrefixMatches(item, expected)
-            && SuffixMatches(item, story: true);
-
-    private static bool MatchesWithoutStorySuffix(RecommendedMovie item, SimilarityResult expected)
-    {
         if (expected.Reasons.Count == 0)
         {
             return item.Reasons.Count == 1
                 && item.Reasons[0] == Reason.Structural(FallbackReasonText);
         }
 
-        return item.Reasons.Count == expected.Reasons.Count
-            && PrefixMatches(item, expected)
-            && SuffixMatches(item, story: false);
+        return item.Reasons.Count == expected.Reasons.Count && PrefixMatches(item, expected);
     }
 
     private static bool PrefixMatches(RecommendedMovie item, SimilarityResult expected)
@@ -169,91 +146,6 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         }
 
         return true;
-    }
-
-    private static bool SuffixMatches(RecommendedMovie item, bool story)
-    {
-        if (story)
-        {
-            return item.Reasons.Count != 0 && item.Reasons[^1].Text == StoryReasonText;
-        }
-
-        return !HasStoryReason(item);
-    }
-
-    [Property(MaxTest = 100, Replay = "340106,600029")]
-    [Trait("Category", "Property")]
-    public bool HandleAsync_StorySuffix_DoesNotChangeRetentionScoreOrOrder(
-        int[] ids,
-        int[] cosineSeeds,
-        int thresholdSeed,
-        int takeSeed)
-    {
-        // arrange
-        var pool = BuildCandidates(ids, cosineSeeds);
-        var take = Take(takeSeed);
-
-        // act
-        var withSuffix = Handle(pool, take, SyntheticCosine(thresholdSeed));
-        var withoutSuffix = Handle(pool, take, 1.0);
-
-        // assert
-        return withSuffix.Count == Math.Min(take, pool.Length)
-            && SameIgnoringStorySuffix(withSuffix, withoutSuffix);
-    }
-
-    [Property(MaxTest = 100, Replay = "340107,700031")]
-    [Trait("Category", "Property")]
-    public bool HandleAsync_CosineEqualToThreshold_EmitsNoStoryReason(int[] ids, int[] cosineSeeds, int takeSeed)
-    {
-        // arrange
-        var pool = BuildCandidates(ids, cosineSeeds);
-        if (pool.Length == 0)
-        {
-            return true;
-        }
-
-        var subject = pool[0];
-
-        // act
-        var result = Handle(pool, Take(takeSeed), subject.CosineSimilarity);
-
-        // assert
-        var match = result.FirstOrDefault(item => item.Summary.Id.Value == subject.Movie.Id.Value);
-        return match is null || !HasStoryReason(match);
-    }
-
-    [Property(MaxTest = 50, Replay = "340108,800033")]
-    [Trait("Category", "Property")]
-    public bool HandleAsync_NamedSyntheticSet_DefaultThresholdEmitsOnlyAbove(int seed)
-    {
-        // arrange
-        var cosines = NamedCosines();
-        var pool = NamedCandidates(cosines, seed);
-
-        // act
-        var result = Handle(pool, pool.Length, new RecommendationOptions().SimilarStoryThreshold);
-
-        // assert
-        return result.Count == pool.Length
-            && result.All(item => HasStoryReason(item) == (CosinesById(pool)[item.Summary.Id.Value] > 0.5));
-    }
-
-    [Property(MaxTest = 100, Replay = "340109,900037")]
-    [Trait("Category", "Property")]
-    public bool HandleAsync_NamedSyntheticSet_ThresholdOverrideEmitsStrictlyAbove(int thresholdSeed, int takeSeed)
-    {
-        // arrange
-        var cosines = NamedCosines();
-        var pool = NamedCandidates(cosines, thresholdSeed);
-        var threshold = SyntheticCosine(thresholdSeed);
-
-        // act
-        var result = Handle(pool, Take(takeSeed), threshold);
-
-        // assert
-        var byId = CosinesById(pool);
-        return result.All(item => HasStoryReason(item) == (byId[item.Summary.Id.Value] > threshold));
     }
 
     [Property(MaxTest = 100, Replay = "340110,1100041")]
@@ -310,12 +202,6 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
 
     private static ImmutableList<RecommendedMovie> Handle(IReadOnlyList<RecommendationCandidate> pool, int take) =>
         Handle(pool, take, new RecommendationOptions());
-
-    private static ImmutableList<RecommendedMovie> Handle(
-        IReadOnlyList<RecommendationCandidate> pool,
-        int take,
-        double threshold) =>
-        Handle(pool, take, new RecommendationOptions { SimilarStoryThreshold = threshold });
 
     [Property(MaxTest = 100, Replay = "340112,130007")]
     [Trait("Category", "Property")]
@@ -388,6 +274,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         source.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>()).Returns(pool);
         var catalog = Substitute.For<IMovieCatalog>();
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Counts);
+        catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>()).Returns(EmptyKeywordCounts);
         var profileSource = Substitute.For<IRecommendationProfileSource>();
         profileSource
             .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
@@ -404,6 +291,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
             source,
             profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
+            new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
             Microsoft.Extensions.Options.Options.Create(options));
 
         return handler
@@ -420,22 +308,6 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
     private static double Cosine(int index) => (index % 21 - 10) / 10.0;
 
     private static double SyntheticCosine(int seed) => ((Math.Abs((long)seed) % 201) - 100) / 100.0;
-
-    private static double[] NamedCosines() => [0.8, 0.6, 0.4, 0.0, -1.0];
-
-    private static RecommendationCandidate[] NamedCandidates(double[] cosines, int seed)
-    {
-        var candidates = new RecommendationCandidate[cosines.Length];
-        for (var index = 0; index < cosines.Length; index++)
-        {
-            candidates[index] = new RecommendationCandidate(BuildMovie(index + 2, seed + index), cosines[index]);
-        }
-
-        return candidates;
-    }
-
-    private static Dictionary<int, double> CosinesById(IReadOnlyList<RecommendationCandidate> pool) =>
-        pool.ToDictionary(candidate => candidate.Movie.Id.Value, candidate => candidate.CosineSimilarity);
 
     private static RecommendationCandidate[] BuildCandidates(
         int[] ids,
@@ -463,41 +335,6 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
 
     private static bool HasStoryReason(RecommendedMovie movie) =>
         movie.Reasons.Any(reason => reason.Text == StoryReasonText);
-
-    private static bool SameIgnoringStorySuffix(
-        ImmutableList<RecommendedMovie> first,
-        ImmutableList<RecommendedMovie> second)
-    {
-        if (first.Count != second.Count)
-        {
-            return false;
-        }
-
-        for (var index = 0; index < first.Count; index++)
-        {
-            if (first[index].Summary != second[index].Summary || !first[index].Score.Equals(second[index].Score))
-            {
-                return false;
-            }
-
-            if (!NonStoryReasonTexts(first[index]).SequenceEqual(NonStoryReasonTexts(second[index]), StringComparer.Ordinal))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static IEnumerable<string> NonStoryReasonTexts(RecommendedMovie movie)
-    {
-        var texts = movie.Reasons
-            .Where(reason => reason.Text != StoryReasonText)
-            .Select(reason => reason.Text)
-            .ToList();
-
-        return texts.Count == 0 ? [FallbackReasonText] : texts;
-    }
 
     private static Movie[] BuildPool(int[] ids, int[] seeds)
     {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 
 namespace LamuFlix.Core.Features.Recommendations;
 
@@ -15,14 +16,16 @@ public static class SeedCollectionGrouper
         ImmutableList<MovieId> mmrOrder,
         MovieFeatures seedFeatures,
         int take,
-        SimilarityWeights weights,
-        GenreWeights genreWeights)
+        RecommendationOptions options,
+        GenreWeights genreWeights,
+        KeywordCounts keywordCounts)
     {
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(mmrOrder);
         ArgumentNullException.ThrowIfNull(seedFeatures);
-        ArgumentNullException.ThrowIfNull(weights);
+        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(genreWeights);
+        ArgumentNullException.ThrowIfNull(keywordCounts);
 
         if (take < 0)
         {
@@ -41,7 +44,7 @@ public static class SeedCollectionGrouper
         }
 
         var blockSize = Math.Min(Math.Min(MaximumBlockSize, take), matches.Count);
-        var block = Rank(seedFeatures, matches, weights, genreWeights, blockSize);
+        var block = Rank(seedFeatures, matches, options, genreWeights, keywordCounts, blockSize);
         if (block.Count == 0)
         {
             return mmrOrder;
@@ -70,15 +73,21 @@ public static class SeedCollectionGrouper
     private static List<MovieId> Rank(
         MovieFeatures seedFeatures,
         List<MmrCandidate> matches,
-        SimilarityWeights weights,
+        RecommendationOptions options,
         GenreWeights genreWeights,
+        KeywordCounts keywordCounts,
         int blockSize)
     {
         var ranked = new List<(MovieId MovieId, double Score)>(matches.Count);
 
         foreach (var candidate in matches)
         {
-            var score = SimilarityScorer.Score(seedFeatures, candidate.Features, weights, genreWeights).Score;
+            var score = SimilarityScorer.Score(
+                seedFeatures,
+                candidate.Features,
+                options,
+                genreWeights,
+                keywordCounts).Score;
             ranked.Add((candidate.MovieId, score));
         }
 

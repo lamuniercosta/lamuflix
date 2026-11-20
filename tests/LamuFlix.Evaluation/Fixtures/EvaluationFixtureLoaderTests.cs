@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace LamuFlix.Evaluation.Fixtures;
 
@@ -22,7 +22,7 @@ public sealed class EvaluationFixtureLoaderTests
             f => f.FixtureId.ShouldBe("baseline"),
             f => f.RankingInputs.Lambda.ShouldBe(0.7),
             f => f.RankingInputs.SimilarityWeights.Director.ShouldBe(3.0),
-            f => f.RankingInputs.SimilarityWeights.RatingBoost.ShouldBe(0.5),
+            f => f.RankingInputs.SimilarityWeights.Genres.ShouldBe(3.0),
             f => f.Catalog.Length.ShouldBe(2),
             f => f.Events.Length.ShouldBe(2));
     }

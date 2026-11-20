@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -14,16 +14,17 @@ public sealed class MmrSelectorPropertyTests
 {
     private static readonly string[] GenreTokens = ["Drama", "Comedy", "Noir", "Sci-Fi", "Doc"];
 
-    private static SimilarityWeights Weights => new()
+    private static RecommendationOptions Options => new()
     {
-        Director = 1.0,
-        Writers = 0.0,
-        Cast = 0.75,
-        Genres = 1.5,
-        YearProximity = 0.0,
-        RuntimeProximity = 0.0,
-        RatingBoost = 0.0,
+        Weights = new SimilarityWeights
+        {
+            Director = 1.0,
+            Cast = 0.75,
+            Genres = 1.5,
+        },
     };
+
+    private static KeywordCounts Counts => new(0, new Dictionary<string, long>());
 
     private static GenreWeights GenreTable => GenreWeights.Calculate(
         new GenreCounts(
@@ -49,7 +50,7 @@ public sealed class MmrSelectorPropertyTests
         var take = Take(takeSeed, pool.Count);
 
         // act
-        var result = MmrSelector.Select(pool, take, 0.7, Weights, GenreTable);
+        var result = MmrSelector.Select(pool, take, 0.7, Options, GenreTable, Counts);
 
         // assert
         return result.Count == Math.Min(take, pool.Count);
@@ -68,7 +69,7 @@ public sealed class MmrSelectorPropertyTests
         var take = Take(takeSeed, pool.Count);
 
         // act
-        var result = MmrSelector.Select(pool, take, 0.7, Weights, GenreTable);
+        var result = MmrSelector.Select(pool, take, 0.7, Options, GenreTable, Counts);
 
         // assert
         return result.Distinct().Count() == result.Count
@@ -89,8 +90,8 @@ public sealed class MmrSelectorPropertyTests
         var lambda = Lambda(lambdaSeed);
 
         // act
-        var first = MmrSelector.Select(pool, take, lambda, Weights, GenreTable);
-        var second = MmrSelector.Select(pool, take, lambda, Weights, GenreTable);
+        var first = MmrSelector.Select(pool, take, lambda, Options, GenreTable, Counts);
+        var second = MmrSelector.Select(pool, take, lambda, Options, GenreTable, Counts);
 
         // assert
         return first.SequenceEqual(second);
@@ -122,9 +123,9 @@ public sealed class MmrSelectorPropertyTests
         }
 
         // act
-        var forward = MmrSelector.Select(pool, take, lambda, Weights, GenreTable);
-        var reverseResult = MmrSelector.Select(reversed, take, lambda, Weights, GenreTable);
-        var rotatedResult = MmrSelector.Select(rotated, take, lambda, Weights, GenreTable);
+        var forward = MmrSelector.Select(pool, take, lambda, Options, GenreTable, Counts);
+        var reverseResult = MmrSelector.Select(reversed, take, lambda, Options, GenreTable, Counts);
+        var rotatedResult = MmrSelector.Select(rotated, take, lambda, Options, GenreTable, Counts);
 
         // assert
         return forward.SequenceEqual(reverseResult) && forward.SequenceEqual(rotatedResult);
@@ -147,7 +148,7 @@ public sealed class MmrSelectorPropertyTests
             .ToArray();
 
         // act
-        var result = MmrSelector.Select(equalPool, take, 0.7, Weights, GenreTable);
+        var result = MmrSelector.Select(equalPool, take, 0.7, Options, GenreTable, Counts);
 
         // assert
         return result.SequenceEqual(expected);
@@ -167,8 +168,8 @@ public sealed class MmrSelectorPropertyTests
         var lambda = Lambda(lambdaSeed);
 
         // act
-        var actual = MmrSelector.Select(pool, take, lambda, Weights, GenreTable);
-        var expected = FullRescanReference(pool, take, lambda, Weights, GenreTable);
+        var actual = MmrSelector.Select(pool, take, lambda, Options, GenreTable, Counts);
+        var expected = FullRescanReference(pool, take, lambda, Options, GenreTable);
 
         // assert
         return actual.SequenceEqual(expected);
@@ -188,11 +189,11 @@ public sealed class MmrSelectorPropertyTests
         var lambda = Lambda(lambdaSeed);
         var shorterTake = Take(firstTakeSeed, pool.Count);
         var longerTake = shorterTake + Take(secondTakeSeed, pool.Count) + (secondTakeSeed & 1);
-        var full = MmrSelector.Select(pool, longerTake, lambda, Weights, GenreTable);
+        var full = MmrSelector.Select(pool, longerTake, lambda, Options, GenreTable, Counts);
         var expectedPrefix = full.Take(Math.Min(shorterTake, pool.Count)).ToArray();
 
         // act
-        var shorter = MmrSelector.Select(pool, shorterTake, lambda, Weights, GenreTable);
+        var shorter = MmrSelector.Select(pool, shorterTake, lambda, Options, GenreTable, Counts);
 
         // assert
         return shorter.SequenceEqual(expectedPrefix);
@@ -252,7 +253,7 @@ public sealed class MmrSelectorPropertyTests
         IReadOnlyList<MmrCandidate> candidates,
         int take,
         double lambda,
-        SimilarityWeights weights,
+        RecommendationOptions options,
         GenreWeights genreWeights)
     {
         var count = Math.Min(take, candidates.Count);
@@ -261,7 +262,7 @@ public sealed class MmrSelectorPropertyTests
 
         for (var step = 0; step < count; step++)
         {
-            var bestIndex = FindBestUnselected(candidates, selected, lambda, weights, genreWeights);
+            var bestIndex = FindBestUnselected(candidates, selected, lambda, options, genreWeights);
             selected.Add(bestIndex);
             builder.Add(candidates[bestIndex].MovieId);
         }
@@ -273,7 +274,7 @@ public sealed class MmrSelectorPropertyTests
         IReadOnlyList<MmrCandidate> candidates,
         List<int> selected,
         double lambda,
-        SimilarityWeights weights,
+        RecommendationOptions options,
         GenreWeights genreWeights)
     {
         var bestIndex = -1;
@@ -286,7 +287,7 @@ public sealed class MmrSelectorPropertyTests
                 continue;
             }
 
-            var objective = ReferenceObjective(candidates, index, selected, lambda, weights, genreWeights);
+            var objective = ReferenceObjective(candidates, index, selected, lambda, options, genreWeights);
 
             if (bestIndex >= 0 && !IsBetter(candidates[index], objective, candidates[bestIndex], bestObjective))
             {
@@ -305,16 +306,16 @@ public sealed class MmrSelectorPropertyTests
         int index,
         List<int> selected,
         double lambda,
-        SimilarityWeights weights,
+        RecommendationOptions options,
         GenreWeights genreWeights) =>
         (lambda * candidates[index].Relevance)
-            - ((1.0 - lambda) * MaximumSimilarity(candidates, index, selected, weights, genreWeights));
+            - ((1.0 - lambda) * MaximumSimilarity(candidates, index, selected, options, genreWeights));
 
     private static double MaximumSimilarity(
         IReadOnlyList<MmrCandidate> candidates,
         int index,
         List<int> selected,
-        SimilarityWeights weights,
+        RecommendationOptions options,
         GenreWeights genreWeights)
     {
         var maximumSimilarity = 0.0;
@@ -324,8 +325,9 @@ public sealed class MmrSelectorPropertyTests
             var similarity = SimilarityScorer.Score(
                 candidates[index].Features,
                 candidates[selectedIndex].Features,
-                weights,
-                genreWeights).Score;
+                options,
+                genreWeights,
+                Counts).Score;
 
             if (similarity > maximumSimilarity)
             {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using LamuFlix.Core.Domain;
@@ -17,21 +17,21 @@ public sealed class MmrSelectorTests
     {
         // act
         // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
-        var failure = Should.Throw<ArgumentNullException>(() => MmrSelector.Select(null!, 1, 0.7, Only(), GenreTable()));
+        var failure = Should.Throw<ArgumentNullException>(() => MmrSelector.Select(null!, 1, 0.7, Options(), GenreTable(), Counts()));
 
         // assert
         failure.ParamName.ShouldBe("candidates");
     }
 
     [Fact]
-    public void Select_NullWeights_ThrowsArgumentNullException()
+    public void Select_NullOptions_ThrowsArgumentNullException()
     {
         // act
         // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
-        var failure = Should.Throw<ArgumentNullException>(() => MmrSelector.Select(Pool(Candidate(1)), 1, 0.7, null!, GenreTable()));
+        var failure = Should.Throw<ArgumentNullException>(() => MmrSelector.Select(Pool(Candidate(1)), 1, 0.7, null!, GenreTable(), Counts()));
 
         // assert
-        failure.ParamName.ShouldBe("weights");
+        failure.ParamName.ShouldBe("options");
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public sealed class MmrSelectorTests
     {
         // act
         // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
-        var failure = Should.Throw<ArgumentNullException>(() => MmrSelector.Select(Pool(Candidate(1)), 1, 0.7, Only(), null!));
+        var failure = Should.Throw<ArgumentNullException>(() => MmrSelector.Select(Pool(Candidate(1)), 1, 0.7, Options(), null!, Counts()));
 
         // assert
         failure.ParamName.ShouldBe("genreWeights");
@@ -53,7 +53,7 @@ public sealed class MmrSelectorTests
         var candidates = new List<MmrCandidate> { Candidate(1), null! };
 
         // act
-        var failure = Should.Throw<ArgumentException>(() => MmrSelector.Select(candidates, 1, 0.7, Only(), GenreTable()));
+        var failure = Should.Throw<ArgumentException>(() => MmrSelector.Select(candidates, 1, 0.7, Options(), GenreTable(), Counts()));
 
         // assert
         failure.ParamName.ShouldBe("candidates");
@@ -67,7 +67,7 @@ public sealed class MmrSelectorTests
         var candidates = Pool(new MmrCandidate(null!, 0.5, Features()));
 
         // act
-        var failure = Should.Throw<ArgumentException>(() => MmrSelector.Select(candidates, 1, 0.7, Only(), GenreTable()));
+        var failure = Should.Throw<ArgumentException>(() => MmrSelector.Select(candidates, 1, 0.7, Options(), GenreTable(), Counts()));
 
         // assert
         failure.ParamName.ShouldBe("candidates");
@@ -81,7 +81,7 @@ public sealed class MmrSelectorTests
         var candidates = Pool(new MmrCandidate(new MovieId(1), 0.5, null!));
 
         // act
-        var failure = Should.Throw<ArgumentException>(() => MmrSelector.Select(candidates, 1, 0.7, Only(), GenreTable()));
+        var failure = Should.Throw<ArgumentException>(() => MmrSelector.Select(candidates, 1, 0.7, Options(), GenreTable(), Counts()));
 
         // assert
         failure.ParamName.ShouldBe("candidates");
@@ -94,7 +94,7 @@ public sealed class MmrSelectorTests
         var candidates = Pool(Candidate(7), Candidate(7, relevance: 0.4));
 
         // act
-        var failure = Should.Throw<ArgumentException>(() => MmrSelector.Select(candidates, 2, 0.7, Only(), GenreTable()));
+        var failure = Should.Throw<ArgumentException>(() => MmrSelector.Select(candidates, 2, 0.7, Options(), GenreTable(), Counts()));
 
         // assert
         failure.ParamName.ShouldBe("candidates");
@@ -104,7 +104,7 @@ public sealed class MmrSelectorTests
     public void Select_NegativeTake_ThrowsArgumentOutOfRangeException()
     {
         // act
-        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(Pool(Candidate(1)), -1, 0.7, Only(), GenreTable()));
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(Pool(Candidate(1)), -1, 0.7, Options(), GenreTable(), Counts()));
 
         // assert
         failure.ParamName.ShouldBe("take");
@@ -119,7 +119,7 @@ public sealed class MmrSelectorTests
     public void Select_InvalidLambda_ThrowsArgumentOutOfRangeException(double lambda)
     {
         // act
-        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(Pool(Candidate(1)), 1, lambda, Only(), GenreTable()));
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(Pool(Candidate(1)), 1, lambda, Options(), GenreTable(), Counts()));
 
         // assert
         failure.ParamName.ShouldBe("lambda");
@@ -136,31 +136,30 @@ public sealed class MmrSelectorTests
         var candidates = Pool(new MmrCandidate(new MovieId(1), relevance, Features()));
 
         // act
-        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(candidates, 1, 0.7, Only(), GenreTable()));
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(candidates, 1, 0.7, Options(), GenreTable(), Counts()));
 
         // assert
         failure.ParamName.ShouldBe("candidates");
     }
 
     [Fact]
-    public void Select_InvalidWeightOnAnyOfSevenFields_ThrowsArgumentOutOfRangeException()
+    public void Select_InvalidWeightOnAnyOfSixFields_ThrowsArgumentOutOfRangeException()
     {
         // arrange
         SimilarityWeights[] weights =
         [
-            new() { Director = -1.0 },
-            new() { Writers = double.NaN },
+            new() { Collection = -1.0 },
+            new() { Director = double.NaN },
+            new() { Themes = -0.25 },
+            new() { Plot = double.NaN },
             new() { Cast = double.PositiveInfinity },
             new() { Genres = double.NegativeInfinity },
-            new() { YearProximity = -0.25 },
-            new() { RuntimeProximity = double.NaN },
-            new() { RatingBoost = double.PositiveInfinity },
         ];
 
         // act / assert
         foreach (var invalid in weights)
         {
-            var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(Pool(Candidate(1)), 1, 0.7, invalid, GenreTable()));
+            var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(Pool(Candidate(1)), 1, 0.7, new RecommendationOptions { Weights = invalid }, GenreTable(), Counts()));
             failure.ParamName.ShouldBe("weights");
         }
     }
@@ -172,7 +171,7 @@ public sealed class MmrSelectorTests
         var weights = new SimilarityWeights { Genres = -1.0 };
 
         // act
-        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(Pool(), 1, 0.7, weights, GenreTable()));
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(Pool(), 1, 0.7, new RecommendationOptions { Weights = weights }, GenreTable(), Counts()));
 
         // assert
         failure.ParamName.ShouldBe("weights");
@@ -185,7 +184,7 @@ public sealed class MmrSelectorTests
         var weights = new SimilarityWeights { Director = double.NaN };
 
         // act
-        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(Pool(Candidate(1)), 0, 0.7, weights, GenreTable()));
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(Pool(Candidate(1)), 0, 0.7, new RecommendationOptions { Weights = weights }, GenreTable(), Counts()));
 
         // assert
         failure.ParamName.ShouldBe("weights");
@@ -195,7 +194,7 @@ public sealed class MmrSelectorTests
     public void Select_ValidEmptyPool_ReturnsEmpty()
     {
         // act
-        var result = MmrSelector.Select(Pool(), 5, 0.7, Only(), GenreTable());
+        var result = MmrSelector.Select(Pool(), 5, 0.7, Options(), GenreTable(), Counts());
 
         // assert
         result.ShouldBeEmpty();
@@ -205,7 +204,7 @@ public sealed class MmrSelectorTests
     public void Select_ZeroTake_ReturnsEmpty()
     {
         // act
-        var result = MmrSelector.Select(Pool(Candidate(1), Candidate(2)), 0, 0.7, Only(), GenreTable());
+        var result = MmrSelector.Select(Pool(Candidate(1), Candidate(2)), 0, 0.7, Options(), GenreTable(), Counts());
 
         // assert
         result.ShouldBeEmpty();
@@ -219,7 +218,7 @@ public sealed class MmrSelectorTests
         var expected = new[] { new MovieId(3), new MovieId(1), new MovieId(2) };
 
         // act
-        var result = MmrSelector.Select(candidates, 10, 0.7, Only(), GenreTable());
+        var result = MmrSelector.Select(candidates, 10, 0.7, Options(), GenreTable(), Counts());
 
         // assert
         result.Count.ShouldBe(3);
@@ -233,7 +232,7 @@ public sealed class MmrSelectorTests
         var candidates = Pool(Candidate(1, relevance: 2.5));
 
         // act
-        var result = MmrSelector.Select(candidates, 1, 0.7, Only(), GenreTable());
+        var result = MmrSelector.Select(candidates, 1, 0.7, Options(), GenreTable(), Counts());
 
         // assert
         result.ShouldBe([new MovieId(1)]);
@@ -247,7 +246,7 @@ public sealed class MmrSelectorTests
         var before = candidates.ToArray();
 
         // act
-        MmrSelector.Select(candidates, 2, 0.7, Only(genres: 1.0), GenreTable());
+        MmrSelector.Select(candidates, 2, 0.7, Options(genres: 1.0), GenreTable(), Counts());
 
         // assert
         candidates.ShouldBe(before);
@@ -259,17 +258,17 @@ public sealed class MmrSelectorTests
         // arrange
         var features = Features(genres: ["Drama"]);
         var candidates = Pool(new MmrCandidate(new MovieId(1), 0.5, features));
-        var weights = Only(genres: 1.0);
+        var weights = Options(genres: 1.0);
         var genreWeights = GenreTable();
         var dramaWeight = genreWeights.GetWeight("Drama");
 
         // act
-        MmrSelector.Select(candidates, 1, 0.7, weights, genreWeights);
+        MmrSelector.Select(candidates, 1, 0.7, weights, genreWeights, Counts());
 
         // assert
         candidates[0].Features.ShouldBeSameAs(features);
         candidates[0].Features.ShouldBe(features);
-        weights.ShouldBe(Only(genres: 1.0));
+        weights.ShouldBe(Options(genres: 1.0));
         genreWeights.GetWeight("Drama").ShouldBe(dramaWeight);
     }
 
@@ -278,12 +277,12 @@ public sealed class MmrSelectorTests
     {
         // arrange
         var candidates = Pool(Candidate(1, 0.9), Candidate(2, 0.8), Candidate(3, 0.7));
-        var first = MmrSelector.Select(candidates, 2, 0.7, Only(), GenreTable());
+        var first = MmrSelector.Select(candidates, 2, 0.7, Options(), GenreTable(), Counts());
         var firstSnapshot = first.ToArray();
 
         // act
-        var second = MmrSelector.Select(candidates, 1, 0.2, Only(), GenreTable());
-        var repeated = MmrSelector.Select(candidates, 2, 0.7, Only(), GenreTable());
+        var second = MmrSelector.Select(candidates, 1, 0.2, Options(), GenreTable(), Counts());
+        var repeated = MmrSelector.Select(candidates, 2, 0.7, Options(), GenreTable(), Counts());
 
         // assert
         second.ShouldBe([new MovieId(1)]);
@@ -302,7 +301,7 @@ public sealed class MmrSelectorTests
             Candidate(4, relevance: 0.2));
 
         // act
-        var result = MmrSelector.Select(candidates, 4, 1.0, Only(genres: 1.0), GenreTable());
+        var result = MmrSelector.Select(candidates, 4, 1.0, Options(genres: 1.0), GenreTable(), Counts());
 
         // assert
         result.ShouldBe([new MovieId(1), new MovieId(2), new MovieId(3), new MovieId(4)]);
@@ -319,7 +318,7 @@ public sealed class MmrSelectorTests
             Candidate(4, genres: ["B"]));
 
         // act
-        var result = MmrSelector.Select(candidates, 4, 0.0, Only(genres: 1.0), UniformGenres());
+        var result = MmrSelector.Select(candidates, 4, 0.0, Options(genres: 1.0), UniformGenres(), Counts());
 
         // assert
         result.ShouldBe([new MovieId(1), new MovieId(3), new MovieId(2), new MovieId(4)]);
@@ -342,7 +341,7 @@ public sealed class MmrSelectorTests
         foreach (var permutation in permutations)
         {
             var candidates = Pool([.. permutation.Select(id => Candidate(id, relevance: 0.5, genres: ["Shared"]))]);
-            var result = MmrSelector.Select(candidates, 4, 0.7, Only(genres: 1.0), UniformGenres());
+            var result = MmrSelector.Select(candidates, 4, 0.7, Options(genres: 1.0), UniformGenres(), Counts());
             result.ShouldBe(expected);
         }
     }
@@ -357,7 +356,7 @@ public sealed class MmrSelectorTests
             Candidate(3, genres: ["B"]));
 
         // act
-        var result = MmrSelector.Select(candidates, 3, 0.0, Only(), UniformGenres());
+        var result = MmrSelector.Select(candidates, 3, 0.0, Options(), UniformGenres(), Counts());
 
         // assert
         result.ShouldBe([new MovieId(1), new MovieId(3), new MovieId(2)]);
@@ -373,7 +372,7 @@ public sealed class MmrSelectorTests
             Candidate(3, genres: ["B"]));
 
         // act
-        var result = MmrSelector.Select(candidates, 3, 0.0, Only(genres: 1.0), UniformGenres());
+        var result = MmrSelector.Select(candidates, 3, 0.0, Options(genres: 1.0), UniformGenres(), Counts());
 
         // assert
         result.ShouldBe([new MovieId(1), new MovieId(2), new MovieId(3)]);
@@ -390,7 +389,7 @@ public sealed class MmrSelectorTests
             Candidate(4, genres: ["b", "c", "d"]));
 
         // act
-        var result = MmrSelector.Select(candidates, 4, 0.0, Only(genres: 1.0), UniformGenres());
+        var result = MmrSelector.Select(candidates, 4, 0.0, Options(genres: 1.0), UniformGenres(), Counts());
 
         // assert
         result.ShouldBe([new MovieId(1), new MovieId(2), new MovieId(4), new MovieId(3)]);
@@ -406,7 +405,8 @@ public sealed class MmrSelectorTests
             new MmrCandidate(new MovieId(4), 0.7, Features(collectionId: 7), new MovieId(91)),
             new MmrCandidate(new MovieId(5), 0.6, Features()));
 
-        var result = MmrSelector.Select(candidates, 5, 1.0, Only(), UniformGenres(), 1, 1);
+        var options = new RecommendationOptions { MaxPerBestSeed = 1, MaxPerCollection = 1 };
+        var result = MmrSelector.Select(candidates, 5, 1.0, options, UniformGenres(), Counts());
 
         result.ShouldBe([new MovieId(1), new MovieId(3), new MovieId(5)]);
     }
@@ -419,7 +419,8 @@ public sealed class MmrSelectorTests
             new MmrCandidate(new MovieId(2), 1.0, Features(), new MovieId(90)),
             new MmrCandidate(new MovieId(3), 0.5, Features(), new MovieId(91)));
 
-        var result = MmrSelector.Select(candidates, 2, 1.0, Only(), UniformGenres(), 1, 1);
+        var options = new RecommendationOptions { MaxPerBestSeed = 1, MaxPerCollection = 1 };
+        var result = MmrSelector.Select(candidates, 2, 1.0, options, UniformGenres(), Counts());
 
         result.ShouldBe([new MovieId(2), new MovieId(3)]);
     }
@@ -434,14 +435,14 @@ public sealed class MmrSelectorTests
             Candidate(7, relevance: 0.6, genres: ["C"]),
             Candidate(1, relevance: 0.8, genres: ["B"]),
             Candidate(9, relevance: 0.7, genres: ["A", "C"]));
-        var weights = Only(genres: 1.0);
+        var weights = Options(genres: 1.0);
         var genreWeights = UniformGenres();
-        var full = MmrSelector.Select(candidates, 10, 0.7, weights, genreWeights);
+        var full = MmrSelector.Select(candidates, 10, 0.7, weights, genreWeights, Counts());
 
         // act / assert
         foreach (var take in new[] { 0, 1, 2, 3, 4 })
         {
-            var shorter = MmrSelector.Select(candidates, take, 0.7, weights, genreWeights);
+            var shorter = MmrSelector.Select(candidates, take, 0.7, weights, genreWeights, Counts());
             shorter.ToArray().ShouldBe([.. full.Take(Math.Min(take, candidates.Count))]);
         }
     }
@@ -454,24 +455,27 @@ public sealed class MmrSelectorTests
         IEnumerable<string>? genres = null) =>
         new(new MovieId(id), relevance, Features(genres: genres));
 
-    private static SimilarityWeights Only(
+    private static RecommendationOptions Options(
         double director = 0.0,
-        double writers = 0.0,
+        double themes = 0.0,
+        double plot = 0.0,
         double cast = 0.0,
         double genres = 0.0,
-        double year = 0.0,
-        double runtime = 0.0,
-        double rating = 0.0) =>
+        double collection = 0.0) =>
         new()
         {
-            Director = director,
-            Writers = writers,
-            Cast = cast,
-            Genres = genres,
-            YearProximity = year,
-            RuntimeProximity = runtime,
-            RatingBoost = rating,
+            Weights = new SimilarityWeights
+            {
+                Collection = collection,
+                Director = director,
+                Themes = themes,
+                Plot = plot,
+                Cast = cast,
+                Genres = genres,
+            },
         };
+
+    private static KeywordCounts Counts() => new(10, new Dictionary<string, long> { ["Drama"] = 5, ["Comedy"] = 5 });
 
     private static GenreWeights GenreTable() =>
         GenreWeights.Calculate(
