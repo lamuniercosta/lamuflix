@@ -115,3 +115,14 @@ Confirmed — cap the fix and review loop at two rounds (remediation plus verifi
 - [Spec PR #450](https://github.com/lamuniercosta/lamuflix/pull/450) merged into `main` on 2026-11-19 at 17:17:09 UTC. GitHub reports merge commit `18e012145a9a8b2f1a3c00b1437611870b5a2433`.
 - Phase A base `1ac83297c1ba8ffc936987e8b198ce8dc612b01a` is an ancestor of the spec merge commit. The merge commit is an ancestor of the `feature/DEV-543` pickup HEAD `34c10f3e`.
 - T000 complete. T001 is the next checkpoint.
+
+---
+
+## Phase 1 T001 — Upstream dependency checkpoint ruling
+
+**Verdict**: STOP Phase 1 T001 and hold DEV-543 Build (`awaiting-merge` on DEV-518 PR #455 and DEV-544).
+
+- `specs/DEV-543/tasks.md:57-59` requires T001 to confirm DEV-518, DEV-544, and DEV-510 are merged into `main`, pin the landed DEV-544 library feature load and shared strong-match options contract, complete the Wanted 11 caller inventory against landed consumers, and STOP if prerequisites are unmerged.
+- `specs/DEV-543/EVIDENCE.md:11-18` and note `DEV-543:41-44` verify that DEV-518 (`feature/DEV-518` at `b00b9af5`, PR #455 open) and DEV-544 (implementation not started/merged) are not on `origin/main` (`34c10f3e`), so the DEV-544 pool/strong-match symbols and `docs/adr/0047-for-you-nearest-seeds.md` draft are absent at pickup HEAD (`2080d59f`).
+- Resume DEV-543 Phase 1 T001 on a rebased `feature/DEV-543` worktree only after both DEV-518 (#455) and DEV-544 merge into `main` (and Keel lands the Proposed ADR 0047 draft for T001/T017–T019 per `specs/DEV-543/tasks.md:50,59,131`).
+
