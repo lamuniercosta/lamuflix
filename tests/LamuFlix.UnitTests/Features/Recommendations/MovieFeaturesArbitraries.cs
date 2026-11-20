@@ -153,7 +153,7 @@ public static class MovieFeaturesArbitraries
         from directors in SharedAndAdded(source.Directors)
         from cast in SharedAndAdded(source.Cast)
         from keywordNames in SharedAndAddedKeywords(source.KeywordNames)
-        from collection in Gen.OneOf(Gen.Constant(source.CollectionId), Collection().Select(value => (int?)value))
+        from collection in Gen.OneOf(Gen.Constant(source.CollectionId), Collection())
         select new MovieFeatures(
             genres,
             directors,
@@ -216,7 +216,7 @@ public static class MovieFeaturesArbitraries
     private static Gen<SimilarityWeights> WeightFamily(int family) =>
         family switch
         {
-            0 => Gen.Constant(FromVector(SinglePositiveVector(PositiveMod((family * 7) + 3, 6)))),
+            0 => Gen.Constant(FromVector(SinglePositiveVector(PositiveMod(3, 6)))),
             1 => Gen.Constant(new SimilarityWeights()),
             2 => Gen.Constant(FromVector([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])),
             3 => MixedWeights(),
