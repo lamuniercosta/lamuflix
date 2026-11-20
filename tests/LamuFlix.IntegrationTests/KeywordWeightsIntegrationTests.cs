@@ -43,7 +43,9 @@ public sealed class KeywordWeightsIntegrationTests(PostgresFixture fixture, ITes
         var counts = await new EfMovieCatalog(db).GetKeywordCountsAsync(ct);
 
         counts.TotalMovies.ShouldBe(3);
-        counts.MoviesWithKeyword.ShouldBe(new Dictionary<string, long> { ["Drama"] = 2, ["Mystery"] = 1 });
+        counts.MoviesWithKeyword.Count.ShouldBe(2);
+        counts.MoviesWithKeyword["Drama"].ShouldBe(2L);
+        counts.MoviesWithKeyword["Mystery"].ShouldBe(1L);
     }
 
     [Fact]

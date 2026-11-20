@@ -352,6 +352,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
                 new("ConnectionStrings:DefaultConnection", postgres.ConnectionString),
                 new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}", stub.Urls[0]),
                 new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}", "telemetry-key"),
+                new($"{TmdbOptions.SectionName}:{nameof(TmdbOptions.Enabled)}", "false"),
                 new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}", rabbitMq.Options.HostName),
                 new(
                     $"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.Port)}",
