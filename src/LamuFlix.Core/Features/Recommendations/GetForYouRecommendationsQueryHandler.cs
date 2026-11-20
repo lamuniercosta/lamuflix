@@ -78,7 +78,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
         var relevanceOffset = BlendScorer.NonNegativeOffset(scored.Select(item => item.Result.Score));
         var take = Math.Min(query.Take, recommendationOptions.CandidatePoolSize);
         var selectionLimit = (int)Math.Min(
-            (long)scored.Count,
+            scored.Count,
             (long)query.Offset + take + 1);
         var selectedIds = MmrSelector.Select(
             [.. scored.Select(item => new MmrCandidate(
@@ -250,8 +250,8 @@ public sealed class GetForYouRecommendationsQueryHandler(
     {
         var retained = new HashSet<MovieId>();
         foreach (var group in candidates
-                     .Where(candidate => candidate.Features.CollectionId is not null)
-                     .GroupBy(candidate => candidate.Features.CollectionId!.Value))
+                     .GroupBy(candidate => candidate.Features.CollectionId)
+                     .Where(group => group.Key.HasValue))
         {
             foreach (var candidate in group
                          .OrderBy(candidate => candidate.Features.ReleaseYear is null)
