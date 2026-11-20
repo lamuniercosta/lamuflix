@@ -124,6 +124,13 @@ Ordering per brief and Q2: **Gate 1 → T001 → T002–T004 → T005–T007**. 
 
 **Checkpoint**: Ticket Done-when evidence for runtime retest, PR screenshot with both regression receipts, and hosted E2E is present.
 
+**T008 receipt, partial (owner session, 2026-11-20, `c75a03a8`)**: The owner chose to record a partial result. T008 stays open until the apply leg passes against the real provider.
+- Setup: API in Development on `http://localhost:5000` and the Vite dev server, against the real OpenSubtitles API with the owner's dev key. No `src/` or `web/src` change has landed since `c75a03a8`, so the result holds for the current head. Movie: "13 Going On 30" (2004).
+- Search leg passed. `GET /api/movies/1/subtitles/search` returned 200 at 14:53:07 (UTC-3) and again at 14:55:50. The Subtitles panel listed Portuguese (Brazil) candidates with Get buttons. The T001 error surface (search `502 provider_unavailable`, "The subtitle provider is unavailable.") cleared. The quota line read "Downloads left: unavailable", which matches search quota `Unknown`.
+- Apply leg blocked upstream. At 14:53:28 the app's single `POST /api/movies/1/subtitles/download` got `503` from OpenSubtitles `/download` (Cloudflare "Error 503" HTML page). The app returned `502` problem+json, and the UI showed "The subtitle provider is unavailable." Over the next 3 minutes, four direct probes outside LamuFlix (chunked body, Content-Length body, and two control runs with a second candidate) made 6 `/download` POSTs; all returned 503, while search returned 200.
+- Open question for the retry: in both control runs, `GET /infos/user` returned 401 with this key. So the 503 may be an outage, or this key may need a user login token for downloads. The retest does not settle which, and it does not rule an adapter fault in or out.
+- Side findings, out of scope: OMDb returned 401 during the import ("The metadata provider rejected the API key with HTTP 401"), most likely because the new dev key is not activated yet. The API logs the deliberate 503-to-502 mapping as "An unhandled exception".
+
 ---
 
 ## Phase 5: Gates and capped three-axis review
