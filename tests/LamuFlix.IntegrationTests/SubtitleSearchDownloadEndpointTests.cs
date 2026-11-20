@@ -20,7 +20,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Shouldly;
-using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using Xunit;
 
@@ -38,7 +37,6 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
     private const string NoStoreDirective = "no-store";
     private const string ReasonExtension = "reason";
     private const string SentinelKey = "sentinel-subtitle-key";
-    private const string SearchPath = "/api/v1/subtitles";
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
     private readonly ISubtitleProvider provider = Substitute.For<ISubtitleProvider>();
@@ -446,12 +444,11 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
         using var library = new TemporaryLibrary();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
-        using var stub = LoopbackWireMock.StartHttps();
-        stub.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(429).WithHeader("Retry-After", "12"));
+        using var emulator = new OpenSubtitlesEmulator("unused-key");
+        emulator.OverrideSearch(Response.Create().WithStatusCode(429).WithHeader("Retry-After", "12"));
         await using var host = CreateHost(
             library.Root,
-            ProviderSettings(stub.Urls[0]),
+            ProviderSettings(emulator.BaseUrl),
             providerStub: false);
         using var client = host.CreateClient();
 
@@ -460,7 +457,7 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
 
         // assert
         await AssertProblemAsync(response, HttpStatusCode.TooManyRequests, "search_rate_limited", library.Root);
-        stub.LogEntries.Count.ShouldBeGreaterThan(0);
+        emulator.Api.LogEntries.Count.ShouldBeGreaterThan(0);
     }
 
     [Fact]
