@@ -82,7 +82,7 @@ public sealed class SimilarityScorerTests
 
         // act
         // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
-        var failure = Should.Throw<ArgumentNullException>(() => SimilarityScorer.Score(movie, movie, Options(), GenreTable(), null!));
+        var failure = Should.Throw<ArgumentNullException>(() => SimilarityScorer.Score(movie, movie, Options(), GenreTable(), (KeywordCounts)null!));
 
         // assert
         failure.ParamName.ShouldBe("keywordCounts");

@@ -55,10 +55,15 @@ public sealed class GetRecommendationsQueryHandler(
         cancellationToken.ThrowIfCancellationRequested();
 
         var profileInputs = await profileSource.GetProfileInputsAsync(
-            [.. eligible.Select(candidate => candidate.Movie.Id)],
+            [query.MovieId, .. eligible.Select(candidate => candidate.Movie.Id)],
             [.. profile.LikedSources.Select(source => source.MovieId)],
             cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
+
+        selectedFeatures = MovieFeaturesMapper.From(
+            selected,
+            includeSignals: true,
+            plotEmbedding: profileInputs.CandidateEmbeddings.GetValueOrDefault(query.MovieId, ImmutableArray<float>.Empty));
 
         var recommendationOptions = options.Value;
         var scored = Score(
@@ -137,22 +142,23 @@ public sealed class GetRecommendationsQueryHandler(
     {
         var scored = new List<ScoredCandidate>(pool.Count);
         var candidateEmbeddings = profileInputs.CandidateEmbeddings;
+        var keywordWeights = SimilarityScorer.PrepareKeywordWeights(options, keywordCounts);
 
         foreach (var candidate in pool)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var features = MovieFeaturesMapper.From(candidate.Movie, includeSignals: true);
-            var genres = RecommendationScoring.Genres(features);
             var embedding = candidateEmbeddings.GetValueOrDefault(
                 candidate.Movie.Id,
                 ImmutableArray<float>.Empty);
+            var features = MovieFeaturesMapper.From(candidate.Movie, includeSignals: true, plotEmbedding: embedding);
+            var genres = RecommendationScoring.Genres(features);
             var similarity = SimilarityScorer.Score(
                 selectedFeatures,
                 features,
                 options,
                 genreWeights,
-                keywordCounts);
+                keywordWeights);
 
             var profileSimilarity = ProfileSimilarityCalculator.Evaluate(
                 genres,

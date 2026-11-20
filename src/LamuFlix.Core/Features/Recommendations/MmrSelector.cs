@@ -34,7 +34,12 @@ public static class MmrSelector
             return ImmutableList<MovieId>.Empty;
         }
 
-        return SelectOrdered(candidates, Math.Min(take, candidates.Count), lambda, options, genreWeights, keywordCounts);
+        var count = Math.Min(take, candidates.Count);
+        var keywordWeights = count > 1
+            ? SimilarityScorer.PrepareKeywordWeights(options, keywordCounts)
+            : new Dictionary<string, double>();
+
+        return SelectOrdered(candidates, count, lambda, options, genreWeights, keywordWeights);
     }
 
     private static ImmutableList<MovieId> SelectOrdered(
@@ -43,7 +48,7 @@ public static class MmrSelector
         double lambda,
         RecommendationOptions options,
         GenreWeights genreWeights,
-        KeywordCounts keywordCounts)
+        IReadOnlyDictionary<string, double> keywordWeights)
     {
         var selected = new bool[candidates.Count];
         var maximumRedundancy = new double[candidates.Count];
@@ -86,7 +91,7 @@ public static class MmrSelector
                 selectedFeatures,
                 options,
                 genreWeights,
-                keywordCounts);
+                keywordWeights);
         }
 
         return builder.ToImmutable();
@@ -174,7 +179,7 @@ public static class MmrSelector
         List<MovieFeatures> selectedFeatures,
         RecommendationOptions options,
         GenreWeights genreWeights,
-        KeywordCounts keywordCounts)
+        IReadOnlyDictionary<string, double> keywordWeights)
     {
         var newest = selectedFeatures[^1];
 
@@ -190,7 +195,7 @@ public static class MmrSelector
                 newest,
                 options,
                 genreWeights,
-                keywordCounts).Score;
+                keywordWeights).Score;
             if (similarity > maximumRedundancy[index])
             {
                 maximumRedundancy[index] = similarity;
