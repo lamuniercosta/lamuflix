@@ -701,6 +701,159 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         await Should.ThrowAsync<OperationCanceledException>(act);
     }
 
+    [Fact]
+    public async Task LiveRelated_SharedDirectorCandidateWithoutFeatureRow_IsAdmittedBelowTheBarOnDirectorAlone()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            DirectedRecord(1, "Selected", director: "Shared Director", genre: "Drama"),
+            DirectedRecord(2, "Director only", director: "Shared Director", genre: "Thriller"));
+        await SeedVectorsAsync(ct, (1, UnitVector()));
+        var options = new RecommendationOptions();
+        await using var db = fixture.CreateMigratedContext();
+        var catalog = new EfMovieCatalog(db);
+        var library = await Source(db).GetLibraryFeaturesAsync(ct);
+        var selected = library.Single(entry => entry.Id == new MovieId(1));
+        var candidate = library.Single(entry => entry.Id == new MovieId(2));
+        candidate.Features.PlotEmbedding.IsDefaultOrEmpty.ShouldBeTrue();
+
+        // act
+        var similarity = SimilarityScorer.Score(
+            selected.Features,
+            candidate.Features,
+            options,
+            await new GenreWeightsCalculator(catalog, new GenreWeightsCache()).GetAsync(ct),
+            await new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()).GetAsync(ct));
+        var result = await NewRelatedHandler(db, options, RealProfileSource(db, options))
+            .HandleAsync(new GetRecommendationsQuery(new MovieId(1)), ct);
+
+        // assert
+        double.IsFinite(similarity.Score).ShouldBeTrue();
+        similarity.Score.ShouldBeLessThan(options.MinimumSimilarity);
+        similarity.Breakdown.Single(term => term.Name == "Plot").Value.ShouldBe(0.0);
+        similarity.Breakdown.Single(term => term.Name == "Director").Value.ShouldBe(1.0);
+        result.Select(item => item.Summary.Id).ShouldBe([new MovieId(2)]);
+        double.IsFinite(result[0].Score).ShouldBeTrue();
+        result[0].Reasons.Select(reason => reason.Text).ShouldContain("Same director: Shared Director");
+        result[0].Reasons.Select(reason => reason.Text).ShouldNotContain("Similar story");
+    }
+
+    [Fact]
+    public async Task LiveRelated_SelectedMissingFeatureRow_ReturnsEmptyFromHandlerAndRetainedMethod()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            DirectedRecord(1, "Selected", director: "Shared Director", genre: "Drama"),
+            DirectedRecord(2, "Would match", director: "Shared Director", genre: "Thriller"));
+        await using var db = fixture.CreateMigratedContext();
+        var options = new RecommendationOptions();
+
+        // act
+        var retained = await Source(db).GetCandidatesAsync(new MovieId(1), null, ct);
+        var live = await NewRelatedHandler(db, options, RealProfileSource(db, options))
+            .HandleAsync(new GetRecommendationsQuery(new MovieId(1)), ct);
+
+        // assert
+        retained.ShouldBeEmpty();
+        live.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task LiveRelated_LibraryReadSuppliesCandidateEmbeddingsWithFlatReaderCount()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(ct, DirectedRecord(1, "Selected", director: "Shared Director", genre: "Drama"));
+        await SeedVectorsAsync(ct, (1, UnitVector()));
+        await SeedDirectorCandidatesAsync(ct, startId: 100, count: 20, director: "Shared Director");
+        await SeedVectorsAsync(ct, (100, UnitVector()));
+        var small = await RunInstrumentedRelatedAsync(ct);
+
+        await SeedDirectorCandidatesAsync(ct, startId: 200, count: 180, director: "Shared Director");
+
+        // act
+        var large = await RunInstrumentedRelatedAsync(ct);
+
+        // assert
+        small.Result.Count.ShouldBe(10);
+        large.Result.Count.ShouldBe(10);
+        small.Profile.CandidateIdCalls.ShouldNotBeEmpty();
+        small.Profile.CandidateIdCalls.ShouldAllBe(ids => ids.Count == 0);
+        large.Profile.CandidateIdCalls.ShouldAllBe(ids => ids.Count == 0);
+        large.ReaderCount.ShouldBe(small.ReaderCount);
+        small.Result.ShouldContain(item => item.Summary.Id == new MovieId(100)
+            && item.Reasons.Any(reason => reason.Text == "Similar story"));
+    }
+
+    private async Task<(IReadOnlyList<RecommendedMovie> Result, int ReaderCount, RecordingProfileSource Profile)>
+        RunInstrumentedRelatedAsync(CancellationToken ct)
+    {
+        var options = new RecommendationOptions();
+        var interceptor = new RecordingCommandInterceptor();
+        await using var db = OpenInstrumentedContext(interceptor);
+        var profile = new RecordingProfileSource(RealProfileSource(db, options));
+        var result = await NewRelatedHandler(db, options, profile)
+            .HandleAsync(new GetRecommendationsQuery(new MovieId(1)), ct);
+        return (result, interceptor.ReaderCount, profile);
+    }
+
+    private static GetRecommendationsQueryHandler NewRelatedHandler(
+        LamuFlixDbContext db,
+        RecommendationOptions options,
+        IRecommendationProfileSource profileSource)
+    {
+        var catalog = new EfMovieCatalog(db);
+        return new GetRecommendationsQueryHandler(
+            Repository(db),
+            Source(db),
+            profileSource,
+            new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
+            new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
+            Microsoft.Extensions.Options.Options.Create(options));
+    }
+
+    private static IRecommendationProfileSource RealProfileSource(
+        LamuFlixDbContext db,
+        RecommendationOptions options)
+    {
+        var catalog = new EfMovieCatalog(db);
+        return new EfRecommendationProfileSource(
+            db,
+            new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
+            TimeProvider.System,
+            Microsoft.Extensions.Options.Options.Create(options));
+    }
+
+    private async Task SeedDirectorCandidatesAsync(
+        CancellationToken ct,
+        int startId,
+        int count,
+        string director) =>
+        await SeedRecordsAsync(
+            ct,
+            [.. Enumerable.Range(startId, count)
+                .Select(id => DirectedRecord(id, $"Director movie {id}", director, "Thriller"))]);
+
+    private static MovieRecord DirectedRecord(int id, string title, string director, string genre)
+    {
+        var record = new MovieRecord
+        {
+            Id = new MovieId(id),
+            Title = title,
+            LibraryPath = new LibraryPath($"C:/library/directed-{id}.mkv"),
+            Format = new MediaFormat("mkv"),
+            Status = EnrichmentStatus.Enriched,
+            MetadataTitle = title
+        };
+        record.Directors.Add(new DirectorRecord { Name = director });
+        record.Genres.Add(new GenreRecord { Name = genre });
+        return record;
+    }
+
     private static int AssociationJoins(string command)
     {
         var counted = 0;
@@ -906,6 +1059,22 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
             ["Harrison Ford"],
             ["Drama", "Sci-Fi"],
             ["Wanda Writer"]);
+
+    private sealed class RecordingProfileSource(IRecommendationProfileSource inner) : IRecommendationProfileSource
+    {
+        public List<IReadOnlyCollection<MovieId>> CandidateIdCalls { get; } = [];
+
+        public Task<TasteProfile> GetTasteProfileAsync(CancellationToken ct) => inner.GetTasteProfileAsync(ct);
+
+        public Task<RecommendationProfileInputs> GetProfileInputsAsync(
+            IReadOnlyCollection<MovieId> candidateMovieIds,
+            IReadOnlyCollection<MovieId> likedSourceIds,
+            CancellationToken ct)
+        {
+            CandidateIdCalls.Add(candidateMovieIds);
+            return inner.GetProfileInputsAsync(candidateMovieIds, likedSourceIds, ct);
+        }
+    }
 
     private sealed class RecordingCommandInterceptor(int failOnReader = 0) : DbCommandInterceptor
     {

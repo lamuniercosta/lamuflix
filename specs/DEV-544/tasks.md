@@ -54,10 +54,10 @@ Treat T003, T004, T005, T009 and T007's compile-reference updates as one landing
 
 ## Phase 6: Integration and web regression
 
-- [ ] T015 [US1][US2] After T006/T009, extend `tests/LamuFlix.IntegrationTests/EfRecommendationCandidateSourceTests.cs` on the live Related path. With Testcontainers and the real merged scorer, a shared-director candidate missing its persistence feature row and plot embedding has finite scoring, Plot zero and Director 1 and is admitted below the bar on Director alone. Exercise a selected movie with a missing feature row against both the live handler and retained EF method; both return empty. Reuse the recording interceptor to prove equal database commands for one Related request at 20 and 200 movies and confirm candidate embeddings are supplied by the library read, with no candidate-ID re-fetch on the profile path.
-- [ ] T016 [US2] After T009/T013, extend `tests/LamuFlix.IntegrationTests/RecommendationEndpointTests.cs` for HTTP 200 empty list with unreachable fixture bar and empty strong-reason list. Keep the take-cap 400 regression cases on both endpoints green.
-- [ ] T017 [P] After T010/T011/T015/T016, run both `tests/LamuFlix.UnitTests` and `tests/LamuFlix.IntegrationTests`; resolve in-scope failures.
-- [ ] T018 [P] After T014, run scoped Vitest/RTL for `RelatedMovies.test.tsx` and verify both smoke scenarios. T013 covers generated contract drift.
+- [X] T015 [US1][US2] After T006/T009, extend `tests/LamuFlix.IntegrationTests/EfRecommendationCandidateSourceTests.cs` on the live Related path. With Testcontainers and the real merged scorer, a shared-director candidate missing its persistence feature row and plot embedding has finite scoring, Plot zero and Director 1 and is admitted below the bar on Director alone. Exercise a selected movie with a missing feature row against both the live handler and retained EF method; both return empty. Reuse the recording interceptor to prove equal database commands for one Related request at 20 and 200 movies and confirm candidate embeddings are supplied by the library read, with no candidate-ID re-fetch on the profile path.
+- [X] T016 [US2] After T009/T013, extend `tests/LamuFlix.IntegrationTests/RecommendationEndpointTests.cs` for HTTP 200 empty list with unreachable fixture bar and empty strong-reason list. Keep the take-cap 400 regression cases on both endpoints green.
+- [X] T017 [P] After T010/T011/T015/T016, run both `tests/LamuFlix.UnitTests` and `tests/LamuFlix.IntegrationTests`; resolve in-scope failures.
+- [X] T018 [P] After T014, run scoped Vitest/RTL for `RelatedMovies.test.tsx` and verify both smoke scenarios. T013 covers generated contract drift.
 
 ## Phase 7: Gates, review and runtime evidence
 

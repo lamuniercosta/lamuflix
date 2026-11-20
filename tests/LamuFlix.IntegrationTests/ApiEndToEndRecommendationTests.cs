@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using AutoFixture;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Pgvector;
@@ -51,7 +52,9 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
     public async Task GetRecommendations_SeededEligibleMovie_ReturnsRankedJsonWithReasons()
     {
         // arrange
-        var client = await StartHostAsync();
+        // This suite asserts ranking order and DTO mapping, not the DEV-544 strong-match bar,
+        // so the bar is neutralised to keep every eligible candidate in the rail.
+        var client = await StartHostAsync(additionalSettings: NeutralStrongMatchBar());
         var cancellationToken = TestContext.Current.CancellationToken;
         var data = new Fixture();
         var genre = Faker.Lorem.GetFirstWord();
@@ -313,7 +316,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
     public async Task GetRecommendations_SeedFranchiseMembers_AreGroupedContiguouslyAtFront()
     {
         // arrange
-        var client = await StartHostAsync();
+        var client = await StartHostAsync(additionalSettings: NeutralStrongMatchBar());
         var cancellationToken = TestContext.Current.CancellationToken;
         var data = new Fixture();
         const int franchiseId = 900;
@@ -366,6 +369,13 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         ids.Take(2).ShouldBe(franchiseIds.Order());
         ids.Skip(2).ShouldNotContain(id => franchiseIds.Contains(id));
     }
+
+    private static IEnumerable<KeyValuePair<string, string?>> NeutralStrongMatchBar() =>
+    [
+        new(
+            $"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.MinimumSimilarity)}",
+            "0"),
+    ];
 
     private async Task SeedCollectionAsync(int id, string name)
     {
