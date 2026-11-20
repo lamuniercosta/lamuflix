@@ -161,10 +161,10 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var second = await handler.HandleAsync(new GetForYouRecommendationsQuery(2), CancellationToken.None);
 
         // assert
-        first.Count.ShouldBe(2);
+        first.Items.Count.ShouldBe(2);
         await catalog.Received(2).GetKeywordCountsAsync(Arg.Any<CancellationToken>());
-        second.Select(item => item.Score).ShouldBe(first.Select(item => item.Score));
-        second.Select(item => item.Summary.Id).ShouldBe(first.Select(item => item.Summary.Id));
+        second.Items.Select(item => item.Score).ShouldBe(first.Items.Select(item => item.Score));
+        second.Items.Select(item => item.Summary.Id).ShouldBe(first.Items.Select(item => item.Summary.Id));
     }
 
     [Fact]
@@ -1017,6 +1017,30 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         PersonalTexts(result.Items.ShouldHaveSingleItem()).ShouldBe(["Because you liked Perfect Match"]);
     }
 
+    [Fact]
+    public async Task HandleAsync_PopulatedCollectionAndKeywordSignals_ShapeMmrSelection()
+    {
+        // arrange
+        var handler = NewHandler(mmrLambda: 0.0);
+        var keywordSignals = new MovieSignalSnapshot(
+            keywordAvailability: SignalAvailability.Available,
+            keywords: [new MovieKeyword(1, "heist")]);
+        ArrangeLibrary(
+            NewMovie(2, genres: ["Drama"], collectionId: 7, collectionName: "Franchise", signals: keywordSignals),
+            NewMovie(3, genres: ["Drama"], collectionId: 7, collectionName: "Franchise", signals: keywordSignals),
+            NewMovie(4, genres: ["Drama"]));
+        ArrangeProfile(Inputs(WatchedHistory(90, "Drama")), Profile(("Drama", 1.0)));
+        catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new KeywordCounts(10, new Dictionary<string, long> { ["heist"] = 2 })));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(2), CancellationToken.None);
+
+        // assert
+        result.Items.Select(item => item.Summary.Id.Value).ShouldBe([2, 4]);
+        await catalog.Received(1).GetKeywordCountsAsync(Arg.Any<CancellationToken>());
+    }
+
     private static TasteProfile ProfileWithLikedSource(ImmutableArray<float> aggregateVector) =>
         new(ImmutableDictionary<string, double>.Empty, [])
         {
@@ -1120,11 +1144,13 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         bool isInWatchlist = false,
         bool isWatched = false,
         bool isNotInterested = false,
-        int? collectionId = null)
+        int? collectionId = null,
+        string? collectionName = null,
+        MovieSignalSnapshot? signals = null)
     {
         var movieTitle = title ?? $"Movie {id}";
         var metadata = withMetadata
-            ? BuildMetadata(movieTitle, posterUrl, releaseYear, runtimeMinutes, imdbRating, genres, directors, actors, writers, collectionId)
+            ? BuildMetadata(movieTitle, posterUrl, releaseYear, runtimeMinutes, imdbRating, genres, directors, actors, writers, collectionId, collectionName, signals)
             : null;
 
         return Movie.Rehydrate(
@@ -1153,7 +1179,9 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         string[]? directors,
         string[]? actors,
         string[]? writers,
-        int? collectionId) =>
+        int? collectionId = null,
+        string? collectionName = null,
+        MovieSignalSnapshot? signals = null) =>
         new(
             movieTitle,
             posterUrl: posterUrl,
@@ -1165,7 +1193,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             genres: genres,
             writers: writers,
             collectionId: collectionId,
-            collectionName: collectionId.HasValue ? $"Collection {collectionId}" : null);
+            collectionName: collectionName ?? (collectionId.HasValue ? $"Collection {collectionId}" : null),
+            signals: signals);
 }
 
 public sealed class GetForYouRecommendationsQueryHandlerPropertyTests

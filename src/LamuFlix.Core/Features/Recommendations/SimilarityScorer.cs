@@ -17,18 +17,23 @@ public static class SimilarityScorer
         GenreWeights genreWeights,
         KeywordCounts keywordCounts)
     {
+        ArgumentNullException.ThrowIfNull(keywordCounts);
+        return Score(a, b, options, genreWeights, PrepareKeywordWeights(options, keywordCounts));
+    }
+
+    public static SimilarityResult Score(
+        MovieFeatures a,
+        MovieFeatures b,
+        RecommendationOptions options,
+        GenreWeights genreWeights,
+        IReadOnlyDictionary<string, double> keywordWeights)
+    {
         ArgumentNullException.ThrowIfNull(a);
         ArgumentNullException.ThrowIfNull(b);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(genreWeights);
-        ArgumentNullException.ThrowIfNull(keywordCounts);
-        ValidateKeywordCounts(keywordCounts);
-
-        var failures = options.Validate(new System.ComponentModel.DataAnnotations.ValidationContext(options)).ToArray();
-        if (failures.Length > 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(options), "Similarity scoring options are invalid.");
-        }
+        ArgumentNullException.ThrowIfNull(keywordWeights);
+        ValidateOptions(options);
 
         var weights = options.Weights;
         var denominator = weights.Collection + weights.Director + weights.Themes + weights.Plot + weights.Cast + weights.Genres;
@@ -36,7 +41,7 @@ public static class SimilarityScorer
         {
             Create("Collection", weights.Collection, CollectionValue(a, b), CollectionEvidence(a, b)),
             Create("Director", weights.Director, SetValue(a.Directors, b.Directors), SharedNames(a.Directors, b.Directors)),
-            Create("Themes", weights.Themes, ThemesValue(a, b, options, keywordCounts), ThemeEvidence(a, b, options, keywordCounts)),
+            Create("Themes", weights.Themes, ThemesValue(a, b, options, keywordWeights), ThemeEvidence(a, b, keywordWeights)),
             Create("Plot", weights.Plot, PlotValue(a, b, options), Array.Empty<string>()),
             Create("Cast", weights.Cast, Math.Min(1.0, SharedNames(a.Cast, b.Cast).Count / 2.0), SharedNames(a.Cast, b.Cast)),
             Create("Genre", weights.Genres, genreWeights.Similarity(a.Genres, b.Genres), SharedNames(a.Genres, b.Genres)),
@@ -91,14 +96,34 @@ public static class SimilarityScorer
             .Select(group => group.OrderBy(name => name, StringComparer.Ordinal).First())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-    private static double ThemesValue(MovieFeatures a, MovieFeatures b, RecommendationOptions options, KeywordCounts counts)
+    public static IReadOnlyDictionary<string, double> PrepareKeywordWeights(
+        RecommendationOptions options,
+        KeywordCounts counts)
     {
-        if (counts.TotalMovies <= 0)
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(counts);
+        ValidateOptions(options);
+        ValidateKeywordCounts(counts);
+
+        return KeywordWeights(options, counts);
+    }
+
+    private static void ValidateOptions(RecommendationOptions options)
+    {
+        var failures = options.Validate(new System.ComponentModel.DataAnnotations.ValidationContext(options)).ToArray();
+        if (failures.Length > 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "Similarity scoring options are invalid.");
+        }
+    }
+
+    private static double ThemesValue(MovieFeatures a, MovieFeatures b, RecommendationOptions options, IReadOnlyDictionary<string, double> weights)
+    {
+        if (weights.Count == 0)
         {
             return 0.0;
         }
 
-        var weights = KeywordWeights(options, counts);
         var left = CleanNames(a.KeywordNames).Where(weights.ContainsKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var right = CleanNames(b.KeywordNames).Where(weights.ContainsKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var leftNorm = left.Sum(name => Math.Pow(weights[name], 2));
@@ -112,9 +137,8 @@ public static class SimilarityScorer
         return Math.Min(1.0, numerator / (Math.Sqrt(leftNorm) * Math.Sqrt(rightNorm)) / options.ThemesCeiling);
     }
 
-    private static IReadOnlyList<string> ThemeEvidence(MovieFeatures a, MovieFeatures b, RecommendationOptions options, KeywordCounts counts)
+    private static IReadOnlyList<string> ThemeEvidence(MovieFeatures a, MovieFeatures b, IReadOnlyDictionary<string, double> weights)
     {
-        var weights = KeywordWeights(options, counts);
         return [.. CleanNames(a.KeywordNames).Intersect(CleanNames(b.KeywordNames), StringComparer.OrdinalIgnoreCase)
             .Where(weights.ContainsKey)
             .Select(name => weights.Keys.First(keyword => string.Equals(keyword, name, StringComparison.OrdinalIgnoreCase)))

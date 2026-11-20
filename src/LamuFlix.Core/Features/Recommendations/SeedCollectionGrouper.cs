@@ -43,8 +43,9 @@ public static class SeedCollectionGrouper
             return mmrOrder;
         }
 
+        var keywordWeights = SimilarityScorer.PrepareKeywordWeights(options, keywordCounts);
         var blockSize = Math.Min(Math.Min(MaximumBlockSize, take), matches.Count);
-        var block = Rank(seedFeatures, matches, options, genreWeights, keywordCounts, blockSize);
+        var block = Rank(seedFeatures, matches, options, genreWeights, keywordWeights, blockSize);
         if (block.Count == 0)
         {
             return mmrOrder;
@@ -75,7 +76,7 @@ public static class SeedCollectionGrouper
         List<MmrCandidate> matches,
         RecommendationOptions options,
         GenreWeights genreWeights,
-        KeywordCounts keywordCounts,
+        IReadOnlyDictionary<string, double> keywordWeights,
         int blockSize)
     {
         var ranked = new List<(MovieId MovieId, double Score)>(matches.Count);
@@ -87,7 +88,7 @@ public static class SeedCollectionGrouper
                 candidate.Features,
                 options,
                 genreWeights,
-                keywordCounts).Score;
+                keywordWeights).Score;
             ranked.Add((candidate.MovieId, score));
         }
 

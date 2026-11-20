@@ -203,9 +203,10 @@ public sealed class GetForYouRecommendationsQueryHandler(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var features = MovieFeaturesMapper.From(movie);
-            var genres = RecommendationScoring.Genres(features);
+            var scoringFeatures = MovieFeaturesMapper.From(movie);
+            var genres = RecommendationScoring.Genres(scoringFeatures);
             var embedding = candidateEmbeddings.GetValueOrDefault(movie.Id, ImmutableArray<float>.Empty);
+            var features = MovieFeaturesMapper.From(movie, includeSignals: true, plotEmbedding: embedding);
 
             var profileSimilarity = ProfileSimilarityCalculator.Evaluate(
                 genres,
@@ -215,8 +216,8 @@ public sealed class GetForYouRecommendationsQueryHandler(
 
             var reviewAffinity = ProfileSimilarityCalculator.EvaluateReviewAffinity(
                 genres,
-                RecommendationScoring.Cast(features),
-                RecommendationScoring.Directors(features),
+                RecommendationScoring.Cast(scoringFeatures),
+                RecommendationScoring.Directors(scoringFeatures),
                 embedding,
                 profile,
                 profileInputs.LikedSourceEmbeddings,
