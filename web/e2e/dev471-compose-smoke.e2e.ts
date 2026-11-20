@@ -339,7 +339,12 @@ test.describe('DEV-471 compose smoke', () => {
     const imported = await importResponse;
     expect(imported.status(), 'the fixture folder imports through the real stack').toBe(200);
     expect(Number((await imported.json()).imported)).toBe(1);
-    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog.getByText(/Imported 1\b/)).toBeVisible({ timeout: context.waitBudgetMs });
+    await expect(dialog.getByRole('button', { name: 'Cancel' })).toHaveCount(0, {
+      timeout: context.waitBudgetMs,
+    });
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toBeHidden({ timeout: context.waitBudgetMs });
 
     const row = fixtureRow(page);
     const card = row.locator('article.movie-card');
