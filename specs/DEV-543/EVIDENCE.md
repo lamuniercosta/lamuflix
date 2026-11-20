@@ -8,12 +8,14 @@
 
 | Slot | Command / note | Result |
 | --- | --- | --- |
-| DEV-518 merged | `git` / PR receipt | _pending Phase B_ |
-| DEV-544 merged (library feature load + strong-match options) | `git` / PR receipt | _pending Phase B_ |
-| DEV-510 merged (cache shape) | `git` / PR receipt | _pending Phase B_ |
-| DEV-545 harness available | path / mode notes | _pending Phase B_ |
-| Pickup HEAD | `git rev-parse HEAD` | _pending Phase B_ |
-| `origin/main` SHA at pickup | `git rev-parse origin/main` | _pending Phase B_ |
+| DEV-518 merged | `git merge-base --is-ancestor feature/DEV-518 origin/main`; `git log --all --oneline --grep=DEV-518` | **NOT MERGED** — branch `feature/DEV-518` at `b00b9af5`; only spec commit `25f2bd98` is in main |
+| DEV-544 merged (library feature load + strong-match options) | same ancestry check; `git branch -a`; `git log --grep=DEV-544` | **NOT MERGED** — only spec commit `c589ff8c` is in main; no `feature/DEV-544` branch and no implementation commit |
+| DEV-510 merged (cache shape) | same ancestry check; `git log --grep=DEV-510` | **MERGED** — `5fa68c83` (final gate receipts) is an ancestor of `origin/main` `34c10f3e` |
+| DEV-545 harness available | path / mode notes | Present: `scripts/run-evaluation.ps1`, `scripts/run-recommendation-snapshot.ps1`; `harness.yml` `harnessVersion: 0.7.1` |
+| Pickup HEAD | `git rev-parse HEAD` | `637d7ca7dc824bc19c9b363fe8f3fc8e4e432d4c` |
+| `origin/main` SHA at pickup | `git rev-parse origin/main` | `34c10f3e312176a67d2aa140f11ecd838adc7783` |
+
+**T001 status: STOPPED — prerequisites unmerged (2026-11-19, read-only).** `git merge-base --is-ancestor` and `git log --grep` show DEV-518 and DEV-544 implementation is not on `origin/main`; only their spec/ADR commits (`25f2bd98`, `c589ff8c`) are. `docs/adr/0047-for-you-nearest-seeds.md` is absent from every local/remote ref (`git log --all -- docs/adr/0047-for-you-nearest-seeds.md` returns nothing; `git ls-tree -r origin/main docs/adr` lists `0045-read-only-recommendation-evaluation.md` and `0046-shared-recommendation-similarity.md`, no 0047). The DEV-544 library feature load and shared strong-match option set do not exist on the pickup HEAD (`grep -rl 'StrongMatch|LibraryFeature|StrongReason' src/` returns nothing; `RecommendationOptions` has only legacy blend/review members). Consequently §1 (complete Wanted 11 caller inventory against landed consumers) and the pin of the DEV-544 pool/strong-match contract cannot be executed against a real landed contract; §1 remains unpopulated. No production file was edited.
 
 ## 1. Wanted 11 caller inventory
 
