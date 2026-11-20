@@ -35,47 +35,17 @@ public sealed class GetRecommendationsQueryHandler(
 
         var recommendationOptions = options.Value;
         var partitioned = Partition(library, query.MovieId, cancellationToken);
-        if (partitioned.SelectedVector is { } unusableSelectedVector && !IsUsable(unusableSelectedVector))
+        if (IsEmptySelection(partitioned))
         {
             return ImmutableList<RecommendedMovie>.Empty;
         }
 
-        var eligible = partitioned.Eligible;
-        if (eligible.Count == 0)
-        {
-            return ImmutableList<RecommendedMovie>.Empty;
-        }
+        var context = await LoadScoringContextAsync(query, partitioned.SelectedInLoad, cancellationToken);
 
-        var genreWeights = await genreWeightsCalculator.GetAsync(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var keywordCounts = await keywordWeightsCalculator.GetAsync(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var profile = await profileSource.GetTasteProfileAsync(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        // Candidate vectors come from the library load, so the profile-input fetch only needs the selected
-        // fallback (when the selected movie is absent from the enriched load) and the liked sources.
-        var profileInputs = await profileSource.GetProfileInputsAsync(
-            partitioned.SelectedInLoad ? [] : [query.MovieId],
-            [.. profile.LikedSources.Select(source => source.MovieId)],
-            cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var selectedVector = partitioned.SelectedVector;
+        var selectedVector = ResolveSelectedVector(partitioned, context.ProfileInputs, query.MovieId);
         if (selectedVector is null)
         {
-            selectedVector =
-            [
-                .. profileInputs.CandidateEmbeddings.GetValueOrDefault(
-                    query.MovieId,
-                    ImmutableArray<float>.Empty),
-            ];
-            if (!IsUsable(selectedVector))
-            {
-                return ImmutableList<RecommendedMovie>.Empty;
-            }
+            return ImmutableList<RecommendedMovie>.Empty;
         }
 
         var selectedFeatures = MovieFeaturesMapper.From(
@@ -83,7 +53,6 @@ public sealed class GetRecommendationsQueryHandler(
             includeSignals: true,
             plotEmbedding: selectedVector);
 
-        // Map the validated option tokens to the DEV-518 breakdown names once per request.
         var strongReasonCriteria = new HashSet<string>(
             recommendationOptions.StrongReasonCriteria ?? [],
             System.StringComparer.OrdinalIgnoreCase);
@@ -92,11 +61,11 @@ public sealed class GetRecommendationsQueryHandler(
             selectedFeatures,
             library,
             query.MovieId,
-            profile,
-            profileInputs,
+            context.Profile,
+            context.ProfileInputs,
             strongReasonCriteria,
-            genreWeights,
-            keywordCounts,
+            context.GenreWeights,
+            context.KeywordCounts,
             recommendationOptions,
             cancellationToken);
 
@@ -109,8 +78,8 @@ public sealed class GetRecommendationsQueryHandler(
             query.Take,
             selectedFeatures,
             recommendationOptions,
-            genreWeights,
-            keywordCounts,
+            context.GenreWeights,
+            context.KeywordCounts,
             relevanceOffset);
         var strongReasonBudget = System.Math.Max(0, query.Take - selectedIds.Count);
         var strongReasonIds = SelectTier(
@@ -118,8 +87,8 @@ public sealed class GetRecommendationsQueryHandler(
             strongReasonBudget,
             selectedFeatures,
             recommendationOptions,
-            genreWeights,
-            keywordCounts,
+            context.GenreWeights,
+            context.KeywordCounts,
             relevanceOffset);
 
         var byId = scored.ToDictionary(item => item.Library.Id);
@@ -163,6 +132,55 @@ public sealed class GetRecommendationsQueryHandler(
         }
 
         return new PartitionedLibrary(eligible, selectedInLoad, selectedVector);
+    }
+
+    private static bool IsEmptySelection(PartitionedLibrary partitioned)
+    {
+        if (partitioned.Eligible.Count == 0)
+        {
+            return true;
+        }
+
+        return partitioned.SelectedVector is { } selectedVector && !IsUsable(selectedVector);
+    }
+
+    private async Task<ScoringContext> LoadScoringContextAsync(
+        GetRecommendationsQuery query,
+        bool selectedInLoad,
+        CancellationToken cancellationToken)
+    {
+        var genreWeights = await genreWeightsCalculator.GetAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var keywordCounts = await keywordWeightsCalculator.GetAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var profile = await profileSource.GetTasteProfileAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var profileInputs = await profileSource.GetProfileInputsAsync(
+            selectedInLoad ? [] : [query.MovieId],
+            [.. profile.LikedSources.Select(source => source.MovieId)],
+            cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return new ScoringContext(genreWeights, keywordCounts, profile, profileInputs);
+    }
+
+    private static float[]? ResolveSelectedVector(
+        PartitionedLibrary partitioned,
+        RecommendationProfileInputs profileInputs,
+        MovieId selectedMovieId)
+    {
+        if (partitioned.SelectedVector is not null)
+        {
+            return partitioned.SelectedVector;
+        }
+
+        var fallback = new List<float>(profileInputs.CandidateEmbeddings.GetValueOrDefault(
+            selectedMovieId,
+            ImmutableArray<float>.Empty));
+        return IsUsable([.. fallback]) ? [.. fallback] : null;
     }
 
     private static bool IsUsable(float[]? vector)
@@ -238,37 +256,136 @@ public sealed class GetRecommendationsQueryHandler(
     {
         var scored = new List<ScoredCandidate>(library.Count);
         var keywordWeights = SimilarityScorer.PrepareKeywordWeights(options, keywordCounts);
-        var likedSourceEmbeddings = profileInputs.LikedSourceEmbeddings;
-
-        if (!likedSourceEmbeddings.IsEmpty)
-        {
-            var builder = likedSourceEmbeddings.ToBuilder();
-            foreach (var entry in library)
-            {
-                if (builder.ContainsKey(entry.Id) && IsUsable([.. entry.Features.PlotEmbedding]))
-                {
-                    builder[entry.Id] = entry.Features.PlotEmbedding;
-                }
-            }
-
-            likedSourceEmbeddings = builder.ToImmutable();
-        }
+        var likedSourceEmbeddings = RefreshLikedSourceEmbeddings(library, profileInputs.LikedSourceEmbeddings);
+        var scoring = new EntryScoring(selectedFeatures, profile, likedSourceEmbeddings, strongReasonCriteria, genreWeights, keywordWeights, options);
 
         foreach (var entry in library)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (scoring.TryScore(entry, selectedMovieId) is { } scoredCandidate)
+            {
+                scored.Add(scoredCandidate);
+            }
+        }
+
+        return scored;
+    }
+
+    private static ImmutableDictionary<MovieId, ImmutableArray<float>> RefreshLikedSourceEmbeddings(
+        IReadOnlyList<RecommendationLibraryEntry> library,
+        ImmutableDictionary<MovieId, ImmutableArray<float>> likedSourceEmbeddings)
+    {
+        if (likedSourceEmbeddings.IsEmpty)
+        {
+            return likedSourceEmbeddings;
+        }
+
+        var builder = likedSourceEmbeddings.ToBuilder();
+        foreach (var entry in library)
+        {
+            if (builder.ContainsKey(entry.Id))
+            {
+                RefreshLikedSourceEmbedding(builder, entry);
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static void RefreshLikedSourceEmbedding(
+        IDictionary<MovieId, ImmutableArray<float>> builder,
+        RecommendationLibraryEntry entry)
+    {
+        if (IsUsable([.. entry.Features.PlotEmbedding]))
+        {
+            builder[entry.Id] = entry.Features.PlotEmbedding;
+        }
+    }
+
+    /// <summary>
+    /// Classifies a raw DEV-518 pair result before taste blend and the watched penalty. Below-bar candidates
+    /// qualify only when an enabled configured strong-reason criterion is exactly 1.0.
+    /// </summary>
+    private static MatchTier Classify(
+        SimilarityResult similarity,
+        double minimumSimilarity,
+        IReadOnlySet<string> strongReasonCriteria)
+    {
+        if (similarity.Score >= minimumSimilarity)
+        {
+            return MatchTier.AboveBar;
+        }
+
+        if (strongReasonCriteria.Count == 0)
+        {
+            return MatchTier.None;
+        }
+
+        foreach (var contribution in similarity.Breakdown)
+        {
+            if (IsStrongReason(contribution, strongReasonCriteria))
+            {
+                return MatchTier.StrongReason;
+            }
+        }
+
+        return MatchTier.None;
+    }
+
+    private static bool IsStrongReason(CriterionContribution contribution, IReadOnlySet<string> strongReasonCriteria)
+    {
+        if (contribution.Weight <= 0.0 || contribution.Value != 1.0)
+        {
+            return false;
+        }
+
+        return strongReasonCriteria.Contains(contribution.Name);
+    }
+
+    private static ImmutableList<Reason> BuildReasons(
+        ImmutableList<Reason> structuralReasons,
+        ProfileSimilarityEvidence profileSimilarity,
+        ReviewAffinityEvidence reviewAffinity,
+        double profileContribution,
+        RecommendationOptions options)
+    {
+        var builder = structuralReasons.ToBuilder();
+
+        if (options.BlendProfileWeight > 0.0)
+        {
+            RecommendationReasonBuilder.AddProfileReasons(builder, profileSimilarity);
+            RecommendationReasonBuilder.AddLikedReviewReason(
+                builder,
+                reviewAffinity,
+                profileContribution,
+                options);
+        }
+
+        RecommendationReasonBuilder.EnsureFallbackReason(builder);
+
+        return builder.ToImmutable();
+    }
+
+    private sealed class EntryScoring(
+        MovieFeatures selectedFeatures,
+        TasteProfile profile,
+        ImmutableDictionary<MovieId, ImmutableArray<float>> likedSourceEmbeddings,
+        IReadOnlySet<string> strongReasonCriteria,
+        GenreWeights genreWeights,
+        IReadOnlyDictionary<string, double> keywordWeights,
+        RecommendationOptions options)
+    {
+        public ScoredCandidate? TryScore(RecommendationLibraryEntry entry, MovieId selectedMovieId)
+        {
             if (entry.Id == selectedMovieId || entry.Review.IsDisliked)
             {
-                continue;
+                return null;
             }
 
-            var features = entry.Features;
-            var embedding = features.PlotEmbedding;
-            var genres = RecommendationScoring.Genres(features);
             var similarity = SimilarityScorer.Score(
                 selectedFeatures,
-                features,
+                entry.Features,
                 options,
                 genreWeights,
                 keywordWeights);
@@ -276,8 +393,20 @@ public sealed class GetRecommendationsQueryHandler(
             var tier = Classify(similarity, options.MinimumSimilarity, strongReasonCriteria);
             if (tier == MatchTier.None)
             {
-                continue;
+                return null;
             }
+
+            return FinishScore(entry, similarity, tier);
+        }
+
+        private ScoredCandidate FinishScore(
+            RecommendationLibraryEntry entry,
+            SimilarityResult similarity,
+            MatchTier tier)
+        {
+            var features = entry.Features;
+            var embedding = features.PlotEmbedding;
+            var genres = RecommendationScoring.Genres(features);
 
             var profileSimilarity = ProfileSimilarityCalculator.Evaluate(
                 genres,
@@ -307,7 +436,7 @@ public sealed class GetRecommendationsQueryHandler(
                 0.0,
                 options);
 
-            scored.Add(new ScoredCandidate(
+            return new ScoredCandidate(
                 entry,
                 features,
                 new SimilarityResult(
@@ -318,66 +447,8 @@ public sealed class GetRecommendationsQueryHandler(
                         reviewAffinity,
                         contribution,
                         options)),
-                tier));
+                tier);
         }
-
-        return scored;
-    }
-
-    /// <summary>
-    /// Classifies a raw DEV-518 pair result before taste blend and the watched penalty. Below-bar candidates
-    /// qualify only when an enabled configured strong-reason criterion is exactly 1.0.
-    /// </summary>
-    private static MatchTier Classify(
-        SimilarityResult similarity,
-        double minimumSimilarity,
-        IReadOnlySet<string> strongReasonCriteria)
-    {
-        if (similarity.Score >= minimumSimilarity)
-        {
-            return MatchTier.AboveBar;
-        }
-
-        if (strongReasonCriteria.Count == 0)
-        {
-            return MatchTier.None;
-        }
-
-        foreach (var contribution in similarity.Breakdown)
-        {
-            if (contribution.Weight > 0.0
-                && contribution.Value == 1.0
-                && strongReasonCriteria.Contains(contribution.Name))
-            {
-                return MatchTier.StrongReason;
-            }
-        }
-
-        return MatchTier.None;
-    }
-
-    private static ImmutableList<Reason> BuildReasons(
-        ImmutableList<Reason> structuralReasons,
-        ProfileSimilarityEvidence profileSimilarity,
-        ReviewAffinityEvidence reviewAffinity,
-        double profileContribution,
-        RecommendationOptions options)
-    {
-        var builder = structuralReasons.ToBuilder();
-
-        if (options.BlendProfileWeight > 0.0)
-        {
-            RecommendationReasonBuilder.AddProfileReasons(builder, profileSimilarity);
-            RecommendationReasonBuilder.AddLikedReviewReason(
-                builder,
-                reviewAffinity,
-                profileContribution,
-                options);
-        }
-
-        RecommendationReasonBuilder.EnsureFallbackReason(builder);
-
-        return builder.ToImmutable();
     }
 
     private enum MatchTier
@@ -386,6 +457,12 @@ public sealed class GetRecommendationsQueryHandler(
         AboveBar = 1,
         StrongReason = 2,
     }
+
+    private readonly record struct ScoringContext(
+        GenreWeights GenreWeights,
+        KeywordCounts KeywordCounts,
+        TasteProfile Profile,
+        RecommendationProfileInputs ProfileInputs);
 
     private readonly record struct PartitionedLibrary(
         List<RecommendationLibraryEntry> Eligible,
