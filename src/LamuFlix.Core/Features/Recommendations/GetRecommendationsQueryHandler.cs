@@ -20,6 +20,7 @@ public sealed class GetRecommendationsQueryHandler(
     IOptions<RecommendationOptions> options)
     : IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>
 {
+    private const double StrongReasonValueTolerance = 1e-9;
     public async Task<ImmutableList<RecommendedMovie>> HandleAsync(
         GetRecommendationsQuery query,
         CancellationToken cancellationToken)
@@ -335,7 +336,7 @@ public sealed class GetRecommendationsQueryHandler(
 
     private static bool IsStrongReason(CriterionContribution contribution, IReadOnlySet<string> strongReasonCriteria)
     {
-        if (contribution.Weight <= 0.0 || contribution.Value != 1.0)
+        if (contribution.Weight <= 0.0 || contribution.Value < 1.0 - StrongReasonValueTolerance)
         {
             return false;
         }
