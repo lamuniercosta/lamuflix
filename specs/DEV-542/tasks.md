@@ -7,7 +7,7 @@ description: "Task list for DEV-542 recommendation seed and evidence cards"
 
 **Input**: Design documents from `specs/DEV-542/` — `spec.md`, `plan.md`, grill-closed private `brief.md` (Q1–Q5), `CONCLUSIONS.md`, `contracts/recommended-movie-seed-evidence.md`; Maestri notes `DEV-542`, `recon-DEV-542` (lines 44–69, 71–97); `specs/PRODUCT.md`.
 
-**Status**: PLAN FROZEN. Plan challenge dispositions and task repairs are in `PLAN_ADJUDICATION.md`. Gate 1, Build, and runtime acceptance remain open.
+**Status**: PLAN FROZEN. Plan challenge dispositions and task repairs are in `PLAN_ADJUDICATION.md`. Gate 1 is complete (T000). Build and runtime acceptance remain open.
 
 **Tests**: Required (`brief.md` Test and evidence plan; FR-001–FR-013; SC-001–SC-007; Done when). TDD optional. Prefer real serialized API JSON for contract claims. No new test framework/dependency.
 
@@ -46,7 +46,7 @@ Ordering per brief Task ordering: **Gate 1 → dependency checkpoint/before scre
 **Purpose**: Produce/open the spec PR, then confirm ordinary owner Gate 1 merge before Build work.
 **Checkpoint**: Spec PR opened by Rigger under Bernstein coordination; verified user-merge receipt in `CONCLUSIONS.md`, or stop. No Build tasks before that receipt.
 
-- [ ] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-542 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-542 in `specs/DEV-542/CONCLUSIONS.md`. Receipt only. T001–T016 MUST NOT proceed without verified merge (`brief.md` Authority and status; Q5; no structural owner checkbox invented by Quill).
+- [x] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-542 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-542 in `specs/DEV-542/CONCLUSIONS.md`. Receipt only. T001–T016 MUST NOT proceed without verified merge (`brief.md` Authority and status; Q5; no structural owner checkbox invented by Quill).
 
 ---
 
