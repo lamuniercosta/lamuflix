@@ -11,7 +11,6 @@ using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
 using Microsoft.Extensions.Options;
 using Shouldly;
-using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
 using Xunit;
@@ -25,37 +24,13 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     private const string UserAgent = "LamuFlix/1.0 (personal library)";
     private const string Hash = "a1b2c3d4e5f60718";
     private const long MaxBytes = 4_096;
-    private const string SearchPath = "/api/v1/subtitles";
-    private const string DownloadPath = "/api/v1/download";
-    private const string LinkPath = "/srt/101.srt";
+    private const string SearchPath = OpenSubtitlesEmulator.SearchPath;
+    private const string DownloadPath = OpenSubtitlesEmulator.DownloadPath;
+    private const string ApiKeyHeader = "Api-Key";
+    private const string UserAgentHeader = "User-Agent";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
     private static readonly DateTimeOffset Now = new(2026, 3, 4, 5, 6, 7, TimeSpan.Zero);
-
-    private const string ValidSrt = "1\n00:00:01,000 --> 00:00:03,500\nI have seen things.\n\n2\n00:00:04,000 --> 00:00:06,000\nYou people would not believe.\n";
-
-    private const string SearchBody = """
-        {
-          "data": [
-            {
-              "attributes": {
-                "language": "en",
-                "download_count": 42,
-                "moviehash_match": true,
-                "release": "Dune.2021.1080p.BluRay.x264-GROUP",
-                "files": [ { "file_id": 101 }, { "file_id": 102 } ]
-              }
-            },
-            {
-              "attributes": {
-                "language": "pt-br",
-                "download_count": 7,
-                "moviehash_match": false,
-                "files": [ { "file_id": 201, "file_name": "Dune.2021.WEB-DL.H264.srt" } ]
-              }
-            }
-          ]
-        }
-        """;
+    private static readonly DateTimeOffset ResetAt = new(2026, 3, 4, 23, 59, 59, 999, TimeSpan.Zero);
 
     public static TheoryData<string> InvalidPayloads => new()
     {
@@ -69,7 +44,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         "1\n00:00:01 --> 00:00:03\ntext\n",
     };
 
-    private readonly WireMockServer server = LoopbackWireMock.StartHttps();
+    private readonly OpenSubtitlesEmulator emulator = new(ApiKey, Scenario());
     private readonly List<IDisposable> disposables = [];
 
     public void Dispose()
@@ -79,17 +54,23 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
             disposable.Dispose();
         }
 
-        server.Stop();
-        server.Dispose();
+        emulator.Dispose();
     }
 
-    private string BaseUrl => server.Urls[0];
+    private static OpenSubtitlesScenario Scenario() => new()
+    {
+        Subtitles =
+        [
+            new OpenSubtitlesSubtitle(101, "en", 42, "Dune.2021.1080p.BluRay.x264-GROUP", "Movie", "Dune", MovieHashMatch: true),
+            new OpenSubtitlesSubtitle(201, "pt-BR", 7, "Dune.2021.WEB-DL.H264", "Movie", "Dune"),
+            new OpenSubtitlesSubtitle(301, "en", 9, "Go.On.S01E01.720p", "Episode", "Go On"),
+        ],
+    };
 
     [Fact]
-    public async Task SearchAsync_SendsApiKeyAndUserAgentHeadersWithTheHashAndLanguagePreferences()
+    public async Task SearchAsync_HashSearch_SendsCanonicalQueryWithApiKeyAndUserAgent()
     {
         // arrange
-        StubSearch(SearchBody);
         var provider = Provider();
 
         // act
@@ -107,20 +88,20 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         candidates[0].ReleaseName.ShouldBe("Dune.2021.1080p.BluRay.x264-GROUP");
         candidates[1].FileId.ShouldBe(201);
         candidates[1].ReleaseName.ShouldBe("Dune.2021.WEB-DL.H264");
-        var (url, apiKeys, userAgents) = SearchRequest();
-        apiKeys.ShouldBe([ApiKey]);
-        userAgents.ShouldBe([UserAgent]);
-        new Uri(url).Query.ShouldNotBeEmpty();
-        QueryValue(url, "moviehash").ShouldBe(Hash);
-        QueryValue(url, "languages").ShouldBe("en,pt-br");
-        QueryValue(url, "query").ShouldBeNull();
+        var request = SearchRequest();
+        HeaderValues(request.Headers, ApiKeyHeader).ShouldBe([ApiKey]);
+        HeaderValues(request.Headers, UserAgentHeader).ShouldBe([UserAgent]);
+        request.RawQuery.TrimStart('?').ShouldBe(OpenSubtitlesEmulator.CanonicalQuery(request.RawQuery.TrimStart('?')));
+        QueryValue(request, "moviehash").ShouldBe(Hash);
+        QueryValue(request, "languages").ShouldBe("en,pt-br");
+        QueryValue(request, "type").ShouldBe("movie");
+        QueryValue(request, "query").ShouldBeNull();
     }
 
     [Fact]
-    public async Task SearchAsync_TitleSearch_SendsTheTitleAndNoHash()
+    public async Task SearchAsync_TitleSearch_SendsTheLowercaseCanonicalTitleAndTypeFilter()
     {
         // arrange
-        StubSearch(SearchBody);
         var provider = Provider();
 
         // act
@@ -129,18 +110,34 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
             TestContext.Current.CancellationToken);
 
         // assert
-        var (url, _, _) = SearchRequest();
-        QueryValue(url, "query").ShouldBe("Blade Runner");
-        QueryValue(url, "moviehash").ShouldBeNull();
+        var request = SearchRequest();
+        request.RawQuery.TrimStart('?').ShouldBe(OpenSubtitlesEmulator.CanonicalQuery(request.RawQuery.TrimStart('?')));
+        QueryValue(request, "query").ShouldBe("blade runner");
+        QueryValue(request, "type").ShouldBe("movie");
+        QueryValue(request, "moviehash").ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SearchAsync_TitleSearch_ExcludesEpisodeResults()
+    {
+        // arrange
+        var provider = Provider();
+
+        // act
+        var result = await provider.SearchAsync(
+            new SubtitleSearch(MovieHash: null, 900, "Go On", ["en"]),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.Candidates.Select(candidate => candidate.FileId).ShouldNotContain(301);
     }
 
     [Fact]
     public async Task SearchAsync_RejectedApiKey_FailsWithoutExposingTheKey()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(401).WithBody("{\"message\":\"unauthorized\"}"));
-        var provider = Provider();
+        const string wrongKey = "wrong-key-value";
+        var provider = Provider(configure: options => options with { ApiKey = wrongKey });
 
         // act
         var act = () => provider.SearchAsync(
@@ -149,6 +146,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
         // assert
         var failure = await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        failure.Message.ShouldNotContain(wrongKey);
         failure.Message.ShouldNotContain(ApiKey);
     }
 
@@ -181,7 +179,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
         // assert
         await Should.ThrowAsync<SubtitleProviderFailureException>(act);
-        server.LogEntries.ShouldBeEmpty();
+        emulator.Api.LogEntries.ShouldBeEmpty();
     }
 
     [Theory]
@@ -201,15 +199,14 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
         // assert
         await Should.ThrowAsync<SubtitleProviderFailureException>(act);
-        server.LogEntries.ShouldBeEmpty();
+        emulator.Api.LogEntries.ShouldBeEmpty();
     }
 
     [Fact]
     public async Task SearchAsync_TooManyRequestsWithDeltaSeconds_PropagatesTheRetryAfterDelay()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(429).WithHeader("Retry-After", "42"));
+        emulator.OverrideSearch(Response.Create().WithStatusCode(429).WithHeader("Retry-After", "42"));
         var provider = Provider();
 
         // act
@@ -227,9 +224,8 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     {
         // arrange
         var retryAt = Now.AddMinutes(3);
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(429)
-                .WithHeader("Retry-After", retryAt.ToString("R", CultureInfo.InvariantCulture)));
+        emulator.OverrideSearch(Response.Create().WithStatusCode(429)
+            .WithHeader("Retry-After", retryAt.ToString("R", CultureInfo.InvariantCulture)));
         var provider = Provider();
 
         // act
@@ -254,7 +250,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
             response = response.WithHeader("Retry-After", retryAfter);
         }
 
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet()).RespondWith(response);
+        emulator.OverrideSearch(response);
         var provider = Provider();
 
         // act
@@ -275,8 +271,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     {
         // arrange
         using var destination = LoopbackWireMock.StartHttps();
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(status).WithHeader("Location", destination.Urls[0]));
+        emulator.OverrideSearch(Response.Create().WithStatusCode(status).WithHeader("Location", destination.Urls[0]));
         var provider = Provider();
 
         // act
@@ -287,15 +282,15 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         // assert
         await Should.ThrowAsync<SubtitleProviderFailureException>(act);
         destination.LogEntries.ShouldBeEmpty();
-        server.LogEntries.Count.ShouldBe(1);
+        emulator.Api.LogEntries.Count().ShouldBe(1);
     }
+
 
     [Fact]
     public async Task SearchAsync_ServerError_FailsAsAProviderFailureWithoutRetrying()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(503));
+        emulator.OverrideSearch(Response.Create().WithStatusCode(503));
         var provider = Provider();
 
         // act
@@ -305,15 +300,14 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
         // assert
         await Should.ThrowAsync<SubtitleProviderFailureException>(act);
-        server.LogEntries.Count.ShouldBe(1);
+        emulator.Api.LogEntries.Count().ShouldBe(1);
     }
 
     [Fact]
     public async Task SearchAsync_ResponseSlowerThanTheRequestTimeout_FailsAsAProviderTimeout()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(200).WithBody(SearchBody).WithDelay(TimeSpan.FromSeconds(3)));
+        emulator.OverrideSearch(Response.Create().WithStatusCode(200).WithBody("{\"data\":[]}").WithDelay(TimeSpan.FromSeconds(3)));
         var provider = Provider(configure: options => options with { RequestTimeout = TimeSpan.FromMilliseconds(400) });
 
         // act
@@ -329,8 +323,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task SearchAsync_CallerCancellation_PropagatesCancellationRatherThanAProviderTimeout()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(200).WithBody(SearchBody).WithDelay(TimeSpan.FromSeconds(3)));
+        emulator.OverrideSearch(Response.Create().WithStatusCode(200).WithBody("{\"data\":[]}").WithDelay(TimeSpan.FromSeconds(3)));
         var provider = Provider(configure: options => options with { RequestTimeout = TimeSpan.FromSeconds(30) });
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
         var token = cancellation.Token;
@@ -344,26 +337,26 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task DownloadAsync_PostsTheFileIdThenFetchesTheTemporaryLink()
+    public async Task DownloadAsync_PostsTheFileIdThenFetchesTheTemporaryLinkWithoutTheApiKey()
     {
         // arrange
-        StubDownload(ValidSrt);
         var provider = Provider();
 
         // act
         var content = await provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
 
         // assert
-        Encoding.UTF8.GetString(content.Content).ShouldBe(ValidSrt);
+        Encoding.UTF8.GetString(content.Content).ShouldBe(OpenSubtitlesScenario.DefaultSrt);
         DownloadRequestBody().ShouldContain("\"file_id\":101");
-        LinkGetRequest().Method.ShouldBe("GET");
+        var link = LinkGetRequest();
+        link.Method.ShouldBe("GET");
+        HeaderValues(link.Headers, ApiKeyHeader).ShouldBeEmpty();
     }
 
     [Fact]
     public async Task DownloadAsync_CalledTwice_RequestsAFreshTemporaryLinkEachTime()
     {
         // arrange
-        StubDownload(ValidSrt);
         var provider = Provider();
 
         // act
@@ -371,17 +364,15 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         await provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
 
         // assert
-        Count(DownloadPath).ShouldBe(2);
-        Count(LinkPath).ShouldBe(2);
+        ApiCount(DownloadPath).ShouldBe(2);
+        emulator.Links.LogEntries.Count().ShouldBe(2);
     }
 
     [Fact]
     public async Task DownloadAsync_LinkOutsideTheAllowlist_FailsWithoutContactingThatHost()
     {
         // arrange
-        StubDownloadLinkResponse(
-            Response.Create().WithStatusCode(200),
-            link: "https://not-allowlisted.example.test/srt/101.srt");
+        OverrideDownloadWithLink("https://not-allowlisted.example.test/srt/101.srt");
         var provider = Provider();
 
         // act
@@ -389,8 +380,8 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
         // assert
         await Should.ThrowAsync<SubtitleProviderFailureException>(act);
-        Count(DownloadPath).ShouldBe(1);
-        Count(LinkPath).ShouldBe(0);
+        ApiCount(DownloadPath).ShouldBe(1);
+        emulator.Links.LogEntries.Count().ShouldBe(0);
     }
 
     [Theory]
@@ -400,8 +391,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task DownloadAsync_UnsafeLinkScheme_FailsBeforeAnyLinkRequest(string link)
     {
         // arrange
-        server.Given(Request.Create().WithPath(DownloadPath).UsingPost())
-            .RespondWith(Response.Create().WithStatusCode(200).WithBody($"{{\"link\":\"{link}\"}}"));
+        OverrideDownloadWithLink(link);
         var provider = Provider();
 
         // act
@@ -409,7 +399,8 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
         // assert
         await Should.ThrowAsync<SubtitleProviderFailureException>(act);
-        server.LogEntries.Count.ShouldBe(1);
+        emulator.Api.LogEntries.Count().ShouldBe(1);
+        emulator.Links.LogEntries.Count().ShouldBe(0);
     }
 
     [Fact]
@@ -417,8 +408,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     {
         // arrange
         using var destination = LoopbackWireMock.StartHttps();
-        StubDownloadLinkResponse(
-            Response.Create().WithStatusCode(301).WithHeader("Location", destination.Urls[0]));
+        emulator.OverrideLink(Response.Create().WithStatusCode(301).WithHeader("Location", destination.Urls[0]));
         var provider = Provider();
 
         // act
@@ -434,7 +424,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task DownloadAsync_PayloadFailingTheMinimalSrtCriteria_FailsAsAProviderFailure(string payload)
     {
         // arrange
-        StubDownload(payload);
+        emulator.OverrideLink(Response.Create().WithStatusCode(200).WithBody(payload));
         var provider = Provider();
 
         // act
@@ -448,7 +438,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task DownloadAsync_SrtWithUtf8Bom_IsAccepted()
     {
         // arrange
-        StubDownload(string.Concat("\uFEFF", ValidSrt));
+        emulator.OverrideLink(Response.Create().WithStatusCode(200).WithBody(string.Concat("\uFEFF", OpenSubtitlesScenario.DefaultSrt)));
         var provider = Provider();
 
         // act
@@ -462,7 +452,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task DownloadAsync_PayloadWithDotMillisecondSeparators_IsAccepted()
     {
         // arrange
-        StubDownload("1\n00:00:01.000 --> 00:00:03.500\ntext\n");
+        emulator.OverrideLink(Response.Create().WithStatusCode(200).WithBody("1\n00:00:01.000 --> 00:00:03.500\ntext\n"));
         var provider = Provider();
 
         // act
@@ -477,7 +467,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     {
         // arrange
         var oversized = string.Concat("1\n00:00:01,000 --> 00:00:03,500\n", new string('x', (int)MaxBytes + 1), "\n");
-        StubDownload(oversized);
+        emulator.OverrideLink(Response.Create().WithStatusCode(200).WithBody(oversized));
         var provider = Provider();
 
         // act
@@ -491,8 +481,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task DownloadAsync_RetryableProviderError_IsNotRetriedAutomatically()
     {
         // arrange
-        server.Given(Request.Create().WithPath(DownloadPath).UsingPost())
-            .RespondWith(Response.Create().WithStatusCode(500));
+        emulator.OverrideDownload(Response.Create().WithStatusCode(500));
         var provider = Provider();
 
         // act
@@ -500,15 +489,14 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
         // assert
         await Should.ThrowAsync<SubtitleProviderFailureException>(act);
-        Count(DownloadPath).ShouldBe(1);
+        ApiCount(DownloadPath).ShouldBe(1);
     }
 
     [Fact]
     public async Task DownloadAsync_TooManyRequests_ReportsTheQuotaWithoutARetry()
     {
         // arrange
-        server.Given(Request.Create().WithPath(DownloadPath).UsingPost())
-            .RespondWith(Response.Create().WithStatusCode(429).WithHeader("Retry-After", "9"));
+        emulator.OverrideDownload(Response.Create().WithStatusCode(429).WithHeader("Retry-After", "9"));
         var provider = Provider();
 
         // act
@@ -517,14 +505,14 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         // assert
         var quota = await Should.ThrowAsync<SubtitleQuotaExceededException>(act);
         quota.RetryAfter.ShouldBe(TimeSpan.FromSeconds(9));
-        server.LogEntries.Count.ShouldBe(1);
+        emulator.Api.LogEntries.Count().ShouldBe(1);
     }
 
     [Fact]
     public async Task DownloadAsync_NoResponseWithinTheRequestTimeout_FailsAsAProviderTimeout()
     {
         // arrange
-        StubDownloadLinkResponse(Response.Create().WithStatusCode(200).WithDelay(TimeSpan.FromSeconds(3)));
+        emulator.OverrideLink(Response.Create().WithStatusCode(200).WithDelay(TimeSpan.FromSeconds(3)));
         var provider = Provider(configure: options => options with { RequestTimeout = TimeSpan.FromMilliseconds(400) });
 
         // act
@@ -557,15 +545,13 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task SearchAsync_QuotaHeaders_MapRemainingAndRetryAfterIntoResetAtUtc()
+    public async Task SearchAsync_RateLimitHeaders_DoNotBecomeADailyQuota()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create()
-                .WithStatusCode(200)
-                .WithHeader("X-RateLimit-Remaining", "17")
-                .WithHeader("Retry-After", "90")
-                .WithBody(SearchBody));
+        emulator.OverrideSearch(Response.Create()
+            .WithStatusCode(200)
+            .WithHeader("X-RateLimit-Remaining", "17")
+            .WithBody("{\"data\":[]}"));
         var provider = Provider();
 
         // act
@@ -574,15 +560,13 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
             TestContext.Current.CancellationToken);
 
         // assert
-        result.Quota.RemainingDownloads.ShouldBe(17);
-        result.Quota.ResetAtUtc.ShouldBe(Now.AddSeconds(90));
+        result.Quota.ShouldBe(SubtitleQuota.Unknown);
     }
 
     [Fact]
     public async Task SearchAsync_WithoutQuotaMetadata_ReportsAnUnknownQuotaWithoutInventingValues()
     {
         // arrange
-        StubSearch(SearchBody);
         var provider = Provider();
 
         // act
@@ -598,57 +582,11 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task SearchAsync_ZeroRemainingDownloads_ReportsAnExhaustedQuota()
+    public async Task DownloadAsync_BodyQuota_IsReportedWithThePayload()
     {
         // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create()
-                .WithStatusCode(200)
-                .WithHeader("X-RateLimit-Remaining", "0")
-                .WithBody(SearchBody));
-        var provider = Provider();
-
-        // act
-        var result = await provider.SearchAsync(
-            new SubtitleSearch(Hash, 4_000_000, Title: null, ["en"]),
-            TestContext.Current.CancellationToken);
-
-        // assert
-        result.Quota.RemainingDownloads.ShouldBe(0);
-        result.Quota.IsExhausted.ShouldBeTrue();
-    }
-
-    [Fact]
-    public async Task SearchAsync_NonNumericRemainingHeader_IsTreatedAsUnknown()
-    {
-        // arrange
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create()
-                .WithStatusCode(200)
-                .WithHeader("X-RateLimit-Remaining", "soon")
-                .WithBody(SearchBody));
-        var provider = Provider();
-
-        // act
-        var result = await provider.SearchAsync(
-            new SubtitleSearch(Hash, 4_000_000, Title: null, ["en"]),
-            TestContext.Current.CancellationToken);
-
-        // assert
-        result.Quota.RemainingDownloads.ShouldBeNull();
-    }
-
-    [Fact]
-    public async Task DownloadAsync_QuotaHeaders_AreReportedWithThePayload()
-    {
-        // arrange
-        server.Given(Request.Create().WithPath(DownloadPath).UsingPost())
-            .RespondWith(Response.Create()
-                .WithStatusCode(200)
-                .WithHeader("X-RateLimit-Remaining", "3")
-                .WithBody($"{{\"link\":\"{BaseUrl + LinkPath}\"}}"));
-        server.Given(Request.Create().WithPath(LinkPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(200).WithBody(ValidSrt));
+        emulator.OverrideDownload(Response.Create().WithStatusCode(200).WithBody(
+            $"{{\"link\":\"{emulator.DownloadLinkFor(101)}\",\"remaining\":3,\"reset_time_utc\":\"2026-03-04T23:59:59.999Z\"}}"));
         var provider = Provider();
 
         // act
@@ -656,14 +594,48 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
         // assert
         download.Quota.RemainingDownloads.ShouldBe(3);
+        download.Quota.ResetAtUtc.ShouldBe(ResetAt);
         download.Content.ShouldNotBeEmpty();
     }
 
     [Fact]
-    public async Task DownloadAsync_SearchPathQuotaIsNotReused_EachResponseMapsItsOwnHeaders()
+    public async Task DownloadAsync_DefaultEmulatorBody_ReportsTheScenarioQuota()
     {
         // arrange
-        StubDownload(ValidSrt);
+        var provider = Provider();
+
+        // act
+        var download = await provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
+
+        // assert
+        download.Quota.RemainingDownloads.ShouldBe(99);
+        download.Quota.ResetAtUtc.ShouldBe(ResetAt);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_ZeroRemainingInBody_ReportsAnExhaustedQuota()
+    {
+        // arrange
+        emulator.OverrideDownload(Response.Create().WithStatusCode(200).WithBody(
+            $"{{\"link\":\"{emulator.DownloadLinkFor(101)}\",\"remaining\":0}}"));
+        var provider = Provider();
+
+        // act
+        var download = await provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
+
+        // assert
+        download.Quota.RemainingDownloads.ShouldBe(0);
+        download.Quota.IsExhausted.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData("{\"link\":\"LINK\"}")]
+    [InlineData("{\"link\":\"LINK\",\"remaining\":\"soon\"}")]
+    public async Task DownloadAsync_BodyWithoutAUsableQuota_ReportsAnUnknownQuota(string bodyTemplate)
+    {
+        // arrange
+        var body = bodyTemplate.Replace("LINK", emulator.DownloadLinkFor(101), StringComparison.Ordinal);
+        emulator.OverrideDownload(Response.Create().WithStatusCode(200).WithBody(body));
         var provider = Provider();
 
         // act
@@ -678,10 +650,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     {
         // arrange
         var oversized = string.Concat("1\n00:00:01,000 --> 00:00:03,500\n", new string('x', 2048), "\n");
-        server.Given(Request.Create().WithPath(DownloadPath).UsingPost())
-            .RespondWith(Response.Create().WithBody($"{{\"link\":\"{BaseUrl + LinkPath}\"}}"));
-        server.Given(Request.Create().WithPath(LinkPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(200).WithBody(oversized));
+        emulator.OverrideLink(Response.Create().WithStatusCode(200).WithBody(oversized));
         var provider = Provider(subtitles: new SubtitlesOptions { MaxSubtitleDownloadBytes = 1024 });
 
         // act
@@ -700,7 +669,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         var options = new SubtitleProviderOptions
         {
             ApiKey = ApiKey,
-            BaseUrl = BaseUrl,
+            BaseUrl = emulator.BaseUrl,
             UserAgent = UserAgent,
             DownloadAllowedHosts = ["127.0.0.1"],
             MaxDownloadBytes = MaxBytes,
@@ -728,60 +697,42 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     }
 
     private void StubSearch(string body) =>
-        server.Given(Request.Create().WithPath(SearchPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(200).WithBody(body));
+        emulator.OverrideSearch(Response.Create().WithStatusCode(200).WithBody(body));
 
-    private void StubDownload(string payload)
+    private void OverrideDownloadWithLink(string link) =>
+        emulator.OverrideDownload(Response.Create().WithStatusCode(200).WithBody($"{{\"link\":\"{link}\"}}"));
+
+    private sealed record Recorded(string Method, string RawQuery, string? Body, IDictionary<string, WireMock.Types.WireMockList<string>>? Headers);
+
+    private static Recorded Only(WireMockServer server, string? path)
     {
-        StubDownloadLinkResponse(Response.Create().WithStatusCode(200));
-        server.Given(Request.Create().WithPath(LinkPath).UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload));
-    }
-
-    private void StubDownloadLinkResponse(IResponseBuilder response, string? link = null) =>
-        server.Given(Request.Create().WithPath(DownloadPath).UsingPost())
-            .RespondWith(response.WithBody($"{{\"link\":\"{link ?? BaseUrl + LinkPath}\"}}"));
-
-    private (string Url, string[] ApiKeys, string[] UserAgents) SearchRequest()
-    {
-        var entries = server.LogEntries.Where(entry => entry.RequestMessage is { Path: SearchPath }).ToArray();
+        var entries = server.LogEntries.Where(entry => path is null || entry.RequestMessage?.Path == path).ToArray();
         entries.Length.ShouldBe(1);
         var message = entries[0].RequestMessage.ShouldNotBeNull();
-        message.Method.ShouldBe("GET");
-        return (message.Url.ShouldNotBeNull(), HeaderValues(message.Headers, "Api-Key"), HeaderValues(message.Headers, "User-Agent"));
+        return new Recorded(message.Method, message.RawQuery, message.Body, message.Headers);
     }
 
-    private static string? QueryValue(string url, string name)
+    private Recorded SearchRequest() => Only(emulator.Api, SearchPath);
+
+    private Recorded LinkGetRequest() => Only(emulator.Links, null);
+
+    private string DownloadRequestBody() => Only(emulator.Api, DownloadPath).Body.ShouldNotBeNull();
+
+    private static string? QueryValue(Recorded message, string name)
     {
-        var query = new Uri(url).Query.TrimStart('?');
-        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var pair in message.RawQuery.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
             var parts = pair.Split('=', 2);
             if (parts.Length == 2 && string.Equals(Uri.UnescapeDataString(parts[0]), name, StringComparison.Ordinal))
             {
-                return Uri.UnescapeDataString(parts[1]);
+                return Uri.UnescapeDataString(parts[1].Replace('+', ' '));
             }
         }
 
         return null;
     }
 
-    private (string Body, string Method) LinkGetRequest()
-    {
-        var entries = server.LogEntries.Where(entry => entry.RequestMessage is { Path: LinkPath }).ToArray();
-        entries.Length.ShouldBe(1);
-        var message = entries[0].RequestMessage.ShouldNotBeNull();
-        return (message.Body ?? string.Empty, message.Method.ShouldNotBeNull());
-    }
-
-    private string DownloadRequestBody()
-    {
-        var entries = server.LogEntries.Where(entry => entry.RequestMessage is { Path: DownloadPath }).ToArray();
-        entries.Length.ShouldBe(1);
-        return entries[0].RequestMessage.ShouldNotBeNull().Body.ShouldNotBeNull();
-    }
-
-    private int Count(string path) => server.LogEntries.Count(entry => entry.RequestMessage?.Path == path);
+    private int ApiCount(string path) => emulator.Api.LogEntries.Count(entry => entry.RequestMessage?.Path == path);
 
     private static string[] HeaderValues(IDictionary<string, WireMock.Types.WireMockList<string>>? headers, string name) =>
         headers is not null && headers.TryGetValue(name, out var values) ? [.. values] : [];
