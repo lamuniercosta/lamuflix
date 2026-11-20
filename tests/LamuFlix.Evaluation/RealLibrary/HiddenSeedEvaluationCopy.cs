@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -35,6 +35,7 @@ public sealed class HiddenSeedEvaluationCopy
             timeProvider,
             options);
         GenreWeights = new GenreWeightsCalculator(Catalog, new GenreWeightsCache());
+        KeywordWeights = new KeywordWeightsCalculator(Catalog, new KeywordWeightsCache());
     }
 
     public MovieId HiddenSeed { get; }
@@ -46,6 +47,8 @@ public sealed class HiddenSeedEvaluationCopy
     public IRecommendationProfileSource ProfileSource { get; }
 
     private GenreWeightsCalculator GenreWeights { get; }
+
+    private KeywordWeightsCalculator KeywordWeights { get; }
 
     public static HiddenSeedEvaluationCopy Create(
         RealLibrarySnapshot snapshot,
@@ -76,7 +79,13 @@ public sealed class HiddenSeedEvaluationCopy
     }
 
     private GetForYouRecommendationsQueryHandler CreateHandler() =>
-        new(Catalog, Repository, ProfileSource, GenreWeights, Options.Create(options));
+        new(
+            Catalog,
+            Repository,
+            ProfileSource,
+            GenreWeights,
+            KeywordWeights,
+            Options.Create(options));
 
     private static Movie HiddenView(Movie movie)
     {
@@ -148,11 +157,7 @@ public sealed class HiddenSeedEvaluationCopy
         public Task<KeywordCounts> GetKeywordCountsAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            var counts = snapshot.Movies
-                .SelectMany(movie => movie.Metadata?.Signals?.Keywords.Select(keyword => (movie.Id, keyword.Name)) ?? [])
-                .GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(group => group.Key, group => (long)group.Select(item => item.Id).Distinct().Count(), StringComparer.OrdinalIgnoreCase);
-            return Task.FromResult(new KeywordCounts(snapshot.Movies.Length, counts));
+            return Task.FromResult(snapshot.KeywordCounts);
         }
 
         public Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct)

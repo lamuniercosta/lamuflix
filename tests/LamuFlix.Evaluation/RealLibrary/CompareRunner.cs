@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -141,8 +141,9 @@ public static class CompareRunner
                 SimilarityScorer.Score(
                     selectedFeatures,
                     MovieFeaturesMapper.From(movie, includeSignals: true),
-                    options.Weights,
-                    snapshot.GenreWeights),
+                    options,
+                    snapshot.GenreWeights,
+                    snapshot.KeywordCounts),
                 PlotCosine(snapshot, selected.Id, movie.Id),
                 SharesCollection(selected, movie)));
         }

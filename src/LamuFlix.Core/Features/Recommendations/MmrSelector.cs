@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 
 namespace LamuFlix.Core.Features.Recommendations;
 
@@ -12,20 +13,20 @@ public static class MmrSelector
         IReadOnlyList<MmrCandidate> candidates,
         int take,
         double lambda,
-        SimilarityWeights weights,
+        RecommendationOptions options,
         GenreWeights genreWeights,
-        int maxPerBestSeed = int.MaxValue,
-        int maxPerCollection = int.MaxValue)
+        KeywordCounts keywordCounts)
     {
         ArgumentNullException.ThrowIfNull(candidates);
-        ArgumentNullException.ThrowIfNull(weights);
+        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(genreWeights);
+        ArgumentNullException.ThrowIfNull(keywordCounts);
 
-        ValidateWeights(weights);
+        ValidateWeights(options.Weights);
         ValidateLambda(lambda);
         ValidateTake(take);
-        ValidateCap(maxPerBestSeed, nameof(maxPerBestSeed));
-        ValidateCap(maxPerCollection, nameof(maxPerCollection));
+        ValidateCap(options.MaxPerBestSeed, nameof(options.MaxPerBestSeed));
+        ValidateCap(options.MaxPerCollection, nameof(options.MaxPerCollection));
         ValidateCandidates(candidates);
 
         if (candidates.Count == 0 || take == 0)
@@ -33,17 +34,16 @@ public static class MmrSelector
             return ImmutableList<MovieId>.Empty;
         }
 
-        return SelectOrdered(candidates, Math.Min(take, candidates.Count), lambda, weights, genreWeights, maxPerBestSeed, maxPerCollection);
+        return SelectOrdered(candidates, Math.Min(take, candidates.Count), lambda, options, genreWeights, keywordCounts);
     }
 
     private static ImmutableList<MovieId> SelectOrdered(
         IReadOnlyList<MmrCandidate> candidates,
         int count,
         double lambda,
-        SimilarityWeights weights,
+        RecommendationOptions options,
         GenreWeights genreWeights,
-        int maxPerBestSeed,
-        int maxPerCollection)
+        KeywordCounts keywordCounts)
     {
         var selected = new bool[candidates.Count];
         var maximumRedundancy = new double[candidates.Count];
@@ -54,7 +54,7 @@ public static class MmrSelector
 
         while (builder.Count < count)
         {
-            var chosen = ChooseNext(candidates, selected, maximumRedundancy, lambda, seedCounts, collectionCounts, maxPerBestSeed, maxPerCollection);
+            var chosen = ChooseNext(candidates, selected, maximumRedundancy, lambda, seedCounts, collectionCounts, options.MaxPerBestSeed, options.MaxPerCollection);
             if (chosen < 0)
             {
                 break;
@@ -79,7 +79,14 @@ public static class MmrSelector
                 break;
             }
 
-            UpdateMaximumRedundancy(candidates, selected, maximumRedundancy, selectedFeatures, weights, genreWeights);
+            UpdateMaximumRedundancy(
+                candidates,
+                selected,
+                maximumRedundancy,
+                selectedFeatures,
+                options,
+                genreWeights,
+                keywordCounts);
         }
 
         return builder.ToImmutable();
@@ -165,8 +172,9 @@ public static class MmrSelector
         bool[] selected,
         double[] maximumRedundancy,
         List<MovieFeatures> selectedFeatures,
-        SimilarityWeights weights,
-        GenreWeights genreWeights)
+        RecommendationOptions options,
+        GenreWeights genreWeights,
+        KeywordCounts keywordCounts)
     {
         var newest = selectedFeatures[^1];
 
@@ -177,7 +185,12 @@ public static class MmrSelector
                 continue;
             }
 
-            var similarity = SimilarityScorer.Score(candidates[index].Features, newest, weights, genreWeights).Score;
+            var similarity = SimilarityScorer.Score(
+                candidates[index].Features,
+                newest,
+                options,
+                genreWeights,
+                keywordCounts).Score;
             if (similarity > maximumRedundancy[index])
             {
                 maximumRedundancy[index] = similarity;
@@ -263,13 +276,12 @@ public static class MmrSelector
 
     private static void ValidateWeights(SimilarityWeights weights)
     {
+        ValidateWeight(weights.Collection, nameof(weights));
         ValidateWeight(weights.Director, nameof(weights));
-        ValidateWeight(weights.Writers, nameof(weights));
+        ValidateWeight(weights.Themes, nameof(weights));
+        ValidateWeight(weights.Plot, nameof(weights));
         ValidateWeight(weights.Cast, nameof(weights));
         ValidateWeight(weights.Genres, nameof(weights));
-        ValidateWeight(weights.YearProximity, nameof(weights));
-        ValidateWeight(weights.RuntimeProximity, nameof(weights));
-        ValidateWeight(weights.RatingBoost, nameof(weights));
     }
 
     private static void ValidateWeight(double weight, string paramName)

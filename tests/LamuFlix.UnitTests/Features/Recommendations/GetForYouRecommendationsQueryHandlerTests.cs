@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -31,6 +31,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         });
 
     private static double DramaPreferenceWeight => GenreWeights.Calculate(Counts).GetWeight("Drama");
+
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
@@ -116,6 +117,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     public GetForYouRecommendationsQueryHandlerTests()
     {
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(Counts));
+        catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new KeywordCounts(0, new Dictionary<string, long>())));
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<Movie?>(null));
     }
 
@@ -138,6 +141,30 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_ForYouOperation_ResolvesOneKeywordSnapshotForTheWholeMmrPass()
+    {
+        // arrange
+        var cache = new KeywordWeightsCache();
+        var handler = NewHandler(keywordCache: cache);
+        ArrangeLibrary(
+            NewMovie(2, genres: ["Drama"]),
+            NewMovie(3, genres: ["Drama", "Comedy"]),
+            NewMovie(4, genres: ["Comedy"]));
+        ArrangeProfile(Inputs(WatchedHistory(90, "Drama")), Profile(("Drama", 1.0)));
+
+        // act
+        var first = await handler.HandleAsync(new GetForYouRecommendationsQuery(2), CancellationToken.None);
+        cache.Invalidate();
+        var second = await handler.HandleAsync(new GetForYouRecommendationsQuery(2), CancellationToken.None);
+
+        // assert
+        first.Count.ShouldBe(2);
+        await catalog.Received(2).GetKeywordCountsAsync(Arg.Any<CancellationToken>());
+        second.Select(item => item.Score).ShouldBe(first.Select(item => item.Score));
+        second.Select(item => item.Summary.Id).ShouldBe(first.Select(item => item.Summary.Id));
     }
 
     [Fact]
@@ -839,12 +866,14 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         double blendProfileWeight = 1.0,
         double alreadyWatchedPenalty = 0.25,
         double mmrLambda = 0.7,
-        SimilarityWeights? weights = null) =>
+        SimilarityWeights? weights = null,
+        KeywordWeightsCache? keywordCache = null) =>
         new(
             catalog,
             movies,
             profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
+            new KeywordWeightsCalculator(catalog, keywordCache ?? new KeywordWeightsCache()),
             Microsoft.Extensions.Options.Options.Create(new RecommendationOptions
             {
                 CandidatePoolSize = candidatePoolSize,
@@ -1035,13 +1064,10 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     private static SimilarityWeights PlotOnlyWeights => new()
     {
         Director = 0.0,
-        Writers = 0.0,
+        Themes = 0.0,
+        Plot = 1.0,
         Cast = 0.0,
         Genres = 0.0,
-        YearProximity = 0.0,
-        RuntimeProximity = 0.0,
-        RatingBoost = 0.0,
-        Keyword = 0.0,
         Collection = 0.0,
         ReviewPlotWeight = 1.0,
     };
@@ -1260,6 +1286,8 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
                 return Task.FromResult(new PagedResult<MovieSummary>(items, library.Count));
             });
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(Counts));
+        catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new KeywordCounts(0, new Dictionary<string, long>())));
 
         var movies = Substitute.For<IMovieRepository>();
         foreach (var movie in library)
@@ -1284,6 +1312,7 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
             movies,
             profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
+            new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
             Microsoft.Extensions.Options.Options.Create(new RecommendationOptions()));
 
         return handler

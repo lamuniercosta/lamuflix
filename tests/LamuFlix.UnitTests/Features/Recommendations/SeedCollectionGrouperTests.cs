@@ -34,7 +34,7 @@ public sealed class SeedCollectionGrouperTests
         };
 
         // act
-        var result = SeedCollectionGrouper.Group(candidates, order, Seed(collectionId: null), 10, Weights(), Table);
+        var result = SeedCollectionGrouper.Group(candidates, order, Seed(collectionId: null), 10, Options(), Table, Counts());
 
         // assert
         result.ShouldBeSameAs(order);
@@ -52,7 +52,7 @@ public sealed class SeedCollectionGrouperTests
         };
 
         // act
-        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 10, Weights(), Table);
+        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 10, Options(), Table, Counts());
 
         // assert
         result.ShouldBeSameAs(order);
@@ -72,7 +72,7 @@ public sealed class SeedCollectionGrouperTests
         };
 
         // act
-        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 5, Weights(), Table);
+        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 5, Options(), Table, Counts());
 
         // assert
         result.ShouldBe([new MovieId(5), new MovieId(3), new MovieId(4), new MovieId(2)]);
@@ -92,7 +92,7 @@ public sealed class SeedCollectionGrouperTests
         };
 
         // act
-        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 3, Weights(), Table);
+        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 3, Options(), Table, Counts());
 
         // assert
         result.ShouldBe([new MovieId(11), new MovieId(10), new MovieId(2)]);
@@ -110,7 +110,7 @@ public sealed class SeedCollectionGrouperTests
         candidates.AddRange(matches);
 
         // act
-        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 12, Weights(), Table);
+        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 12, Options(), Table, Counts());
 
         // assert
         result.Take(SeedCollectionGrouper.MaximumBlockSize)
@@ -125,7 +125,7 @@ public sealed class SeedCollectionGrouperTests
         var candidates = new List<MmrCandidate> { Candidate(3, collectionId: FranchiseId) };
 
         // act
-        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 0, Weights(), Table);
+        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 0, Options(), Table, Counts());
 
         // assert
         result.ShouldBeEmpty();
@@ -143,7 +143,7 @@ public sealed class SeedCollectionGrouperTests
         };
 
         // act
-        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 5, Weights(), Table);
+        var result = SeedCollectionGrouper.Group(candidates, order, Seed(FranchiseId), 5, Options(), Table, Counts());
 
         // assert
         result.ShouldBe([new MovieId(3), new MovieId(2)]);
@@ -160,8 +160,8 @@ public sealed class SeedCollectionGrouperTests
             ImmutableList<MovieId>.Empty,
             Seed(FranchiseId),
             10,
-            Weights(),
-            Table));
+            Options(),
+            Table, Counts()));
 
         // assert
         failure.ParamName.ShouldBe("candidates");
@@ -176,8 +176,8 @@ public sealed class SeedCollectionGrouperTests
             ImmutableList<MovieId>.Empty,
             Seed(FranchiseId),
             -1,
-            Weights(),
-            Table));
+            Options(),
+            Table, Counts()));
 
         // assert
         failure.ParamName.ShouldBe("take");
@@ -201,5 +201,7 @@ public sealed class SeedCollectionGrouperTests
             releaseYear: new ReleaseYear(2000, Now),
             collectionId: collectionId);
 
-    private static SimilarityWeights Weights() => new();
+    private static RecommendationOptions Options() => new();
+
+    private static KeywordCounts Counts() => new(10, new Dictionary<string, long> { ["Drama"] = 5, ["Comedy"] = 5 });
 }

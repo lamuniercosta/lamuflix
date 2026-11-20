@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
@@ -35,13 +35,10 @@ public sealed class TmdbSignalReplayTests
         enriched.RankingInputs.Lambda.ShouldBe(baseline.RankingInputs.Lambda);
         enriched.RankingInputs.SimilarityWeights.ShouldSatisfyAllConditions(
             value => value.Director.ShouldBe(baseline.RankingInputs.SimilarityWeights.Director),
-            value => value.Writers.ShouldBe(baseline.RankingInputs.SimilarityWeights.Writers),
+            value => value.Themes.ShouldBe(1.0),
+            value => value.Plot.ShouldBe(baseline.RankingInputs.SimilarityWeights.Plot),
             value => value.Cast.ShouldBe(baseline.RankingInputs.SimilarityWeights.Cast),
             value => value.Genres.ShouldBe(baseline.RankingInputs.SimilarityWeights.Genres),
-            value => value.YearProximity.ShouldBe(baseline.RankingInputs.SimilarityWeights.YearProximity),
-            value => value.RuntimeProximity.ShouldBe(baseline.RankingInputs.SimilarityWeights.RuntimeProximity),
-            value => value.RatingBoost.ShouldBe(baseline.RankingInputs.SimilarityWeights.RatingBoost),
-            value => value.Keyword.ShouldBe(1.0),
             value => value.Collection.ShouldBe(2.0));
 
         foreach (var (movie, index) in enriched.Catalog.Select((movie, index) => (movie, index)))
@@ -190,16 +187,13 @@ public sealed class TmdbSignalReplayTests
         var noWeights = new SimilarityWeights
         {
             Director = 0.0,
-            Writers = 0.0,
+            Themes = 0.0,
+            Plot = 0.0,
             Cast = 0.0,
             Genres = 0.0,
-            YearProximity = 0.0,
-            RuntimeProximity = 0.0,
-            RatingBoost = 0.0,
-            Keyword = 0.0,
             Collection = 0.0,
         };
-        var keywordOnly = noWeights with { Keyword = 1.0 };
+        var keywordOnly = noWeights with { Themes = 1.0 };
         var collectionOnly = noWeights with { Collection = 2.0 };
         var castOnly = noWeights with { Cast = 2.0 };
 
@@ -391,8 +385,9 @@ public sealed class TmdbSignalReplayTests
         SimilarityScorer.Score(
             first.FeaturesFor(TmdbSignalsMode.Enabled),
             second.FeaturesFor(TmdbSignalsMode.Enabled),
-            weights,
-            genreWeights).Score;
+            new RecommendationOptions { Weights = weights },
+            genreWeights,
+            AsOfHistory.CatalogKeywordCounts([first, second])).Score;
 
     private static EvaluationFixture LoadEnriched() =>
         EvaluationFixtureLoader.LoadFromJson(

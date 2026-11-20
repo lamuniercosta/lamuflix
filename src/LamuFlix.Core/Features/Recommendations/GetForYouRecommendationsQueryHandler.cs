@@ -19,6 +19,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
     IMovieRepository movies,
     IRecommendationProfileSource profileSource,
     GenreWeightsCalculator genreWeightsCalculator,
+    KeywordWeightsCalculator keywordWeightsCalculator,
     IOptions<RecommendationOptions> options)
     : IQueryHandler<GetForYouRecommendationsQuery, ForYouRecommendationsPage>
 {
@@ -59,6 +60,9 @@ public sealed class GetForYouRecommendationsQueryHandler(
         var genreWeights = await genreWeightsCalculator.GetAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var keywordCounts = await keywordWeightsCalculator.GetAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
         var recommendationOptions = options.Value;
         var scored = Score(
             eligible,
@@ -88,10 +92,9 @@ public sealed class GetForYouRecommendationsQueryHandler(
                 item.BestSeedId))],
             selectionLimit,
             recommendationOptions.MmrLambda,
-            recommendationOptions.Weights,
+            recommendationOptions,
             genreWeights,
-            recommendationOptions.MaxPerBestSeed,
-            recommendationOptions.MaxPerCollection);
+            keywordCounts);
 
         var byId = scored.ToDictionary(item => item.Movie.Id);
 

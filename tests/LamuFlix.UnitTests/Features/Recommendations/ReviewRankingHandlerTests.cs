@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -29,16 +29,15 @@ public sealed class ReviewRankingHandlerTests
     private static readonly SimilarityWeights GenreOnlyWeights = new()
     {
         Director = 0.0,
-        Writers = 0.0,
+        Themes = 0.0,
+        Plot = 0.0,
         Cast = 0.0,
         Genres = 3.0,
-        YearProximity = 0.0,
-        RuntimeProximity = 0.0,
-        RatingBoost = 0.0,
-        Keyword = 0.0,
         Collection = 0.0,
         ReviewPlotWeight = 0.0,
     };
+
+    private static readonly KeywordCounts EmptyKeywordCounts = new(0, new Dictionary<string, long>());
 
     private static GenreWeights Weights => GenreWeights.Calculate(Counts);
 
@@ -396,6 +395,7 @@ public sealed class ReviewRankingHandlerTests
         public ForYouHarness()
         {
             catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Counts);
+            catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>()).Returns(EmptyKeywordCounts);
         }
 
 
@@ -451,6 +451,7 @@ public sealed class ReviewRankingHandlerTests
                 movies,
                 profileSource,
                 new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
+                new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
                 Microsoft.Extensions.Options.Options.Create(options));
 
             return (await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None)).Items;
@@ -468,6 +469,7 @@ public sealed class ReviewRankingHandlerTests
         public RelatedHarness()
         {
             catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Counts);
+            catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>()).Returns(EmptyKeywordCounts);
             movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<Movie?>(selected));
         }
@@ -502,11 +504,11 @@ public sealed class ReviewRankingHandlerTests
                 candidates,
                 profileSource,
                 new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
+                new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
                 Microsoft.Extensions.Options.Options.Create(new RecommendationOptions
                 {
                     Weights = GenreOnlyWeights,
                     MmrLambda = 1.0,
-                    SimilarStoryThreshold = 1.0,
                 }));
 
             return await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);

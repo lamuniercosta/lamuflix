@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
@@ -655,15 +655,12 @@ public sealed class QualityReportRunnerTests
             Weights = new SimilarityWeights
             {
                 Director = 0.0,
-                Writers = 0.0,
+                Themes = 0.0,
+                Plot = 1.0,
                 Cast = 0.0,
                 Genres = 0.0,
-                YearProximity = 0.0,
-                RuntimeProximity = 0.0,
-                RatingBoost = 0.0,
-                Keyword = 0.0,
                 Collection = 0.0,
-                ReviewPlotWeight = 0.0,
+                ReviewPlotWeight = 1.0,
             },
         };
 

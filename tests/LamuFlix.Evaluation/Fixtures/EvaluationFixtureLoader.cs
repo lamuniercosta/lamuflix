@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
@@ -73,13 +73,10 @@ public static class EvaluationFixtureLoader
         return new SimilarityWeights
         {
             Director = ReadWeight(weights, "director", defaults.Director),
-            Writers = ReadWeight(weights, "writers", defaults.Writers),
+            Themes = ReadWeight(weights, "themes", ReadWeight(weights, "keyword", defaults.Themes)),
+            Plot = ReadWeight(weights, "plot", defaults.Plot),
             Cast = ReadWeight(weights, "cast", defaults.Cast),
             Genres = ReadWeight(weights, "genres", defaults.Genres),
-            YearProximity = ReadWeight(weights, "yearProximity", defaults.YearProximity),
-            RuntimeProximity = ReadWeight(weights, "runtimeProximity", defaults.RuntimeProximity),
-            RatingBoost = ReadWeight(weights, "ratingBoost", defaults.RatingBoost),
-            Keyword = ReadWeight(weights, "keyword", defaults.Keyword),
             Collection = ReadWeight(weights, "collection", defaults.Collection),
         };
     }

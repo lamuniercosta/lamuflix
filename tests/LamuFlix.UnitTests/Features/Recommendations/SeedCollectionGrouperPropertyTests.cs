@@ -36,7 +36,7 @@ public sealed class SeedCollectionGrouperPropertyTests
         var order = Order(candidates, take);
 
         // act
-        var result = SeedCollectionGrouper.Group(candidates, order, Seed(), take, Weights(), Table);
+        var result = SeedCollectionGrouper.Group(candidates, order, Seed(), take, Options(), Table, Counts());
 
         // assert
         return result.Count <= take
@@ -57,8 +57,8 @@ public sealed class SeedCollectionGrouperPropertyTests
         var order = Order(candidates, take);
 
         // act
-        var first = SeedCollectionGrouper.Group(candidates, order, Seed(), take, Weights(), Table);
-        var second = SeedCollectionGrouper.Group(candidates, order, Seed(), take, Weights(), Table);
+        var first = SeedCollectionGrouper.Group(candidates, order, Seed(), take, Options(), Table, Counts());
+        var second = SeedCollectionGrouper.Group(candidates, order, Seed(), take, Options(), Table, Counts());
 
         // assert
         return first.SequenceEqual(second);
@@ -74,7 +74,7 @@ public sealed class SeedCollectionGrouperPropertyTests
         var order = Order(candidates, take);
 
         // act
-        var result = SeedCollectionGrouper.Group(candidates, order, Seed(collectionId: null), take, Weights(), Table);
+        var result = SeedCollectionGrouper.Group(candidates, order, Seed(collectionId: null), take, Options(), Table, Counts());
 
         // assert
         return result.SequenceEqual(order);
@@ -96,7 +96,7 @@ public sealed class SeedCollectionGrouperPropertyTests
             candidates.Count(candidate => candidate.Features.CollectionId == FranchiseId));
 
         // act
-        var result = SeedCollectionGrouper.Group(candidates, order, Seed(), take, Weights(), Table);
+        var result = SeedCollectionGrouper.Group(candidates, order, Seed(), take, Options(), Table, Counts());
 
         // assert
         var byId = candidates.ToDictionary(candidate => candidate.MovieId);
@@ -136,7 +136,9 @@ public sealed class SeedCollectionGrouperPropertyTests
             releaseYear: new ReleaseYear(2000, Now),
             collectionId: collectionId);
 
-    private static SimilarityWeights Weights() => new();
+    private static RecommendationOptions Options() => new();
+
+    private static KeywordCounts Counts() => new(10, new Dictionary<string, long> { ["Drama"] = 5, ["Comedy"] = 5 });
 
     private static int PositiveMod(int value, int divisor)
     {
