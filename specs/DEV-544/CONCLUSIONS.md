@@ -109,3 +109,12 @@ Ruling: Approved narrow Charter §2.3 item 6 test adaptations (`ReviewRankingHan
 ## Gate 1 Ruling (2026-11-19)
 
 - **Verdict**: `gate1: provisional` (all grill rulings Q1–Q6 and all 30 plan challenge dispositions in `PLAN_ADJUDICATION.md` accepted; `checklists/requirements.md` User-Visible Outcome items verified ticked; zero structural owner checkboxes).
+
+---
+
+## Gate 1 Owner Merge Receipt and Phase 1 Pickup (2026-11-20)
+
+- **T000** — Owner spec PR [#452](https://github.com/lamuniercosta/lamuflix/pull/452) merged into `main` on 2026-11-19 at 17:18:25 UTC as `c589ff8c9c3b0bf801ed3e9420cc522262d3627d`. The DEV-544 task note identifies `1ac83297c1ba8ffc936987e8b198ce8dc612b01a` as the Phase A base. Git confirms the base precedes the spec merge and the merge is present in pickup HEAD.
+- **T001** — Pickup worktree `F:/Dev/LamuFlix.worktrees/DEV-544`, branch `feature/DEV-544`, started at `2f1647b260963f645882eb2711cf425e143fa6ff`, which matched live `main`. DEV-518's scorer is available at that revision. The scorer populates `SimilarityResult.Breakdown` and normalizes Themes against `ThemesCeiling`.
+- **Phase 1 evidence** — See `recon-DEV-544` for Wisp's bounded inventory and the `DEV-544` task note for Gauge's baseline at `2f1647b2`. Roslyn and cyclomatic complexity passed. InspectCode was `SKIPPED (scope-empty)`.
+- **Remaining recon** — The Conductor directed the T001 checkbox update. Wisp's receipt leaves the solution-wide caller and test-symbol inventory, options host startup validation, selected-only fallback seam, contract generation workflow, ArchitectureTests receipt, and details of the scorer contract and Plot reason presentation unverified. These gaps remain open for recon before Build.
