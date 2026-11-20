@@ -17,7 +17,7 @@ internal sealed class RecommendationsOperationTransformer : IOpenApiOperationTra
     private const string OffsetParameterName = "offset";
     private const string ExcludeParameterName = "exclude";
     private const string TakeDescription =
-        "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.";
+        "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize, which caps take and does not size any candidate load.";
 
     public Task TransformAsync(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
     {

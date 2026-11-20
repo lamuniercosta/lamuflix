@@ -32,7 +32,7 @@ public sealed class RecommendationOptionsSurvivorTests
 
         // assert
         results.Select(result => result.ErrorMessage)
-            .ShouldContain("CandidatePoolSize must be greater than or equal to Take; got 5 and 10.");
+            .ShouldContain("CandidatePoolSize caps the requested Take and must be greater than or equal to it; got 5 and 10.");
     }
 
     [Fact]

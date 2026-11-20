@@ -1427,7 +1427,7 @@ export interface operations {
   GetRecommendations: {
     parameters: {
       query?: {
-        /** @description The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize. */
+        /** @description The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize, which caps take and does not size any candidate load. */
         take?: number;
       };
       path: {
@@ -1459,7 +1459,7 @@ export interface operations {
   GetForYouRecommendations: {
     parameters: {
       query?: {
-        /** @description The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize. */
+        /** @description The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize, which caps take and does not size any candidate load. */
         take?: number;
         offset?: number;
         exclude?: number[];

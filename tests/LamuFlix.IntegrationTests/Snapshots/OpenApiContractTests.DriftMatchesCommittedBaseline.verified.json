@@ -2062,7 +2062,7 @@
           {
             "name": "take",
             "in": "query",
-            "description": "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.",
+            "description": "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize, which caps take and does not size any candidate load.",
             "schema": {
               "minimum": 1,
               "type": "integer",
@@ -2118,7 +2118,7 @@
           {
             "name": "take",
             "in": "query",
-            "description": "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.",
+            "description": "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize, which caps take and does not size any candidate load.",
             "schema": {
               "minimum": 1,
               "type": "integer",
