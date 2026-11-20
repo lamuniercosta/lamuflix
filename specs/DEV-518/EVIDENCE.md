@@ -9,7 +9,7 @@ Status: T002 baseline captured at pickup HEAD; Phase 6 T015-T018 evidence record
 | Pickup SHA | `c516859dba97da61c0b8c42a083a8d59b29c8b46` |
 | Baseline capture SHA | `c516859dba97da61c0b8c42a083a8d59b29c8b46` |
 | After capture SHA | _pending_ |
-| Gate-checked SHA | _pending_ |
+| Gate-checked SHA | `4d4f0ae85fdbc65b27806f0dc81291dd81d91bf1` (Round 1 remediation: Related seed/candidate plot vectors, For You signal-inclusive MMR, once-per-operation keyword weights) |
 | DEV-545 tooling SHA / notes | `scripts/run-recommendation-snapshot.ps1` SHA-256 `ae07c64c1137ea2357cb9ff1fd54011d577034f83eef5670183c5de30a10b7e8`; captured from `http://localhost:3100` at pickup HEAD before DEV-518 scoring edits; DEV-545 seed lookup receipt: `specs/DEV-545/EVIDENCE.md` §0, T019a. |
 
 ## 1. Five Related seed IDs (DEV-545 ordered titles)
@@ -52,16 +52,16 @@ Lookup notes / command references (no secrets): DEV-545 one-time home-library lo
 
 | Gate | Exit / verdict | SHA | Notes |
 |---|---|---|---|
-| run-roslyn-analyzers.ps1 (required static) | _pending_ | | MUST pass |
-| run-cyclomatic-complexity.ps1 (required static; incl. applicable refactor-gate threshold) | _pending_ | | MUST pass |
-| run-jetbrains-inspectcode.ps1 (required static) | _pending_ | | MUST pass |
-| dotnet format --verify-no-changes | _pending_ | | MUST pass |
-| architecture tests | _pending_ | | |
-| property tests (applicable) | _pending_ | | |
-| vulnerable packages / security checks (applicable) | _pending_ | | |
-| dotnet test (focused / full) | _pending_ | | |
-| mutation (when production C# under `src/` changes) | _pending_ | | |
-| web (SKIPPED scope-empty if `/web` untouched) | _pending_ | | |
+| run-roslyn-analyzers.ps1 (required static) | PASS (exit 0, `-BaseRef origin/main`, 63 files) | `4d4f0ae85fdbc65b27806f0dc81291dd81d91bf1` | No CA/IDE warnings on target files |
+| run-cyclomatic-complexity.ps1 (required static; incl. applicable refactor-gate threshold) | PASS (exit 0, `-BaseRef origin/main`, 63 files) | `4d4f0ae85fdbc65b27806f0dc81291dd81d91bf1` | No methods exceed threshold of 15 |
+| run-jetbrains-inspectcode.ps1 (required static) | PASS (exit 0, `-BaseRef origin/main`, 63 files) | `4d4f0ae85fdbc65b27806f0dc81291dd81d91bf1` | No WARNING+ issues |
+| dotnet format --verify-no-changes | Could not run | `4d4f0ae85fdbc65b27806f0dc81291dd81d91bf1` | Exit 1 from pre-existing workspace-load notices only (identical on pristine HEAD `6edf469b`; 0 of 1062 files need formatting, so no file change is required) |
+| architecture tests | PASS | `4d4f0ae85fdbc65b27806f0dc81291dd81d91bf1` | `LamuFlix.ArchitectureTests` 16 passed, 0 failed |
+| property tests (applicable) | PASS | `4d4f0ae85fdbc65b27806f0dc81291dd81d91bf1` | Ran inside `LamuFlix.UnitTests` full run (FsCheck suites green) |
+| vulnerable packages / security checks (applicable) | _pending_ | | Not run in this remediation round |
+| dotnet test (focused / full) | PASS | `4d4f0ae85fdbc65b27806f0dc81291dd81d91bf1` | `LamuFlix.UnitTests` 4075 passed, 1 skipped, 0 failed; `LamuFlix.Evaluation` 211 passed, 0 failed |
+| mutation (when production C# under `src/` changes) | _pending_ | | Not run in this remediation round (minutes-expensive; pre-PR) |
+| web (SKIPPED scope-empty if `/web` untouched) | SKIP | `4d4f0ae85fdbc65b27806f0dc81291dd81d91bf1` | `/web` untouched by this remediation |
 
 Honest labels only: PASS / FAIL / SKIPPED (scope-empty) / SKIP / N/A / Could not run. Never fold N/A or non-pass into PASS. These rows are Phase B evidence slots — not claimed PASS at drafting.
 
