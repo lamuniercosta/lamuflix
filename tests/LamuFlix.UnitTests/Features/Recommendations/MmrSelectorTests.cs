@@ -406,8 +406,7 @@ public sealed class MmrSelectorTests
             new MmrCandidate(new MovieId(4), 0.7, Features(collectionId: 7), new MovieId(91)),
             new MmrCandidate(new MovieId(5), 0.6, Features()));
 
-        var options = new RecommendationOptions { MaxPerBestSeed = 1, MaxPerCollection = 1 };
-        var result = MmrSelector.Select(candidates, 5, 1.0, options, UniformGenres(), Counts());
+        var result = MmrSelector.Select(candidates, 5, 1.0, new RecommendationOptions(), UniformGenres(), Counts(), 1, 1);
 
         result.ShouldBe([new MovieId(1), new MovieId(3), new MovieId(5)]);
     }
@@ -420,8 +419,7 @@ public sealed class MmrSelectorTests
             new MmrCandidate(new MovieId(2), 1.0, Features(), new MovieId(90)),
             new MmrCandidate(new MovieId(3), 0.5, Features(), new MovieId(91)));
 
-        var options = new RecommendationOptions { MaxPerBestSeed = 1, MaxPerCollection = 1 };
-        var result = MmrSelector.Select(candidates, 2, 1.0, options, UniformGenres(), Counts());
+        var result = MmrSelector.Select(candidates, 2, 1.0, new RecommendationOptions(), UniformGenres(), Counts(), 1, 1);
 
         result.ShouldBe([new MovieId(2), new MovieId(3)]);
     }

@@ -94,7 +94,9 @@ public sealed class GetForYouRecommendationsQueryHandler(
             recommendationOptions.MmrLambda,
             recommendationOptions,
             genreWeights,
-            keywordCounts);
+            keywordCounts,
+            recommendationOptions.MaxPerBestSeed,
+            recommendationOptions.MaxPerCollection);
 
         var byId = scored.ToDictionary(item => item.Movie.Id);
 

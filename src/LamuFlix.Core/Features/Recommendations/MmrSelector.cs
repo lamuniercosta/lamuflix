@@ -15,7 +15,9 @@ public static class MmrSelector
         double lambda,
         RecommendationOptions options,
         GenreWeights genreWeights,
-        KeywordCounts keywordCounts)
+        KeywordCounts keywordCounts,
+        int maxPerBestSeed = int.MaxValue,
+        int maxPerCollection = int.MaxValue)
     {
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(options);
@@ -25,8 +27,8 @@ public static class MmrSelector
         ValidateWeights(options.Weights);
         ValidateLambda(lambda);
         ValidateTake(take);
-        ValidateCap(options.MaxPerBestSeed, nameof(options.MaxPerBestSeed));
-        ValidateCap(options.MaxPerCollection, nameof(options.MaxPerCollection));
+        ValidateCap(maxPerBestSeed, nameof(maxPerBestSeed));
+        ValidateCap(maxPerCollection, nameof(maxPerCollection));
         ValidateCandidates(candidates);
 
         if (candidates.Count == 0 || take == 0)
@@ -39,7 +41,7 @@ public static class MmrSelector
             ? SimilarityScorer.PrepareKeywordWeights(options, keywordCounts)
             : new Dictionary<string, double>();
 
-        return SelectOrdered(candidates, count, lambda, options, genreWeights, keywordWeights);
+        return SelectOrdered(candidates, count, lambda, options, genreWeights, keywordWeights, maxPerBestSeed, maxPerCollection);
     }
 
     private static ImmutableList<MovieId> SelectOrdered(
@@ -48,7 +50,9 @@ public static class MmrSelector
         double lambda,
         RecommendationOptions options,
         GenreWeights genreWeights,
-        IReadOnlyDictionary<string, double> keywordWeights)
+        IReadOnlyDictionary<string, double> keywordWeights,
+        int maxPerBestSeed,
+        int maxPerCollection)
     {
         var selected = new bool[candidates.Count];
         var maximumRedundancy = new double[candidates.Count];
@@ -59,7 +63,7 @@ public static class MmrSelector
 
         while (builder.Count < count)
         {
-            var chosen = ChooseNext(candidates, selected, maximumRedundancy, lambda, seedCounts, collectionCounts, options.MaxPerBestSeed, options.MaxPerCollection);
+            var chosen = ChooseNext(candidates, selected, maximumRedundancy, lambda, seedCounts, collectionCounts, maxPerBestSeed, maxPerCollection);
             if (chosen < 0)
             {
                 break;

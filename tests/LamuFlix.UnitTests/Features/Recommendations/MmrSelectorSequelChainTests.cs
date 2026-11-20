@@ -96,9 +96,10 @@ public sealed class MmrSelectorSequelChainTests
                 BuildFixture(),
                 Take,
                 Lambda,
-                GenreOnlyOptions with { MaxPerBestSeed = 1, MaxPerCollection = int.MaxValue },
+                GenreOnlyOptions,
                 UniformGenreWeights,
-                Counts)
+                Counts,
+                maxPerBestSeed: 1)
             .Select(id => id.Value)
             .ToArray();
 
