@@ -44,3 +44,10 @@
 - **Gate 1 (`gate1: provisional`)**: Approved (`gate1: provisional`).
   - `/speckit-analyze` is clean, the plan challenge is adjudicated, and `specs/DEV-518/checklists/requirements.md` has all "User-Visible Outcome" items ticked (`SMOKE-001` defined).
   - No charter §2.3 structural owner escalations exist; `**Status**: gate1: provisional` is set in `specs/DEV-518/spec.md`.
+
+- **T000 Gate 1 merge receipt.** The owner merged spec PR #446 at `25f2bd98d4a0`. The Phase A base was `da16f84a5c95`. The DEV-518 Maestri note records the merge, and the merge commit is an ancestor of pickup HEAD `c516859d`.
+
+- **T009/T014/T017 Sequencing & Compile Prerequisite Ruling (at `2726b9d5`)**: Approved.
+  - The six related scorer test suites (`SimilarityScorerPropertyTests.cs`, `SimilarityScorerInvariantPropertyTests.cs`, `SimilarityScorerReasonThresholdTests.cs`, `MovieFeaturesArbitraries.cs`, `SimilarityScorerGoldenFixture.cs`, `SimilarityScorerGoldenTests.cs`) are authorized under T009 (`specs/DEV-518/tasks.md:107`, "and related threshold/property/golden suites as applicable") and forced by the `SimilarityScorer.Score` contract replacement (DEV-518 Wanted items 1–6; charter §2.3 item 6).
+  - A narrowly scoped T017 compile-only prerequisite before T014 closes—under a separate commit limited to compiler-proven API/signature and weight adaptations in the already-named evaluation files (`EvaluationFixtureLoader.cs`, `EvaluationFixtureLoaderTests.cs`, `TmdbSignalReplayTests.cs`, and direct evaluation callers forced by the solution build)—is approved so T014 can satisfy its buildable-solution and green-test checkpoint (`specs/DEV-518/tasks.md:127-129`; charter §2.3 item 6).
+  - T014 remains consumer-only for functional test assertions, while T016 compare-mode output and substantive T017 evaluation alignment/six-criteria output proof retain their serialized Phase 6 order and `EVIDENCE.md` requirements (`specs/DEV-518/tasks.md:137-144`).
