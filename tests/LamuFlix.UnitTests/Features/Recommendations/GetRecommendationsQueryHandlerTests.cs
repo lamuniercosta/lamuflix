@@ -1303,7 +1303,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         ArrangeLibrary(selected, entries);
 
         // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 10), CancellationToken.None);
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
 
         // assert
         result.Count.ShouldBe(4);
@@ -1617,7 +1617,8 @@ public sealed class GetRecommendationsQueryHandlerTests
     public void RecommendationOptions_NullStrongReasonEntry_IsRejected()
     {
         // arrange
-        var options = new RecommendationOptions { StrongReasonCriteria = [null!] };
+        var withNullEntry = new string[1];
+        var options = new RecommendationOptions { StrongReasonCriteria = withNullEntry };
 
         // act
         var failures = ValidateRecommendationOptions(options);
@@ -1669,7 +1670,7 @@ public sealed class GetRecommendationsQueryHandlerTests
                 ["Recommendations:MinimumSimilarity"] = "1.5",
             })
             .Build();
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
         services.AddLamuFlixOptions();
         using var provider = services.BuildServiceProvider();

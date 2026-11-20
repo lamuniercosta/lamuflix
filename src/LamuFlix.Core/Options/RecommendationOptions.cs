@@ -19,7 +19,7 @@ public sealed record RecommendationOptions : IValidatableObject
 
     private static readonly string[] DefaultStrongReasonCriteria = ["Collection", "Director", "Themes"];
 
-    internal static readonly string[] SupportedStrongReasonCriteria = ["Collection", "Director", "Themes"];
+    private static readonly string[] SupportedStrongReasonCriteria = ["Collection", "Director", "Themes"];
 
     [Range(1, int.MaxValue)]
     public int Take { get; init; } = 10;
@@ -27,7 +27,7 @@ public sealed record RecommendationOptions : IValidatableObject
     [Range(1, int.MaxValue)]
     public int CandidatePoolSize { get; init; } = 50;
 
-    public const double DefaultMinimumSimilarity = 0.225;
+    private const double DefaultMinimumSimilarity = 0.225;
 
     public double MinimumSimilarity { get; init; } = DefaultMinimumSimilarity;
 
@@ -165,6 +165,7 @@ public sealed record RecommendationOptions : IValidatableObject
         var supported = new HashSet<string>(SupportedStrongReasonCriteria, StringComparer.OrdinalIgnoreCase);
         foreach (var criterion in StrongReasonCriteria)
         {
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - entries can be null when constructed directly, so validate defensively.
             if (criterion is null)
             {
                 yield return new ValidationResult(
