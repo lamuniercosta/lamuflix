@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -25,7 +26,11 @@ public sealed class OpenSubtitlesSubtitleProvider(
     private const string DownloadPath = "api/v1/download";
     private const string ApiKeyHeader = "Api-Key";
     private const string UserAgentHeader = "User-Agent";
-    private const string RemainingDownloadsHeader = "X-RateLimit-Remaining";
+    private const string LanguagesParameter = "languages";
+    private const string MovieHashParameter = "moviehash";
+    private const string QueryParameter = "query";
+    private const string TypeParameter = "type";
+    private const string MovieType = "movie";
     private const char LanguageSeparator = ',';
 
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
@@ -47,18 +52,14 @@ public sealed class OpenSubtitlesSubtitleProvider(
             SubtitleRequestUriPolicy.TryBuildEndpoint(Options.BaseUrl, SearchPath),
             Options.DownloadAllowedHosts,
             "The configured subtitle provider search endpoint is not an allowed https host.");
-        var searchEndpoint = WithSearchParameters(
-            endpoint,
-            string.IsNullOrWhiteSpace(search.MovieHash) ? null : search.MovieHash,
-            string.IsNullOrWhiteSpace(search.MovieHash) ? search.Title : null,
-            JoinLanguages(search.PreferredLanguages));
+        var searchEndpoint = BuildSearchUri(endpoint, search);
 
         using var response = await SendAsync(
             () => new HttpRequestMessage(HttpMethod.Get, searchEndpoint),
             cancellationToken);
         EnsureAccepted(response, "The subtitle provider rejected the search request.");
         var candidates = await ReadCandidatesAsync(response, search.MovieHash is not null, cancellationToken);
-        return new SubtitleSearchResult(candidates, QuotaFrom(response));
+        return new SubtitleSearchResult(candidates, SubtitleQuota.Unknown);
     }
 
     public async Task<SubtitleDownload> DownloadAsync(SubtitleCandidate candidate, CancellationToken cancellationToken)
@@ -77,53 +78,16 @@ public sealed class OpenSubtitlesSubtitleProvider(
             },
             cancellationToken);
         EnsureAccepted(response, "The subtitle provider rejected the download request.");
-        var quota = QuotaFrom(response);
 
+        var (linkCandidate, quota) = await ReadDownloadBodyAsync(response, cancellationToken);
         var link = EnsurePermitted(
-            await ReadDownloadLinkAsync(response, cancellationToken),
+            linkCandidate,
             Options.DownloadAllowedHosts,
             "The subtitle provider returned a download link that is not an allowed https host.");
 
         using var payload = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, link), cancellationToken);
         EnsureAccepted(payload, "The subtitle provider returned an unusable subtitle download.");
         return new SubtitleDownload(await ReadBoundedContentAsync(payload, cancellationToken), quota);
-    }
-
-    private SubtitleQuota QuotaFrom(HttpResponseMessage response)
-    {
-        if (!TryReadIntHeader(response, RemainingDownloadsHeader, out var remainingDownloads))
-        {
-            remainingDownloads = null;
-        }
-
-        var resetAtUtc = RetryAfter(response) is { } delay
-            ? timeProvider.GetUtcNow().Add(delay)
-            : (DateTimeOffset?)null;
-
-        return remainingDownloads is null && resetAtUtc is null
-            ? SubtitleQuota.Unknown
-            : new SubtitleQuota(remainingDownloads, resetAtUtc);
-    }
-
-    private static bool TryReadIntHeader(HttpResponseMessage response, string name, out int? value)
-    {
-        value = null;
-        if (!response.Headers.TryGetValues(name, out var values))
-        {
-            return false;
-        }
-
-        foreach (var candidate in values)
-        {
-            if (int.TryParse(candidate, System.Globalization.NumberStyles.Integer,
-                    System.Globalization.CultureInfo.InvariantCulture, out var parsed))
-            {
-                value = parsed;
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private async Task<HttpResponseMessage> SendAsync(
@@ -206,7 +170,9 @@ public sealed class OpenSubtitlesSubtitleProvider(
         return string.IsNullOrWhiteSpace(fileName) ? null : Path.GetFileNameWithoutExtension(fileName.Trim());
     }
 
-    private static async Task<Uri> ReadDownloadLinkAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static async Task<(Uri Link, SubtitleQuota Quota)> ReadDownloadBodyAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
     {
         DownloadResponse? body;
         try
@@ -223,8 +189,38 @@ public sealed class OpenSubtitlesSubtitleProvider(
             throw new SubtitleProviderFailureException("The subtitle provider returned an unusable download link.");
         }
 
-        return link;
+        return (link, DownloadQuota(body));
     }
+
+    private static SubtitleQuota DownloadQuota(DownloadResponse body)
+    {
+        var remainingDownloads = ReadRemainingDownloads(body.Remaining);
+        var resetAtUtc = ReadResetAtUtc(body.ResetTimeUtc);
+        return remainingDownloads is null && resetAtUtc is null
+            ? SubtitleQuota.Unknown
+            : new SubtitleQuota(remainingDownloads, resetAtUtc);
+    }
+
+    private static int? ReadRemainingDownloads(JsonElement remaining) => remaining.ValueKind switch
+    {
+        JsonValueKind.Number when remaining.TryGetInt32(out var number) => number,
+        JsonValueKind.String when int.TryParse(
+            remaining.GetString(),
+            NumberStyles.Integer,
+            CultureInfo.InvariantCulture,
+            out var parsed) => parsed,
+        _ => null,
+    };
+
+    private static DateTimeOffset? ReadResetAtUtc(JsonElement resetTimeUtc) =>
+        resetTimeUtc.ValueKind == JsonValueKind.String
+            && DateTimeOffset.TryParse(
+                resetTimeUtc.GetString(),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal,
+                out var resetAt)
+            ? resetAt
+            : null;
 
     private async Task<byte[]> ReadBoundedContentAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
@@ -322,34 +318,51 @@ public sealed class OpenSubtitlesSubtitleProvider(
             && string.Equals(uri.Authority, api.Authority, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string JoinLanguages(IReadOnlyList<string> preferredLanguages) =>
-        string.Join(
-            LanguageSeparator,
-            preferredLanguages
-                .Where(language => !string.IsNullOrWhiteSpace(language))
-                .Select(language => language.Trim().ToLowerInvariant()));
-
-    private static Uri WithSearchParameters(Uri endpoint, string? movieHash, string? query, string languages)
+    private static Uri BuildSearchUri(Uri endpoint, SubtitleSearch search)
     {
-        var parameters = new List<string>();
-        if (!string.IsNullOrWhiteSpace(movieHash))
+        var parameters = new List<(string Name, string Value)>();
+        var languages = NormalizeLanguages(search.PreferredLanguages);
+        if (languages.Count > 0)
         {
-            parameters.Add($"moviehash={Uri.EscapeDataString(movieHash)}");
+            parameters.Add((LanguagesParameter, string.Join(LanguageSeparator, languages.Select(EncodeValue))));
         }
 
-        if (!string.IsNullOrWhiteSpace(query))
+        if (SearchTargetParameter(search) is { } target)
         {
-            parameters.Add($"query={Uri.EscapeDataString(query)}");
+            parameters.Add(target);
         }
 
-        if (!string.IsNullOrWhiteSpace(languages))
-        {
-            parameters.Add($"languages={Uri.EscapeDataString(languages)}");
-        }
+        parameters.Add((TypeParameter, MovieType));
 
-        var builder = new UriBuilder(endpoint) { Query = string.Join("&", parameters) };
-        return builder.Uri;
+        var query = string.Join(
+            '&',
+            parameters
+                .OrderBy(parameter => parameter.Name, StringComparer.Ordinal)
+                .Select(parameter => string.Concat(parameter.Name, "=", parameter.Value)));
+        return new UriBuilder(endpoint) { Query = query }.Uri;
     }
+
+    private static (string Name, string Value)? SearchTargetParameter(SubtitleSearch search)
+    {
+        if (!string.IsNullOrWhiteSpace(search.MovieHash))
+        {
+            return (MovieHashParameter, EncodeValue(search.MovieHash.ToLowerInvariant()));
+        }
+
+        if (string.IsNullOrWhiteSpace(search.Title))
+        {
+            return null;
+        }
+
+        return (QueryParameter, EncodeValue(search.Title.ToLowerInvariant()));
+    }
+
+    private static string EncodeValue(string value) => WebUtility.UrlEncode(value);
+
+    private static IReadOnlyList<string> NormalizeLanguages(IReadOnlyList<string> preferredLanguages) =>
+        [.. preferredLanguages
+            .Where(language => !string.IsNullOrWhiteSpace(language))
+            .Select(language => language.Trim().ToLowerInvariant())];
 
     // ReSharper disable NotAccessedPositionalProperty.Local // Serialized by System.Text.Json as the OpenSubtitles request body, never read in code.
     private sealed record DownloadRequest([property: JsonPropertyName("file_id")] long FileId);
@@ -370,5 +383,8 @@ public sealed class OpenSubtitlesSubtitleProvider(
         [property: JsonPropertyName("file_id")] long? FileId,
         [property: JsonPropertyName("file_name")] string? FileName);
 
-    private sealed record DownloadResponse([property: JsonPropertyName("link")] string? Link);
+    private sealed record DownloadResponse(
+        [property: JsonPropertyName("link")] string? Link,
+        [property: JsonPropertyName("remaining")] JsonElement Remaining,
+        [property: JsonPropertyName("reset_time_utc")] JsonElement ResetTimeUtc);
 }
