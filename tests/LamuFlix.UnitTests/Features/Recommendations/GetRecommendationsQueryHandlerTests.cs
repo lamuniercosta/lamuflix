@@ -1446,6 +1446,23 @@ public sealed class GetRecommendationsQueryHandlerTests
         result.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task HandleAsync_ThemesInsideFormerToleranceWindow_IsExcluded()
+    {
+        // arrange
+        catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>()).Returns(ThemeKeywordCounts());
+        var handler = NewHandler(minimumSimilarity: 0.5, themesCeiling: 0.7071067815401009);
+        var selected = KeywordMovie(1, "Selected", "noir", "noir2");
+        var candidate = KeywordEntry(2, "Nearly themed", "noir");
+        ArrangeLibrary(selected, [candidate]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.ShouldBeEmpty();
+    }
+
     [Theory]
     [InlineData("Collection")]
     [InlineData("Director")]
@@ -1837,7 +1854,8 @@ public sealed class GetRecommendationsQueryHandlerTests
         double mmrLambda = 0.7,
         KeywordWeightsCache? keywordCache = null,
         double minimumSimilarity = 0.0,
-        IReadOnlyList<string>? strongReasonCriteria = null)
+        IReadOnlyList<string>? strongReasonCriteria = null,
+        double? themesCeiling = null)
     {
         var options = new RecommendationOptions
         {
@@ -1854,6 +1872,11 @@ public sealed class GetRecommendationsQueryHandlerTests
         if (strongReasonCriteria is not null)
         {
             options = options with { StrongReasonCriteria = strongReasonCriteria };
+        }
+
+        if (themesCeiling is not null)
+        {
+            options = options with { ThemesCeiling = themesCeiling.Value };
         }
 
         return new GetRecommendationsQueryHandler(
