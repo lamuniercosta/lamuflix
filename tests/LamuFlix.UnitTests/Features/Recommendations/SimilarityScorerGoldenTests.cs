@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Linq;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
+using LamuFlix.Core.Options;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 
@@ -23,6 +25,7 @@ public sealed class SimilarityScorerGoldenTests
         // arrange
         var expected = SimilarityScorerGoldenFixture.Seeds.Single(seed => seed.SeedId == seedId);
         var seedMovie = SimilarityScorerGoldenFixture.Movies.Single(movie => movie.Id == seedId);
+        var options = new RecommendationOptions { Weights = SimilarityScorerGoldenFixture.Weights };
 
         // act
         var ranking = SimilarityScorerGoldenFixture.Movies
@@ -32,8 +35,9 @@ public sealed class SimilarityScorerGoldenTests
                 SimilarityScorer.Score(
                     seedMovie.Features,
                     movie.Features,
-                    SimilarityScorerGoldenFixture.Weights,
-                    GenreTable).Score))
+                    options,
+                    GenreTable,
+                    SimilarityScorerGoldenFixture.LibraryKeywordCounts).Score))
             .OrderByDescending(entry => entry.Score)
             .ToList();
 

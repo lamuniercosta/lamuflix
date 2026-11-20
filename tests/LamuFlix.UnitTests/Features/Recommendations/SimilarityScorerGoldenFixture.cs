@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
@@ -14,93 +13,84 @@ public sealed record GoldenSeed(string SeedId, IReadOnlyList<string> ExpectedTop
 
 public static class SimilarityScorerGoldenFixture
 {
-    private static readonly DateTimeOffset Now = new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero);
-    private static readonly MovieCluster Drama = new("Drama", 1990, 100, 7.0m);
-    private static readonly MovieCluster Comedy = new("Comedy", 2000, 120, 8.0m);
-    private static readonly MovieCluster Horror = new("Horror", 2010, 140, 6.0m);
+    private const string CollectionName = "Saga";
 
-    public static SimilarityWeights Weights => new()
-    {
-        Director = 3.0,
-        Writers = 2.0,
-        Cast = 2.0,
-        Genres = 3.0,
-        YearProximity = 1.0,
-        RuntimeProximity = 0.5,
-        RatingBoost = 0.5,
-    };
+    public static SimilarityWeights Weights => new();
 
-    public static IReadOnlyList<GoldenMovie> Movies =>
+    public static IReadOnlyList<GoldenMovie> Movies { get; } =
     [
-        Movie(Drama, "A-01", ["Ana"], ["Dora", "Emil"], ["Fay"]),
-        Movie(Drama, "A-02", ["Ana", "Bruno"], ["Dora", "Emil"], ["Fay"]),
-        Movie(Drama, "A-03", ["Ana"], ["Dora", "Emil"], ["Gus"]),
-        Movie(Drama, "A-04", ["Ana"], ["Dora"], ["Gus"]),
-        Movie(Drama, "A-05", ["Ana", "Bruno"], ["Dora"], ["Fay"]),
-        Movie(Drama, "A-06", ["Celia"], ["Dora"], ["Gus"]),
-        Movie(Drama, "A-07", ["Ana", "Bruno"], ["Dora"], ["Gus"]),
-        Movie(Drama, "A-08", ["Celia"], ["Dora", "Emil"], ["Fay"]),
-        Movie(Drama, "A-09", ["Ana"], ["Dora"], ["Fay"]),
-        Movie(Drama, "A-10", ["Ana", "Bruno"], ["Dora", "Emil"], ["Gus"]),
-        Movie(Comedy, "B-01", ["Hugo", "Iris"], ["Kara"], ["Nils"]),
-        Movie(Comedy, "B-02", ["Jonas"], ["Kara", "Liam"], ["Mira"]),
-        Movie(Comedy, "B-03", ["Hugo", "Iris"], ["Kara", "Liam"], ["Mira"]),
-        Movie(Comedy, "B-04", ["Hugo", "Iris"], ["Kara", "Liam"], ["Nils"]),
-        Movie(Comedy, "B-05", ["Jonas"], ["Kara"], ["Nils"]),
-        Movie(Comedy, "B-06", ["Hugo"], ["Kara"], ["Mira"]),
-        Movie(Comedy, "B-07", ["Hugo"], ["Kara", "Liam"], ["Nils"]),
-        Movie(Comedy, "B-08", ["Hugo", "Iris"], ["Kara"], ["Mira"]),
-        Movie(Comedy, "B-09", ["Hugo"], ["Kara"], ["Nils"]),
-        Movie(Comedy, "B-10", ["Hugo"], ["Kara", "Liam"], ["Mira"]),
-        Movie(Horror, "C-01", ["Olga"], ["Rosa"], ["Tara"]),
-        Movie(Horror, "C-02", ["Olga"], ["Rosa", "Sven"], ["Tara"]),
-        Movie(Horror, "C-03", ["Olga"], ["Rosa", "Sven"], ["Ugo"]),
-        Movie(Horror, "C-04", ["Olga", "Pavel"], ["Rosa"], ["Ugo"]),
-        Movie(Horror, "C-05", ["Quinn"], ["Rosa", "Sven"], ["Tara"]),
-        Movie(Horror, "C-06", ["Olga", "Pavel"], ["Rosa"], ["Tara"]),
-        Movie(Horror, "C-07", ["Quinn"], ["Rosa"], ["Ugo"]),
-        Movie(Horror, "C-08", ["Olga", "Pavel"], ["Rosa", "Sven"], ["Ugo"]),
-        Movie(Horror, "C-09", ["Olga", "Pavel"], ["Rosa", "Sven"], ["Tara"]),
-        Movie(Horror, "C-10", ["Olga"], ["Rosa"], ["Ugo"]),
+        Movie("A-01", "Drama", "Ana", ["Dora", "Emil"], ["family"], null, Embedding(0.44)),
+        Movie("A-02", "Drama", "Ana", ["Dora", "Emil", "Fay"], ["family", "grief"], 11, Embedding(0.42)),
+        Movie("A-03", "Drama", "Ana", ["Dora"], ["grief"], null, Embedding(0.40)),
+        Movie("A-04", "Drama", "Ana", ["Fay"], ["war"], null, Embedding(0.36)),
+        Movie("A-05", "Drama", "Ana", ["Dora", "Emil"], ["family", "grief"], 11, [1f, 0f]),
+        Movie("A-06", "Drama", "Bruno", ["Dora", "Emil"], ["family"], 11, Embedding(0.33)),
+        Movie("A-07", "Drama", "Bruno", ["Dora", "Fay"], ["grief", "war"], 11, Embedding(0.30)),
+        Movie("A-08", "Drama", "Bruno", ["Dora", "Emil"], ["family", "war"], null, Embedding(0.25)),
+        Movie("A-09", "Drama", "Bruno", ["Emil", "Fay"], ["family", "grief"], null, Embedding(0.20)),
+        Movie("A-10", "Drama", "Bruno", ["Dora", "Emil", "Fay"], ["grief"], null, Embedding(0.16)),
+        Movie("B-01", "Comedy", "Hugo", ["Kara", "Liam"], ["parody"], null, Embedding(0.44)),
+        Movie("B-02", "Comedy", "Hugo", ["Kara", "Mira"], ["road", "heist"], 22, Embedding(0.42)),
+        Movie("B-03", "Comedy", "Hugo", ["Kara", "Liam", "Mira"], ["parody", "heist"], 22, Embedding(0.40)),
+        Movie("B-04", "Comedy", "Hugo", ["Liam"], ["road"], null, Embedding(0.36)),
+        Movie("B-05", "Comedy", "Hugo", ["Kara", "Liam"], ["parody"], null, Embedding(0.33)),
+        Movie("B-06", "Comedy", "Iris", ["Kara", "Liam", "Mira"], ["parody", "road"], 22, Embedding(0.30)),
+        Movie("B-07", "Comedy", "Iris", ["Mira"], ["heist"], null, Embedding(0.25)),
+        Movie("B-08", "Comedy", "Iris", ["Kara", "Mira"], ["road", "heist"], 22, [1f, 0f]),
+        Movie("B-09", "Comedy", "Iris", ["Kara", "Liam"], ["parody", "heist"], null, Embedding(0.20)),
+        Movie("B-10", "Comedy", "Iris", ["Liam", "Mira"], ["road"], null, Embedding(0.16)),
+        Movie("C-01", "Horror", "Olga", ["Rosa", "Sven"], ["ghost"], null, Embedding(0.44)),
+        Movie("C-02", "Horror", "Olga", ["Rosa", "Tara"], ["ghost", "ritual"], 33, Embedding(0.42)),
+        Movie("C-03", "Horror", "Olga", ["Rosa", "Sven", "Tara"], ["woods"], 33, Embedding(0.40)),
+        Movie("C-04", "Horror", "Olga", ["Sven"], ["ritual"], null, Embedding(0.36)),
+        Movie("C-05", "Horror", "Olga", ["Rosa", "Sven"], ["ghost", "woods"], null, Embedding(0.33)),
+        Movie("C-06", "Horror", "Quinn", ["Rosa", "Sven"], ["ghost", "ritual"], 33, [1f, 0f]),
+        Movie("C-07", "Horror", "Quinn", ["Tara"], ["woods"], null, Embedding(0.30)),
+        Movie("C-08", "Horror", "Quinn", ["Rosa", "Tara"], ["ghost", "woods"], 33, Embedding(0.25)),
+        Movie("C-09", "Horror", "Quinn", ["Rosa", "Sven", "Tara"], ["ritual"], null, Embedding(0.20)),
+        Movie("C-10", "Horror", "Quinn", ["Sven", "Tara"], ["ghost"], null, Embedding(0.16)),
     ];
 
     public static IReadOnlyList<GoldenSeed> Seeds { get; } =
     [
-        new("A-05", ["A-02", "A-09", "A-07"]),
-        new("B-08", ["B-03", "B-06", "B-01"]),
-        new("C-06", ["C-09", "C-01", "C-04"]),
+        new("A-05", ["A-02", "A-01", "A-06"]),
+        new("B-08", ["B-06", "B-02", "B-03"]),
+        new("C-06", ["C-08", "C-02", "C-09"]),
     ];
 
-    public static GenreCounts LibraryGenreCounts => BuildGenreCounts();
+    public static GenreCounts LibraryGenreCounts => new(
+        Movies.Count,
+        Movies
+            .SelectMany(movie => movie.Features.Genres)
+            .GroupBy(genre => genre, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => (long)group.Count(), StringComparer.OrdinalIgnoreCase));
+
+    public static KeywordCounts LibraryKeywordCounts => new(
+        Movies.Count,
+        Movies
+            .SelectMany(movie => movie.Features.KeywordNames)
+            .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => (long)group.Count(), StringComparer.OrdinalIgnoreCase));
+
+    private static float[] Embedding(double cosine) =>
+        [(float)cosine, (float)Math.Sqrt(1.0 - (cosine * cosine))];
 
     private static GoldenMovie Movie(
-        MovieCluster cluster,
         string id,
-        string[] directors,
-        string[] writers,
-        string[] cast) =>
+        string genre,
+        string director,
+        string[] cast,
+        string[] keywords,
+        int? collectionId,
+        float[] plotEmbedding) =>
         new(
             id,
             new MovieFeatures(
-                genres: [cluster.Genre],
-                directors: directors,
-                writers: writers,
+                genres: [genre],
+                directors: [director],
                 cast: cast,
-                releaseYear: new ReleaseYear(cluster.Year, Now),
-                runtime: new Runtime(cluster.Minutes),
-                imdbRating: new ImdbRating(cluster.Rating)));
-
-    private static GenreCounts BuildGenreCounts()
-    {
-        var counts = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var genre in Movies.SelectMany(movie => movie.Features.Genres))
-        {
-            counts[genre] = counts.TryGetValue(genre, out var current) ? current + 1 : 1;
-        }
-
-        return new GenreCounts(Movies.Count, counts);
-    }
-
-    private sealed record MovieCluster(string Genre, int Year, int Minutes, decimal Rating);
+                collectionId: collectionId,
+                keywordNames: keywords,
+                collectionName: collectionId is null ? null : CollectionName,
+                plotEmbedding: plotEmbedding));
 }

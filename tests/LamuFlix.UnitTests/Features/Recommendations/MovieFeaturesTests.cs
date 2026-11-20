@@ -209,6 +209,9 @@ public sealed class MovieFeaturesTests
             typeof(string),
             typeof(IEnumerable<int>),
             typeof(int?),
+            typeof(IEnumerable<string>),
+            typeof(string),
+            typeof(IEnumerable<float>),
         ]);
         typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Genres)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
         typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Directors)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));

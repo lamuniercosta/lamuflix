@@ -17,7 +17,18 @@ public sealed class MmrSelectorSequelChainTests
     private static readonly double[] SequelRelevances = [0.90, 0.89, 0.88, 0.87, 0.86, 0.85];
     private static readonly int[] OutsiderIds = [10, 11, 12, 13, 14];
 
-    private static RecommendationOptions GenreOnlyOptions => new() { Weights = new SimilarityWeights { Genres = 1.0 } };
+    private static RecommendationOptions GenreOnlyOptions => new()
+    {
+        Weights = new SimilarityWeights
+        {
+            Collection = 0.0,
+            Director = 0.0,
+            Themes = 0.0,
+            Plot = 0.0,
+            Cast = 0.0,
+            Genres = 1.0,
+        },
+    };
 
     private static KeywordCounts Counts => new(0, new Dictionary<string, long>());
     private static GenreWeights UniformGenreWeights => GenreWeights.Calculate(

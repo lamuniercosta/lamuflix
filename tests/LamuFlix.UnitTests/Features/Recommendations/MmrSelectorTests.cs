@@ -218,7 +218,7 @@ public sealed class MmrSelectorTests
         var expected = new[] { new MovieId(3), new MovieId(1), new MovieId(2) };
 
         // act
-        var result = MmrSelector.Select(candidates, 10, 0.7, Options(), GenreTable(), Counts());
+        var result = MmrSelector.Select(candidates, 10, 0.7, Options(genres: 1.0), GenreTable(), Counts());
 
         // assert
         result.Count.ShouldBe(3);
@@ -268,7 +268,7 @@ public sealed class MmrSelectorTests
         // assert
         candidates[0].Features.ShouldBeSameAs(features);
         candidates[0].Features.ShouldBe(features);
-        weights.ShouldBe(Options(genres: 1.0));
+        weights.Weights.ShouldBe(Options(genres: 1.0).Weights);
         genreWeights.GetWeight("Drama").ShouldBe(dramaWeight);
     }
 
@@ -277,12 +277,12 @@ public sealed class MmrSelectorTests
     {
         // arrange
         var candidates = Pool(Candidate(1, 0.9), Candidate(2, 0.8), Candidate(3, 0.7));
-        var first = MmrSelector.Select(candidates, 2, 0.7, Options(), GenreTable(), Counts());
+        var first = MmrSelector.Select(candidates, 2, 0.7, Options(genres: 1.0), GenreTable(), Counts());
         var firstSnapshot = first.ToArray();
 
         // act
-        var second = MmrSelector.Select(candidates, 1, 0.2, Options(), GenreTable(), Counts());
-        var repeated = MmrSelector.Select(candidates, 2, 0.7, Options(), GenreTable(), Counts());
+        var second = MmrSelector.Select(candidates, 1, 0.2, Options(genres: 1.0), GenreTable(), Counts());
+        var repeated = MmrSelector.Select(candidates, 2, 0.7, Options(genres: 1.0), GenreTable(), Counts());
 
         // assert
         second.ShouldBe([new MovieId(1)]);
@@ -347,7 +347,7 @@ public sealed class MmrSelectorTests
     }
 
     [Fact]
-    public void Select_ZeroWeights_ReusesDevice338IdentitySimilarity()
+    public void Select_AllZeroWeights_ThrowsArgumentOutOfRangeException()
     {
         // arrange
         var candidates = Pool(
@@ -356,10 +356,11 @@ public sealed class MmrSelectorTests
             Candidate(3, genres: ["B"]));
 
         // act
-        var result = MmrSelector.Select(candidates, 3, 0.0, Options(), UniformGenres(), Counts());
+        var failure = Should.Throw<ArgumentOutOfRangeException>(
+            () => MmrSelector.Select(candidates, 3, 0.0, Options(), UniformGenres(), Counts()));
 
         // assert
-        result.ShouldBe([new MovieId(1), new MovieId(3), new MovieId(2)]);
+        failure.ParamName.ShouldBe("options");
     }
 
     [Fact]

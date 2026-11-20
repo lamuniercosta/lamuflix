@@ -45,6 +45,7 @@ public sealed class GetRecommendationsQueryHandlerTests
     public GetRecommendationsQueryHandlerTests()
     {
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Counts);
+        catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>()).Returns(EmptyKeywordCounts);
         ArrangeProfile();
     }
 
@@ -232,8 +233,15 @@ public sealed class GetRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
 
         // assert
+        var expectedTop = SimilarityScorer.Score(
+            MovieFeaturesMapper.From(selected),
+            MovieFeaturesMapper.From(identical),
+            new RecommendationOptions { Weights = Weights },
+            GenreWeights.Calculate(Counts),
+            EmptyKeywordCounts);
+
         result.Select(item => item.Summary.Id.Value).ToArray().ShouldBe(new[] { 2, 4, 3 });
-        result[0].Score.ShouldBe(1.0);
+        result[0].Score.ShouldBe(expectedTop.Score);
         result[2].Score.ShouldBe(0.0);
     }
 
@@ -733,11 +741,18 @@ public sealed class GetRecommendationsQueryHandlerTests
         var candidate = NewMovie(5, genres: ["Drama"], isWatched: true);
         Arrange(selected, Candidates(candidate));
 
+        var similarity = SimilarityScorer.Score(
+            MovieFeaturesMapper.From(selected),
+            MovieFeaturesMapper.From(candidate),
+            new RecommendationOptions { Weights = Weights },
+            GenreWeights.Calculate(Counts),
+            EmptyKeywordCounts).Score;
+
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
 
         // assert
-        result[0].Score.ShouldBe((2.0 * 1.0) - (5.0 * 1.0), 1e-12);
+        result[0].Score.ShouldBe((2.0 * similarity) - (5.0 * 1.0), 1e-12);
     }
 
     [Fact]
@@ -753,14 +768,21 @@ public sealed class GetRecommendationsQueryHandlerTests
         var watched = IdenticalFeatureMovie(3, isWatched: true);
         Arrange(selected, [new RecommendationCandidate(unwatched, 0.0), new RecommendationCandidate(watched, 0.0)]);
 
+        var similarity = SimilarityScorer.Score(
+            MovieFeaturesMapper.From(selected),
+            MovieFeaturesMapper.From(unwatched),
+            new RecommendationOptions { Weights = Weights },
+            GenreWeights.Calculate(Counts),
+            EmptyKeywordCounts).Score;
+
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 2), CancellationToken.None);
 
         // assert
         result.Count.ShouldBe(2);
         result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 3 });
-        result[0].Score.ShouldBe(2.0, 1e-12);
-        result[1].Score.ShouldBe(-3.0, 1e-12);
+        result[0].Score.ShouldBe(2.0 * similarity, 1e-12);
+        result[1].Score.ShouldBe((2.0 * similarity) - (5.0 * 1.0), 1e-12);
     }
 
     [Fact]
