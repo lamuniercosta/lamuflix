@@ -535,7 +535,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     [Fact]
     public async Task HandleAsync_CandidatePoolSizeBoundsTakeWithoutTruncatingEligibleCandidates()
     {
-        var handler = NewHandler(candidatePoolSize: 2, mmrLambda: 1.0);
+        var handler = NewHandler(candidatePoolSize: 2, take: 2, mmrLambda: 1.0);
         ArrangeLibrary(
             NewMovie(2, genres: ["Comedy"]),
             NewMovie(3, genres: ["Comedy"]),
@@ -861,6 +861,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
     private GetForYouRecommendationsQueryHandler NewHandler(
         int candidatePoolSize = 50,
+        int take = 10,
         int maxPerBestSeed = 3,
         double blendSelectedWeight = 1.0,
         double blendProfileWeight = 1.0,
@@ -876,6 +877,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             new KeywordWeightsCalculator(catalog, keywordCache ?? new KeywordWeightsCache()),
             Microsoft.Extensions.Options.Options.Create(new RecommendationOptions
             {
+                Take = take,
                 CandidatePoolSize = candidatePoolSize,
                 MaxPerBestSeed = maxPerBestSeed,
                 BlendSelectedWeight = blendSelectedWeight,
