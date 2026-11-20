@@ -27,8 +27,8 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
     private const int OtherYear = 2010;
     private const int SelectedRuntime = 100;
     private const decimal SelectedRating = 8.0m;
-    private const double IdenticalProfileScore = 1.0;
-    private const double PartialProfileScore = 0.48112563433075205;
+    private const double IdenticalProfileScore = 1.0 / 3.0;
+    private const double PartialProfileScore = 2.0 / 15.0;
 
     private static readonly string[] DtoFieldNames =
     [
@@ -102,20 +102,14 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         identicalItem.GetProperty("isInWatchlist").GetBoolean().ShouldBeFalse();
         identicalItem.GetProperty("isWatched").GetBoolean().ShouldBeFalse();
         identicalItem.GetProperty("isNotInterested").GetBoolean().ShouldBeFalse();
-        identicalItem.GetProperty("score").GetDouble().ShouldBe(IdenticalProfileScore);
+        identicalItem.GetProperty("score").GetDouble().ShouldBe(IdenticalProfileScore, 1e-9);
         ReasonTexts(identicalItem).ShouldBe(
         [
             $"Same director: {director}",
-            $"Shares {genre}",
-            "Similar release years",
-            "Similar runtime",
-            "Similar rating",
+            $"Same genres: {genre}",
         ]);
         ReasonKinds(identicalItem).ShouldBe(
         [
-            "structural",
-            "structural",
-            "structural",
             "structural",
             "structural",
         ]);
@@ -132,7 +126,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         partialItem.GetProperty("score").GetDouble().ShouldBe(PartialProfileScore, 1e-9);
         ReasonTexts(partialItem).ShouldBe(
         [
-            $"Shares {genre}",
+            $"Same genres: {genre}",
         ]);
         ReasonKinds(partialItem).ShouldBe(["structural"]);
     }

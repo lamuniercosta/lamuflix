@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using LamuFlix.Core.Domain;
-using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Ports;
 using LamuFlix.Evaluation.Fixtures;
 

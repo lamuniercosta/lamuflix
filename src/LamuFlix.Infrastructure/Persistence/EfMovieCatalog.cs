@@ -30,10 +30,19 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             FROM library LEFT JOIN keyword_counts ON TRUE
             """).ToListAsync(ct);
 
+        var counts = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            var keywordName = row.KeywordName;
+            if (keywordName is not null)
+            {
+                counts[keywordName] = row.MovieCount;
+            }
+        }
+
         return new KeywordCounts(
             rows[0].TotalMovies,
-            rows.Where(row => row.KeywordName is not null)
-                .ToImmutableDictionary(row => row.KeywordName!, row => row.MovieCount, StringComparer.OrdinalIgnoreCase));
+            counts.ToImmutableDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase));
     }
 
     public async Task<PagedResult<MovieSummary>> BrowseAsync(MovieQuery query, CancellationToken ct)
@@ -282,12 +291,14 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
     private sealed record KeywordRow(int Id, string Name);
 }
 
+// ReSharper disable UnusedAutoPropertyAccessor.Global // EF SqlQueryRaw materialization sets these properties reflectively.
 internal sealed class KeywordCountRow
 {
     public long TotalMovies { get; set; }
     public string? KeywordName { get; set; }
     public long MovieCount { get; set; }
 }
+// ReSharper restore UnusedAutoPropertyAccessor.Global
 
 // ReSharper disable UnusedAutoPropertyAccessor.Global // EF SqlQueryRaw materialization sets these properties reflectively.
 internal sealed class GenreCountRow
