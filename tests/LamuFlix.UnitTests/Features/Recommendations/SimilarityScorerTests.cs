@@ -10,18 +10,23 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 
 public sealed class SimilarityScorerTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero);
+    private const double Tolerance = 1e-12;
+    private const string SharedTheme = "shared";
+    private const string LeftRareTheme = "rare-a";
+    private const string RightRareTheme = "rare-b";
+
+    private static readonly string[] DefaultStoplist =
+        ["aftercreditsstinger", "duringcreditsstinger", "sequel", "3d animation"];
 
     [Fact]
     public void Score_NullFirstMovie_ThrowsArgumentNullException()
     {
         // arrange
-        var weights = Only(director: 1.0);
         var movie = Features();
 
         // act
         // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
-        var failure = Should.Throw<ArgumentNullException>(() => SimilarityScorer.Score(null!, movie, weights, GenreTable()));
+        var failure = Should.Throw<ArgumentNullException>(() => SimilarityScorer.Score(null!, movie, Options(), GenreTable(), NoKeywords()));
 
         // assert
         failure.ParamName.ShouldBe("a");
@@ -31,29 +36,28 @@ public sealed class SimilarityScorerTests
     public void Score_NullSecondMovie_ThrowsArgumentNullException()
     {
         // arrange
-        var weights = Only(director: 1.0);
         var movie = Features();
 
         // act
         // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
-        var failure = Should.Throw<ArgumentNullException>(() => SimilarityScorer.Score(movie, null!, weights, GenreTable()));
+        var failure = Should.Throw<ArgumentNullException>(() => SimilarityScorer.Score(movie, null!, Options(), GenreTable(), NoKeywords()));
 
         // assert
         failure.ParamName.ShouldBe("b");
     }
 
     [Fact]
-    public void Score_NullWeights_ThrowsArgumentNullException()
+    public void Score_NullOptions_ThrowsArgumentNullException()
     {
         // arrange
         var movie = Features();
 
         // act
         // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
-        var failure = Should.Throw<ArgumentNullException>(() => SimilarityScorer.Score(movie, movie, null!, GenreTable()));
+        var failure = Should.Throw<ArgumentNullException>(() => SimilarityScorer.Score(movie, movie, null!, GenreTable(), NoKeywords()));
 
         // assert
-        failure.ParamName.ShouldBe("weights");
+        failure.ParamName.ShouldBe("options");
     }
 
     [Fact]
@@ -64,10 +68,24 @@ public sealed class SimilarityScorerTests
 
         // act
         // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
-        var failure = Should.Throw<ArgumentNullException>(() => SimilarityScorer.Score(movie, movie, Only(), null!));
+        var failure = Should.Throw<ArgumentNullException>(() => SimilarityScorer.Score(movie, movie, Options(), null!, NoKeywords()));
 
         // assert
         failure.ParamName.ShouldBe("genreWeights");
+    }
+
+    [Fact]
+    public void Score_NullKeywordCounts_ThrowsArgumentNullException()
+    {
+        // arrange
+        var movie = Features();
+
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
+        var failure = Should.Throw<ArgumentNullException>(() => SimilarityScorer.Score(movie, movie, Options(), GenreTable(), null!));
+
+        // assert
+        failure.ParamName.ShouldBe("keywordCounts");
     }
 
     [Theory]
@@ -82,252 +100,263 @@ public sealed class SimilarityScorerTests
         var movie = Features();
 
         // act
-        var failure = Should.Throw<ArgumentOutOfRangeException>(() => SimilarityScorer.Score(movie, movie, weights, GenreTable()));
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => SimilarityScorer.Score(movie, movie, Options(weights), GenreTable(), NoKeywords()));
 
         // assert
-        failure.ParamName.ShouldBe("weights");
+        failure.ParamName.ShouldBe("options");
     }
 
     [Fact]
-    public void Score_InvalidWeightOnAnyOfSevenFields_ThrowsArgumentOutOfRange()
+    public void Score_InvalidWeightOnAnyScoringField_ThrowsArgumentOutOfRange()
     {
         // arrange
         var movie = Features();
         SimilarityWeights[] candidates =
         [
-            new() { Director = -1.0 },
-            new() { Writers = double.NaN },
-            new() { Cast = double.PositiveInfinity },
-            new() { Genres = double.NegativeInfinity },
-            new() { YearProximity = -0.25 },
-            new() { RuntimeProximity = double.NaN },
-            new() { RatingBoost = double.PositiveInfinity },
-            new() { Keyword = -1.0 },
-            new() { Collection = double.NaN },
+            new() { Collection = -1.0 },
+            new() { Director = double.NaN },
+            new() { Themes = double.PositiveInfinity },
+            new() { Plot = double.NegativeInfinity },
+            new() { Cast = -0.25 },
+            new() { Genres = double.NaN },
         ];
 
         // act / assert
         foreach (var weights in candidates)
         {
-            var failure = Should.Throw<ArgumentOutOfRangeException>(() => SimilarityScorer.Score(movie, movie, weights, GenreTable()));
-            failure.ParamName.ShouldBe("weights");
+            var failure = Should.Throw<ArgumentOutOfRangeException>(() => SimilarityScorer.Score(movie, movie, Options(weights), GenreTable(), NoKeywords()));
+            failure.ParamName.ShouldBe("options");
         }
     }
 
     [Fact]
-    public void Score_KeywordOverlap_UsesJaccardOfPositiveIdentities()
+    public void Score_AllZeroScoringWeights_IsRejected()
     {
         // arrange
-        var first = Features(keywords: [101, 202, 303]);
-        var second = Features(keywords: [101, 202, 404]);
+        var movie = Features(directors: ["Alpha"]);
+        var weights = new SimilarityWeights { Collection = 0.0, Director = 0.0, Themes = 0.0, Plot = 0.0, Cast = 0.0, Genres = 0.0 };
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(keyword: 1.0), GenreTable());
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => SimilarityScorer.Score(movie, movie, Options(weights), GenreTable(), NoKeywords()));
 
         // assert
-        result.Score.ShouldBe(0.5);
-        Text(result).ShouldBe(["Shared keywords"]);
+        failure.ParamName.ShouldBe("options");
+    }
+
+    [Theory]
+    [InlineData(-1L, 1L)]
+    [InlineData(10L, 0L)]
+    [InlineData(10L, 11L)]
+    public void Score_InvalidKeywordCountSnapshot_ThrowsArgumentOutOfRange(long total, long count)
+    {
+        // arrange
+        var movie = Features(keywordNames: ["theme"]);
+        var counts = new KeywordCounts(total, new Dictionary<string, long> { ["theme"] = count });
+
+        // act
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => SimilarityScorer.Score(movie, movie, Options(), GenreTable(), counts));
+
+        // assert
+        failure.ParamName.ShouldBe("counts");
     }
 
     [Fact]
-    public void Score_KeywordSetEmptyOnEitherSide_OmitsTerm()
+    public void Score_BlankKeywordNameInSnapshot_ThrowsArgumentOutOfRange()
     {
         // arrange
-        var populated = Features(keywords: [101]);
-        var empty = new MovieFeatures();
+        var movie = Features(keywordNames: ["theme"]);
+        var counts = new KeywordCounts(10, new Dictionary<string, long> { ["  "] = 2 });
 
         // act
-        var result = SimilarityScorer.Score(populated, empty, Only(keyword: 1.0), GenreTable());
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => SimilarityScorer.Score(movie, movie, Options(), GenreTable(), counts));
 
         // assert
-        result.Score.ShouldBe(0.0);
-        Text(result).ShouldBeEmpty();
+        failure.ParamName.ShouldBe("counts");
     }
 
     [Fact]
-    public void Score_KeywordZeroWeight_RemovesTermWithoutChangingOtherSignals()
+    public void Score_SharedCollectionId_ValuesOneWithNameReason()
     {
         // arrange
-        var first = Features(keywords: [101, 202], collectionId: 7);
-        var second = Features(keywords: [101, 202], collectionId: 7);
+        var first = Features(collectionId: 7, collectionName: "Saga");
+        var second = Features(collectionId: 7, collectionName: "Saga");
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(collection: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
 
         // assert
-        result.Score.ShouldBe(1.0);
-        Text(result).ShouldBe(["Same franchise collection"]);
+        var collection = result.Breakdown[0];
+        collection.Name.ShouldBe("Collection");
+        collection.Value.ShouldBe(1.0);
+        collection.Contribution.ShouldBe(3.0 / 15.0, Tolerance);
+        collection.Evidence.ShouldBe(["Saga"]);
+        Text(result).ShouldBe(["Same collection: Saga"]);
     }
 
     [Fact]
-    public void Score_EqualKnownCollectionIds_ScoreOneWithFranchiseReason()
+    public void Score_SharedCollectionIdWithSingleName_FallsBackToTheAvailableName()
     {
         // arrange
-        var first = Features(collectionId: 42);
-        var second = Features(collectionId: 42);
+        var first = Features(collectionId: 7);
+        var second = Features(collectionId: 7, collectionName: "Saga");
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(collection: 2.0), GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
 
         // assert
-        result.Score.ShouldBe(1.0);
-        Text(result).ShouldBe(["Same franchise collection"]);
+        result.Breakdown[0].Value.ShouldBe(1.0);
+        result.Breakdown[0].Evidence.ShouldBe(["Saga"]);
+        Text(result).ShouldBe(["Same collection: Saga"]);
     }
 
     [Fact]
-    public void Score_DifferentCollectionIds_ScoreZeroAndEmitNoReason()
+    public void Score_SharedCollectionIdWithoutNames_KeepsValueWithoutReason()
     {
         // arrange
-        var first = Features(collectionId: 42);
-        var second = Features(collectionId: 43);
+        var first = Features(collectionId: 7);
+        var second = Features(collectionId: 7);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(collection: 2.0), GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
 
         // assert
-        result.Score.ShouldBe(0.0);
-        Text(result).ShouldBeEmpty();
+        result.Breakdown[0].Value.ShouldBe(1.0);
+        result.Breakdown[0].Contribution.ShouldBe(3.0 / 15.0, Tolerance);
+        result.Breakdown[0].Evidence.ShouldBeEmpty();
+        result.Reasons.ShouldBeEmpty();
     }
 
     [Fact]
-    public void Score_MissingCollectionIdOnEitherSide_OmitsTerm()
+    public void Score_DifferentCollectionIds_ValuesZeroAndEmitsNoReason()
+    {
+        // arrange
+        var first = Features(collectionId: 42, collectionName: "First");
+        var second = Features(collectionId: 43, collectionName: "Second");
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
+
+        // assert
+        result.Breakdown[0].Value.ShouldBe(0.0);
+        result.Breakdown[0].Contribution.ShouldBe(0.0);
+        result.Reasons.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Score_MissingCollectionIdOnEitherSide_ValuesZero()
     {
         // arrange
         var known = Features(collectionId: 42);
-        var unknown = new MovieFeatures();
+        var unknown = Features();
 
         // act
-        var result = SimilarityScorer.Score(known, unknown, Only(collection: 2.0), GenreTable());
+        var result = SimilarityScorer.Score(known, unknown, Options(), GenreTable(), NoKeywords());
 
         // assert
-        result.Score.ShouldBe(0.0);
-        Text(result).ShouldBeEmpty();
+        result.Breakdown[0].Value.ShouldBe(0.0);
+        result.Breakdown[0].Evidence.ShouldBeEmpty();
+        result.Reasons.ShouldBeEmpty();
     }
 
     [Fact]
-    public void Score_SameCollectionNameDifferentIdentity_IsTreatedAsDifferent()
+    public void Score_SharedDirector_ValuesOneWithSharedNames()
     {
         // arrange
-        var first = Features(collectionId: 100);
-        var second = Features(collectionId: 200);
+        var first = Features(directors: ["Alpha", "Gamma"]);
+        var second = Features(directors: ["alpha", "Beta"]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(collection: 2.0), GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
 
         // assert
-        result.Score.ShouldBe(0.0);
+        var director = result.Breakdown[1];
+        director.Value.ShouldBe(1.0);
+        director.Contribution.ShouldBe(3.0 / 15.0, Tolerance);
+        director.Evidence.ShouldBe(["Alpha"]);
+        Text(result).ShouldBe(["Same director: Alpha"]);
     }
 
     [Fact]
-    public void Score_IsolatedDirectorOverlap_UsesJaccardRatioUnderOrdinalIgnoreCase()
-    {
-        // arrange
-        var first = Features(directors: ["Alpha", "Beta", "Gamma"]);
-        var second = Features(directors: ["alpha", "Delta"]);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(0.25, 1e-12);
-    }
-
-    [Fact]
-    public void Score_IsolatedWritersOverlap_UsesJaccardRatio()
-    {
-        // arrange
-        var first = Features(writers: ["One", "Two"]);
-        var second = Features(writers: ["two", "Three"]);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(writers: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(1.0 / 3.0, 1e-12);
-    }
-
-    [Fact]
-    public void Score_IsolatedCastOverlap_UsesJaccardRatio()
-    {
-        // arrange
-        var first = Features(cast: ["A", "B", "C", "D"]);
-        var second = Features(cast: ["b", "c"]);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(cast: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(0.5, 1e-12);
-    }
-
-    [Fact]
-    public void Score_MissingDirectorsOnOneSide_ExcludesDirectorWeightFromDenominator()
-    {
-        // arrange
-        var first = Features(cast: ["Actor"]);
-        var second = Features(directors: ["Someone"], cast: ["actor"]);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 3.0, cast: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(1.0, 1e-12);
-    }
-
-    [Fact]
-    public void Score_DisjointDirectors_KeepWeightAndContributeZero()
-    {
-        // arrange
-        var first = Features(directors: ["Alpha"], cast: ["Actor"]);
-        var second = Features(directors: ["Beta"], cast: ["actor"]);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 3.0, cast: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(0.25, 1e-12);
-    }
-
-    [Fact]
-    public void Score_ZeroWeightTermPositiveSimilarity_IsIgnored()
-    {
-        // arrange
-        var first = Features(directors: ["Alpha"], cast: ["Actor"]);
-        var second = Features(directors: ["alpha"], cast: ["Actor"]);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 0.0, cast: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(1.0, 1e-12);
-    }
-
-    [Fact]
-    public void Score_AllWeightsZeroAndMismatchedProfiles_ReturnsZero()
+    public void Score_DisjointDirectors_ValuesZeroAndEmitsNoReason()
     {
         // arrange
         var first = Features(directors: ["Alpha"]);
         var second = Features(directors: ["Beta"]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(), GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
 
         // assert
-        result.Score.ShouldBe(0.0);
+        result.Breakdown[1].Value.ShouldBe(0.0);
+        result.Breakdown[1].Contribution.ShouldBe(0.0);
+        result.Reasons.ShouldBeEmpty();
     }
 
     [Fact]
-    public void Score_MissingGenresOnOneSide_ExcludesGenreWeightFromDenominator()
+    public void Score_NullAndBlankDirectorEntries_AreDiscardedBeforeMatching()
+    {
+        // arrange
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises safe handling
+        var first = Features(directors: [null!, "   ", " Alpha "]);
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises safe handling
+        var second = Features(directors: [null!, "  ", "alpha"]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
+
+        // assert
+        result.Breakdown[1].Value.ShouldBe(1.0);
+        result.Breakdown[1].Evidence.ShouldBe(["Alpha"]);
+        Text(result).ShouldBe(["Same director: Alpha"]);
+    }
+
+    [Fact]
+    public void Score_SingleSharedActor_ValuesHalf()
+    {
+        // arrange
+        var first = Features(cast: ["Actor", "Other"]);
+        var second = Features(cast: ["actor"]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
+
+        // assert
+        var cast = result.Breakdown[4];
+        cast.Value.ShouldBe(0.5);
+        cast.Contribution.ShouldBe(1.0 / 15.0, Tolerance);
+        cast.Evidence.ShouldBe(["Actor"]);
+        Text(result).ShouldBe(["Shares cast: Actor"]);
+    }
+
+    [Fact]
+    public void Score_TwoOrMoreSharedActors_ValuesOne()
+    {
+        // arrange
+        var first = Features(cast: ["Actor", "Second", "Third"]);
+        var second = Features(cast: ["actor", "SECOND"]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
+
+        // assert
+        result.Breakdown[4].Value.ShouldBe(1.0);
+        result.Breakdown[4].Evidence.ShouldBe(["Actor", "Second"]);
+        Text(result).ShouldBe(["Shares cast: Actor, Second"]);
+    }
+
+    [Fact]
+    public void Score_NoSharedActors_ValuesZeroAndEmitsNoReason()
     {
         // arrange
         var first = Features(cast: ["Actor"]);
-        var second = Features(genres: ["Drama"], cast: ["actor"]);
+        var second = Features(cast: ["Other"]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(genres: 3.0, cast: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
 
         // assert
-        result.Score.ShouldBe(1.0, 1e-12);
+        result.Breakdown[4].Value.ShouldBe(0.0);
+        result.Reasons.ShouldBeEmpty();
     }
 
     [Fact]
@@ -340,434 +369,574 @@ public sealed class SimilarityScorerTests
         var expected = table.Similarity(first.Genres, second.Genres);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(genres: 1.0), table);
+        var result = SimilarityScorer.Score(first, second, Options(), table, NoKeywords());
 
         // assert
-        result.Score.ShouldBe(expected);
+        result.Breakdown[5].Value.ShouldBe(expected, Tolerance);
+        result.Breakdown[5].Evidence.ShouldBe(["Drama"]);
+        Text(result).ShouldBe(["Same genres: Drama"]);
     }
 
     [Fact]
-    public void Score_GenreCaseVariants_AreShared()
+    public void Score_GenreOnlySimilarity_IsBoundedByTwoFifteenths()
     {
         // arrange
-        var first = Features(genres: ["Drama", "Comedy"]);
-        var second = Features(genres: ["drama", "comedy"]);
+        var first = Features(genres: ["Drama"]);
+        var second = Features(genres: ["Drama"]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(genres: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
 
         // assert
-        result.Score.ShouldBe(1.0);
+        result.Score.ShouldBe(2.0 / 15.0, Tolerance);
+        result.Score.ShouldBeLessThanOrEqualTo(2.0 / 15.0);
+        result.Breakdown.ShouldAllBe(entry => entry.Name == "Genre" || entry.Contribution == 0.0);
     }
 
     [Fact]
-    public void Score_UnknownGenresOnBothSides_UseDefaultWeightAndScoreOne()
+    public void Score_MissingKeywords_ValuesThemesZeroAndKeepsTheDefaultDenominator()
     {
         // arrange
-        var first = Features(genres: ["Documentary"]);
-        var second = Features(genres: ["documentary"]);
+        var first = Features(directors: ["Alpha"]);
+        var second = Features(directors: ["alpha"]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(genres: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
 
         // assert
-        result.Score.ShouldBe(1.0);
-    }
-
-    [Fact]
-    public void Score_NullAndBlankGenreMembers_AreSafeAndIgnored()
-    {
-        // arrange
-        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the safe handling
-        var first = Features(genres: [null!, "Drama", "   "]);
-        var second = Features(genres: ["drama", ""]);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(genres: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(1.0);
-    }
-
-    [Fact]
-    public void Score_BothGenreSetsEmpty_ExcludesGenreTerm()
-    {
-        // arrange
-        var first = Features(genres: []);
-        var second = Features(genres: []);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(genres: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(0.0);
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(10)]
-    [InlineData(25)]
-    public void Score_YearProximity_AbsoluteYearDistanceUsesExpDecay(int distance)
-    {
-        // arrange
-        var first = Features(releaseYear: 2000);
-        var second = Features(releaseYear: 2000 + distance);
-        var expected = Math.Exp(-0.1 * distance);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(year: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(expected, 1e-12);
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(10)]
-    [InlineData(100)]
-    public void Score_RuntimeProximity_AbsoluteMinuteDistanceUsesExpDecay(int distance)
-    {
-        // arrange
-        var first = Features(runtime: 90);
-        var second = Features(runtime: 90 + distance);
-        var expected = Math.Exp(-0.01 * distance);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(runtime: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(expected, 1e-12);
-    }
-
-    [Theory]
-    [InlineData(8.0, 8.0, 1.0)]
-    [InlineData(7.0, 9.5, 0.75)]
-    [InlineData(0.0, 10.0, 0.0)]
-    [InlineData(5.0, 0.0, 0.5)]
-    public void Score_RatingProximity_TenPointScaleDifference(double firstRating, double secondRating, double expected)
-    {
-        // arrange
-        var first = Features(imdbRating: (decimal)firstRating);
-        var second = Features(imdbRating: (decimal)secondRating);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(rating: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(expected, 1e-12);
-    }
-
-    [Fact]
-    public void Score_AllZeroWeightsIdenticalNonemptyProfiles_ReturnsExactOne()
-    {
-        // arrange
-        var movie = Features(directors: ["Alpha"], releaseYear: 2000);
-
-        // act
-        var result = SimilarityScorer.Score(movie, movie, Only(), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(1.0);
-    }
-
-    [Fact]
-    public void Score_MixedZeroAndPositiveWeights_OnlyPositiveWeightTermCounts()
-    {
-        // arrange
-        var first = Features(directors: ["Alpha", "Beta"], releaseYear: 2000);
-        var second = Features(directors: ["alpha"], releaseYear: 2025);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 2.0, year: 0.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(0.5, 1e-12);
-    }
-
-    [Fact]
-    public void Score_BothProfilesFullyEmpty_ReturnsZero()
-    {
-        // arrange
-        var empty = new MovieFeatures();
-
-        // act
-        var result = SimilarityScorer.Score(empty, empty, Only(director: 1.0, year: 1.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(0.0);
-    }
-
-    [Fact]
-    public void Score_IdenticalSevenFieldProfiles_ReturnsExactOne()
-    {
-        // arrange
-        var movie = Features(
-            genres: ["Drama", "Comedy"],
-            directors: ["Director"],
-            writers: ["Writer"],
-            cast: ["Actor"],
-            releaseYear: 2000,
-            runtime: 120,
-            imdbRating: 8.5m);
-
-        // act
-        var result = SimilarityScorer.Score(movie, movie, new SimilarityWeights(), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(1.0);
-    }
-
-    [Fact]
-    public void Score_AllZeroWeightsProfilesDifferingOnlyInNonScoredFields_ReturnsExactOne()
-    {
-        // arrange
-        var first = Features(directors: ["Alpha"], metaScore: 10, fullPlot: "First");
-        var second = Features(directors: ["alpha"], metaScore: 90, fullPlot: "Second");
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(1.0);
-    }
-
-    [Fact]
-    public void Score_EveryEligiblePositiveWeightTermOne_ReturnsExactOneDespiteZeroWeightMismatch()
-    {
-        // arrange
-        var first = Features(directors: ["Alpha"], runtime: 90);
-        var second = Features(directors: ["alpha"], runtime: 200);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 2.0, runtime: 0.0), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(1.0);
-    }
-
-    [Fact]
-    public void Score_MaxValueWeightsOnTwoTerms_StayFiniteAndUseScaledNormalization()
-    {
-        // arrange
-        var first = Features(releaseYear: 2000, runtime: 100);
-        var second = Features(releaseYear: 2010, runtime: 200);
-        var weights = new SimilarityWeights
-        {
-            Director = 0.0,
-            Writers = 0.0,
-            Cast = 0.0,
-            Genres = 0.0,
-            YearProximity = double.MaxValue,
-            RuntimeProximity = double.MaxValue,
-            RatingBoost = 0.0,
-        };
-        var expected = Math.Exp(-1.0);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, weights, GenreTable());
-
-        // assert
-        double.IsFinite(result.Score).ShouldBeTrue();
-        result.Score.ShouldBe(expected, 1e-12);
-    }
-
-    [Fact]
-    public void Score_TinyWeightAgainstMaxWeight_UnderflowsWithoutChangingScore()
-    {
-        // arrange
-        var first = Features(releaseYear: 1900, runtime: 100);
-        var second = Features(releaseYear: 2000, runtime: 100);
-        var weights = new SimilarityWeights
-        {
-            Director = 0.0,
-            Writers = 0.0,
-            Cast = 0.0,
-            Genres = 0.0,
-            YearProximity = double.MaxValue,
-            RuntimeProximity = double.Epsilon,
-            RatingBoost = 0.0,
-        };
-        var expected = Math.Exp(-10.0);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, weights, GenreTable());
-
-        // assert
-        double.IsFinite(result.Score).ShouldBeTrue();
-        result.Score.ShouldBe(expected, 1e-12);
-    }
-
-    [Fact]
-    public void Score_MultipleEligibleTerms_EmitsReasonsInFixedOrder()
-    {
-        // arrange
-        var first = Features(
-            genres: ["Drama", "Comedy"],
-            directors: ["Alpha"],
-            writers: ["One"],
-            cast: ["Actor"],
-            releaseYear: 2000,
-            runtime: 100,
-            imdbRating: 8.0m);
-        var second = Features(
-            genres: ["drama", "Shared"],
-            directors: ["alpha"],
-            writers: ["one"],
-            cast: ["actor"],
-            releaseYear: 2005,
-            runtime: 110,
-            imdbRating: 7.5m);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, new SimilarityWeights(), GenreTable());
-
-        // assert
-        Text(result).ShouldBe(
-        [
-            "Same director: Alpha",
-            "Shared writers: One",
-            "Features Actor",
-            "Shares Drama",
-            "Similar release years",
-            "Similar runtime",
-            "Similar rating",
-        ]);
-    }
-
-    [Fact]
-    public void Score_ZeroWeightTermWithPositiveSimilarity_EmitsNoReasonForThatTerm()
-    {
-        // arrange
-        var first = Features(directors: ["Alpha"], cast: ["Actor"]);
-        var second = Features(directors: ["alpha"], cast: ["Actor"]);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 0.0, cast: 1.0), GenreTable());
-
-        // assert
-        Text(result).ShouldBe(["Features Actor"]);
-    }
-
-    [Fact]
-    public void Score_DisjointSetTerm_EmitsNoReasonForThatTerm()
-    {
-        // arrange
-        var first = Features(directors: ["Alpha"], cast: ["Actor"]);
-        var second = Features(directors: ["Beta"], cast: ["actor"]);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 1.0, cast: 1.0), GenreTable());
-
-        // assert
-        Text(result).ShouldBe(["Features Actor"]);
-    }
-
-    [Fact]
-    public void Score_CaseVariantSharedTokens_EmitIdenticalReasonsUnderSwap()
-    {
-        // arrange
-        var first = Features(directors: ["alpha", "BETA"]);
-        var second = Features(directors: ["Alpha", "beta"]);
-        var weights = Only(director: 1.0);
-
-        // act
-        var forward = SimilarityScorer.Score(first, second, weights, GenreTable());
-        var reverse = SimilarityScorer.Score(second, first, weights, GenreTable());
-
-        // assert
-        Text(forward).ShouldBe(["Same director: Alpha, BETA"]);
-        Text(reverse).ShouldBe(Text(forward));
-    }
-
-    [Fact]
-    public void Score_NullAndBlankSharedTokens_AreOmittedFromLabel()
-    {
-        // arrange
-        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises safe display handling
-        var first = Features(directors: [null!, "  ", "Alpha"]);
-        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises safe display handling
-        var second = Features(directors: [null!, "  ", "alpha"]);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 1.0), GenreTable());
-
-        // assert
+        result.Breakdown[2].Value.ShouldBe(0.0);
+        result.Breakdown[2].Contribution.ShouldBe(0.0);
+        result.Breakdown[1].Contribution.ShouldBe(3.0 / 15.0, Tolerance);
+        result.Score.ShouldBe(3.0 / 15.0, Tolerance);
         Text(result).ShouldBe(["Same director: Alpha"]);
     }
 
     [Fact]
-    public void Score_AllSharedSetTokensSanitizeEmpty_UsesGenericFallbacks()
+    public void Score_EmptyCatalog_ValuesThemesZeroEvenWithMatchingKeywordNames()
     {
         // arrange
-        const string control = "\u0001";
-        var weights = Only(director: 1.0, writers: 1.0, cast: 1.0, genres: 1.0);
+        var first = Features(keywordNames: ["theme"]);
+        var second = Features(keywordNames: ["theme"]);
 
         // act
-        var directors = SimilarityScorer.Score(
-            Features(directors: [control]),
-            Features(directors: [control]),
-            weights,
-            GenreTable());
-        var writers = SimilarityScorer.Score(
-            Features(writers: [control]),
-            Features(writers: [control]),
-            weights,
-            GenreTable());
-        var cast = SimilarityScorer.Score(
-            Features(cast: [control]),
-            Features(cast: [control]),
-            weights,
-            GenreTable());
-        var genres = SimilarityScorer.Score(
-            Features(genres: [control]),
-            Features(genres: [control]),
-            weights,
-            GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), new KeywordCounts(0, new Dictionary<string, long>()));
 
         // assert
-        Text(directors).ShouldBe(["Shared director"]);
-        Text(writers).ShouldBe(["Shared writers"]);
-        Text(cast).ShouldBe(["Shared cast"]);
-        Text(genres).ShouldBe(["Shared genres"]);
+        result.Breakdown[2].Value.ShouldBe(0.0);
+        result.Breakdown[2].Evidence.ShouldBeEmpty();
+        result.Reasons.ShouldBeEmpty();
     }
 
     [Fact]
-    public void Score_ControlCharactersInSharedTokens_AreReplacedWithSpacesAndTrimmed()
+    public void Score_NullBlankAndDuplicateKeywordNames_AreTrimmedAndDeduplicated()
     {
         // arrange
-        var first = Features(directors: ["\u0001Al\u0002pha\u0003"]);
-        var second = Features(directors: ["\u0001Al\u0002pha\u0003"]);
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises safe handling
+        var first = Features(keywordNames: [null!, "  ", " Theme ", "theme", "THEME"]);
+        var second = Features(keywordNames: ["THEME"]);
+        var counts = Keywords(10, ("theme", 2));
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), counts);
 
         // assert
-        Text(result).ShouldBe(["Same director: Al pha"]);
+        result.Breakdown[2].Value.ShouldBe(1.0);
+        result.Breakdown[2].Evidence.ShouldBe(["theme"]);
     }
 
     [Fact]
-    public void Score_MarkupLikeTokens_AreEmittedAsPlainText()
+    public void Score_ExplicitNullKeywordNames_MeanEmptyThemes()
     {
         // arrange
-        var first = Features(directors: ["<b>Alpha</b>"], writers: ["*Beta*"]);
-        var second = Features(directors: ["<b>alpha</b>"], writers: ["*beta*"]);
+        var first = Features();
+        var second = Features(keywordNames: ["theme"]);
+        var counts = Keywords(10, ("theme", 2));
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 1.0, writers: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), counts);
 
         // assert
-        Text(result).ShouldBe(["Same director: <b>Alpha</b>", "Shared writers: *Beta*"]);
+        result.Breakdown[2].Value.ShouldBe(0.0);
+        result.Reasons.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(1L, 0.0)]
+    [InlineData(2L, 1.0)]
+    public void Score_DefaultMinimumKeywordMovies_ExcludesSingletonsAndKeepsCountsAtTwo(long movieCount, double expected)
+    {
+        // arrange
+        var first = Features(keywordNames: ["theme"]);
+        var second = Features(keywordNames: ["theme"]);
+        var counts = Keywords(10, ("theme", movieCount));
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(expected);
     }
 
     [Fact]
-    public void Score_ReasonTexts_ContainNoInternalIdentifiers()
+    public void Score_CustomMinimumKeywordMovies_ExcludesCountsBelowTheThreshold()
+    {
+        // arrange
+        var options = Options(minimumKeywordMovies: 3);
+        var first = Features(keywordNames: ["theme"]);
+        var second = Features(keywordNames: ["theme"]);
+        var counts = Keywords(10, ("theme", 2));
+
+        // act
+        var result = SimilarityScorer.Score(first, second, options, GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(0.0);
+        result.Breakdown[2].Evidence.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("sequel")]
+    [InlineData("Sequel")]
+    [InlineData("3d animation")]
+    [InlineData("  aftercreditsstinger  ")]
+    public void Score_DefaultStoplist_ExcludesMatchingSharedKeywords(string stoplisted)
+    {
+        // arrange
+        var first = Features(keywordNames: [stoplisted]);
+        var second = Features(keywordNames: [stoplisted]);
+        var counted = stoplisted.Trim();
+        var counts = Keywords(10, (counted, 2));
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(0.0);
+        result.Breakdown[2].Evidence.ShouldBeEmpty();
+        result.Reasons.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Score_ExplicitNullStoplist_AllowsOtherwiseStoplistedKeywords()
+    {
+        // arrange
+        var options = Options(stoplist: []);
+        var first = Features(keywordNames: ["sequel"]);
+        var second = Features(keywordNames: ["sequel"]);
+        var counts = Keywords(10, ("sequel", 2));
+
+        // act
+        var result = SimilarityScorer.Score(first, second, options, GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(1.0);
+        result.Breakdown[2].Evidence.ShouldBe(["sequel"]);
+    }
+
+    [Fact]
+    public void Score_CultureIndependentMatching_TreatsDotlessITurkishPairAsOrdinalIgnoreCase()
+    {
+        // arrange
+        var first = Features(keywordNames: ["I"]);
+        var second = Features(keywordNames: ["i"]);
+        var counts = Keywords(10, ("i", 2));
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(1.0);
+        result.Breakdown[2].Evidence.ShouldBe(["i"]);
+    }
+
+    [Fact]
+    public void Score_Themes_UsesLogRarityWeightedCosine()
+    {
+        // arrange
+        var first = Features(keywordNames: ["common", "rare"]);
+        var second = Features(keywordNames: ["common"]);
+        var counts = Keywords(100, ("common", 50), ("rare", 5));
+        var common = Math.Log(100.0 / 50.0);
+        var rare = Math.Log(100.0 / 5.0);
+        var expected = common * common / (Math.Sqrt((common * common) + (rare * rare)) * common) / 0.35;
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(expected, Tolerance);
+        result.Breakdown[2].Evidence.ShouldBe(["common"]);
+    }
+
+    [Fact]
+    public void Score_ThemesEvidence_TakesThreeSharedNamesInDescendingRarity()
+    {
+        // arrange
+        var first = Features(keywordNames: ["alpha", "beta", "gamma", "delta"]);
+        var second = Features(keywordNames: ["delta", "gamma", "beta", "alpha"]);
+        var counts = Keywords(100, ("alpha", 2), ("beta", 5), ("gamma", 8), ("delta", 10));
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(1.0);
+        result.Breakdown[2].Evidence.ShouldBe(["alpha", "beta", "gamma"]);
+        Text(result).ShouldBe(["Shared themes: alpha, beta, gamma"]);
+    }
+
+    [Fact]
+    public void Score_UbiquitousOnlySharedKeywords_HaveZeroWeightAndNoReason()
+    {
+        // arrange
+        var movie = Features(keywordNames: ["ubiquitous"]);
+        var counts = Keywords(10, ("ubiquitous", 10));
+
+        // act
+        var result = SimilarityScorer.Score(movie, movie, Options(), GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(0.0);
+        result.Breakdown[2].Contribution.ShouldBe(0.0);
+        result.Breakdown[2].Evidence.ShouldBe(["ubiquitous"]);
+        result.Reasons.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Score_ZeroNormOnOneSide_ValuesThemesZeroWithNoReason()
+    {
+        // arrange
+        var first = Features(keywordNames: ["theme"]);
+        var second = Features(keywordNames: ["other"]);
+        var counts = Keywords(10, ("theme", 2), ("other", 3));
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(0.0);
+        result.Reasons.ShouldBeEmpty();
+        double.IsFinite(result.Score).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Score_ThemesWithDefaultCeiling_UsesDeclaredCeiling()
+    {
+        // arrange
+        var counts = RarityFixture();
+        var first = Features(keywordNames: [SharedTheme, LeftRareTheme]);
+        var second = Features(keywordNames: [SharedTheme, RightRareTheme]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe((1.0 / 5.0) / 0.35, Tolerance);
+    }
+
+    [Fact]
+    public void Score_ThemesAtCeiling_ValuesOne()
+    {
+        // arrange
+        var counts = RarityFixture();
+        var first = Features(keywordNames: [SharedTheme, LeftRareTheme]);
+        var second = Features(keywordNames: [SharedTheme, RightRareTheme]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(themesCeiling: 0.2), GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(1.0, Tolerance);
+        Text(result).ShouldBe(["Shared themes: shared"]);
+    }
+
+    [Fact]
+    public void Score_ThemesAtHalfCeiling_ValuesHalf()
+    {
+        // arrange
+        var counts = RarityFixture();
+        var first = Features(keywordNames: [SharedTheme, LeftRareTheme]);
+        var second = Features(keywordNames: [SharedTheme, RightRareTheme]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(themesCeiling: 0.4), GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(0.5, Tolerance);
+    }
+
+    [Fact]
+    public void Score_ThemesAboveCeiling_CapsAtOne()
+    {
+        // arrange
+        var counts = RarityFixture();
+        var first = Features(keywordNames: [SharedTheme, LeftRareTheme]);
+        var second = Features(keywordNames: [SharedTheme, RightRareTheme]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(themesCeiling: 0.1), GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBe(1.0);
+    }
+
+    [Fact]
+    public void Score_BelowThemesThreshold_RetainsEvidenceAndContributionWithoutReason()
+    {
+        // arrange
+        var counts = RarityFixture();
+        var first = Features(keywordNames: [SharedTheme, LeftRareTheme]);
+        var second = Features(keywordNames: [SharedTheme, RightRareTheme]);
+        var options = Options(themesThreshold: 0.9);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, options, GenreTable(), counts);
+
+        // assert
+        var themes = result.Breakdown[2];
+        themes.Value.ShouldBe((1.0 / 5.0) / 0.35, Tolerance);
+        themes.Evidence.ShouldBe(["shared"]);
+        themes.Contribution.ShouldBe(3.0 * themes.Value / 15.0, Tolerance);
+        result.Score.ShouldBe(themes.Contribution, Tolerance);
+        result.Reasons.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Score_BelowGenreThreshold_RetainsEvidenceAndContributionWithoutReason()
+    {
+        // arrange
+        var table = GenreTable(100, ("Drama", 50), ("Comedy", 90));
+        var first = Features(genres: ["Drama", "Comedy"]);
+        var second = Features(genres: ["Drama", "Action"]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), table, NoKeywords());
+
+        // assert
+        var genre = result.Breakdown[5];
+        genre.Value.ShouldBeGreaterThan(0.0);
+        genre.Value.ShouldBeLessThan(0.5);
+        genre.Evidence.ShouldBe(["Drama"]);
+        genre.Contribution.ShouldBeGreaterThan(0.0);
+        result.Reasons.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Score_PositiveValueAtZeroThreshold_EmitsReason()
+    {
+        // arrange
+        var counts = RarityFixture();
+        var first = Features(keywordNames: [SharedTheme, LeftRareTheme]);
+        var second = Features(keywordNames: [SharedTheme, RightRareTheme]);
+        var options = Options(themesThreshold: 0.0);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, options, GenreTable(), counts);
+
+        // assert
+        result.Breakdown[2].Value.ShouldBeGreaterThan(0.0);
+        Text(result).ShouldBe(["Shared themes: shared"]);
+    }
+
+    [Fact]
+    public void Score_ZeroThresholdNonMatch_EmitsNoReason()
+    {
+        // arrange
+        var first = Features(directors: ["Alpha"], cast: ["Actor"]);
+        var second = Features(directors: ["Beta"], cast: ["Other"]);
+        var options = Options(themesThreshold: 0.0, plotThreshold: 0.0, genreThreshold: 0.0);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, options, GenreTable(), NoKeywords());
+
+        // assert
+        result.Reasons.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Score_ValueEqualToGenreThreshold_EmitsReason()
+    {
+        // arrange
+        var table = GenreTable(100, ("Drama", 1), ("Comedy", 90));
+        var first = Features(genres: ["Drama"]);
+        var second = Features(genres: ["Drama"]);
+        var options = Options(genreThreshold: 1.0);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, options, table, NoKeywords());
+
+        // assert
+        result.Breakdown[5].Value.ShouldBe(1.0);
+        Text(result).ShouldBe(["Same genres: Drama"]);
+    }
+
+    [Fact]
+    public void Score_MissingPlotEmbeddingOnEitherSide_ValuesPlotZeroAndKeepsDenominator()
+    {
+        // arrange
+        var withPlot = Features(directors: ["Alpha"], plotEmbedding: [1f, 0f]);
+        var withoutPlot = Features(directors: ["alpha"]);
+
+        // act
+        var result = SimilarityScorer.Score(withPlot, withoutPlot, Options(), GenreTable(), NoKeywords());
+
+        // assert
+        result.Breakdown[3].Value.ShouldBe(0.0);
+        result.Breakdown[1].Contribution.ShouldBe(3.0 / 15.0, Tolerance);
+        result.Score.ShouldBe(3.0 / 15.0, Tolerance);
+        Text(result).ShouldBe(["Same director: Alpha"]);
+    }
+
+    [Fact]
+    public void Score_MismatchedPlotEmbeddingLengths_ValuesPlotZero()
+    {
+        // arrange
+        var first = Features(plotEmbedding: [1f, 0f, 0f]);
+        var second = Features(plotEmbedding: [1f, 0f]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
+
+        // assert
+        result.Breakdown[3].Value.ShouldBe(0.0);
+        result.Reasons.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(float.NaN)]
+    [InlineData(float.PositiveInfinity)]
+    public void Score_NonFinitePlotEmbedding_ValuesPlotZero(float invalid)
+    {
+        // arrange
+        var first = Features(plotEmbedding: [1f, 0f]);
+        var second = Features(plotEmbedding: [invalid, 0f]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
+
+        // assert
+        result.Breakdown[3].Value.ShouldBe(0.0);
+        result.Reasons.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(0.0, 0.0)]
+    [InlineData(0.16, 0.0)]
+    [InlineData(0.2, 0.13793103448275862)]
+    [InlineData(0.305, 0.5)]
+    [InlineData(0.45, 1.0)]
+    [InlineData(0.5, 1.0)]
+    [InlineData(1.0, 1.0)]
+    public void Score_PlotCosine_IsRescaledBetweenFloorAndCeiling(double cosine, double expected)
+    {
+        // arrange
+        var first = Features(plotEmbedding: [1f, 0f]);
+        var second = Features(plotEmbedding: EmbeddingFor(cosine));
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
+
+        // assert
+        result.Breakdown[3].Value.ShouldBe(expected, 1e-6);
+    }
+
+    [Fact]
+    public void Score_PlotAboveDisplayThreshold_EmitsStoryReasonInTableOrder()
+    {
+        // arrange
+        var first = Features(plotEmbedding: [1f, 0f], directors: ["Alpha"]);
+        var second = Features(plotEmbedding: EmbeddingFor(0.34), directors: ["Alpha"]);
+        var expected = (0.34 - 0.16) / (0.45 - 0.16);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
+
+        // assert
+        result.Breakdown[3].Value.ShouldBe(expected, 1e-6);
+        result.Breakdown[3].Evidence.ShouldBeEmpty();
+        result.Breakdown[3].Contribution.ShouldBe(2.0 * expected / 15.0, 1e-6);
+        Text(result).ShouldBe(["Same director: Alpha", "Similar story"]);
+    }
+
+    [Fact]
+    public void Score_PlotBelowDisplayThreshold_RetainsContributionWithoutReason()
+    {
+        // arrange
+        var first = Features(plotEmbedding: [1f, 0f]);
+        var second = Features(plotEmbedding: EmbeddingFor(0.25));
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
+
+        // assert
+        result.Breakdown[3].Value.ShouldBeGreaterThan(0.0);
+        result.Breakdown[3].Value.ShouldBeLessThan(0.5);
+        result.Breakdown[3].Contribution.ShouldBeGreaterThan(0.0);
+        result.Reasons.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Score_CustomPlotBounds_ChangeTheRescaleWindow()
+    {
+        // arrange
+        var first = Features(plotEmbedding: [1f, 0f]);
+        var second = Features(plotEmbedding: EmbeddingFor(0.5));
+        var options = Options(plotFloor: 0.0, plotCeiling: 1.0);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, options, GenreTable(), NoKeywords());
+
+        // assert
+        result.Breakdown[3].Value.ShouldBe(0.5, 1e-6);
+    }
+
+    [Fact]
+    public void Score_AllSixCriteriaMatched_EmitsReasonsInTableOrder()
+    {
+        // arrange
+        var counts = Keywords(10, ("theme", 2));
+        var first = Features(
+            genres: ["Drama"],
+            directors: ["Director"],
+            cast: ["Actor A", "Actor B"],
+            keywordNames: ["theme"],
+            collectionId: 7,
+            collectionName: "Collection",
+            plotEmbedding: [1f, 0f]);
+        var second = Features(
+            genres: ["Drama"],
+            directors: ["Director"],
+            cast: ["Actor A", "Actor B"],
+            keywordNames: ["theme"],
+            collectionId: 7,
+            collectionName: "Collection",
+            plotEmbedding: [1f, 0f]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), counts);
+
+        // assert
+        Text(result).ShouldBe(
+        [
+            "Same collection: Collection",
+            "Same director: Director",
+            "Shared themes: theme",
+            "Similar story",
+            "Shares cast: Actor A, Actor B",
+            "Same genres: Drama",
+        ]);
+        result.Reasons.ShouldAllBe(reason => reason.Kind == ReasonKind.Structural);
+    }
+
+    [Fact]
+    public void Score_Reasons_OmitInternalIdentifiers()
     {
         // arrange
         var first = Features(directors: ["Alpha"], metaScore: 42, fullPlot: "plot-secret-0001");
         var second = Features(directors: ["alpha"], metaScore: 13, fullPlot: "plot-secret-0002");
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(director: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(first, second, Options(), GenreTable(), NoKeywords());
         var texts = Text(result);
 
         // assert
@@ -779,227 +948,125 @@ public sealed class SimilarityScorerTests
     }
 
     [Fact]
-    public void Score_ZeroWeightIdentity_EmitsSingleIdentityReason()
+    public void Score_RepeatedCalls_AreDeterministicAndDoNotMutateInputs()
     {
         // arrange
-        var movie = Features(directors: ["Alpha"], releaseYear: 2000);
+        var first = Features(genres: ["Drama"], directors: ["Alpha"], keywordNames: ["theme"], collectionId: 7, collectionName: "Saga");
+        var second = Features(genres: ["Drama"], directors: ["alpha"], keywordNames: ["theme"], collectionId: 7, collectionName: "Saga");
+        var options = Options();
+        var firstBefore = first;
+        var optionsBefore = options;
 
         // act
-        var result = SimilarityScorer.Score(movie, movie, Only(), GenreTable());
+        var forward = SimilarityScorer.Score(first, second, options, GenreTable(), Keywords(10, ("theme", 2)));
+        var repeated = SimilarityScorer.Score(first, second, options, GenreTable(), Keywords(10, ("theme", 2)));
 
         // assert
-        result.Score.ShouldBe(1.0);
-        Text(result).ShouldBe(["Identical feature profile"]);
+        repeated.Score.ShouldBe(forward.Score);
+        Text(repeated).ShouldBe(Text(forward));
+        first.ShouldBe(firstBefore);
+        options.ShouldBe(optionsBefore);
     }
 
     [Fact]
-    public void Score_ZeroWeightMismatchedProfiles_EmitsNoReasons()
+    public void Score_ScoreIsSymmetricForReversedPairs()
     {
         // arrange
-        var first = Features(directors: ["Alpha"]);
-        var second = Features(directors: ["Beta"]);
+        var first = Features(directors: ["Alpha"], cast: ["Actor"], genres: ["Drama"], keywordNames: ["theme"]);
+        var second = Features(directors: ["Alpha"], cast: ["Other"], genres: ["Comedy"], keywordNames: ["other"]);
+        var counts = Keywords(10, ("theme", 2), ("other", 3));
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(), GenreTable());
+        var forward = SimilarityScorer.Score(first, second, Options(), GenreTable(), counts);
+        var reverse = SimilarityScorer.Score(second, first, Options(), GenreTable(), counts);
 
         // assert
-        result.Score.ShouldBe(0.0);
-        Text(result).ShouldBeEmpty();
-    }
-
-    [Fact]
-    public void Score_ZeroWeightFullyEmptyProfiles_EmitsNoReasons()
-    {
-        // arrange
-        var empty = new MovieFeatures();
-
-        // act
-        var result = SimilarityScorer.Score(empty, empty, Only(), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(0.0);
-        Text(result).ShouldBeEmpty();
-    }
-
-    [Fact]
-    public void Score_ScaledUnderflowZeroesScore_StillEmitsReasonForPositiveRawContribution()
-    {
-        // arrange
-        var first = Features(releaseYear: 2000, runtime: 1);
-        var second = Features(releaseYear: 2005, runtime: int.MaxValue);
-        var weights = Only(year: double.Epsilon, runtime: double.MaxValue);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, weights, GenreTable());
-
-        // assert
-        result.Score.ShouldBe(0.0);
-        Text(result).ShouldBe(["Similar release years"]);
-    }
-
-    [Fact]
-    public void Score_AllReasons_AreStructural()
-    {
-        // arrange
-        var first = Features(directors: ["Alpha"], writers: ["Beta"]);
-        var second = Features(directors: ["alpha"], writers: ["beta"]);
-
-        // act
-        var result = SimilarityScorer.Score(
-            first,
-            second,
-            Only(director: 1.0, writers: 1.0),
-            GenreTable());
-
-        // assert
-        result.Reasons.ShouldNotBeEmpty();
-        result.Reasons.ShouldAllBe(reason => reason.Kind == ReasonKind.Structural);
-    }
-
-    [Fact]
-    public void Score_PopulatedBreakdown_ContributionsSumToScore()
-    {
-        // arrange
-        var first = Features(
-            genres: ["Drama", "Comedy"],
-            directors: ["Alpha", "Beta"],
-            writers: ["Gamma"],
-            cast: ["Delta"],
-            releaseYear: 2001,
-            runtime: 104,
-            imdbRating: 7.8m,
-            keywords: [11, 22],
-            collectionId: 7);
-        var second = Features(
-            genres: ["Drama"],
-            directors: ["Alpha"],
-            writers: ["Gamma", "Zeta"],
-            cast: ["Delta", "Epsilon"],
-            releaseYear: 2004,
-            runtime: 118,
-            imdbRating: 7.1m,
-            keywords: [22, 33],
-            collectionId: 7);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, new SimilarityWeights(), GenreTable());
-
-        // assert
-        result.Breakdown.ShouldNotBeEmpty();
-        result.Breakdown.Sum(entry => entry.Contribution).ShouldBe(result.Score, 1e-12);
-    }
-
-    [Fact]
-    public void Score_ZeroWeightIdentityBranch_ContributionsSumToScoreWithoutChangingReasons()
-    {
-        // arrange
-        var movie = Features(directors: ["Alpha"], releaseYear: 2000);
-
-        // act
-        var result = SimilarityScorer.Score(movie, movie, Only(), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(1.0);
-        Text(result).ShouldBe(["Identical feature profile"]);
-        result.Breakdown.Sum(entry => entry.Contribution).ShouldBe(result.Score, 1e-12);
-        result.Breakdown.ShouldContain(entry =>
-            entry.Name == "IdentityFallback"
-            && entry.Value.Equals(1.0)
-            && entry.Weight.Equals(0.0)
-            && entry.Contribution.Equals(1.0));
-    }
-
-    [Fact]
-    public void Score_NonIdentityZeroWeightBranch_ContributionsSumToZeroWithoutIdentityFallback()
-    {
-        // arrange
-        var first = Features(directors: ["Alpha"]);
-        var second = Features(directors: ["Beta"]);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(), GenreTable());
-
-        // assert
-        result.Score.ShouldBe(0.0);
-        Text(result).ShouldBeEmpty();
-        result.Breakdown.Sum(entry => entry.Contribution).ShouldBe(0.0, 1e-12);
-        result.Breakdown.ShouldNotContain(entry => entry.Name == "IdentityFallback");
-    }
-
-    [Fact]
-    public void Score_UncollectedCriteria_AreAbsentFromBreakdown()
-    {
-        // arrange
-        var first = Features(collectionId: 42);
-        var second = Features(collectionId: 42);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, new SimilarityWeights(), GenreTable());
-
-        // assert
-        result.Breakdown.Select(entry => entry.Name).ShouldBe(["Collection"]);
-        result.Breakdown.Sum(entry => entry.Contribution).ShouldBe(result.Score, 1e-12);
+        forward.Score.ShouldBe(reverse.Score, Tolerance);
+        forward.Breakdown.Select(entry => entry.Name).ShouldBe(reverse.Breakdown.Select(entry => entry.Name));
     }
 
     private static string[] Text(SimilarityResult result) =>
         [.. result.Reasons.Select(reason => reason.Text)];
 
+    private static float[] EmbeddingFor(double cosine)
+    {
+        var sine = Math.Sqrt(Math.Max(0.0, 1.0 - (cosine * cosine)));
+        return [(float)cosine, (float)sine];
+    }
+
     private static SimilarityWeights Only(
+        double collection = 0.0,
         double director = 0.0,
-        double writers = 0.0,
+        double themes = 0.0,
+        double plot = 0.0,
         double cast = 0.0,
-        double genres = 0.0,
-        double year = 0.0,
-        double runtime = 0.0,
-        double rating = 0.0,
-        double keyword = 0.0,
-        double collection = 0.0) =>
+        double genres = 0.0) =>
         new()
         {
+            Collection = collection,
             Director = director,
-            Writers = writers,
+            Themes = themes,
+            Plot = plot,
             Cast = cast,
             Genres = genres,
-            YearProximity = year,
-            RuntimeProximity = runtime,
-            RatingBoost = rating,
-            Keyword = keyword,
-            Collection = collection,
         };
 
+    private static RecommendationOptions Options(
+        SimilarityWeights? weights = null,
+        double themesCeiling = 0.35,
+        double plotFloor = 0.16,
+        double plotCeiling = 0.45,
+        double themesThreshold = 0.3,
+        double plotThreshold = 0.5,
+        double genreThreshold = 0.5,
+        int minimumKeywordMovies = 2,
+        IReadOnlyList<string>? stoplist = null) =>
+        new()
+        {
+            Weights = weights ?? new SimilarityWeights(),
+            ThemesCeiling = themesCeiling,
+            PlotFloor = plotFloor,
+            PlotCeiling = plotCeiling,
+            ThemesDisplayThreshold = themesThreshold,
+            PlotDisplayThreshold = plotThreshold,
+            GenreDisplayThreshold = genreThreshold,
+            MinimumKeywordMovies = minimumKeywordMovies,
+            ThemeStoplist = stoplist ?? DefaultStoplist,
+        };
+
+    private static KeywordCounts NoKeywords() => new(0, new Dictionary<string, long>());
+
+    private static KeywordCounts Keywords(long totalMovies, params (string Name, long Count)[] entries) =>
+        new(totalMovies, entries.ToDictionary(entry => entry.Name, entry => entry.Count, StringComparer.Ordinal));
+
+    private static KeywordCounts RarityFixture() =>
+        Keywords(1024, (SharedTheme, 512), (LeftRareTheme, 256), (RightRareTheme, 256));
+
     private static GenreWeights GenreTable() =>
+        GenreTable(100, ("Drama", 1), ("Comedy", 90), ("Shared", 50));
+
+    private static GenreWeights GenreTable(long totalMovies, params (string Name, long Count)[] entries) =>
         GenreWeights.Calculate(
-            new GenreCounts(
-                100,
-                new Dictionary<string, long>
-                {
-                    ["Drama"] = 1,
-                    ["Comedy"] = 90,
-                    ["Shared"] = 50,
-                }));
+            new GenreCounts(totalMovies, entries.ToDictionary(entry => entry.Name, entry => entry.Count, StringComparer.Ordinal)));
 
     private static MovieFeatures Features(
         IEnumerable<string>? genres = null,
         IEnumerable<string>? directors = null,
-        IEnumerable<string>? writers = null,
         IEnumerable<string>? cast = null,
-        int? releaseYear = null,
-        int? runtime = null,
-        decimal? imdbRating = null,
+        IEnumerable<string>? keywordNames = null,
+        int? collectionId = null,
+        string? collectionName = null,
+        IEnumerable<float>? plotEmbedding = null,
         int? metaScore = null,
-        string? fullPlot = null,
-        IEnumerable<int>? keywords = null,
-        int? collectionId = null) =>
+        string? fullPlot = null) =>
         new(
-            genres,
-            directors,
-            writers,
-            cast,
-            releaseYear.HasValue ? new ReleaseYear(releaseYear.Value, Now) : null,
-            runtime.HasValue ? new Runtime(runtime.Value) : null,
-            imdbRating.HasValue ? new ImdbRating(imdbRating.Value) : null,
-            metaScore,
-            fullPlot,
-            keywords,
-            collectionId);
+            genres: genres,
+            directors: directors,
+            cast: cast,
+            metaScore: metaScore,
+            fullPlot: fullPlot,
+            collectionId: collectionId,
+            keywordNames: keywordNames,
+            collectionName: collectionName,
+            plotEmbedding: plotEmbedding);
 }
