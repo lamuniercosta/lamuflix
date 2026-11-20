@@ -28,6 +28,8 @@ public sealed class OpenSubtitlesEmulator : IDisposable
 
     private const string UserAgentHeader = "User-Agent";
     private const string ApiKeyHeader = "Api-Key";
+    private const string AcceptHeader = "Accept";
+    private const string JsonMediaType = "application/json";
     private const string MovieType = "movie";
     private const string MovieFeatureType = "Movie";
     private const string SearchPathPattern = "^/api/v1/subtitles/?$";
@@ -37,6 +39,9 @@ public sealed class OpenSubtitlesEmulator : IDisposable
 
     private const string MovedPermanentlyHtml =
         "<!DOCTYPE html><html><head><title>301 Moved Permanently</title></head><body><h1>301 Moved Permanently</h1></body></html>";
+
+    private const string ServiceUnavailableHtml =
+        "<!DOCTYPE html><html><head><title>Error 503 - OpenSubtitles.com</title></head><body><h1>Error 503</h1></body></html>";
 
     private static readonly (string Name, string Value)[] RateLimitHeaders =
     [
@@ -155,10 +160,21 @@ public sealed class OpenSubtitlesEmulator : IDisposable
             new JsonObject { ["status"] = 404, ["error"] = "Not Found" },
             rateLimited: true);
 
+    // Contract section 5: a download without Accept: application/json gets the 503 HTML error page, not JSON.
     private ResponseMessage HandleDownload(IRequestMessage request) =>
-        Gate(request) ?? (ReadFileId(request.Body) is { } fileId
+        Gate(request) ?? RequireJsonAccept(request) ?? (ReadFileId(request.Body) is { } fileId
             ? Json(200, DownloadBody(fileId), rateLimited: true)
             : Json(400, new JsonObject { ["message"] = "file_id is required" }, rateLimited: false));
+
+    private static ResponseMessage? RequireJsonAccept(IRequestMessage request) =>
+        AcceptsJson(request)
+            ? null
+            : Message(503, [("Content-Type", "text/html"), ("Server", "cloudflare")], ServiceUnavailableHtml);
+
+    private static bool AcceptsJson(IRequestMessage request) =>
+        request.Headers?.Any(header =>
+            string.Equals(header.Key, AcceptHeader, StringComparison.OrdinalIgnoreCase)
+            && header.Value.Any(value => value.Contains(JsonMediaType, StringComparison.OrdinalIgnoreCase))) == true;
 
     private ResponseMessage? Gate(IRequestMessage request)
     {

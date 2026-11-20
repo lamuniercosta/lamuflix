@@ -26,6 +26,8 @@ public sealed class OpenSubtitlesSubtitleProvider(
     private const string DownloadPath = "api/v1/download";
     private const string ApiKeyHeader = "Api-Key";
     private const string UserAgentHeader = "User-Agent";
+    private const string AcceptHeader = "Accept";
+    private const string JsonMediaType = "application/json";
     private const string LanguagesParameter = "languages";
     private const string MovieHashParameter = "moviehash";
     private const string QueryParameter = "query";
@@ -100,7 +102,10 @@ public sealed class OpenSubtitlesSubtitleProvider(
         request.Headers.TryAddWithoutValidation(UserAgentHeader, Options.UserAgent);
         if (IsProviderApiHost(request.RequestUri))
         {
+            // The API host answers a download without Accept: application/json with a 503 HTML page.
+            // The link host serves text/plain, so it gets neither header.
             request.Headers.TryAddWithoutValidation(ApiKeyHeader, Options.ApiKey);
+            request.Headers.TryAddWithoutValidation(AcceptHeader, JsonMediaType);
         }
 
         try
