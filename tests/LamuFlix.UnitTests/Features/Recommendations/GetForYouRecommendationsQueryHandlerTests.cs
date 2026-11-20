@@ -131,7 +131,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.ShouldBeEmpty();
+        result.Items.ShouldBeEmpty();
         await catalog.DidNotReceive().GetGenreCountsAsync(Arg.Any<CancellationToken>());
         await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
         await profileSource.Received(1).GetProfileInputsAsync(
@@ -153,7 +153,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.ShouldBeEmpty();
+        result.Items.ShouldBeEmpty();
         await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
@@ -174,7 +174,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.ShouldBeEmpty();
+        result.Items.ShouldBeEmpty();
         await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
     }
@@ -190,7 +190,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.ShouldBeEmpty();
+        result.Items.ShouldBeEmpty();
         await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
@@ -208,8 +208,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Count.ShouldBe(1);
-        result[0].Summary.Id.ShouldBe(new MovieId(2));
+        result.Items.Count.ShouldBe(1);
+        result.Items[0].Summary.Id.ShouldBe(new MovieId(2));
     }
 
     [Fact]
@@ -224,8 +224,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Count.ShouldBe(1);
-        result[0].Summary.Id.ShouldBe(new MovieId(2));
+        result.Items.Count.ShouldBe(1);
+        result.Items[0].Summary.Id.ShouldBe(new MovieId(2));
     }
 
     [Fact]
@@ -240,9 +240,9 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Count.ShouldBe(1);
-        result[0].Score.ShouldBe(0.0);
-        result[0].Reasons.ShouldBe([Reason.Structural(FallbackReasonText)]);
+        result.Items.Count.ShouldBe(1);
+        result.Items[0].Score.ShouldBe(0.0);
+        result.Items[0].Reasons.ShouldBe([Reason.Structural(FallbackReasonText)]);
     }
 
     [Fact]
@@ -257,8 +257,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result[0].Reasons.ShouldBe([Reason.Personal("Matches your Drama interest")]);
-        result[0].Reasons.ShouldAllBe(reason => reason.Kind == ReasonKind.Personal);
+        result.Items[0].Reasons.ShouldBe([Reason.Personal("Matches your Drama interest")]);
+        result.Items[0].Reasons.ShouldAllBe(reason => reason.Kind == ReasonKind.Personal);
     }
 
     [Fact]
@@ -273,8 +273,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result[0].Score.ShouldBe(0.0);
-        result[0].Reasons.ShouldBe([Reason.Structural(FallbackReasonText)]);
+        result.Items[0].Score.ShouldBe(0.0);
+        result.Items[0].Reasons.ShouldBe([Reason.Structural(FallbackReasonText)]);
     }
 
     [Fact]
@@ -289,8 +289,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result[0].Score.ShouldBe(0.0);
-        result[0].Reasons.ShouldBe([Reason.Structural(FallbackReasonText)]);
+        result.Items[0].Score.ShouldBe(0.0);
+        result.Items[0].Reasons.ShouldBe([Reason.Structural(FallbackReasonText)]);
     }
 
     [Fact]
@@ -305,7 +305,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result[0].Score.ShouldBe(2.0, 1e-12);
+        result.Items[0].Score.ShouldBe(2.0, 1e-12);
     }
 
     [Fact]
@@ -322,8 +322,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(2), CancellationToken.None);
 
         // assert
-        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2 });
-        result[0].Score.ShouldBe(1.0, 1e-12);
+        result.Items.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2 });
+        result.Items[0].Score.ShouldBe(1.0, 1e-12);
     }
 
     [Fact]
@@ -336,12 +336,12 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             .HandleAsync(new GetForYouRecommendationsQuery(6), CancellationToken.None);
         var diversified = await NewHandler(mmrLambda: 0.3)
             .HandleAsync(new GetForYouRecommendationsQuery(6), CancellationToken.None);
-        var original = relevanceOnly.ToDictionary(item => item.Summary.Id);
+        var original = relevanceOnly.Items.ToDictionary(item => item.Summary.Id);
 
         // assert
-        relevanceOnly.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 3, 4, 5, 6, 7 });
-        diversified.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 6, 7, 3, 4, 5 });
-        foreach (var item in diversified)
+        relevanceOnly.Items.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 3, 4, 5, 6, 7 });
+        diversified.Items.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 6, 7, 3, 4, 5 });
+        foreach (var item in diversified.Items)
         {
             var expected = original[item.Summary.Id];
             item.Summary.ShouldBe(expected.Summary);
@@ -365,7 +365,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(60), CancellationToken.None);
 
         // assert
-        result.Count.ShouldBe(50);
+        result.Items.Count.ShouldBe(50);
         browseQueries.Count.ShouldBe(2);
         browseQueries[0].Page.Number.ShouldBe(1);
         browseQueries[1].Page.Number.ShouldBe(2);
@@ -390,7 +390,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 3 });
+        result.Items.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 3 });
         await movies.DidNotReceive().GetAsync(excluded.Id, Arg.Any<CancellationToken>());
     }
 
@@ -420,8 +420,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(150), CancellationToken.None);
 
         // assert
-        result.Count.ShouldBe(101);
-        result.Select(item => item.Summary.Id.Value).Distinct().Count().ShouldBe(101);
+        result.Items.Count.ShouldBe(101);
+        result.Items.Select(item => item.Summary.Id.Value).Distinct().Count().ShouldBe(101);
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 101),
             Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
@@ -443,7 +443,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 3 });
+        result.Items.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 3 });
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 1 && ids.Single() == eligible.Id),
             Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
@@ -465,7 +465,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 4 });
+        result.Items.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 4 });
         await movies.Received(1).GetAsync(missing.Id, Arg.Any<CancellationToken>());
     }
 
@@ -481,9 +481,9 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Count.ShouldBe(1);
-        result[0].Score.ShouldBe(1.0, 1e-12);
-        result[0].Reasons.ShouldBe([Reason.Personal("Matches your Drama interest")]);
+        result.Items.Count.ShouldBe(1);
+        result.Items[0].Score.ShouldBe(1.0, 1e-12);
+        result.Items[0].Reasons.ShouldBe([Reason.Personal("Matches your Drama interest")]);
     }
 
     [Fact]
@@ -499,10 +499,10 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
-        result.Select(item => item.Summary.Id.Value).ShouldContain(2);
-        result.Select(item => item.Summary.Id.Value).ShouldNotContain(3);
-        result.Select(item => item.Summary.Id.Value).ShouldNotContain(4);
-        result.Select(item => item.Summary.Id.Value).ShouldContain(5);
+        result.Items.Select(item => item.Summary.Id.Value).ShouldContain(2);
+        result.Items.Select(item => item.Summary.Id.Value).ShouldNotContain(3);
+        result.Items.Select(item => item.Summary.Id.Value).ShouldNotContain(4);
+        result.Items.Select(item => item.Summary.Id.Value).ShouldContain(5);
     }
 
     [Fact]
@@ -518,8 +518,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
-        result.Count.ShouldBe(2);
-        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 4, 10 });
+        result.Items.Count.ShouldBe(2);
+        result.Items.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 4, 10 });
     }
 
     [Fact]
@@ -546,7 +546,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(3), CancellationToken.None);
 
-        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2 });
+        result.Items.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2 });
     }
 
     [Fact]
@@ -582,7 +582,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Count.ShouldBe(DefaultTake);
+        result.Items.Count.ShouldBe(DefaultTake);
     }
 
     [Fact]
@@ -597,7 +597,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(5), CancellationToken.None);
 
         // assert
-        result.Count.ShouldBe(2);
+        result.Items.Count.ShouldBe(2);
     }
 
     [Fact]
@@ -632,7 +632,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             true,
             false,
             Review.None);
-        result[0].Summary.ShouldBe(expected);
+        result.Items[0].Summary.ShouldBe(expected);
     }
 
     [Fact]
@@ -817,7 +817,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.ShouldHaveSingleItem();
+        result.Items.ShouldHaveSingleItem();
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 1 && ids.Single() == candidate.Id),
             Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 1 && liked.Single() == new MovieId(90)),
@@ -936,7 +936,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        var item = result.ShouldHaveSingleItem();
+        var item = result.Items.ShouldHaveSingleItem();
         item.Summary.Id.ShouldBe(candidate.Id);
         item.Score.ShouldBe(1.0, 1e-12);
         PersonalTexts(item).ShouldBe(["Because you liked About Time"]);
@@ -959,7 +959,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        var item = result.ShouldHaveSingleItem();
+        var item = result.Items.ShouldHaveSingleItem();
         item.Score.ShouldBe(1.0, 1e-12);
         PersonalTexts(item).ShouldBeEmpty();
     }
@@ -985,7 +985,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        PersonalTexts(result.ShouldHaveSingleItem()).ShouldBe(["Because you liked Perfect Match"]);
+        PersonalTexts(result.Items.ShouldHaveSingleItem()).ShouldBe(["Because you liked Perfect Match"]);
     }
 
     private static TasteProfile ProfileWithLikedSource(ImmutableArray<float> aggregateVector) =>
