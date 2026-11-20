@@ -476,11 +476,28 @@ public sealed class ReviewRankingHandlerTests
 
         public void Arrange(params Movie[] pool)
         {
-            candidates.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
-                .Returns(
-                [
-                    .. pool.Select(movie => new RecommendationCandidate(movie, 0.0)),
-                ]);
+            var library = new List<RecommendationLibraryEntry> { Entry(selected, UnitVector()) };
+            library.AddRange(pool.Select(movie => Entry(movie)));
+            candidates.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(library);
+        }
+
+        private static RecommendationLibraryEntry Entry(Movie movie, ImmutableArray<float>? plotEmbedding = null) =>
+            new(
+                MovieFeaturesMapper.From(
+                    movie,
+                    includeSignals: true,
+                    plotEmbedding: plotEmbedding is { IsDefaultOrEmpty: false } embedding ? embedding : null),
+                MovieSummaryMapper.From(movie));
+
+        private static ImmutableArray<float> UnitVector()
+        {
+            var builder = ImmutableArray.CreateBuilder<float>(EmbeddingDimensions.Value);
+            for (var index = 0; index < EmbeddingDimensions.Value; index++)
+            {
+                builder.Add(index == 0 ? 1.0f : 0.0f);
+            }
+
+            return builder.MoveToImmutable();
         }
 
         public async Task<ImmutableList<RecommendedMovie>> HandleAsync(TasteProfile profile)
@@ -507,6 +524,8 @@ public sealed class ReviewRankingHandlerTests
                 new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
                 Microsoft.Extensions.Options.Options.Create(new RecommendationOptions
                 {
+                    // Legacy review-ranking fixtures are not about strong-match eligibility.
+                    MinimumSimilarity = 0.0,
                     Weights = GenreOnlyWeights,
                     MmrLambda = 1.0,
                 }));

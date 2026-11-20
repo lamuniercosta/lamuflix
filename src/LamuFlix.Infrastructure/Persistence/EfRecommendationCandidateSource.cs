@@ -1,29 +1,53 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
-using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Pgvector;
-using Pgvector.EntityFrameworkCore;
 
 namespace LamuFlix.Infrastructure.Persistence;
 
 public sealed class EfRecommendationCandidateSource(
-    LamuFlixDbContext db,
-    IOptions<RecommendationOptions> options) : IRecommendationCandidateSource
+    LamuFlixDbContext db) : IRecommendationCandidateSource
 {
-    private const double CosineDistanceTolerance = 1e-5;
-
     private readonly LamuFlixDbContext db = db ?? throw new ArgumentNullException(nameof(db));
-    private readonly RecommendationOptions options =
-        (options is null ? throw new ArgumentNullException(nameof(options)) : options.Value);
+
+    public async Task<IReadOnlyList<RecommendationLibraryEntry>> GetLibraryFeaturesAsync(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var rows = await Traversable(db.Movies
+                .AsNoTracking()
+                .Where(movie => movie.Status == EnrichmentStatus.Enriched))
+            .OrderBy(movie => movie.Id)
+            .ToListAsync(ct);
+
+        ct.ThrowIfCancellationRequested();
+
+        var vectors = await db.MovieFeatures
+            .AsNoTracking()
+            .Select(feature => new { feature.MovieId, feature.Vector })
+            .ToDictionaryAsync(feature => feature.MovieId.Value, feature => feature.Vector, ct);
+
+        ct.ThrowIfCancellationRequested();
+
+        var entries = new List<RecommendationLibraryEntry>(rows.Count);
+        foreach (var row in rows)
+        {
+            ct.ThrowIfCancellationRequested();
+            var movieId = row.Id
+                ?? throw new InvalidOperationException("The database returned a movie row without an id.");
+            entries.Add(ToLibraryEntry(ToDomain(row), vectors.GetValueOrDefault(movieId.Value)));
+        }
+
+        return entries;
+    }
 
     public async Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(
         MovieId selectedMovieId,
@@ -32,6 +56,10 @@ public sealed class EfRecommendationCandidateSource(
     {
         ct.ThrowIfCancellationRequested();
 
+        // Retained port signature: the same-collection union is gone, so the collection id no longer narrows the load.
+        _ = collectionId;
+
+        // Retained selected-relative contract: a missing or unusable selected vector yields no candidates.
         var selectedVector = await ReadSelectedVectorAsync(selectedMovieId, ct);
         if (selectedVector is null)
         {
@@ -40,57 +68,27 @@ public sealed class EfRecommendationCandidateSource(
 
         ct.ThrowIfCancellationRequested();
 
-        var rows = await (
-                from movie in Traversable(db.Movies
-                    .AsNoTracking()
-                    .Where(movie => movie.Status == EnrichmentStatus.Enriched && movie.Id != selectedMovieId))
-                join feature in db.MovieFeatures.AsNoTracking() on movie.Id equals feature.MovieId
-                let distance = feature.Vector.CosineDistance(selectedVector)
-                where distance >= -CosineDistanceTolerance
-                    && distance <= 2.0 + CosineDistanceTolerance
-                orderby distance, movie.Id
-                select new { Movie = movie, Distance = distance })
-            .Take(options.CandidatePoolSize)
-            .ToListAsync(ct);
-
+        var library = await GetLibraryFeaturesAsync(ct);
         ct.ThrowIfCancellationRequested();
 
-        var candidates = new List<RecommendationCandidate>(rows.Count + options.CandidatePoolSize);
-        var seen = new HashSet<MovieId>();
-        foreach (var row in rows)
+        var selected = selectedVector.ToArray();
+        var candidates = new List<RecommendationCandidate>(library.Count);
+
+        foreach (var entry in library)
         {
-            AddCandidate(candidates, seen, ToDomain(row.Movie), ToCosineSimilarity(row.Distance));
+            ct.ThrowIfCancellationRequested();
+
+            if (entry.Id == selectedMovieId)
+            {
+                continue;
+            }
+
+            candidates.Add(new RecommendationCandidate(entry, SelectedRelativeCosine(selected, entry.Features.PlotEmbedding)));
         }
 
-        if (collectionId is { } franchiseId)
-        {
-            await UnionSameCollectionAsync(candidates, seen, selectedMovieId, franchiseId, ct);
-        }
-
-        return candidates;
-    }
-
-    private async Task UnionSameCollectionAsync(
-        List<RecommendationCandidate> candidates,
-        HashSet<MovieId> seen,
-        MovieId selectedMovieId,
-        int collectionId,
-        CancellationToken ct)
-    {
-        var members = await Traversable(db.Movies
-                .AsNoTracking()
-                .Where(movie => movie.CollectionId == collectionId
-                    && movie.Status == EnrichmentStatus.Enriched
-                    && movie.Id != selectedMovieId))
-            .OrderBy(movie => movie.Id)
-            .ToListAsync(ct);
-
-        ct.ThrowIfCancellationRequested();
-
-        foreach (var member in members)
-        {
-            AddCandidate(candidates, seen, ToDomain(member), 0.0);
-        }
+        return [.. candidates
+            .OrderByDescending(candidate => candidate.CosineSimilarity)
+            .ThenBy(candidate => candidate.Library.Id.Value)];
     }
 
     private static IQueryable<MovieRecord> Traversable(IQueryable<MovieRecord> query) =>
@@ -104,16 +102,12 @@ public sealed class EfRecommendationCandidateSource(
             .Include(movie => movie.Collection)
             .AsSplitQuery();
 
-    private static void AddCandidate(
-        List<RecommendationCandidate> candidates,
-        HashSet<MovieId> seen,
-        Movie movie,
-        double cosineSimilarity)
+    private static RecommendationLibraryEntry ToLibraryEntry(Movie movie, Vector? vector)
     {
-        if (seen.Add(movie.Id))
-        {
-            candidates.Add(new RecommendationCandidate(movie, cosineSimilarity));
-        }
+        var embedding = vector is not null && IsUsable(vector) ? vector.ToArray() : null;
+        return new RecommendationLibraryEntry(
+            MovieFeaturesMapper.From(movie, includeSignals: true, plotEmbedding: embedding),
+            MovieSummaryMapper.From(movie));
     }
 
     private async Task<Vector?> ReadSelectedVectorAsync(MovieId movieId, CancellationToken ct)
@@ -149,8 +143,38 @@ public sealed class EfRecommendationCandidateSource(
         return normSquared > 0.0;
     }
 
-    private static double ToCosineSimilarity(double distance) =>
-        Math.Clamp(1.0 - distance, -1.0, 1.0);
+    private static double SelectedRelativeCosine(float[] selected, ImmutableArray<float> candidate)
+    {
+        if (candidate.IsDefaultOrEmpty || candidate.Length != selected.Length)
+        {
+            return 0.0;
+        }
+
+        var dot = 0.0;
+        var selectedNormSquared = 0.0;
+        var candidateNormSquared = 0.0;
+
+        for (var index = 0; index < selected.Length; index++)
+        {
+            var left = selected[index];
+            var right = candidate[index];
+            if (!float.IsFinite(left) || !float.IsFinite(right))
+            {
+                return 0.0;
+            }
+
+            dot += left * right;
+            selectedNormSquared += left * left;
+            candidateNormSquared += right * right;
+        }
+
+        if (selectedNormSquared <= 0.0 || candidateNormSquared <= 0.0)
+        {
+            return 0.0;
+        }
+
+        return Math.Clamp(dot / (Math.Sqrt(selectedNormSquared) * Math.Sqrt(candidateNormSquared)), -1.0, 1.0);
+    }
 
     private static Movie ToDomain(MovieRecord record)
     {

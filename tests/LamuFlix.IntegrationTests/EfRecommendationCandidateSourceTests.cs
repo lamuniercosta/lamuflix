@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
@@ -24,7 +25,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
 {
     private const double SimilarityTolerance = 1e-5;
 
-    private const int SplitQueryReaderCount = 8;
+    private const int SplitQueryReaderCount = 9;
 
     private static readonly string[] AssociationTables =
     [
@@ -69,13 +70,12 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var candidates = await source.GetCandidatesAsync(selected, null, ct);
 
         // assert
-        candidates.Select(candidate => candidate.Movie.Title).ShouldBe(["Enriched"]);
-        candidates.ShouldAllBe(candidate => candidate.Movie.Status == EnrichmentStatus.Enriched);
-        candidates.ShouldNotContain(candidate => candidate.Movie.Id == selected);
+        candidates.Select(candidate => candidate.Library.Summary.Title).ShouldBe(["Enriched"]);
+        candidates.ShouldAllBe(candidate => candidate.Library.Summary.EnrichmentStatus == EnrichmentStatus.Enriched);
+        candidates.ShouldNotContain(candidate => candidate.Library.Id == selected);
     }
-
     [Fact]
-    public async Task GetCandidatesAsync_FullAndEmptyMetadata_RehydratesEveryState()
+    public async Task GetCandidatesAsync_FullAndEmptyMetadata_CarriesSummaryAndFeatureState()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -141,38 +141,36 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(4), null, ct);
+        var library = await source.GetLibraryFeaturesAsync(ct);
 
         // assert
-        candidates.Count.ShouldBe(3);
+        var full = library.Single(entry => entry.Id == fullId);
+        full.Summary.Title.ShouldBe("Full");
+        full.Summary.PosterUrl.ShouldBe("https://example.test/poster.jpg");
+        full.Summary.ReleaseYear.ShouldBe(2024);
+        full.Summary.Runtime.ShouldBe(121);
+        full.Summary.ImdbRating.ShouldBe(8.1m);
+        full.Summary.IsInWatchlist.ShouldBeTrue();
+        full.Summary.IsWatched.ShouldBeTrue();
+        full.Summary.Review.ShouldBe(Review.Disliked);
+        full.Summary.EnrichmentStatus.ShouldBe(EnrichmentStatus.Enriched);
+        full.Features.Genres.Order(StringComparer.Ordinal).ShouldBe(["Drama", "Sci-Fi"]);
+        full.Features.Directors.ShouldBe(["Ridley Scott"]);
+        full.Features.Writers.ShouldBe(["Wanda Writer"]);
+        full.Features.Cast.ShouldBe(["Harrison Ford"]);
+        full.Features.PlotEmbedding.Length.ShouldBe(EmbeddingDimensions.Value);
 
-        var full = candidates.Single(candidate => candidate.Movie.Id == fullId).Movie;
-        full.Title.ShouldBe("Full");
-        full.Path.ShouldBe(new LibraryPath("C:/library/candidate-full.mkv"));
-        full.Format.ShouldBe(new MediaFormat("mkv"));
-        full.IsInWatchlist.ShouldBeTrue();
-        full.IsWatched.ShouldBeTrue();
-        full.Review.ShouldBe(Review.Disliked);
-        full.Status.ShouldBe(EnrichmentStatus.Enriched);
-        full.EnrichedAt.ShouldBe(Now.AddDays(-1));
-        full.EnrichmentAttempts.ShouldBe(2);
-        full.LastAttemptAt.ShouldBe(Now.AddHours(-1));
-        full.ParsedReleaseYear.ShouldBe(new ReleaseYear(2023, Now));
-        full.ManualImdbId.ShouldBe(new ImdbId("tt7654321"));
-        AssertMetadataContents(full.Metadata.ShouldNotBeNull(), FullMetadata());
+        var bare = library.Single(entry => entry.Id == bareId);
+        bare.Summary.Title.ShouldBe("Bare");
+        bare.Features.Directors.ShouldBeEmpty();
+        bare.Features.Cast.ShouldBeEmpty();
+        bare.Features.Genres.ShouldBeEmpty();
+        bare.Features.Writers.ShouldBeEmpty();
 
-        var bare = candidates.Single(candidate => candidate.Movie.Id == bareId).Movie;
-        bare.Metadata.ShouldNotBeNull();
-        bare.Metadata.Title.ShouldBe("Bare metadata");
-        bare.Metadata.Directors.ShouldBeEmpty();
-        bare.Metadata.Actors.ShouldBeEmpty();
-        bare.Metadata.Genres.ShouldBeEmpty();
-        bare.Metadata.Writers.ShouldBeEmpty();
-
-        var none = candidates.Single(candidate => candidate.Movie.Id == noneId).Movie;
-        none.Metadata.ShouldBeNull();
+        var none = library.Single(entry => entry.Id == noneId);
+        none.Summary.Title.ShouldBe("None");
+        none.Features.Genres.ShouldBeEmpty();
     }
-
     [Fact]
     public async Task GetCandidatesAsync_SeededMovies_MatchesRepositoryReadState()
     {
@@ -215,12 +213,15 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
 
         // assert
         candidates.Count.ShouldBe(2);
-        AssertSameState(candidates.Single(candidate => candidate.Movie.Id == fullId).Movie, expectedFull.ShouldNotBeNull());
-        AssertSameState(candidates.Single(candidate => candidate.Movie.Id == bareId).Movie, expectedBare.ShouldNotBeNull());
+        AssertSameState(
+            candidates.Single(candidate => candidate.Library.Id == fullId).Library,
+            expectedFull.ShouldNotBeNull());
+        AssertSameState(
+            candidates.Single(candidate => candidate.Library.Id == bareId).Library,
+            expectedBare.ShouldNotBeNull());
     }
-
     [Fact]
-    public async Task GetCandidatesAsync_DefaultOptions_CapsPoolAtFiftyNearestFirst()
+    public async Task GetCandidatesAsync_DefaultOptions_ReturnsEveryOtherEnrichedMovie()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -232,31 +233,29 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
-        candidates.Count.ShouldBe(50);
-        candidates.Select(candidate => candidate.Movie.Id.Value)
-            .ShouldBe(Enumerable.Range(110, 50).Reverse());
+        candidates.Count.ShouldBe(60);
+        candidates.Select(candidate => candidate.Library.Id.Value).Order()
+            .ShouldBe(Enumerable.Range(100, 60));
     }
-
     [Fact]
-    public async Task GetCandidatesAsync_CustomCandidatePoolSize_CapsOnTheServerBeforeHydration()
+    public async Task GetCandidatesAsync_CustomCandidatePoolSize_DoesNotCapTheLoad()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
         await SeedDefaultCappedPortfolioAsync(ct);
         var interceptor = new RecordingCommandInterceptor();
         await using var db = OpenInstrumentedContext(interceptor);
-        var source = Source(db, new RecommendationOptions { Take = 1, CandidatePoolSize = 7 });
+        var source = Source(db);
 
         // act
         var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
-        candidates.Count.ShouldBe(7);
-        candidates.Select(candidate => candidate.Movie.Id.Value)
-            .ShouldBe(Enumerable.Range(153, 7).Reverse());
-        interceptor.ReaderCount.ShouldBe(SplitQueryReaderCount);
+        candidates.Count.ShouldBe(60);
+        candidates.Select(candidate => candidate.Library.Id.Value).Order()
+            .ShouldBe(Enumerable.Range(100, 60));
+        interceptor.ReaderCount.ShouldBeGreaterThan(0);
     }
-
     [Fact]
     public async Task GetCandidatesAsync_EqualDistances_OrdersByAscendingMovieId()
     {
@@ -279,7 +278,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
-        candidates.Select(candidate => candidate.Movie.Id.Value).ShouldBe([5, 10]);
+        candidates.Select(candidate => candidate.Library.Id.Value).ShouldBe([5, 10]);
     }
 
     [Fact]
@@ -311,7 +310,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
-        candidates.Select(candidate => candidate.Movie.Id.Value).ShouldBe([10, 11, 12, 13, 14]);
+        candidates.Select(candidate => candidate.Library.Id.Value).ShouldBe([10, 11, 12, 13, 14]);
         for (var index = 0; index < cosines.Length; index++)
         {
             candidates[index].CosineSimilarity.ShouldBe(cosines[index], SimilarityTolerance);
@@ -320,7 +319,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
     }
 
     [Fact]
-    public async Task GetCandidatesAsync_UnusableCandidateVectors_ExcludedBeforeCap()
+    public async Task GetCandidatesAsync_UnusableCandidateVectors_AreKeptWithZeroCosine()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -340,15 +339,18 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
             (13, CosineVector(0.7)),
             (14, CosineVector(0.6)));
         await using var db = fixture.CreateMigratedContext();
-        var source = Source(db, new RecommendationOptions { Take = 1, CandidatePoolSize = 2 });
+        var source = Source(db);
 
         // act
         var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
-        candidates.Select(candidate => candidate.Movie.Id.Value).ShouldBe([12, 13]);
+        candidates.Select(candidate => candidate.Library.Id.Value).ShouldBe([12, 13, 14, 10, 11]);
+        candidates.Where(candidate => candidate.Library.Id.Value is 10 or 11)
+            .ShouldAllBe(candidate => candidate.CosineSimilarity == 0.0);
+        candidates.Where(candidate => candidate.Library.Id.Value is 12 or 13 or 14)
+            .ShouldAllBe(candidate => candidate.CosineSimilarity > 0.0);
     }
-
     [Fact]
     public async Task GetCandidatesAsync_MissingSelectedFeatures_ReturnsEmptyAfterOneReader()
     {
@@ -422,7 +424,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
     }
 
     [Fact]
-    public async Task GetCandidatesAsync_QueryShape_UsesCosineDistanceOrderAndLimit()
+    public async Task GetCandidatesAsync_QueryShape_HasNoPlotCutoffOrLimit()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -435,13 +437,15 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
-        var candidateCommand = interceptor.ReaderCommands
-            .Single(command => command.Contains("<=>", StringComparison.Ordinal) && AssociationJoins(command) == 0);
-        candidateCommand.ShouldContain("movie_features");
-        Regex.IsMatch(candidateCommand, @"ORDER\s+BY", RegexOptions.IgnoreCase).ShouldBeTrue();
-        Regex.IsMatch(candidateCommand, @"LIMIT", RegexOptions.IgnoreCase).ShouldBeTrue();
+        var libraryCommands = interceptor.ReaderCommands
+            .Where(command => command.Contains("FROM movies", StringComparison.Ordinal))
+            .ToList();
+        libraryCommands.ShouldNotBeEmpty();
+        libraryCommands.ShouldAllBe(command =>
+            !Regex.IsMatch(command, @"LIMIT", RegexOptions.IgnoreCase));
+        libraryCommands.ShouldAllBe(command =>
+            !command.Contains("<=>", StringComparison.Ordinal));
     }
-
     [Fact]
     public async Task GetCandidatesAsync_AfterLoad_LeavesQueryContextUntracked()
     {
@@ -554,19 +558,17 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var candidates = await source.GetCandidatesAsync(new MovieId(1), 900, ct);
 
         // assert
-        var candidate = candidates.Single(item => item.Movie.Id == new MovieId(2)).Movie;
-        var metadata = candidate.Metadata.ShouldNotBeNull();
-        metadata.Actors.ShouldBe(["Base Actor"]);
-        metadata.Genres.ShouldBe(["Drama"]);
-        metadata.Directors.ShouldBe(["Director One"]);
-        metadata.Writers.ShouldBe(["Writer One"]);
-        var signals = metadata.Signals.ShouldNotBeNull();
-        signals.Keywords.Select(keyword => (keyword.Id, keyword.Name)).ShouldBe([(101, "Heist"), (202, "Noir")]);
-        signals.FullCast.Order(StringComparer.Ordinal).ShouldBe(["Base Actor", "Guest Actor"]);
+        var features = candidates.Single(item => item.Library.Id == new MovieId(2)).Library.Features;
+        features.Cast.Order(StringComparer.Ordinal).ShouldBe(["Base Actor", "Guest Actor"]);
+        features.Genres.ShouldBe(["Drama"]);
+        features.Directors.ShouldBe(["Director One"]);
+        features.Writers.ShouldBe(["Writer One"]);
+        features.Keywords.Select(keyword => keyword).Order().ShouldBe([101, 202]);
+        features.KeywordNames.Order(StringComparer.Ordinal).ShouldBe(["Heist", "Noir"]);
+        features.CollectionId.ShouldBe(900);
         interceptor.ReaderCommands.ShouldNotBeEmpty();
         interceptor.ReaderCommands.Max(AssociationJoins).ShouldBeLessThanOrEqualTo(1);
     }
-
     private async Task SeedDefaultCappedPortfolioAsync(CancellationToken ct)
     {
         await SeedRecordsAsync(
@@ -580,7 +582,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
     }
 
     [Fact]
-    public async Task GetCandidatesAsync_SeedCollection_UnionsEmbeddinglessMembersBeforeCutoff()
+    public async Task GetCandidatesAsync_SeedCollection_IncludesEmbeddinglessEnrichedMembers()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -596,21 +598,20 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
             (1, UnitVector()),
             (4, CosineVector(0.6)));
         await using var db = fixture.CreateMigratedContext();
-        var source = Source(db, new RecommendationOptions { Take = 1, CandidatePoolSize = 1 });
+        var source = Source(db);
 
         // act
         var candidates = await source.GetCandidatesAsync(new MovieId(1), 900, ct);
 
         // assert
-        candidates.Select(candidate => candidate.Movie.Id.Value).Order().ShouldBe([2, 3, 4]);
-        candidates.ShouldNotContain(candidate => candidate.Movie.Id == new MovieId(1));
-        candidates.ShouldNotContain(candidate => candidate.Movie.Id == new MovieId(5));
-        candidates.Where(candidate => candidate.Movie.Id.Value is 2 or 3)
+        candidates.Select(candidate => candidate.Library.Id.Value).Order().ShouldBe([2, 3, 4]);
+        candidates.ShouldNotContain(candidate => candidate.Library.Id == new MovieId(1));
+        candidates.ShouldNotContain(candidate => candidate.Library.Id == new MovieId(5));
+        candidates.Where(candidate => candidate.Library.Id.Value is 2 or 3)
             .ShouldAllBe(candidate => candidate.CosineSimilarity == 0.0);
     }
-
     [Fact]
-    public async Task GetCandidatesAsync_FranchiseMemberWithoutFeaturesRow_RehydratesBaseStateAndSignals()
+    public async Task GetCandidatesAsync_FranchiseMemberWithoutFeaturesRow_KeepsBaseStateAndSignals()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -626,45 +627,15 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var candidates = await source.GetCandidatesAsync(new MovieId(1), 900, ct);
 
         // assert
-        var candidate = candidates.ShouldHaveSingleItem().Movie;
-        var metadata = candidate.Metadata.ShouldNotBeNull();
-        metadata.Title.ShouldBe("Signal member");
-        metadata.Actors.ShouldBe(["Base Actor"]);
-        metadata.Genres.ShouldBe(["Drama"]);
-        metadata.CollectionId.ShouldBe(900);
-        metadata.CollectionName.ShouldBe("Franchise 900");
-        var signals = metadata.Signals.ShouldNotBeNull();
-        signals.KeywordAvailability.ShouldBe(SignalAvailability.Available);
-        signals.Keywords.Select(keyword => (keyword.Id, keyword.Name)).ShouldBe([(101, "Heist"), (202, "Noir")]);
-        signals.FullCastAvailability.ShouldBe(SignalAvailability.Available);
-        signals.FullCast.Order(StringComparer.Ordinal).ShouldBe(["Base Actor", "Guest Actor"]);
-        signals.CollectionAvailability.ShouldBe(SignalAvailability.Available);
-    }
-
-    [Fact]
-    public async Task GetCandidatesAsync_FranchiseMemberAlsoInVectorPool_AppearsOnce()
-    {
-        // arrange
-        var ct = TestContext.Current.CancellationToken;
-        await SeedRecordsAsync(
-            ct,
-            Record(1, "Selected", EnrichmentStatus.Enriched),
-            Record(2, "Franchise", EnrichmentStatus.Enriched, collectionId: 900),
-            Record(3, "Only vector", EnrichmentStatus.Enriched));
-        await SeedVectorsAsync(
-            ct,
-            (1, UnitVector()),
-            (2, CosineVector(0.7)),
-            (3, CosineVector(0.5)));
-        await using var db = fixture.CreateMigratedContext();
-        var source = Source(db);
-
-        // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(1), 900, ct);
-
-        // assert
-        candidates.Select(candidate => candidate.Movie.Id.Value).Order().ShouldBe([2, 3]);
-        candidates.Count(candidate => candidate.Movie.Id == new MovieId(2)).ShouldBe(1);
+        var library = candidates.ShouldHaveSingleItem().Library;
+        library.Summary.Title.ShouldBe("Signal member");
+        library.Features.Cast.Order(StringComparer.Ordinal).ShouldBe(["Base Actor", "Guest Actor"]);
+        library.Features.Genres.ShouldBe(["Drama"]);
+        library.Features.CollectionId.ShouldBe(900);
+        library.Features.CollectionName.ShouldBe("Franchise 900");
+        library.Features.Keywords.Select(keyword => keyword).Order().ShouldBe([101, 202]);
+        library.Features.KeywordNames.Order(StringComparer.Ordinal).ShouldBe(["Heist", "Noir"]);
+        library.Features.PlotEmbedding.ShouldBeEmpty();
     }
 
     [Fact]
@@ -704,10 +675,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         return counted;
     }
 
-    private static EfRecommendationCandidateSource Source(
-        LamuFlixDbContext db,
-        RecommendationOptions? options = null) =>
-        new(db, Microsoft.Extensions.Options.Options.Create(options ?? new RecommendationOptions()));
+    private static EfRecommendationCandidateSource Source(LamuFlixDbContext db) => new(db);
 
     private static float[] UnitVector()
     {
@@ -724,47 +692,35 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         return vector;
     }
 
-    private static void AssertSameState(Movie actual, Movie expected)
+    private static void AssertSameState(RecommendationLibraryEntry actual, Movie expected)
     {
         actual.Id.ShouldBe(expected.Id);
-        actual.Title.ShouldBe(expected.Title);
-        actual.Path.ShouldBe(expected.Path);
-        actual.Format.ShouldBe(expected.Format);
-        actual.ParsedReleaseYear.ShouldBe(expected.ParsedReleaseYear);
-        actual.IsInWatchlist.ShouldBe(expected.IsInWatchlist);
-        actual.IsWatched.ShouldBe(expected.IsWatched);
-        actual.Review.ShouldBe(expected.Review);
-        actual.Status.ShouldBe(expected.Status);
-        actual.EnrichedAt.ShouldBe(expected.EnrichedAt);
-        actual.EnrichmentAttempts.ShouldBe(expected.EnrichmentAttempts);
-        actual.LastFailureCategory.ShouldBe(expected.LastFailureCategory);
-        actual.LastAttemptAt.ShouldBe(expected.LastAttemptAt);
-        actual.ManualImdbId.ShouldBe(expected.ManualImdbId);
+        actual.Summary.Title.ShouldBe(expected.Title);
+        actual.Summary.IsInWatchlist.ShouldBe(expected.IsInWatchlist);
+        actual.Summary.IsWatched.ShouldBe(expected.IsWatched);
+        actual.Summary.Review.ShouldBe(expected.Review);
+        actual.Summary.EnrichmentStatus.ShouldBe(expected.Status);
 
         var expectedMetadata = expected.Metadata;
         if (expectedMetadata is null)
         {
-            actual.Metadata.ShouldBeNull();
+            actual.Features.Genres.ShouldBeEmpty();
+            actual.Features.Directors.ShouldBeEmpty();
             return;
         }
 
-        AssertMetadataContents(actual.Metadata.ShouldNotBeNull(), expectedMetadata);
+        AssertMetadataContents(actual.Features, expectedMetadata);
     }
 
-    private static void AssertMetadataContents(MovieMetadata actual, MovieMetadata expected)
+    private static void AssertMetadataContents(MovieFeatures actual, MovieMetadata expected)
     {
-        actual.Title.ShouldBe(expected.Title);
-        actual.Synopsis.ShouldBe(expected.Synopsis);
         actual.ReleaseYear.ShouldBe(expected.ReleaseYear);
         actual.Runtime.ShouldBe(expected.Runtime);
         actual.ImdbRating.ShouldBe(expected.ImdbRating);
-        actual.ImdbId.ShouldBe(expected.ImdbId);
-        actual.PosterUrl.ShouldBe(expected.PosterUrl);
-        actual.RottenTomatoesRating.ShouldBe(expected.RottenTomatoesRating);
-        actual.MetaScore.ShouldBe(expected.MetaScore);
+        actual.FullPlot.ShouldBe(expected.Synopsis);
         actual.Directors.OrderBy(name => name, StringComparer.Ordinal)
             .ShouldBe(expected.Directors.OrderBy(name => name, StringComparer.Ordinal));
-        actual.Actors.OrderBy(name => name, StringComparer.Ordinal)
+        actual.Cast.OrderBy(name => name, StringComparer.Ordinal)
             .ShouldBe(expected.Actors.OrderBy(name => name, StringComparer.Ordinal));
         actual.Genres.OrderBy(name => name, StringComparer.Ordinal)
             .ShouldBe(expected.Genres.OrderBy(name => name, StringComparer.Ordinal));

@@ -9,6 +9,9 @@ using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using LamuFlix.ServiceDefaults;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
@@ -59,17 +62,22 @@ public sealed class GetRecommendationsQueryHandlerTests
 
         // act / assert
         await Should.ThrowAsync<NotFoundException>(() => handler.HandleAsync(query, CancellationToken.None));
-        await candidateSource.DidNotReceive().GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>());
+        await candidateSource.DidNotReceive().GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_SelectedMovieNotEnriched_ReturnsRecommendations()
+    public async Task HandleAsync_SelectedMovieNotEnriched_UsableFallbackVectorScores()
     {
         // arrange
         var handler = NewHandler();
         var selected = NewMovie(1, withMetadata: false, status: EnrichmentStatus.Pending);
-        var pool = Candidates(NewMovie(2, genres: ["Drama"]));
-        Arrange(selected, pool);
+        var candidate = NewMovie(2, genres: ["Drama"]);
+        movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns([Entry(candidate)]);
+        ArrangeProfileWith(
+            [],
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
+                .Empty.Add(selected.Id, PlotVector(primary: 1.0f)));
 
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
@@ -407,7 +415,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler();
         var selected = Selected();
         var candidate = NewMovie(2, genres: ["Drama", "Action"], directors: ["Director A"], actors: ["Actor A"], writers: ["Writer A"], releaseYear: 2000, runtimeMinutes: 120, imdbRating: 8.0m);
-        Arrange(selected, [new RecommendationCandidate(candidate, 0.4)]);
+        Arrange(selected, [Entry(candidate)]);
         var expected = SimilarityScorer.Score(
             MovieFeaturesMapper.From(selected),
             MovieFeaturesMapper.From(candidate),
@@ -430,17 +438,14 @@ public sealed class GetRecommendationsQueryHandlerTests
         HasStoryReason(result[0]).ShouldBeFalse();
     }
 
-    [Theory]
-    [InlineData(0.8)]
-    [InlineData(0.5)]
-    [InlineData(-1.0)]
-    public async Task HandleAsync_CandidateCosineSimilarity_DoesNotEmitReason(double cosine)
+    [Fact]
+    public async Task HandleAsync_CandidateWithoutEmbedding_DoesNotEmitStoryReason()
     {
         // arrange
         var handler = NewHandler();
         var selected = Selected();
         var candidate = IdenticalFeatureMovie(2);
-        Arrange(selected, [new RecommendationCandidate(candidate, cosine)]);
+        Arrange(selected, [Entry(candidate)]);
         var expected = SimilarityScorer.Score(
             MovieFeaturesMapper.From(selected),
             MovieFeaturesMapper.From(candidate),
@@ -467,9 +472,9 @@ public sealed class GetRecommendationsQueryHandlerTests
         var zero = IdenticalFeatureMovie(3);
         var negative = IdenticalFeatureMovie(4);
         Arrange(selected, [
-            new RecommendationCandidate(low, 0.4),
-            new RecommendationCandidate(zero, 0.0),
-            new RecommendationCandidate(negative, -1.0),
+            Entry(low),
+            Entry(zero),
+            Entry(negative),
         ]);
 
         // act
@@ -506,8 +511,8 @@ public sealed class GetRecommendationsQueryHandlerTests
         var highCosineLowId = IdenticalFeatureMovie(4);
         var lowCosineHighId = IdenticalFeatureMovie(9);
         Arrange(selected, [
-            new RecommendationCandidate(lowCosineHighId, 0.9),
-            new RecommendationCandidate(highCosineLowId, 0.6),
+            Entry(lowCosineHighId),
+            Entry(highCosineLowId),
         ]);
 
         // act
@@ -534,7 +539,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         // assert
         result.Select(item => item.Summary.Id.Value).ToArray().ShouldBe(new[] { 3 });
         await profileSource.Received(1).GetProfileInputsAsync(
-            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 2 && ids.Contains(new MovieId(1)) && ids.Contains(new MovieId(3))),
+            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
             Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
             Arg.Any<CancellationToken>());
     }
@@ -616,7 +621,7 @@ public sealed class GetRecommendationsQueryHandlerTests
 
         // assert
         await profileSource.Received(1).GetProfileInputsAsync(
-            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 4),
+            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
             Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
             Arg.Any<CancellationToken>());
     }
@@ -661,7 +666,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         // assert
         await profileSource.Received(1).GetTasteProfileAsync(cts.Token);
         await profileSource.Received(1).GetProfileInputsAsync(
-            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 4),
+            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
             Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
             cts.Token);
         await catalog.Received(1).GetGenreCountsAsync(cts.Token);
@@ -766,7 +771,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var selected = Selected();
         var unwatched = IdenticalFeatureMovie(2);
         var watched = IdenticalFeatureMovie(3, isWatched: true);
-        Arrange(selected, [new RecommendationCandidate(unwatched, 0.0), new RecommendationCandidate(watched, 0.0)]);
+        Arrange(selected, [Entry(unwatched), Entry(watched)]);
 
         var similarity = SimilarityScorer.Score(
             MovieFeaturesMapper.From(selected),
@@ -797,7 +802,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         await Should.ThrowAsync<OperationCanceledException>(
             () => handler.HandleAsync(new GetRecommendationsQuery(new MovieId(1)), cts.Token));
         await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
-        await candidateSource.DidNotReceive().GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>());
+        await candidateSource.DidNotReceive().GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
         await catalog.DidNotReceive().GetGenreCountsAsync(Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
@@ -822,7 +827,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         // act / assert
         await Should.ThrowAsync<OperationCanceledException>(
             () => handler.HandleAsync(new GetRecommendationsQuery(new MovieId(1)), cts.Token));
-        await candidateSource.DidNotReceive().GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>());
+        await candidateSource.DidNotReceive().GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -831,9 +836,9 @@ public sealed class GetRecommendationsQueryHandlerTests
         // arrange
         var handler = NewHandler();
         using var cts = new CancellationTokenSource();
-        IReadOnlyList<RecommendationCandidate> pool = Pool(2);
+        IReadOnlyList<RecommendationLibraryEntry> pool = Pool(2);
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(Selected());
-        candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
@@ -874,8 +879,12 @@ public sealed class GetRecommendationsQueryHandlerTests
         // arrange
         var handler = NewHandler();
         using var cts = new CancellationTokenSource();
-        var pool = new CancellingCandidates(Pool(3), cts);
-        Arrange(Selected(), pool);
+        var selected = Selected();
+        var library = new List<RecommendationLibraryEntry> { Entry(selected, PlotVector(primary: 1.0f)) };
+        library.AddRange(Pool(3));
+        var pool = new CancellingCandidates(library, cts);
+        movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(pool);
 
         // act / assert
         await Should.ThrowAsync<OperationCanceledException>(
@@ -904,8 +913,8 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler();
         var failure = new InvalidOperationException("candidate load failed");
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(Selected());
-        candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<IReadOnlyList<RecommendationCandidate>>(failure));
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<IReadOnlyList<RecommendationLibraryEntry>>(failure));
 
         // act / assert
         var thrown = await Should.ThrowAsync<InvalidOperationException>(
@@ -999,7 +1008,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler();
         var selected = Selected();
         var candidate = NewMovie(16, genres: ["Drama"], directors: ["Director A"], actors: ["Actor A"], writers: ["Writer A"]);
-        Arrange(selected, [new RecommendationCandidate(candidate, 0.9)]);
+        Arrange(selected, [Entry(candidate)]);
         ArrangeProfile(ProfileMovie(90, "Drama"));
         var expectedStructural = SimilarityScorer.Score(
             MovieFeaturesMapper.From(selected),
@@ -1046,12 +1055,11 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler();
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(18, genres: ["Mystery"]);
-        Arrange(selected, Candidates(candidate));
         var vector = PlotVector(primary: 1.0f);
+        Arrange(selected, [Entry(candidate, vector)]);
         ArrangeProfileWith(
             [new TasteProfileMovie(new MovieId(90), [], vector, [Now], IsWatched: true)],
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
-                .Empty.Add(candidate.Id, vector));
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty);
 
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
@@ -1068,8 +1076,8 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(20, genres: ["Mystery"]);
-        Arrange(selected, Candidates(candidate));
         var vector = PlotVector(primary: 1.0f);
+        Arrange(selected, [Entry(candidate, vector)]);
         var profile = new TasteProfile(
             System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
             [])
@@ -1091,8 +1099,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         };
         ArrangeProfileWith(
             [new TasteProfileMovie(new MovieId(90), [], [], [Now], IsWatched: true) { Review = Review.Liked }],
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
-                .Empty.Add(candidate.Id, vector),
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty,
             System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
                 .Empty.Add(new MovieId(90), vector),
             profile);
@@ -1113,8 +1120,8 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler();
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(22, genres: ["Mystery"]);
-        Arrange(selected, Candidates(candidate));
         var vector = PlotVector(primary: 1.0f);
+        Arrange(selected, [Entry(candidate)]);
         var profile = new TasteProfile(
             System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
             [])
@@ -1131,8 +1138,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         };
         ArrangeProfileWith(
             [new TasteProfileMovie(new MovieId(90), [], [], [Now], IsWatched: true) { Review = Review.Liked }],
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
-                .Empty.Add(candidate.Id, vector),
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty,
             System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
                 .Empty.Add(new MovieId(90), vector),
             profile);
@@ -1143,7 +1149,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         // assert
         result.ShouldHaveSingleItem();
         await profileSource.Received(1).GetProfileInputsAsync(
-            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 2 && ids.Contains(selected.Id) && ids.Contains(candidate.Id)),
+            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
             Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 1 && liked.Single() == new MovieId(90)),
             Arg.Any<CancellationToken>());
         Received.InOrder(() =>
@@ -1163,12 +1169,11 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(21, genres: ["Mystery"]);
-        Arrange(selected, Candidates(candidate));
         var vector = PlotVector(primary: 1.0f);
+        Arrange(selected, [Entry(candidate, vector)]);
         ArrangeProfileWith(
             [new TasteProfileMovie(new MovieId(90), [], [], [Now], IsWatched: true) { Review = Review.Liked }],
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
-                .Empty.Add(candidate.Id, vector));
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty);
 
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
@@ -1185,11 +1190,10 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler();
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(19, genres: ["Mystery"]);
-        Arrange(selected, Candidates(candidate));
+        Arrange(selected, [Entry(candidate, PlotVector(primary: 0.0f, secondary: 1.0f))]);
         ArrangeProfileWith(
             [new TasteProfileMovie(new MovieId(90), [], PlotVector(primary: 1.0f), [Now], IsWatched: true)],
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
-                .Empty.Add(candidate.Id, PlotVector(primary: 0.0f, secondary: 1.0f)));
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty);
 
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
@@ -1206,12 +1210,11 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler(weights: PlotOnlyWeights, blendProfileWeight: 0.0);
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(2, genres: ["Mystery"]);
-        Arrange(selected, Candidates(candidate));
         var vector = PlotVector(primary: 1.0f);
+        Arrange(selected, [Entry(candidate, vector)]);
         ArrangeProfileWith(
             [ProfileMovie(90, "Drama")],
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
-                .Empty.Add(selected.Id, vector).Add(candidate.Id, vector));
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty);
 
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
@@ -1221,31 +1224,532 @@ public sealed class GetRecommendationsQueryHandlerTests
         result[0].Score.ShouldBe(1.0, 1e-12);
         result[0].Reasons.ShouldContain(reason => reason.Text == "Similar story");
         await profileSource.Received(1).GetProfileInputsAsync(
-            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Contains(selected.Id) && ids.Contains(candidate.Id)),
+            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_MissingSeedVector_ContributesZeroPlot()
+    public async Task HandleAsync_SelectedMovieWithoutUsableVector_ReturnsEmptyRail()
     {
         // arrange
         var handler = NewHandler(weights: PlotOnlyWeights, blendProfileWeight: 0.0);
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(2, genres: ["Mystery"]);
-        Arrange(selected, Candidates(candidate));
+        movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
+            .Returns([Entry(candidate, PlotVector(primary: 1.0f))]);
+        ArrangeProfileWith([ProfileMovie(90, "Drama")], System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleAsync_SelectedMovieAbsentFromLoad_UsableFallbackVectorStillScores()
+    {
+        // arrange
+        var handler = NewHandler(weights: PlotOnlyWeights, blendProfileWeight: 0.0);
+        var selected = NewMovie(1, genres: ["Drama"]);
+        var candidate = NewMovie(2, genres: ["Mystery"]);
+        var vector = PlotVector(primary: 1.0f);
+        movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
+            .Returns([Entry(candidate, vector)]);
         ArrangeProfileWith(
             [ProfileMovie(90, "Drama")],
             System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
-                .Empty.Add(candidate.Id, PlotVector(primary: 1.0f)));
+                .Empty.Add(selected.Id, vector));
 
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
 
         // assert
         result.ShouldHaveSingleItem();
-        result[0].Score.ShouldBe(0.0, 1e-12);
-        result[0].Reasons.ShouldNotContain(reason => reason.Text == "Similar story");
+        result[0].Score.ShouldBe(1.0, 1e-12);
+        result[0].Reasons.ShouldContain(reason => reason.Text == "Similar story");
+        await profileSource.Received(1).GetProfileInputsAsync(
+            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 1 && ids.Single() == selected.Id),
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<CancellationToken>());
+    }
+
+
+    [Fact]
+    public async Task HandleAsync_DirectorMatchWithLowestPlotSimilarity_AppearsInRailAfterEveryAboveBarMatch()
+    {
+        // arrange
+        var handler = NewHandler(minimumSimilarity: 0.225);
+        var selected = NewMovie(1, genres: ["Drama"], directors: ["Director A"], actors: ["Actor A"]);
+        var entries = new List<RecommendationLibraryEntry>();
+        for (var id = 2; id <= 56; id++)
+        {
+            entries.Add(Entry(NewMovie(id, genres: ["Mystery"]), PlotVector(primary: 0.0f, secondary: 1.0f)));
+        }
+
+        for (var id = 57; id <= 59; id++)
+        {
+            entries.Add(Entry(
+                NewMovie(id, genres: ["Drama"], actors: ["Actor A"]),
+                PlotVector(primary: 1.0f)));
+        }
+
+        entries.Add(Entry(
+            NewMovie(60, genres: ["Mystery"], directors: ["Director A"]),
+            PlotVector(primary: 0.0f, secondary: 1.0f)));
+        ArrangeLibrary(selected, entries);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 10), CancellationToken.None);
+
+        // assert
+        result.Count.ShouldBe(4);
+        result.Select(item => item.Summary.Id.Value).ShouldBe([57, 58, 59, 60]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_DirectorOnlyCandidateWithoutEmbedding_IsAdmittedAsStrongReason()
+    {
+        // arrange
+        var handler = NewHandler(minimumSimilarity: 0.225);
+        var selected = NewMovie(1, genres: ["Drama"], directors: ["Director A"]);
+        var candidate = NewMovie(2, genres: ["Mystery"], directors: ["Director A"]);
+        ArrangeLibrary(selected, [Entry(candidate)]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.ShouldHaveSingleItem();
+        result[0].Summary.Id.ShouldBe(new MovieId(2));
+        result[0].Score.ShouldBe(3.0 / 15.0, 1e-12);
+    }
+
+    [Fact]
+    public async Task HandleAsync_SimilarityExactlyAtTheBar_IsAboveBarInclusive()
+    {
+        // arrange
+        var handler = NewHandler(minimumSimilarity: 3.0 / 15.0);
+        var selected = NewMovie(1, genres: ["Drama"], directors: ["Director A"]);
+        var candidate = NewMovie(2, genres: ["Mystery"], directors: ["Director A"]);
+        ArrangeLibrary(selected, [Entry(candidate)]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task HandleAsync_EmptyStrongReasonCriteria_ExcludesBelowBarCandidate()
+    {
+        // arrange
+        var handler = NewHandler(minimumSimilarity: 0.225, strongReasonCriteria: []);
+        var selected = NewMovie(1, genres: ["Drama"], directors: ["Director A"]);
+        var candidate = NewMovie(2, genres: ["Mystery"], directors: ["Director A"]);
+        ArrangeLibrary(selected, [Entry(candidate)]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ChangingTheConfiguredBar_ChangesEligibilityWithoutCodeChange()
+    {
+        // arrange
+        var selected = NewMovie(1, genres: ["Drama"], directors: ["Director A"]);
+        var candidate = NewMovie(2, genres: ["Mystery"], directors: ["Director A"]);
+        var strict = NewHandler(minimumSimilarity: 0.225, strongReasonCriteria: []);
+        var relaxed = NewHandler(minimumSimilarity: 3.0 / 15.0, strongReasonCriteria: []);
+        ArrangeLibrary(selected, [Entry(candidate)]);
+
+        // act
+        var excluded = await strict.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+        var included = await relaxed.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        excluded.ShouldBeEmpty();
+        included.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ConfiguredCaseVariantStrongReason_IsAccepted()
+    {
+        // arrange
+        var handler = NewHandler(minimumSimilarity: 0.225, strongReasonCriteria: ["DIRECTOR"]);
+        var selected = NewMovie(1, genres: ["Drama"], directors: ["Director A"]);
+        var candidate = NewMovie(2, genres: ["Mystery"], directors: ["Director A"]);
+        ArrangeLibrary(selected, [Entry(candidate)]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task HandleAsync_AbsentStrongReasonTerm_NeverQualifies()
+    {
+        // arrange
+        var handler = NewHandler(minimumSimilarity: 0.225, strongReasonCriteria: ["Collection"]);
+        var selected = NewMovie(1, genres: ["Drama"], directors: ["Director A"]);
+        var candidate = NewMovie(2, genres: ["Mystery"], directors: ["Director A"]);
+        ArrangeLibrary(selected, [Entry(candidate)]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ThemesOnlyAtConfiguredCeiling_IsAdmittedAsStrongReason()
+    {
+        // arrange
+        catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>()).Returns(ThemeKeywordCounts());
+        var handler = NewHandler(minimumSimilarity: 0.225);
+        var selected = KeywordMovie(1, "Selected", "heist", "noir");
+        var candidate = KeywordEntry(2, "Themed", "heist", "noir");
+        ArrangeLibrary(selected, [candidate]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.ShouldHaveSingleItem();
+        result[0].Summary.Id.ShouldBe(new MovieId(2));
+    }
+
+    [Fact]
+    public async Task HandleAsync_ThemesJustBelowCeilingWithoutAnotherReason_IsExcluded()
+    {
+        // arrange
+        catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>()).Returns(ThemeKeywordCounts());
+        var handler = NewHandler(minimumSimilarity: 0.225);
+        var selected = KeywordMovie(1, "Selected", "heist", "noir");
+        var candidate = KeywordEntry(2, "Nearly themed", "heist", "noir2");
+        ArrangeLibrary(selected, [candidate]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("Collection")]
+    [InlineData("Director")]
+    [InlineData("Themes")]
+    public void SimilarityScorer_EmitsEveryConfiguredStrongReasonNameAtValueOne(string criterion)
+    {
+        // arrange
+        var selected = PairForCriterion(criterion);
+        var candidate = PairForCriterion(criterion);
+        var keywordCounts = criterion == "Themes"
+            ? ThemeKeywordCounts()
+            : EmptyKeywordCounts;
+
+        // act
+        var result = SimilarityScorer.Score(
+            selected,
+            candidate,
+            new RecommendationOptions(),
+            GenreWeights.Calculate(Counts),
+            keywordCounts);
+
+        // assert
+        var term = result.Breakdown.Single(entry => entry.Name == criterion);
+        term.Value.ShouldBe(1.0);
+        term.Weight.ShouldBeGreaterThan(0.0);
+    }
+
+    [Fact]
+    public async Task HandleAsync_TierBComesAfterEveryTierAEvenWhenBlendWouldPromoteIt()
+    {
+        // arrange
+        var handler = NewHandler(minimumSimilarity: 0.225, alreadyWatchedPenalty: 5.0);
+        var selected = NewMovie(1, genres: ["Drama"], directors: ["Director A"], actors: ["Actor A"]);
+        var aboveBar = Entry(
+            NewMovie(2, genres: ["Drama"], actors: ["Actor A"], isWatched: true),
+            PlotVector(primary: 1.0f));
+        var strongReason = Entry(NewMovie(3, genres: ["Mystery"], directors: ["Director A"]));
+        ArrangeLibrary(selected, [strongReason, aboveBar]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 2), CancellationToken.None);
+
+        // assert
+        result.Select(item => item.Summary.Id.Value).ShouldBe([2, 3]);
+        result[0].Score.ShouldBeLessThan(result[1].Score);
+    }
+
+    [Fact]
+    public async Task HandleAsync_StrongReasonBudget_UsesOnlyTakeMinusSelectedAboveBarSlots()
+    {
+        // arrange
+        var handler = NewHandler(minimumSimilarity: 0.225);
+        var selected = NewMovie(1, genres: ["Drama"], directors: ["Director A"], actors: ["Actor A"]);
+        var aboveBar = Entry(
+            NewMovie(2, genres: ["Drama"], actors: ["Actor A"]),
+            PlotVector(primary: 1.0f));
+        var strongReason = Entry(NewMovie(3, genres: ["Mystery"], directors: ["Director A"]));
+        ArrangeLibrary(selected, [strongReason, aboveBar]);
+
+        // act
+        var oneSlot = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 1), CancellationToken.None);
+        var twoSlots = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 2), CancellationToken.None);
+        var padded = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 5), CancellationToken.None);
+
+        // assert
+        oneSlot.Select(item => item.Summary.Id.Value).ShouldBe([2]);
+        twoSlots.Select(item => item.Summary.Id.Value).ShouldBe([2, 3]);
+        padded.Select(item => item.Summary.Id.Value).ShouldBe([2, 3]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_CancellationDuringScoring_StopsThePerMovieLoop()
+    {
+        // arrange
+        using var cts = new CancellationTokenSource();
+        var handler = NewHandler(minimumSimilarity: 0.0);
+        var selected = NewMovie(1, genres: ["Drama"], directors: ["Director A"]);
+        var entries = new List<RecommendationLibraryEntry> { Entry(selected, PlotVector(primary: 1.0f)) };
+        for (var id = 2; id <= 12; id++)
+        {
+            entries.Add(Entry(NewMovie(id, genres: ["Drama"])));
+        }
+
+        var library = new CancellingOnSecondPassLibrary(entries, cts);
+        movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(library);
+
+        // act / assert
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => handler.HandleAsync(new GetRecommendationsQuery(selected.Id), cts.Token));
+        library.ScoredYielded.ShouldBeLessThan(entries.Count - 1);
+    }
+
+    [Fact]
+    public void RecommendationOptions_MinimumSimilarityAndStrongReasonDefaults_MatchTheTicket()
+    {
+        // arrange
+        var options = new RecommendationOptions();
+
+        // act / assert
+        options.MinimumSimilarity.ShouldBe(0.225);
+        options.StrongReasonCriteria.ShouldBe(["Collection", "Director", "Themes"]);
+    }
+
+    [Fact]
+    public void RecommendationOptions_EmptyStrongReasonCriteria_IsValid()
+    {
+        // arrange
+        var options = new RecommendationOptions { StrongReasonCriteria = [] };
+
+        // act
+        var failures = ValidateRecommendationOptions(options);
+
+        // assert
+        failures.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("Collection")]
+    [InlineData("director")]
+    [InlineData("THEMES")]
+    public void RecommendationOptions_CanonicalStrongReasonTokens_AreValid(String criterion)
+    {
+        // arrange
+        var options = new RecommendationOptions { StrongReasonCriteria = [criterion] };
+
+        // act
+        var failures = ValidateRecommendationOptions(options);
+
+        // assert
+        failures.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(" Director")]
+    [InlineData("Director ")]
+    [InlineData("Plot")]
+    [InlineData("Cast")]
+    [InlineData("Genre")]
+    [InlineData("Keyword")]
+    [InlineData("")]
+    [InlineData("Drama")]
+    public void RecommendationOptions_UnsupportedStrongReasonTokens_AreRejected(String criterion)
+    {
+        // arrange
+        var options = new RecommendationOptions { StrongReasonCriteria = [criterion] };
+
+        // act
+        var failures = ValidateRecommendationOptions(options);
+
+        // assert
+        failures.ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void RecommendationOptions_NullStrongReasonCollection_IsRejected()
+    {
+        // arrange
+        var options = new RecommendationOptions { StrongReasonCriteria = null };
+
+        // act
+        var failures = ValidateRecommendationOptions(options);
+
+        // assert
+        failures.ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void RecommendationOptions_NullStrongReasonEntry_IsRejected()
+    {
+        // arrange
+        var options = new RecommendationOptions { StrongReasonCriteria = [null!] };
+
+        // act
+        var failures = ValidateRecommendationOptions(options);
+
+        // assert
+        failures.ShouldNotBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(-0.01)]
+    [InlineData(1.01)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void RecommendationOptions_MinimumSimilarityOutsideFiniteUnitInterval_IsRejected(double bar)
+    {
+        // arrange
+        var options = new RecommendationOptions { MinimumSimilarity = bar };
+
+        // act
+        var failures = ValidateRecommendationOptions(options);
+
+        // assert
+        failures.ShouldNotBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(0.225)]
+    [InlineData(1.0)]
+    public void RecommendationOptions_MinimumSimilarityInsideFiniteUnitInterval_IsValid(double bar)
+    {
+        // arrange
+        var options = new RecommendationOptions { MinimumSimilarity = bar };
+
+        // act
+        var failures = ValidateRecommendationOptions(options);
+
+        // assert
+        failures.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void RecommendationOptions_InvalidBinding_FailsThroughTheRealOptionsPipeline()
+    {
+        // arrange
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Recommendations:MinimumSimilarity"] = "1.5",
+            })
+            .Build();
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddLamuFlixOptions();
+        using var provider = services.BuildServiceProvider();
+        var accessor = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RecommendationOptions>>();
+
+        // act / assert
+        Should.Throw<Microsoft.Extensions.Options.OptionsValidationException>(() => _ = accessor.Value);
+    }
+
+    private static KeywordCounts ThemeKeywordCounts() =>
+        new(100, new Dictionary<string, long>
+        {
+            ["heist"] = 6,
+            ["noir"] = 2,
+            ["noir2"] = 2,
+        });
+
+    private static string[] ValidateRecommendationOptions(RecommendationOptions options)
+    {
+        var results = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
+        System.ComponentModel.DataAnnotations.Validator.TryValidateObject(
+            options,
+            new System.ComponentModel.DataAnnotations.ValidationContext(options),
+            results,
+            validateAllProperties: true);
+        return [.. results.Select(result => result.ErrorMessage ?? string.Empty)];
+    }
+
+    private static MovieFeatures PairForCriterion(string criterion) =>
+        criterion switch
+        {
+            "Collection" => new MovieFeatures(collectionId: 900, collectionName: "Franchise"),
+            "Director" => new MovieFeatures(directors: ["Director A"]),
+            _ => new MovieFeatures(
+                keywords: [901, 902],
+                keywordNames: ["heist", "noir"]),
+        };
+
+    private static Movie KeywordMovie(int id, string title, params string[] keywords) =>
+        Movie.Rehydrate(
+            new MovieId(id),
+            title,
+            new LibraryPath($"C:/library/{id}.mkv"),
+            new MediaFormat("mkv"),
+            false,
+            new MovieMetadata(
+                title,
+                signals: MovieSignalSnapshot.FromPersisted(
+                    keywords.Select((name, index) => new MovieKeyword(900 + index, name)),
+                    [],
+                    collectionAvailable: false)),
+            EnrichmentStatus.Enriched,
+            Now,
+            1,
+            null,
+            null);
+
+    private static RecommendationLibraryEntry KeywordEntry(int id, string title, params string[] keywords) =>
+        new(
+            new MovieFeatures(
+                keywords: [.. keywords.Select((_, index) => 900 + index)],
+                keywordNames: keywords),
+            new MovieSummary(
+                new MovieId(id),
+                title,
+                null,
+                null,
+                null,
+                null,
+                EnrichmentStatus.Enriched,
+                false,
+                false,
+                Review.None));
+
+    private void ArrangeLibrary(Movie selected, IReadOnlyList<RecommendationLibraryEntry> entries)
+    {
+        movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
+        var library = new List<RecommendationLibraryEntry>(entries.Count + 1) { Entry(selected, PlotVector(primary: 1.0f)) };
+        library.AddRange(entries);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(library);
     }
 
     private static string[] PersonalTexts(RecommendedMovie movie) =>
@@ -1330,23 +1834,35 @@ public sealed class GetRecommendationsQueryHandlerTests
         double alreadyWatchedPenalty = 0.25,
         double notInterestedPenalty = 1.0,
         double mmrLambda = 0.7,
-        KeywordWeightsCache? keywordCache = null) =>
-        new(
+        KeywordWeightsCache? keywordCache = null,
+        double minimumSimilarity = 0.0,
+        IReadOnlyList<string>? strongReasonCriteria = null)
+    {
+        var options = new RecommendationOptions
+        {
+            Take = optionsTake,
+            MinimumSimilarity = minimumSimilarity,
+            Weights = weights ?? Weights,
+            BlendSelectedWeight = blendSelectedWeight,
+            BlendProfileWeight = blendProfileWeight,
+            AlreadyWatchedPenalty = alreadyWatchedPenalty,
+            NotInterestedPenalty = notInterestedPenalty,
+            MmrLambda = mmrLambda,
+        };
+
+        if (strongReasonCriteria is not null)
+        {
+            options = options with { StrongReasonCriteria = strongReasonCriteria };
+        }
+
+        return new GetRecommendationsQueryHandler(
             movies,
             candidateSource,
             profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
             new KeywordWeightsCalculator(catalog, keywordCache ?? new KeywordWeightsCache()),
-            Microsoft.Extensions.Options.Options.Create(new RecommendationOptions
-            {
-                Take = optionsTake,
-                Weights = weights ?? Weights,
-                BlendSelectedWeight = blendSelectedWeight,
-                BlendProfileWeight = blendProfileWeight,
-                AlreadyWatchedPenalty = alreadyWatchedPenalty,
-                NotInterestedPenalty = notInterestedPenalty,
-                MmrLambda = mmrLambda,
-            }));
+            Microsoft.Extensions.Options.Options.Create(options));
+    }
 
     [Fact]
     public async Task HandleAsync_RelatedOperation_ResolvesOneKeywordSnapshotForEveryPair()
@@ -1394,7 +1910,7 @@ public sealed class GetRecommendationsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_SelectedCollection_PassesCollectionIdToCandidateSource()
+    public async Task HandleAsync_SelectedCollection_LoadsTheWholeLibraryOnce()
     {
         // arrange
         var handler = NewHandler();
@@ -1405,9 +1921,10 @@ public sealed class GetRecommendationsQueryHandlerTests
         await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
 
         // assert
-        await candidateSource.Received(1).GetCandidatesAsync(
-            selected.Id,
-            7,
+        await candidateSource.Received(1).GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
+        await candidateSource.DidNotReceive().GetCandidatesAsync(
+            Arg.Any<MovieId>(),
+            Arg.Any<int?>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -1452,11 +1969,24 @@ public sealed class GetRecommendationsQueryHandlerTests
         result.Select(item => item.Summary.Id.Value).ShouldBe([2, 3]);
     }
 
-    private void Arrange(Movie selected, IReadOnlyList<RecommendationCandidate> pool)
+    private void Arrange(Movie selected, IReadOnlyList<RecommendationLibraryEntry> pool)
     {
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
-        candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>()).Returns(pool);
+        var library = new List<RecommendationLibraryEntry>(pool.Count + 1)
+        {
+            Entry(selected, PlotVector(primary: 1.0f)),
+        };
+        library.AddRange(pool);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(library);
     }
+
+    private static RecommendationLibraryEntry Entry(Movie movie, System.Collections.Immutable.ImmutableArray<float> plotEmbedding = default) =>
+        new(
+            MovieFeaturesMapper.From(
+                movie,
+                includeSignals: true,
+                plotEmbedding: plotEmbedding.IsDefault ? null : plotEmbedding),
+            MovieSummaryMapper.From(movie));
 
     private void ArrangeProfile(params TasteProfileMovie[] profileMovies) =>
         ArrangeProfileWith(
@@ -1499,25 +2029,22 @@ public sealed class GetRecommendationsQueryHandlerTests
         runtimeMinutes: 120,
         imdbRating: 8.0m);
 
-    private static RecommendationCandidate[] Pool(int count) =>
-        [.. Enumerable.Range(2, count).Select(id => new RecommendationCandidate(
-            NewMovie(id, genres: ["Drama"], directors: ["Director A"]),
-            Cosine(id)))];
+    private static RecommendationLibraryEntry[] Pool(int count) =>
+        [.. Enumerable.Range(2, count).Select(id => Entry(
+            NewMovie(id, genres: ["Drama"], directors: ["Director A"])))];
 
-    private static RecommendationCandidate[] Candidates(params Movie[] movies) =>
-        [.. movies.Select((movie, index) => new RecommendationCandidate(movie, Cosine(index + 2)))];
+    private static RecommendationLibraryEntry[] Candidates(params Movie[] movies) =>
+        [.. movies.Select(movie => Entry(movie))];
 
-    private static RecommendationCandidate[] DiversificationPool() =>
+    private static RecommendationLibraryEntry[] DiversificationPool() =>
     [
-        new(NewMovie(2, genres: ["Drama"]), 0.0),
-        new(NewMovie(3, genres: ["Drama"]), 0.0),
-        new(NewMovie(4, genres: ["Drama"]), 0.0),
-        new(NewMovie(5, genres: ["Drama"]), 0.0),
-        new(NewMovie(6, genres: ["Mystery"]), 0.0),
-        new(NewMovie(7, genres: ["Western"]), 0.0),
+        Entry(NewMovie(2, genres: ["Drama"])),
+        Entry(NewMovie(3, genres: ["Drama"])),
+        Entry(NewMovie(4, genres: ["Drama"])),
+        Entry(NewMovie(5, genres: ["Drama"])),
+        Entry(NewMovie(6, genres: ["Mystery"])),
+        Entry(NewMovie(7, genres: ["Western"])),
     ];
-
-    private static double Cosine(int seed) => ((seed % 21) - 10) / 10.0;
 
     private static Movie NewMovie(
         int id,
@@ -1602,16 +2129,49 @@ public sealed class GetRecommendationsQueryHandlerTests
             collectionName: collectionName);
     }
 
-    private sealed class CancellingCandidates(IReadOnlyList<RecommendationCandidate> items, CancellationTokenSource source)
-        : IReadOnlyList<RecommendationCandidate>
+    private sealed class CancellingOnSecondPassLibrary(IReadOnlyList<RecommendationLibraryEntry> items, CancellationTokenSource source)
+        : IReadOnlyList<RecommendationLibraryEntry>
+    {
+        private int passes;
+
+        public int ScoredYielded { get; private set; }
+
+        public int Count => items.Count;
+
+        public RecommendationLibraryEntry this[int index] => items[index];
+
+        public IEnumerator<RecommendationLibraryEntry> GetEnumerator()
+        {
+            passes++;
+            for (var index = 0; index < items.Count; index++)
+            {
+                if (passes >= 2)
+                {
+                    if (index == 2)
+                    {
+                        source.Cancel();
+                    }
+
+                    ScoredYielded++;
+                }
+
+                yield return items[index];
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    private sealed class CancellingCandidates(IReadOnlyList<RecommendationLibraryEntry> items, CancellationTokenSource source)
+        : IReadOnlyList<RecommendationLibraryEntry>
     {
         public int Yielded { get; private set; }
 
         public int Count => items.Count;
 
-        public RecommendationCandidate this[int index] => items[index];
+        public RecommendationLibraryEntry this[int index] => items[index];
 
-        public IEnumerator<RecommendationCandidate> GetEnumerator()
+        public IEnumerator<RecommendationLibraryEntry> GetEnumerator()
         {
             for (var index = 0; index < items.Count; index++)
             {
