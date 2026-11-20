@@ -59,6 +59,10 @@ Remove release year, runtime, IMDb rating, writers, and “Identical feature pro
 3. **Operation boundary (T011–T014).** Pass one immutable keyword snapshot explicitly to the pure scorer. Resolve it once in the Related or For You handler where pair comparisons run, then pass it through the Related collection grouper or For You MMR selector as applicable. The For You handler change is limited to this plumbing under Patron's cited Q6/Q7 ruling in CONCLUSIONS.md (d01e60f0). Prove identity across pairs during mid-operation invalidation and refresh on the next operation.
 4. **Consumer and delivery evidence (T014, T016–T020).** Exercise MMR selection and collection ordering with the new score and record changes visible in existing DEV-545 receipts. Keep existing tuning. Render names as literal metadata in compare output and use structured fields when logging. T018 names the retired symbols and reason phrases. T019 uses a buildable candidate after consumer and evaluation migration.
 
+## Phase 5 sequencing decision
+
+Patron approved the build prerequisite in `CONCLUSIONS.md` at `71d841a7`, based on Anvil's task note report at `2726b9d5`. Complete the six legacy scorer test and fixture migrations under T009. Before closing T014, land a separate T017 prerequisite commit limited to compiler-proven scorer API and weight adaptations in the named evaluation files and direct evaluation callers forced by the solution build. T014 closes with the full solution build and green T008–T009 and consumer regressions. T016 compare work, remaining T017 evaluation alignment, output proof, and T018 follow in the existing Phase 6 order.
+
 ## Test strategy and acceptance
 
 - Pin the order, six defaults, table reason text, and configured denominator. Cover missing keywords, genre-only ceiling, score and contribution reconciliation, and the absence of legacy scoring options and reasons in recommendation code and tests.
