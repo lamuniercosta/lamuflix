@@ -15,20 +15,21 @@ public sealed record SelfSimilarityProfile(MovieFeatures Value);
 
 public static class MovieFeaturesArbitraries
 {
-    private static readonly DateTimeOffset Now = new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero);
     private static readonly string[] GenreTokens = ["Drama", "Comedy", "Noir", "Sci-Fi", "Doc", "Thriller"];
     private static readonly string[] PersonTokens = ["Nolan", "Wong", "Campion", "Lee", "Kurosawa", "Miyazaki"];
-    private static readonly string[] BlankTokens = BlankTokenPool();
+    private static readonly string[] KeywordTokens = ["alpha", "beta", "gamma", "delta", "anchor-theme"];
+    private static readonly string[] BlankTokens = ["", " ", "\t", "  "];
+    private static readonly string[] CollectionNames = ["Saga", "Trilogy", "Quartet", ""];
 
-    private static string[] BlankTokenPool()
-    {
-        var tokens = new string[5];
-        tokens[1] = string.Empty;
-        tokens[2] = " ";
-        tokens[3] = "\t";
-        tokens[4] = "  ";
-        return tokens;
-    }
+    private static readonly float[][] Embeddings =
+    [
+        [1f, 0f],
+        [0f, 1f],
+        [0.6f, 0.8f],
+        [-1f, 0f],
+        [0.3f, 0.4f, 0.5f],
+        [-0.2f, 0.9f],
+    ];
 
     public static Arbitrary<MovieFeatures> Profiles() => Arb.From(GeneralProfile(), ShrinkProfile);
 
@@ -45,58 +46,64 @@ public static class MovieFeaturesArbitraries
         Gen.OneOf(
             Gen.Constant(new MovieFeatures()),
             SingleFieldProfile(),
-            Profile(TokenSet(GenreToken()), NameSet(), NameSet(), NameSet()),
-            Profile(Set(BlankToken(), 1, 3), NameSet(), NameSet(), NameSet()));
+            FullProfile(),
+            BlankHeavyProfile());
 
     private static Gen<MovieFeatures> SingleFieldProfile() =>
-        Gen.Choose(0, 6).SelectMany(field => field switch
+        Gen.Choose(0, 5).SelectMany(field => field switch
         {
-            0 => Build(Set(GenreToken(), 1, 3), EmptySet(), EmptySet(), EmptySet(), NullYears(), NullRuntimes(), NullRatings()),
-            1 => Build(EmptySet(), Set(NameToken(), 1, 3), EmptySet(), EmptySet(), NullYears(), NullRuntimes(), NullRatings()),
-            2 => Build(EmptySet(), EmptySet(), Set(NameToken(), 1, 3), EmptySet(), NullYears(), NullRuntimes(), NullRatings()),
-            3 => Build(EmptySet(), EmptySet(), EmptySet(), Set(NameToken(), 1, 3), NullYears(), NullRuntimes(), NullRatings()),
-            4 => Build(EmptySet(), EmptySet(), EmptySet(), EmptySet(), Nullable(Year()), NullRuntimes(), NullRatings()),
-            5 => Build(EmptySet(), EmptySet(), EmptySet(), EmptySet(), NullYears(), Nullable(RuntimeGen()), NullRatings()),
-            _ => Build(EmptySet(), EmptySet(), EmptySet(), EmptySet(), NullYears(), NullRuntimes(), Nullable(Rating())),
+            0 => Build(Set(GenreToken(), 1, 3), EmptySet(), EmptySet(), EmptySet(), NullCollection(), NullCollectionName(), EmptyEmbedding()),
+            1 => Build(EmptySet(), Set(NameToken(), 1, 3), EmptySet(), EmptySet(), NullCollection(), NullCollectionName(), EmptyEmbedding()),
+            2 => Build(EmptySet(), EmptySet(), Set(NameToken(), 1, 3), EmptySet(), NullCollection(), NullCollectionName(), EmptyEmbedding()),
+            3 => Build(EmptySet(), EmptySet(), EmptySet(), Set(KeywordToken(), 1, 3), NullCollection(), NullCollectionName(), EmptyEmbedding()),
+            4 => Build(EmptySet(), EmptySet(), EmptySet(), EmptySet(), Collection(), CollectionName(), EmptyEmbedding()),
+            _ => Build(EmptySet(), EmptySet(), EmptySet(), EmptySet(), NullCollection(), NullCollectionName(), Embedding()),
         });
 
-    private static Gen<MovieFeatures> Profile(
-        Gen<string[]> genres,
-        Gen<string[]> directors,
-        Gen<string[]> writers,
-        Gen<string[]> cast) =>
-        Build(genres, directors, writers, cast, Nullable(Year()), Nullable(RuntimeGen()), Nullable(Rating()));
+    private static Gen<MovieFeatures> FullProfile() =>
+        Build(
+            Gen.OneOf(EmptySet(), Set(GenreToken(), 1, 4), MixedSet(GenreToken())),
+            Gen.OneOf(EmptySet(), Set(NameToken(), 1, 4), MixedSet(NameToken())),
+            Gen.OneOf(EmptySet(), Set(NameToken(), 0, 4), MixedSet(NameToken())),
+            Gen.OneOf(EmptySet(), Set(KeywordToken(), 0, 4), MixedSet(KeywordToken())),
+            Gen.OneOf(NullCollection(), Collection()),
+            Gen.OneOf(NullCollectionName(), CollectionName()),
+            Gen.OneOf(EmptyEmbedding(), Embedding()));
+
+    private static Gen<MovieFeatures> BlankHeavyProfile() =>
+        Build(
+            Set(BlankToken(), 1, 3),
+            Set(BlankToken(), 0, 2),
+            Set(BlankToken(), 0, 2),
+            Set(BlankToken(), 0, 2),
+            NullCollection(),
+            CollectionName(),
+            EmptyEmbedding());
 
     private static Gen<MovieFeatures> Build(
         Gen<string[]> genres,
         Gen<string[]> directors,
-        Gen<string[]> writers,
         Gen<string[]> cast,
-        Gen<ReleaseYear?> releaseYear,
-        Gen<Runtime?> runtime,
-        Gen<ImdbRating?> imdbRating) =>
+        Gen<string[]> keywordNames,
+        Gen<int?> collectionId,
+        Gen<string?> collectionName,
+        Gen<float[]> plotEmbedding) =>
         from genreValues in genres
         from directorValues in directors
-        from writerValues in writers
         from castValues in cast
-        from year in releaseYear
-        from minutes in runtime
-        from rating in imdbRating
-        from metadata in Metadata()
-        from keywords in KeywordSet()
-        from collectionId in CollectionIdGen()
+        from keywordValues in keywordNames
+        from collection in collectionId
+        from name in collectionName
+        from embedding in plotEmbedding
         select new MovieFeatures(
             genreValues,
             directorValues,
-            writerValues,
+            null,
             castValues,
-            year,
-            minutes,
-            rating,
-            metadata.MetaScore,
-            metadata.FullPlot,
-            keywords,
-            collectionId);
+            collectionId: collection,
+            keywordNames: keywordValues,
+            collectionName: name,
+            plotEmbedding: embedding);
 
     private static Gen<MovieFeaturesPair> Pair() =>
         from first in GeneralProfile()
@@ -117,121 +124,89 @@ public static class MovieFeaturesArbitraries
     private static Gen<MovieFeatures> CaseVariant(MovieFeatures source) =>
         from genres in Recased(source.Genres)
         from directors in Recased(source.Directors)
-        from writers in Recased(source.Writers)
         from cast in Recased(source.Cast)
+        from keywordNames in Recased(source.KeywordNames)
         select new MovieFeatures(
             genres,
             directors,
-            writers,
+            null,
             cast,
-            source.ReleaseYear,
-            source.Runtime,
-            source.ImdbRating,
-            source.MetaScore,
-            source.FullPlot,
-            source.Keywords,
-            source.CollectionId);
+            collectionId: source.CollectionId,
+            keywordNames: keywordNames,
+            collectionName: RecaseOrNull(source.CollectionName),
+            plotEmbedding: source.PlotEmbedding.IsDefault ? null : [.. source.PlotEmbedding]);
 
     private static Gen<MovieFeatures> PartialMissing(MovieFeatures source) =>
-        from mask in Gen.Choose(1, 1023)
+        from mask in Gen.Choose(1, 255)
         select new MovieFeatures(
             Keep(source.Genres, (mask & 1) != 0),
             Keep(source.Directors, (mask & 2) != 0),
-            Keep(source.Writers, (mask & 4) != 0),
-            Keep(source.Cast, (mask & 8) != 0),
-            (mask & 16) != 0 ? source.ReleaseYear : null,
-            (mask & 32) != 0 ? source.Runtime : null,
-            (mask & 64) != 0 ? source.ImdbRating : null,
-            source.MetaScore,
-            source.FullPlot,
-            (mask & 128) != 0 ? [.. source.Keywords] : [],
-            (mask & 256) != 0 ? source.CollectionId : null);
+            null,
+            Keep(source.Cast, (mask & 4) != 0),
+            collectionId: (mask & 8) != 0 ? source.CollectionId : null,
+            keywordNames: Keep(source.KeywordNames, (mask & 16) != 0),
+            collectionName: (mask & 32) != 0 ? source.CollectionName : null,
+            plotEmbedding: (mask & 64) != 0 ? [.. source.PlotEmbedding] : null);
 
     private static Gen<MovieFeatures> Overlapping(MovieFeatures source) =>
         from genres in SharedAndAdded(source.Genres)
         from directors in SharedAndAdded(source.Directors)
-        from writers in SharedAndAdded(source.Writers)
         from cast in SharedAndAdded(source.Cast)
-        from keywords in SharedAndAddedKeywords(source.Keywords)
+        from keywordNames in SharedAndAddedKeywords(source.KeywordNames)
+        from collection in Gen.OneOf(Gen.Constant(source.CollectionId), Collection().Select(value => (int?)value))
         select new MovieFeatures(
             genres,
             directors,
-            writers,
+            null,
             cast,
-            source.ReleaseYear,
-            source.Runtime,
-            source.ImdbRating,
-            source.MetaScore,
-            source.FullPlot,
-            keywords,
-            source.CollectionId);
+            collectionId: collection,
+            keywordNames: keywordNames,
+            collectionName: source.CollectionName,
+            plotEmbedding: source.PlotEmbedding.IsDefault ? null : [.. source.PlotEmbedding]);
 
     private static Gen<MovieFeatures> Disjoint(MovieFeatures source) =>
         from genres in Set(Prefixed(GenreToken()), 0, 4)
         from directors in Set(Prefixed(NameToken()), 0, 4)
-        from writers in Set(Prefixed(NameToken()), 0, 4)
         from cast in Set(Prefixed(NameToken()), 0, 4)
-        from keywords in PrefixedKeywords(source.Keywords)
+        from keywordNames in Set(Prefixed(KeywordToken()), 0, 4)
         select new MovieFeatures(
             genres,
             directors,
-            writers,
+            null,
             cast,
-            Shifted(source.ReleaseYear),
-            Shifted(source.Runtime),
-            Shifted(source.ImdbRating),
-            source.MetaScore,
-            source.FullPlot,
-            keywords,
-            ShiftedCollection(source.CollectionId));
+            collectionId: ShiftedCollection(source.CollectionId),
+            keywordNames: keywordNames,
+            collectionName: source.CollectionName,
+            plotEmbedding: source.PlotEmbedding.IsDefault ? null : [.. source.PlotEmbedding]);
 
     private static Gen<SelfSimilarityProfile> SelfSimilarityProfileGen() =>
-        from anchor in Gen.Choose(0, 5)
-        from profile in Profile(SelfSimilarityGenres(), NameSet(), NameSet(), NameSet())
-        select new SelfSimilarityProfile(ApplyAnchor(profile, anchor));
+        Build(
+            Set(GenreToken(), 1, 2),
+            DistinctNameSet(1, 2),
+            DistinctNameSet(2, 4),
+            AnchorKeywords(),
+            Collection(),
+            CollectionName(),
+            Gen.Elements(Embeddings))
+            .Select(profile => new SelfSimilarityProfile(profile));
 
-    private static Gen<string[]> SelfSimilarityGenres() =>
-        Gen.OneOf(
-            Gen.Constant(Array.Empty<string>()),
-            Set(GenreToken(), 1, 4),
-            MixedGenreSet());
+    private static Gen<string[]> AnchorKeywords() =>
+        from anchorCount in Gen.Choose(1, 2)
+        from extras in Gen.Choose(0, 2)
+        from names in Gen.ListOf(KeywordToken(), extras)
+        select AnchorKeywordSet(anchorCount, names);
 
-    private static Gen<string[]> MixedGenreSet() =>
-        from names in Set(GenreToken(), 1, 3)
-        from blanks in Set(BlankToken(), 1, 2)
-        select names.Concat(blanks).ToArray();
+    private static string[] AnchorKeywordSet(int anchorCount, IEnumerable<string> names)
+    {
+        var result = new List<string> { "anchor-theme" };
+        for (var index = 1; index < anchorCount; index++)
+        {
+            result.Add("anchor-theme");
+        }
 
-    private static MovieFeatures ApplyAnchor(MovieFeatures profile, int anchor) =>
-        new(
-            profile.Genres,
-            AnchorDirectors(profile, anchor),
-            AnchorWriters(profile, anchor),
-            AnchorCast(profile, anchor),
-            AnchorYear(profile, anchor),
-            AnchorRuntime(profile, anchor),
-            AnchorRating(profile, anchor),
-            profile.MetaScore,
-            profile.FullPlot,
-            profile.Keywords,
-            profile.CollectionId);
-
-    private static string[] AnchorDirectors(MovieFeatures profile, int anchor) =>
-        WithToken(profile.Directors, anchor == 0 ? "Anchor" : null);
-
-    private static string[] AnchorWriters(MovieFeatures profile, int anchor) =>
-        WithToken(profile.Writers, anchor == 1 ? "Anchor" : null);
-
-    private static string[] AnchorCast(MovieFeatures profile, int anchor) =>
-        WithToken(profile.Cast, anchor == 2 ? "Anchor" : null);
-
-    private static ReleaseYear? AnchorYear(MovieFeatures profile, int anchor) =>
-        anchor == 3 ? profile.ReleaseYear ?? new ReleaseYear(2000, Now) : profile.ReleaseYear;
-
-    private static Runtime? AnchorRuntime(MovieFeatures profile, int anchor) =>
-        anchor == 4 ? profile.Runtime ?? new Runtime(90) : profile.Runtime;
-
-    private static ImdbRating? AnchorRating(MovieFeatures profile, int anchor) =>
-        anchor == 5 ? profile.ImdbRating ?? new ImdbRating(7.0m) : profile.ImdbRating;
+        result.AddRange(names);
+        return [.. result];
+    }
 
     private static Gen<SimilarityWeights> Weight() =>
         from family in Gen.Choose(0, 5)
@@ -241,60 +216,55 @@ public static class MovieFeaturesArbitraries
     private static Gen<SimilarityWeights> WeightFamily(int family) =>
         family switch
         {
-            0 => Gen.Constant(FromVector(new double[9])),
-            1 => Gen.Constant(FromVector([.. Enumerable.Repeat(double.MaxValue, 9)])),
-            2 => SinglePositive(),
-            3 => Gen.Constant(new SimilarityWeights()),
-            4 => MixedWeights(),
-            _ => ExtremeRatio(),
+            0 => Gen.Constant(FromVector(SinglePositiveVector(PositiveMod((family * 7) + 3, 6)))),
+            1 => Gen.Constant(new SimilarityWeights()),
+            2 => Gen.Constant(FromVector([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])),
+            3 => MixedWeights(),
+            4 => Gen.Constant(FromVector(ExtremeVector(2, 5))),
+            _ => Gen.Constant(FromVector(CoupleVector(0, 3))),
         };
-
-    private static Gen<SimilarityWeights> SinglePositive() =>
-        Gen.Choose(0, 8).Select(index => FromVector(SinglePositiveVector(index)));
 
     private static double[] SinglePositiveVector(int index)
     {
-        var values = new double[9];
+        var values = new double[6];
         values[index] = 1.0;
+        return values;
+    }
+
+    private static double[] CoupleVector(int first, int second)
+    {
+        var values = new double[6];
+        values[first] = 3.0;
+        values[second] = 2.0;
+        return values;
+    }
+
+    private static double[] ExtremeVector(int big, int small)
+    {
+        double[] values = [1e-300, 1e-300, 1e-300, 1e-300, 1e-300, 1e-300];
+        values[big] = 1e300;
+        values[small] = 1e-300;
         return values;
     }
 
     private static Gen<SimilarityWeights> MixedWeights()
     {
-        var weight = Gen.Elements(0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 10.0, 1e6, double.MaxValue);
+        var weight = Gen.Elements(0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 10.0, 1e6);
 
         return
+            from collection in weight
             from director in weight
-            from writers in weight
+            from themes in weight
+            from plot in weight
             from cast in weight
             from genres in weight
-            from year in weight
-            from runtime in weight
-            from rating in weight
-            from keyword in weight
-            from collection in weight
-            select FromVector([director, writers, cast, genres, year, runtime, rating, keyword, collection]);
+            select EnsurePositive(FromVector([collection, director, themes, plot, cast, genres]));
     }
 
-    private static Gen<SimilarityWeights> ExtremeRatio()
-    {
-        var tiny = Gen.Elements(double.Epsilon, 1e-300, 1e-9);
-
-        return
-            from big in Gen.Choose(0, 8)
-            from offset in Gen.Choose(1, 8)
-            from tinyValue in tiny
-            from filler in Gen.Elements(0.0, 1e-12)
-            select ExtremeVector(big, (big + offset) % 9, tinyValue, filler);
-    }
-
-    private static SimilarityWeights ExtremeVector(int big, int small, double tinyValue, double filler)
-    {
-        var values = Enumerable.Repeat(filler, 9).ToArray();
-        values[big] = double.MaxValue;
-        values[small] = tinyValue;
-        return FromVector(values);
-    }
+    private static SimilarityWeights EnsurePositive(SimilarityWeights weights) =>
+        weights.Collection + weights.Director + weights.Themes + weights.Plot + weights.Cast + weights.Genres > 0.0
+            ? weights
+            : weights with { Director = 1.0 };
 
     private static Gen<GenreWeights> GenreTable() =>
         Gen.OneOf(
@@ -339,26 +309,36 @@ public static class MovieFeaturesArbitraries
             .GroupBy(entry => entry.Genre, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First().Frequency, StringComparer.OrdinalIgnoreCase);
 
-    private static Gen<string[]> TokenSet(Gen<string> token) => Set(Gen.OneOf(token, BlankToken()), 0, 4);
-
-    private static Gen<string[]> NameSet() => Set(NameToken(), 0, 4);
-
     private static Gen<string[]> Set(Gen<string> token, int minimum, int maximum) =>
         from count in Gen.Choose(minimum, maximum)
         from values in Gen.ListOf(token, count)
         select values.ToArray();
 
-    private static Gen<int[]> Set(Gen<int> token, int minimum, int maximum) =>
+    private static Gen<string[]> DistinctNameSet(int minimum, int maximum) =>
         from count in Gen.Choose(minimum, maximum)
-        from values in Gen.ListOf(token, count)
-        select values.ToArray();
+        from order in Gen.Shuffle(PersonTokens)
+        from shape in Gen.Choose(0, 2)
+        select order.Take(count).Select(name => Recase(name, shape)).ToArray();
 
-    private static Gen<int[]> KeywordSet() => Set(KeywordId(), 0, 5);
+    private static Gen<string[]> MixedSet(Gen<string> token) =>
+        from names in Set(token, 0, 3)
+        from blanks in Set(BlankToken(), 0, 2)
+        select names.Concat(blanks).ToArray();
 
-    private static Gen<int> KeywordId() => Gen.Choose(1, 5000);
+    private static Gen<int> CollectionId() => Gen.Choose(1, 5000);
 
-    private static Gen<int?> CollectionIdGen() =>
-        Gen.OneOf(Gen.Constant<int?>(null), Gen.Choose(1, 5000).Select(value => (int?)value));
+    private static Gen<int?> Collection() => CollectionId().Select(value => (int?)value);
+
+    private static Gen<int?> NullCollection() => Gen.Constant<int?>(null);
+
+    private static Gen<string?> CollectionName() =>
+        Gen.Elements(CollectionNames).Select(name => (string?)name);
+
+    private static Gen<string?> NullCollectionName() => Gen.Constant<string?>(null);
+
+    private static Gen<float[]> Embedding() => Gen.Elements(Embeddings.Take(5).ToArray());
+
+    private static Gen<float[]> EmptyEmbedding() => Gen.Constant(Array.Empty<float>());
 
     private static Gen<string> NameToken() =>
         from token in Gen.Elements(PersonTokens)
@@ -370,12 +350,19 @@ public static class MovieFeaturesArbitraries
         from shape in Gen.Choose(0, 2)
         select Recase(token, shape);
 
+    private static Gen<string> KeywordToken() =>
+        from token in Gen.Elements(KeywordTokens)
+        from shape in Gen.Choose(0, 2)
+        select Recase(token, shape);
+
     private static Gen<string> BlankToken() => Gen.Elements(BlankTokens);
 
     private static Gen<string> Prefixed(Gen<string> token) => token.Select(value => "z-" + value);
 
     private static string Recase(string value, int shape) =>
         shape == 0 ? value : new string([.. value.Select(SwapCase)]);
+
+    private static string? RecaseOrNull(string? value) => value is null ? null : Recase(value, 1);
 
     private static char SwapCase(char value) =>
         value switch
@@ -402,9 +389,7 @@ public static class MovieFeaturesArbitraries
             select values.Take(count).Concat(added).ToArray();
     }
 
-    private static Gen<string> BlankTokenOrName() => Gen.OneOf(NameToken(), BlankToken());
-
-    private static Gen<int[]> SharedAndAddedKeywords(ImmutableHashSet<int> source)
+    private static Gen<string[]> SharedAndAddedKeywords(ImmutableHashSet<string> source)
     {
         var values = source.ToArray();
         var minimum = values.Length == 0 ? 0 : 1;
@@ -412,190 +397,113 @@ public static class MovieFeaturesArbitraries
         return
             from count in Gen.Choose(minimum, values.Length)
             from addedCount in Gen.Choose(0, 2)
-            from added in Gen.ListOf(KeywordId(), addedCount)
+            from added in Gen.ListOf(KeywordToken(), addedCount)
             select values.Take(count).Concat(added).ToArray();
     }
 
-    private static Gen<int[]> PrefixedKeywords(ImmutableHashSet<int> source) =>
-        from offset in Gen.Choose(10_000, 20_000)
-        select source.Select(value => value + offset).ToArray();
-
-    private static Gen<(int? MetaScore, string? FullPlot)> Metadata() =>
-        from metaScore in Gen.OneOf(Gen.Constant<int?>(null), Gen.Choose(0, 100).Select(value => (int?)value))
-        from fullPlot in Gen.OneOf(Gen.Constant<string?>(null), Gen.Elements("plot", "A story", " ").Select(value => (string?)value))
-        select (metaScore, fullPlot);
-
-    private static Gen<ReleaseYear> Year() =>
-        Gen.Choose(1888, Now.Year + 5).Select(value => new ReleaseYear(value, Now));
-
-    private static Gen<Runtime> RuntimeGen() => Gen.Choose(1, 600).Select(value => new Runtime(value));
-
-    private static Gen<ImdbRating> Rating() => Gen.Choose(0, 100).Select(value => new ImdbRating(value / 10.0m));
-
-    private static Gen<ReleaseYear?> Nullable(Gen<ReleaseYear> source) =>
-        Gen.OneOf(Gen.Constant<ReleaseYear?>(null), source.Select(value => (ReleaseYear?)value));
-
-    private static Gen<Runtime?> Nullable(Gen<Runtime> source) =>
-        Gen.OneOf(Gen.Constant<Runtime?>(null), source.Select(value => (Runtime?)value));
-
-    private static Gen<ImdbRating?> Nullable(Gen<ImdbRating> source) =>
-        Gen.OneOf(Gen.Constant<ImdbRating?>(null), source.Select(value => (ImdbRating?)value));
+    private static Gen<string> BlankTokenOrName() => Gen.OneOf(NameToken(), BlankToken());
 
     private static Gen<string[]> EmptySet() => Gen.Constant(Array.Empty<string>());
 
-    private static Gen<ReleaseYear?> NullYears() => Gen.Constant<ReleaseYear?>(null);
-
-    private static Gen<Runtime?> NullRuntimes() => Gen.Constant<Runtime?>(null);
-
-    private static Gen<ImdbRating?> NullRatings() => Gen.Constant<ImdbRating?>(null);
-
     private static string[] Keep(ImmutableHashSet<string> values, bool keep) => keep ? [.. values] : [];
 
-    private static string[] WithToken(ImmutableHashSet<string> values, string? token) =>
-        token is null ? [.. values] : [.. values, token];
-
-    private static ReleaseYear? Shifted(ReleaseYear? value) =>
-        value is null ? null : new ReleaseYear(Math.Min(value.Value + 3, Now.Year + 5), Now);
-
-    private static int? ShiftedCollection(int? value) =>
-        value is null ? null : value + 1;
-
-    private static Runtime? Shifted(Runtime? value) =>
-        value is null ? null : new Runtime(value.Minutes + 7);
-
-    private static ImdbRating? Shifted(ImdbRating? value) =>
-        value is null ? null : new ImdbRating(Math.Min(value.Value + 0.5m, 10.0m));
+    private static int? ShiftedCollection(int? value) => value is null ? null : value + 1;
 
     private static SimilarityWeights FromVector(double[] values) =>
         new()
         {
-            Director = values[0],
-            Writers = values[1],
-            Cast = values[2],
-            Genres = values[3],
-            YearProximity = values[4],
-            RuntimeProximity = values[5],
-            RatingBoost = values[6],
-            Keyword = values[7],
-            Collection = values[8],
+            Collection = values[0],
+            Director = values[1],
+            Themes = values[2],
+            Plot = values[3],
+            Cast = values[4],
+            Genres = values[5],
         };
 
     private static double[] Vector(SimilarityWeights weights) =>
     [
+        weights.Collection,
         weights.Director,
-        weights.Writers,
+        weights.Themes,
+        weights.Plot,
         weights.Cast,
         weights.Genres,
-        weights.YearProximity,
-        weights.RuntimeProximity,
-        weights.RatingBoost,
-        weights.Keyword,
-        weights.Collection,
     ];
 
     private static IEnumerable<MovieFeatures> ShrinkProfile(MovieFeatures movie) =>
-        ShrinkSets(movie).Concat(ShrinkScalars(movie)).Concat(ShrinkKeywords(movie)).Where(candidate => !candidate.Equals(movie));
+        ShrinkSets(movie).Concat(ShrinkSignals(movie)).Where(candidate => !candidate.Equals(movie));
 
     private static IEnumerable<MovieFeatures> ShrinkSets(MovieFeatures movie)
     {
         foreach (var value in movie.Genres)
         {
-            yield return WithSets(movie, Without(movie.Genres, value), movie.Directors, movie.Writers, movie.Cast);
+            yield return WithSets(movie, movie.Genres.Remove(value), movie.Directors, movie.Cast, movie.KeywordNames);
         }
 
         foreach (var value in movie.Directors)
         {
-            yield return WithSets(movie, movie.Genres, Without(movie.Directors, value), movie.Writers, movie.Cast);
-        }
-
-        foreach (var value in movie.Writers)
-        {
-            yield return WithSets(movie, movie.Genres, movie.Directors, Without(movie.Writers, value), movie.Cast);
+            yield return WithSets(movie, movie.Genres, movie.Directors.Remove(value), movie.Cast, movie.KeywordNames);
         }
 
         foreach (var value in movie.Cast)
         {
-            yield return WithSets(movie, movie.Genres, movie.Directors, movie.Writers, Without(movie.Cast, value));
+            yield return WithSets(movie, movie.Genres, movie.Directors, movie.Cast.Remove(value), movie.KeywordNames);
+        }
+
+        foreach (var value in movie.KeywordNames)
+        {
+            yield return WithSets(movie, movie.Genres, movie.Directors, movie.Cast, movie.KeywordNames.Remove(value));
         }
     }
 
-    private static IEnumerable<MovieFeatures> ShrinkScalars(MovieFeatures movie) =>
-        ShrinkYear(movie).Concat(ShrinkRuntime(movie)).Concat(ShrinkRating(movie));
-
-    private static IEnumerable<MovieFeatures> ShrinkKeywords(MovieFeatures movie)
+    private static IEnumerable<MovieFeatures> ShrinkSignals(MovieFeatures movie)
     {
-        foreach (var keyword in movie.Keywords)
-        {
-            yield return WithSignals(movie, movie.Keywords.Remove(keyword), movie.CollectionId);
-        }
-
         if (movie.CollectionId is not null)
         {
-            yield return WithSignals(movie, movie.Keywords, null);
+            yield return WithSignals(movie, null, movie.CollectionName, movie.PlotEmbedding);
+        }
+
+        if (movie.CollectionName is not null)
+        {
+            yield return WithSignals(movie, movie.CollectionId, null, movie.PlotEmbedding);
+        }
+
+        if (!movie.PlotEmbedding.IsDefaultOrEmpty)
+        {
+            yield return WithSignals(movie, movie.CollectionId, movie.CollectionName, ImmutableArray<float>.Empty);
         }
     }
+
+    private static MovieFeatures WithSets(
+        MovieFeatures source,
+        ImmutableHashSet<string> genres,
+        ImmutableHashSet<string> directors,
+        ImmutableHashSet<string> cast,
+        ImmutableHashSet<string> keywordNames) =>
+        new(
+            genres,
+            directors,
+            null,
+            cast,
+            collectionId: source.CollectionId,
+            keywordNames: keywordNames,
+            collectionName: source.CollectionName,
+            plotEmbedding: source.PlotEmbedding.IsDefault ? null : [.. source.PlotEmbedding]);
 
     private static MovieFeatures WithSignals(
         MovieFeatures source,
-        ImmutableHashSet<int> keywords,
-        int? collectionId) =>
+        int? collectionId,
+        string? collectionName,
+        ImmutableArray<float> plotEmbedding) =>
         new(
             source.Genres,
             source.Directors,
-            source.Writers,
+            null,
             source.Cast,
-            source.ReleaseYear,
-            source.Runtime,
-            source.ImdbRating,
-            source.MetaScore,
-            source.FullPlot,
-            keywords,
-            collectionId);
-
-    private static IEnumerable<MovieFeatures> ShrinkYear(MovieFeatures movie)
-    {
-        if (movie.ReleaseYear is not { } year)
-        {
-            yield break;
-        }
-
-        yield return WithScalars(movie, null, movie.Runtime, movie.ImdbRating);
-
-        if (year.Value > 1888)
-        {
-            yield return WithScalars(movie, new ReleaseYear(1888, Now), movie.Runtime, movie.ImdbRating);
-        }
-    }
-
-    private static IEnumerable<MovieFeatures> ShrinkRuntime(MovieFeatures movie)
-    {
-        if (movie.Runtime is not { } runtime)
-        {
-            yield break;
-        }
-
-        yield return WithScalars(movie, movie.ReleaseYear, null, movie.ImdbRating);
-
-        if (runtime.Minutes > 1)
-        {
-            yield return WithScalars(movie, movie.ReleaseYear, new Runtime(1), movie.ImdbRating);
-        }
-    }
-
-    private static IEnumerable<MovieFeatures> ShrinkRating(MovieFeatures movie)
-    {
-        if (movie.ImdbRating is not { } rating)
-        {
-            yield break;
-        }
-
-        yield return WithScalars(movie, movie.ReleaseYear, movie.Runtime, null);
-
-        if (rating.Value > 0.0m)
-        {
-            yield return WithScalars(movie, movie.ReleaseYear, movie.Runtime, new ImdbRating(0.0m));
-        }
-    }
+            collectionId: collectionId,
+            keywordNames: source.KeywordNames,
+            collectionName: collectionName,
+            plotEmbedding: plotEmbedding.IsDefault ? null : [.. plotEmbedding]);
 
     private static IEnumerable<MovieFeaturesPair> ShrinkPair(MovieFeaturesPair pair) =>
         ShrinkProfile(pair.First)
@@ -613,10 +521,15 @@ public static class MovieFeaturesArbitraries
 
         for (var index = 0; index < values.Length; index++)
         {
-            if (values[index] > 0.0)
+            if (values[index] <= 0.0)
             {
-                double[] candidate = [.. values];
-                candidate[index] = 0.0;
+                continue;
+            }
+
+            double[] candidate = [.. values];
+            candidate[index] = 0.0;
+            if (candidate.Sum() > 0.0)
+            {
                 yield return FromVector(candidate);
             }
         }
@@ -631,65 +544,17 @@ public static class MovieFeaturesArbitraries
     }
 
     private static bool IsSelfSimilarityEligible(MovieFeatures movie) =>
-        HasNonBlankScoringToken(movie) && HasEligibleGenres(movie);
+        movie.CollectionId is not null
+        && movie.Genres.Any(value => !string.IsNullOrWhiteSpace(value))
+        && movie.Directors.Any(value => !string.IsNullOrWhiteSpace(value))
+        && movie.Cast.Count(value => !string.IsNullOrWhiteSpace(value)) >= 2
+        && movie.KeywordNames.Any(value => !string.IsNullOrWhiteSpace(value))
+        && !movie.PlotEmbedding.IsDefaultOrEmpty
+        && movie.PlotEmbedding.Any(value => value != 0f);
 
-    private static bool HasNonBlankScoringToken(MovieFeatures movie) =>
-        HasNonBlankSet(movie) || HasScalar(movie);
-
-    private static bool HasNonBlankSet(MovieFeatures movie) =>
-        movie.Directors.Any(value => !string.IsNullOrWhiteSpace(value))
-        || movie.Writers.Any(value => !string.IsNullOrWhiteSpace(value))
-        || movie.Cast.Any(value => !string.IsNullOrWhiteSpace(value))
-        || movie.Genres.Any(value => !string.IsNullOrWhiteSpace(value));
-
-    private static bool HasScalar(MovieFeatures movie) =>
-        movie.ReleaseYear is not null
-        || movie.Runtime is not null
-        || movie.ImdbRating is not null;
-
-    private static bool HasEligibleGenres(MovieFeatures movie) =>
-        movie.Genres.Count == 0 || movie.Genres.Any(value => !string.IsNullOrWhiteSpace(value));
-
-    private static ImmutableHashSet<string> Without(ImmutableHashSet<string> values, string value) =>
-        ImmutableHashSet.CreateRange(
-            StringComparer.OrdinalIgnoreCase,
-            values.Where(candidate => !ReferenceEquals(candidate, value)));
-
-    private static MovieFeatures WithSets(
-        MovieFeatures source,
-        ImmutableHashSet<string> genres,
-        ImmutableHashSet<string> directors,
-        ImmutableHashSet<string> writers,
-        ImmutableHashSet<string> cast) =>
-        new(
-            genres,
-            directors,
-            writers,
-            cast,
-            source.ReleaseYear,
-            source.Runtime,
-            source.ImdbRating,
-            source.MetaScore,
-            source.FullPlot,
-            source.Keywords,
-            source.CollectionId);
-
-    private static MovieFeatures WithScalars(
-        MovieFeatures source,
-        ReleaseYear? releaseYear,
-        Runtime? runtime,
-        ImdbRating? imdbRating) =>
-        new(
-            source.Genres,
-            source.Directors,
-            source.Writers,
-            source.Cast,
-            releaseYear,
-            runtime,
-            imdbRating,
-            source.MetaScore,
-            source.FullPlot,
-            source.Keywords,
-            source.CollectionId);
-
+    private static int PositiveMod(int value, int divisor)
+    {
+        var remainder = value % divisor;
+        return remainder < 0 ? remainder + divisor : remainder;
+    }
 }

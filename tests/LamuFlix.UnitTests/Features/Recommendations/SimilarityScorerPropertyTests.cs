@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -13,7 +13,11 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 public sealed class SimilarityScorerPropertyTests
 {
     private const double SymmetryTolerance = 1e-12;
-    private static readonly DateTimeOffset Now = new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero);
+    private const double ReconciliationTolerance = 1e-12;
+    private static readonly string[] KeywordVocabulary = ["alpha", "beta", "gamma", "delta", "anchor-theme"];
+    private static readonly string[] CriterionOrder =
+        ["Collection", "Director", "Themes", "Plot", "Cast", "Genre"];
+
     private static GenreWeights Table => GenreWeights.Calculate(
         new GenreCounts(
             100,
@@ -24,21 +28,31 @@ public sealed class SimilarityScorerPropertyTests
                 ["Shared"] = 50,
             }));
 
+    private static KeywordCounts Counts => new(
+        100,
+        new Dictionary<string, long>
+        {
+            ["alpha"] = 10,
+            ["beta"] = 20,
+            ["gamma"] = 40,
+            ["delta"] = 2,
+            ["anchor-theme"] = 50,
+        });
+
     [Property(MaxTest = 100, Replay = "338001,100003")]
     [Trait("Category", "Property")]
     public bool Score_GeneratedProfiles_IsFiniteAndWithinUnitInterval(
         string[]? genres,
         string[]? directors,
-        string[]? writers,
         string[]? cast,
         int seed)
     {
         // arrange
-        var first = Profile(genres, directors, writers, cast, seed);
-        var second = Profile(Vary(genres), Vary(directors), Vary(writers), Vary(cast), unchecked(seed + 7919));
+        var first = Profile(genres, directors, cast, seed);
+        var second = Profile(Vary(genres), Vary(directors), Vary(cast), unchecked(seed + 7919));
 
         // act
-        var result = SimilarityScorer.Score(first, second, Weights(seed), Table);
+        var result = SimilarityScorer.Score(first, second, Options(Weights(seed)), Table, Counts);
 
         // assert
         return double.IsFinite(result.Score) && result.Score >= 0.0 && result.Score <= 1.0;
@@ -49,18 +63,17 @@ public sealed class SimilarityScorerPropertyTests
     public bool Score_SwappedArguments_AreSymmetricWithinTolerance(
         string[]? genres,
         string[]? directors,
-        string[]? writers,
         string[]? cast,
         int seed)
     {
         // arrange
-        var first = Profile(genres, directors, writers, cast, seed);
-        var second = Profile(Vary(genres), Vary(directors), Vary(writers), Vary(cast), unchecked(seed + 7919));
-        var weights = Weights(seed);
+        var first = Profile(genres, directors, cast, seed);
+        var second = Profile(Vary(genres), Vary(directors), Vary(cast), unchecked(seed + 7919));
+        var options = Options(Weights(seed));
 
         // act
-        var forward = SimilarityScorer.Score(first, second, weights, Table).Score;
-        var reverse = SimilarityScorer.Score(second, first, weights, Table).Score;
+        var forward = SimilarityScorer.Score(first, second, options, Table, Counts).Score;
+        var reverse = SimilarityScorer.Score(second, first, options, Table, Counts).Score;
 
         // assert
         return Math.Abs(forward - reverse) <= SymmetryTolerance;
@@ -68,21 +81,16 @@ public sealed class SimilarityScorerPropertyTests
 
     [Property(MaxTest = 100, Replay = "338003,300011")]
     [Trait("Category", "Property")]
-    public bool Score_ProfileWithScoringFeatureAgainstItself_IsExactlyOne(
-        string[]? genres,
-        string[]? directors,
-        string[]? writers,
-        string[]? cast,
-        int seed)
+    public bool Score_ProfileWithEveryScoringFeatureAgainstItself_IsExactlyOne(int seed)
     {
         // arrange
-        var movie = Profile(genres, AppendAnchor(directors), writers, cast, seed);
+        var movie = AnchoredProfile(seed);
 
         // act
-        var result = SimilarityScorer.Score(movie, movie, Weights(seed), Table);
+        var result = SimilarityScorer.Score(movie, movie, Options(new SimilarityWeights()), Table, Counts);
 
         // assert
-        return result.Score.Equals(1.0);
+        return Math.Abs(result.Score - 1.0) <= SymmetryTolerance;
     }
 
     [Property(MaxTest = 100, Replay = "338004,400001")]
@@ -90,17 +98,16 @@ public sealed class SimilarityScorerPropertyTests
     public bool Score_Scoring_LeavesInputSnapshotsUnchanged(
         string[]? genres,
         string[]? directors,
-        string[]? writers,
         string[]? cast,
         int seed)
     {
         // arrange
-        var first = Profile(genres, directors, writers, cast, seed);
-        var second = Profile(Vary(genres), Vary(directors), Vary(writers), Vary(cast), unchecked(seed + 7919));
+        var first = Profile(genres, directors, cast, seed);
+        var second = Profile(Vary(genres), Vary(directors), Vary(cast), unchecked(seed + 7919));
         var snapshot = new Snapshot(first);
 
         // act
-        _ = SimilarityScorer.Score(first, second, Weights(seed), Table);
+        _ = SimilarityScorer.Score(first, second, Options(Weights(seed)), Table, Counts);
 
         // assert
         return snapshot.Matches(first);
@@ -111,64 +118,61 @@ public sealed class SimilarityScorerPropertyTests
     public bool Score_SwappedArguments_ProduceIdenticalReasons(
         string[]? genres,
         string[]? directors,
-        string[]? writers,
         string[]? cast,
         int seed)
     {
         // arrange
-        var first = Profile(genres, directors, writers, cast, seed);
-        var second = Profile(Vary(genres), Vary(directors), Vary(writers), Vary(cast), unchecked(seed + 7919));
-        var weights = Weights(seed);
+        var first = Profile(genres, directors, cast, seed);
+        var second = Profile(Vary(genres), Vary(directors), Vary(cast), unchecked(seed + 7919));
+        var options = Options(Weights(seed));
 
         // act
-        var forward = SimilarityScorer.Score(first, second, weights, Table);
-        var reverse = SimilarityScorer.Score(second, first, weights, Table);
+        var forward = SimilarityScorer.Score(first, second, options, Table, Counts);
+        var reverse = SimilarityScorer.Score(second, first, options, Table, Counts);
 
         // assert
         return forward.Reasons.Select(reason => reason.Text)
-            .SequenceEqual(reverse.Reasons.Select(reason => reason.Text));
+            .SequenceEqual(reverse.Reasons.Select(reason => reason.Text), StringComparer.OrdinalIgnoreCase);
     }
 
     [Property(MaxTest = 100, Replay = "338006,600007")]
     [Trait("Category", "Property")]
-    public bool Score_PositiveScore_EmitsNonEmptyReasons(
+    public bool Score_GeneratedProfiles_BreakdownReconcilesToScore(
         string[]? genres,
         string[]? directors,
-        string[]? writers,
         string[]? cast,
         int seed)
     {
         // arrange
-        var first = Profile(genres, directors, writers, cast, seed);
-        var second = Profile(Vary(genres), Vary(directors), Vary(writers), Vary(cast), unchecked(seed + 7919));
+        var first = Profile(genres, directors, cast, seed);
+        var second = Profile(Vary(genres), Vary(directors), Vary(cast), unchecked(seed + 7919));
 
         // act
-        var result = SimilarityScorer.Score(first, second, Weights(seed), Table);
+        var result = SimilarityScorer.Score(first, second, Options(Weights(seed)), Table, Counts);
 
         // assert
-        return result.Score <= 0.0 || result.Reasons.Count > 0 || SimilarityScorer.Score(first, second, WithoutNumerics(Weights(seed)), Table).Score <= 0.0;
+        return result.Breakdown.Select(entry => entry.Name).SequenceEqual(CriterionOrder)
+            && Math.Abs(result.Score - result.Breakdown.Sum(entry => entry.Contribution)) <= ReconciliationTolerance;
     }
 
     [Property(MaxTest = 100, Replay = "338007,700001")]
     [Trait("Category", "Property")]
-    public bool Score_KeywordSets_ProducesJaccardOfDistinctIdsAndIsSymmetric(int[] firstIds, int[] secondIds)
+    public bool Score_ThemesOnly_IsZeroWhenEitherSideHasNoCountedKeyword(int seed, int branch)
     {
         // arrange
-        var first = KeywordProfile(firstIds);
-        var second = KeywordProfile(secondIds);
-        var weights = OnlyKeyword();
-        var expected = first.Keywords.Count == 0 || second.Keywords.Count == 0
-            ? 0.0
-            : Jaccard(first.Keywords, second.Keywords);
+        var first = new MovieFeatures(keywordNames: Keywords(seed));
+        var second = new MovieFeatures(keywordNames: PositiveMod(branch, 2) == 0 ? [] : Keywords(unchecked(seed + 7919)));
+        var options = Options(OnlyThemes());
 
         // act
-        var forward = SimilarityScorer.Score(first, second, weights, Table).Score;
-        var reverse = SimilarityScorer.Score(second, first, weights, Table).Score;
+        var forward = SimilarityScorer.Score(first, second, options, Table, Counts).Score;
+        var reverse = SimilarityScorer.Score(second, first, options, Table, Counts).Score;
 
         // assert
-        return Math.Abs(forward - expected) <= SymmetryTolerance
-            && Math.Abs(forward - reverse) <= SymmetryTolerance
-            && forward is >= 0.0 and <= 1.0;
+        return forward.Equals(reverse)
+            && (first.KeywordNames.Count == 0 || second.KeywordNames.Count == 0
+                ? forward.Equals(0.0)
+                : forward is >= 0.0 and <= 1.0);
     }
 
     [Property(MaxTest = 100, Replay = "338008,800003")]
@@ -178,146 +182,124 @@ public sealed class SimilarityScorerPropertyTests
         // arrange
         var first = new MovieFeatures(collectionId: Positive(firstId));
         var second = new MovieFeatures(collectionId: Positive(secondId));
-        var weights = OnlyCollection();
+        var options = Options(OnlyCollection());
 
         // act
-        var score = SimilarityScorer.Score(first, second, weights, Table).Score;
+        var score = SimilarityScorer.Score(first, second, options, Table, Counts).Score;
 
         // assert
         return score.Equals(Positive(firstId) == Positive(secondId) ? 1.0 : 0.0);
     }
 
-    private static SimilarityWeights WithoutNumerics(SimilarityWeights weights) =>
-        weights with { YearProximity = 0.0, RuntimeProximity = 0.0, RatingBoost = 0.0 };
-
     private static int Positive(int value) => (int)(Math.Abs((long)value) % 5000) + 1;
 
-    private static MovieFeatures KeywordProfile(int[] ids) =>
-        new(keywords: ids.Where(id => id > 0));
+    private static MovieFeatures AnchoredProfile(int seed) =>
+        new(
+            genres: ["Drama"],
+            directors: ["Anchor"],
+            cast: ["Actor A", "Actor B"],
+            collectionId: Positive(seed),
+            keywordNames: ["alpha", "anchor-theme"],
+            collectionName: "Saga",
+            plotEmbedding: [1f, 0f]);
 
-    private static SimilarityWeights OnlyKeyword() =>
+    private static SimilarityWeights OnlyThemes() =>
         new()
         {
+            Collection = 0.0,
             Director = 0.0,
-            Writers = 0.0,
+            Themes = 1.0,
+            Plot = 0.0,
             Cast = 0.0,
             Genres = 0.0,
-            YearProximity = 0.0,
-            RuntimeProximity = 0.0,
-            RatingBoost = 0.0,
-            Keyword = 1.0,
-            Collection = 0.0,
         };
 
     private static SimilarityWeights OnlyCollection() =>
         new()
         {
+            Collection = 1.0,
             Director = 0.0,
-            Writers = 0.0,
+            Themes = 0.0,
+            Plot = 0.0,
             Cast = 0.0,
             Genres = 0.0,
-            YearProximity = 0.0,
-            RuntimeProximity = 0.0,
-            RatingBoost = 0.0,
-            Keyword = 0.0,
-            Collection = 1.0,
         };
 
-    private static double Jaccard(ImmutableHashSet<int> first, ImmutableHashSet<int> second)
+    private static RecommendationOptions Options(SimilarityWeights weights) =>
+        new() { Weights = weights };
+
+    private static string[] Keywords(int seed)
     {
-        var intersection = first.Count(value => second.Contains(value));
-        var union = first.Count + second.Count - intersection;
-        return (double)intersection / union;
+        var count = PositiveMod(seed, 4);
+        return [.. Enumerable.Range(0, count)
+            .Select(index => KeywordVocabulary[PositiveMod((seed / 7) + (index * 3), KeywordVocabulary.Length)])];
     }
 
     private static MovieFeatures Profile(
         string[]? genres,
         string[]? directors,
-        string[]? writers,
         string[]? cast,
         int seed)
     {
-        var releaseYear = (seed & 1) == 0
-            ? new ReleaseYear(1888 + PositiveMod(seed, 140), Now)
-            : null;
-        var runtime = (seed & 2) == 0
-            ? new Runtime(1 + PositiveMod(seed / 7, 500))
-            : null;
-        var rating = (seed & 4) == 0
-            ? new ImdbRating(PositiveMod(seed / 13, 101) / 10.0m)
-            : null;
+        var embedding = (seed & 8) == 0
+            ? (IEnumerable<float>)[1f, 0f]
+            : (seed & 16) == 0 ? [0.6f, 0.8f] : null;
 
         return new MovieFeatures(
             CleanGenres(genres),
             directors,
-            writers,
+            null,
             cast,
-            releaseYear,
-            runtime,
-            rating);
+            collectionId: (seed & 32) == 0 ? Positive(seed / 3) : null,
+            keywordNames: Keywords(seed),
+            collectionName: (seed & 64) == 0 ? "Saga" : null,
+            plotEmbedding: embedding);
     }
 
     private static SimilarityWeights Weights(int seed) =>
-        PositiveMod(seed, 6) switch
+        PositiveMod(seed, 5) switch
         {
-            0 => new SimilarityWeights
+            0 => new SimilarityWeights(),
+            1 => new SimilarityWeights
             {
-                Director = 0.0,
-                Writers = 0.0,
-                Cast = 0.0,
-                Genres = 0.0,
-                YearProximity = 0.0,
-                RuntimeProximity = 0.0,
-                RatingBoost = 0.0,
+                Collection = 0.25,
+                Director = 0.5,
+                Themes = 1.0,
+                Plot = 2.0,
+                Cast = 3.0,
+                Genres = 10.0,
             },
-            1 => new SimilarityWeights(),
             2 => new SimilarityWeights
             {
-                Director = double.MaxValue,
-                Writers = double.MaxValue,
-                Cast = double.MaxValue,
-                Genres = double.MaxValue,
-                YearProximity = double.MaxValue,
-                RuntimeProximity = double.MaxValue,
-                RatingBoost = double.MaxValue,
+                Collection = 1.0,
+                Director = 1.0,
+                Themes = 1.0,
+                Plot = 1.0,
+                Cast = 1.0,
+                Genres = 1.0,
             },
             3 => new SimilarityWeights
             {
+                Collection = 0.0,
                 Director = 1.0,
-                Writers = 0.0,
+                Themes = 0.0,
+                Plot = 0.0,
                 Cast = 0.0,
-                Genres = 0.0,
-                YearProximity = 0.0,
-                RuntimeProximity = 0.0,
-                RatingBoost = 0.0,
-            },
-            4 => new SimilarityWeights
-            {
-                Director = 0.0,
-                Writers = 0.0,
-                Cast = 0.0,
-                Genres = 0.0,
-                YearProximity = 1.0,
-                RuntimeProximity = 0.01,
-                RatingBoost = 0.0,
+                Genres = 1e6,
             },
             _ => new SimilarityWeights
             {
+                Collection = 1e-6,
                 Director = 0.0,
-                Writers = 0.0,
+                Themes = 1e6,
+                Plot = 1e-6,
                 Cast = 0.0,
-                Genres = 0.0,
-                YearProximity = double.MaxValue,
-                RuntimeProximity = double.Epsilon,
-                RatingBoost = 0.0,
+                Genres = 1e-6,
             },
         };
 
     private static string[] CleanGenres(string[]? genres) =>
         [.. (genres ?? []).Where(value => !string.IsNullOrWhiteSpace(value))];
-
-    private static string[] AppendAnchor(string[]? directors) =>
-        [.. (directors ?? []), "Anchor"];
 
     private static string[]? Vary(string[]? values) =>
         values?.Reverse().Select(ToggleCase).ToArray();
@@ -343,35 +325,30 @@ public sealed class SimilarityScorerPropertyTests
     {
         private readonly string[] _genres;
         private readonly string[] _directors;
-        private readonly string[] _writers;
         private readonly string[] _cast;
-        private readonly int? _releaseYear;
-        private readonly int? _runtime;
-        private readonly decimal? _imdbRating;
+        private readonly string[] _keywordNames;
+        private readonly int? _collectionId;
+        private readonly string? _collectionName;
+        private readonly float[] _plotEmbedding;
 
         public Snapshot(MovieFeatures movie)
         {
             _genres = [.. movie.Genres];
             _directors = [.. movie.Directors];
-            _writers = [.. movie.Writers];
             _cast = [.. movie.Cast];
-            _releaseYear = movie.ReleaseYear?.Value;
-            _runtime = movie.Runtime?.Minutes;
-            _imdbRating = movie.ImdbRating?.Value;
+            _keywordNames = [.. movie.KeywordNames];
+            _collectionId = movie.CollectionId;
+            _collectionName = movie.CollectionName;
+            _plotEmbedding = [.. movie.PlotEmbedding];
         }
 
         public bool Matches(MovieFeatures movie) =>
-            MatchSets(movie) && MatchScalars(movie);
-
-        private bool MatchSets(MovieFeatures movie) =>
             movie.Genres.SetEquals(_genres)
             && movie.Directors.SetEquals(_directors)
-            && movie.Writers.SetEquals(_writers)
-            && movie.Cast.SetEquals(_cast);
-
-        private bool MatchScalars(MovieFeatures movie) =>
-            movie.ReleaseYear?.Value == _releaseYear
-            && movie.Runtime?.Minutes == _runtime
-            && movie.ImdbRating?.Value == _imdbRating;
+            && movie.Cast.SetEquals(_cast)
+            && movie.KeywordNames.SetEquals(_keywordNames)
+            && movie.CollectionId == _collectionId
+            && string.Equals(movie.CollectionName, _collectionName, StringComparison.Ordinal)
+            && movie.PlotEmbedding.SequenceEqual(_plotEmbedding);
     }
 }

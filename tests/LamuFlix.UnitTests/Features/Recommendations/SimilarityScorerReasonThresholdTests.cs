@@ -10,199 +10,301 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 
 public sealed class SimilarityScorerReasonThresholdTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero);
+    private const double ThemesCeiling = 0.9;
+
+    private static readonly string[] CriterionOrder =
+        ["Collection", "Director", "Themes", "Plot", "Cast", "Genre"];
 
     [Fact]
-    public void Score_LargeYearGap_OmitsYearReason()
+    public void Score_ThemesBelowDisplayThreshold_OmitsSharedThemesReasonButKeepsContribution()
     {
         // arrange
-        var first = Features(releaseYear: 1973);
-        var second = Features(releaseYear: 2002);
+        var first = Features(keywordNames: ["alpha", "beta"]);
+        var second = Features(keywordNames: ["alpha", "gamma"]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(year: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(
+            first,
+            second,
+            ThemesOnlyOptions(themesThreshold: 0.6),
+            EmptyGenreTable(),
+            KeywordCounts());
 
         // assert
-        Text(result).ShouldNotContain("Similar release years");
+        Text(result).ShouldNotContain("Shared themes: alpha");
+        var themes = result.Breakdown.Single(entry => entry.Name == "Themes");
+        themes.Value.ShouldBe(0.5555555555555556, 1e-9);
+        themes.Contribution.ShouldBeGreaterThan(0.0);
+        themes.Evidence.ShouldBe(["alpha"]);
     }
 
     [Fact]
-    public void Score_SmallYearGap_KeepsYearReason()
+    public void Score_ThemesAtDisplayThreshold_KeepsSharedThemesReason()
     {
         // arrange
-        var first = Features(releaseYear: 2002);
-        var second = Features(releaseYear: 2004);
+        var first = Features(keywordNames: ["alpha", "beta"]);
+        var second = Features(keywordNames: ["alpha", "gamma"]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(year: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(
+            first,
+            second,
+            ThemesOnlyOptions(themesThreshold: 0.5),
+            EmptyGenreTable(),
+            KeywordCounts());
 
         // assert
-        Text(result).ShouldContain("Similar release years");
+        Text(result).ShouldContain("Shared themes: alpha");
     }
 
     [Fact]
-    public void Score_LargeRuntimeGap_OmitsRuntimeReason()
+    public void Score_PlotBelowDisplayThreshold_OmitsSimilarStoryReasonButKeepsContribution()
     {
         // arrange
-        var first = Features(runtime: 90);
-        var second = Features(runtime: 200);
+        var first = Features(plotEmbedding: [1f, 0f]);
+        var second = Features(plotEmbedding: [0.3f, 0.9539392f]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(runtime: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(
+            first,
+            second,
+            PlotOnlyOptions(),
+            EmptyGenreTable(),
+            NoKeywords());
 
         // assert
-        Text(result).ShouldNotContain("Similar runtime");
+        Text(result).ShouldNotContain("Similar story");
+        var plot = result.Breakdown.Single(entry => entry.Name == "Plot");
+        plot.Value.ShouldBe(0.48275862068965514, 1e-6);
+        plot.Contribution.ShouldBeGreaterThan(0.0);
     }
 
     [Fact]
-    public void Score_SmallRuntimeGap_KeepsRuntimeReason()
+    public void Score_PlotAtDisplayThreshold_KeepsSimilarStoryReason()
     {
         // arrange
-        var first = Features(runtime: 100);
-        var second = Features(runtime: 110);
+        var first = Features(plotEmbedding: [1f, 0f]);
+        var second = Features(plotEmbedding: [0.35f, 0.9367497f]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(runtime: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(
+            first,
+            second,
+            PlotOnlyOptions(),
+            EmptyGenreTable(),
+            NoKeywords());
 
         // assert
-        Text(result).ShouldContain("Similar runtime");
+        Text(result).ShouldContain("Similar story");
     }
 
     [Fact]
-    public void Score_LargeRatingGap_OmitsRatingReason()
+    public void Score_GenreBelowDisplayThreshold_OmitsSameGenresReasonButKeepsContribution()
     {
         // arrange
-        var first = Features(imdbRating: 4.0m);
-        var second = Features(imdbRating: 9.0m);
+        var first = Features(genres: ["Drama"]);
+        var second = Features(genres: ["Drama", "Comedy", "Doc"]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(rating: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(
+            first,
+            second,
+            GenreOnlyOptions(genreThreshold: 0.5),
+            WeightedGenreTable(),
+            NoKeywords());
 
         // assert
-        Text(result).ShouldNotContain("Similar rating");
+        Text(result).ShouldNotContain("Same genres: Drama");
+        var genre = result.Breakdown.Single(entry => entry.Name == "Genre");
+        genre.Value.ShouldBe(0.37590606347464106, 1e-9);
+        genre.Contribution.ShouldBeGreaterThan(0.0);
     }
 
     [Fact]
-    public void Score_SmallRatingGap_KeepsRatingReason()
+    public void Score_GenreAtDisplayThreshold_KeepsSameGenresReason()
     {
         // arrange
-        var first = Features(imdbRating: 8.0m);
-        var second = Features(imdbRating: 7.5m);
+        var first = Features(genres: ["Drama"]);
+        var second = Features(genres: ["Drama", "Comedy", "Doc"]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(rating: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(
+            first,
+            second,
+            GenreOnlyOptions(genreThreshold: 0.35),
+            WeightedGenreTable(),
+            NoKeywords());
 
         // assert
-        Text(result).ShouldContain("Similar rating");
+        Text(result).ShouldContain("Same genres: Drama");
     }
 
     [Fact]
-    public void Score_YearGapAtThreshold_KeepsYearReason()
+    public void Score_ZeroDisplayThresholds_EmitReasonsForAnyPositiveValue()
     {
         // arrange
-        var first = Features(releaseYear: 2000);
-        var second = Features(releaseYear: 2005);
+        var first = Features(genres: ["Drama"], plotEmbedding: [1f, 0f]);
+        var second = Features(genres: ["Drama", "Comedy", "Doc"], plotEmbedding: [0.3f, 0.9539392f]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(year: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(
+            first,
+            second,
+            new RecommendationOptions
+            {
+                Weights = new SimilarityWeights
+                {
+                    Collection = 0.0,
+                    Director = 0.0,
+                    Themes = 0.0,
+                    Plot = 1.0,
+                    Cast = 0.0,
+                    Genres = 1.0,
+                },
+                ThemesDisplayThreshold = 0.0,
+                PlotDisplayThreshold = 0.0,
+                GenreDisplayThreshold = 0.0,
+            },
+            WeightedGenreTable(),
+            NoKeywords());
 
         // assert
-        Text(result).ShouldContain("Similar release years");
+        Text(result).ShouldBe(["Similar story", "Same genres: Drama"]);
     }
 
     [Fact]
-    public void Score_YearGapBeyondThreshold_OmitsYearReason()
+    public void Score_EveryCriterionAboveItsThreshold_EmitsReasonsInTableOrder()
     {
         // arrange
-        var first = Features(releaseYear: 2000);
-        var second = Features(releaseYear: 2006);
+        var first = Features(
+            genres: ["Drama"],
+            directors: ["Alpha"],
+            cast: ["Actor A", "Actor B"],
+            keywordNames: ["alpha", "beta"],
+            collectionId: 7,
+            collectionName: "Saga",
+            plotEmbedding: [1f, 0f]);
+        var second = Features(
+            genres: ["Drama"],
+            directors: ["Alpha"],
+            cast: ["Actor A", "Actor B"],
+            keywordNames: ["alpha", "beta"],
+            collectionId: 7,
+            collectionName: "Saga",
+            plotEmbedding: [1f, 0f]);
 
         // act
-        var result = SimilarityScorer.Score(first, second, Only(year: 1.0), GenreTable());
+        var result = SimilarityScorer.Score(
+            first,
+            second,
+            new RecommendationOptions
+            {
+                Weights = new SimilarityWeights(),
+                ThemesCeiling = ThemesCeiling,
+            },
+            WeightedGenreTable(),
+            KeywordCounts());
 
         // assert
-        Text(result).ShouldNotContain("Similar release years");
-    }
-
-    [Fact]
-    public void Score_RuntimeGapAtThreshold_KeepsRuntimeReason()
-    {
-        // arrange
-        var first = Features(runtime: 100);
-        var second = Features(runtime: 115);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(runtime: 1.0), GenreTable());
-
-        // assert
-        Text(result).ShouldContain("Similar runtime");
-    }
-
-    [Fact]
-    public void Score_RuntimeGapBeyondThreshold_OmitsRuntimeReason()
-    {
-        // arrange
-        var first = Features(runtime: 100);
-        var second = Features(runtime: 116);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(runtime: 1.0), GenreTable());
-
-        // assert
-        Text(result).ShouldNotContain("Similar runtime");
-    }
-
-    [Fact]
-    public void Score_RatingGapAtThreshold_KeepsRatingReason()
-    {
-        // arrange
-        var first = Features(imdbRating: 8.0m);
-        var second = Features(imdbRating: 7.0m);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(rating: 1.0), GenreTable());
-
-        // assert
-        Text(result).ShouldContain("Similar rating");
-    }
-
-    [Fact]
-    public void Score_RatingGapBeyondThreshold_OmitsRatingReason()
-    {
-        // arrange
-        var first = Features(imdbRating: 8.0m);
-        var second = Features(imdbRating: 6.9m);
-
-        // act
-        var result = SimilarityScorer.Score(first, second, Only(rating: 1.0), GenreTable());
-
-        // assert
-        Text(result).ShouldNotContain("Similar rating");
+        result.Breakdown.Select(entry => entry.Name).ShouldBe(CriterionOrder);
+        Text(result).ShouldBe(
+        [
+            "Same collection: Saga",
+            "Same director: Alpha",
+            "Shared themes: alpha, beta",
+            "Similar story",
+            "Shares cast: Actor A, Actor B",
+            "Same genres: Drama",
+        ]);
     }
 
     private static string[] Text(SimilarityResult result) =>
         [.. result.Reasons.Select(reason => reason.Text)];
 
-    private static SimilarityWeights Only(
-        double year = 0.0,
-        double runtime = 0.0,
-        double rating = 0.0) =>
+    private static RecommendationOptions ThemesOnlyOptions(double themesThreshold) =>
         new()
         {
-            YearProximity = year,
-            RuntimeProximity = runtime,
-            RatingBoost = rating,
+            Weights = new SimilarityWeights
+            {
+                Collection = 0.0,
+                Director = 0.0,
+                Themes = 1.0,
+                Plot = 0.0,
+                Cast = 0.0,
+                Genres = 0.0,
+            },
+            ThemesCeiling = ThemesCeiling,
+            ThemesDisplayThreshold = themesThreshold,
         };
 
-    private static GenreWeights GenreTable() =>
+    private static RecommendationOptions PlotOnlyOptions() =>
+        new()
+        {
+            Weights = new SimilarityWeights
+            {
+                Collection = 0.0,
+                Director = 0.0,
+                Themes = 0.0,
+                Plot = 1.0,
+                Cast = 0.0,
+                Genres = 0.0,
+            },
+        };
+
+    private static RecommendationOptions GenreOnlyOptions(double genreThreshold) =>
+        new()
+        {
+            Weights = new SimilarityWeights
+            {
+                Collection = 0.0,
+                Director = 0.0,
+                Themes = 0.0,
+                Plot = 0.0,
+                Cast = 0.0,
+                Genres = 1.0,
+            },
+            GenreDisplayThreshold = genreThreshold,
+        };
+
+    private static KeywordCounts KeywordCounts() => new(
+        100,
+        new Dictionary<string, long>
+        {
+            ["alpha"] = 10,
+            ["beta"] = 10,
+            ["gamma"] = 10,
+        });
+
+    private static KeywordCounts NoKeywords() => new(0, new Dictionary<string, long>());
+
+    private static GenreWeights EmptyGenreTable() =>
         GenreWeights.Calculate(new GenreCounts(0, new Dictionary<string, long>()));
 
+    private static GenreWeights WeightedGenreTable() =>
+        GenreWeights.Calculate(
+            new GenreCounts(
+                100,
+                new Dictionary<string, long>
+                {
+                    ["Drama"] = 10,
+                    ["Comedy"] = 18,
+                    ["Doc"] = 18,
+                }));
+
     private static MovieFeatures Features(
-        int? releaseYear = null,
-        int? runtime = null,
-        decimal? imdbRating = null) =>
+        IEnumerable<string>? genres = null,
+        IEnumerable<string>? directors = null,
+        IEnumerable<string>? cast = null,
+        IEnumerable<string>? keywordNames = null,
+        int? collectionId = null,
+        string? collectionName = null,
+        IEnumerable<float>? plotEmbedding = null) =>
         new(
-            releaseYear: releaseYear.HasValue ? new ReleaseYear(releaseYear.Value, Now) : null,
-            runtime: runtime.HasValue ? new Runtime(runtime.Value) : null,
-            imdbRating: imdbRating.HasValue ? new ImdbRating(imdbRating.Value) : null);
+            genres: genres,
+            directors: directors,
+            cast: cast,
+            collectionId: collectionId,
+            keywordNames: keywordNames,
+            collectionName: collectionName,
+            plotEmbedding: plotEmbedding);
 }
