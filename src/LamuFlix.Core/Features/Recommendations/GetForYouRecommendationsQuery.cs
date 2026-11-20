@@ -3,7 +3,6 @@ using LamuFlix.Core.Domain;
 
 namespace LamuFlix.Core.Features.Recommendations;
 
-// ReSharper disable NotAccessedPositionalProperty.Global // Public query contract consumed by callers and tests
 public sealed record GetForYouRecommendationsQuery
 {
     public GetForYouRecommendationsQuery(
@@ -22,4 +21,3 @@ public sealed record GetForYouRecommendationsQuery
 
     public ImmutableHashSet<MovieId> ExcludedMovieIds { get; init; }
 }
-// ReSharper restore NotAccessedPositionalProperty.Global
