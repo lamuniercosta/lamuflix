@@ -36,17 +36,17 @@ public sealed class RecommendationOptionsSurvivorTests
     }
 
     [Fact]
-    public void Validate_SimilarStoryThresholdAboveOne_ReportsTheExactMessage()
+    public void Validate_PlotCeilingBelowFloor_ReportsTheExactMessage()
     {
         // arrange
-        var options = new RecommendationOptions { SimilarStoryThreshold = 2.0 };
+        var options = new RecommendationOptions { PlotFloor = 0.5, PlotCeiling = 0.25 };
 
         // act
         var results = Validate(options);
 
         // assert
-        results.Select(result => result.ErrorMessage)
-            .ShouldContain("SimilarStoryThreshold must be a finite value between -1 and 1; got 2.");
+        results.Select(result => result.ErrorMessage).ShouldContain(
+            "PlotCeiling must be finite, between -1.0 and 1.0, and greater than PlotFloor.");
     }
 
     [Fact]
