@@ -52,6 +52,7 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
 
     private static readonly KeyValuePair<string, string?>[] HostSettings =
     [
+        .. TestHostNetworkIsolation.SafeProviderSettings,
         new($"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}", "C:/library"),
         new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}", "not-a-real-key"),
         new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}", "https://example.invalid/"),
@@ -82,6 +83,7 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
     {
         ArgumentNullException.ThrowIfNull(builder);
         base.ConfigureWebHost(builder);
+        TestHostNetworkIsolation.Apply(builder);
         builder.ConfigureAppConfiguration((_, configuration) =>
             configuration.AddInMemoryCollection(HostSettings.Concat(additionalSettings)
                 .GroupBy(setting => setting.Key, StringComparer.OrdinalIgnoreCase)

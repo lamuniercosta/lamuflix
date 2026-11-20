@@ -210,9 +210,9 @@ public sealed class HealthEndpointTests
     {
         private static readonly KeyValuePair<string, string?>[] HostSettings =
         [
+            .. TestHostNetworkIsolation.SafeProviderSettings,
             new($"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}", "C:/library"),
             new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}", "not-a-real-key"),
-            new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}", "https://example.invalid/"),
             new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}", "localhost"),
             new("ConnectionStrings:DefaultConnection", SharedPostgres.ConnectionString),
             new($"{DatabaseOptions.SectionName}:{nameof(DatabaseOptions.ApplyMigrationsOnStartup)}", "false"),
@@ -236,6 +236,8 @@ public sealed class HealthEndpointTests
         {
             ArgumentNullException.ThrowIfNull(builder);
             base.ConfigureWebHost(builder);
+            TestHostNetworkIsolation.Apply(builder);
+            builder.ConfigureAppConfiguration(static (_, configuration) => configuration.AddInMemoryCollection(HostSettings));
             builder.UseDefaultServiceProvider(static options =>
             {
                 options.ValidateOnBuild = true;

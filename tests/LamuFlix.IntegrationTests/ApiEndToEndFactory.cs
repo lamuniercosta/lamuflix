@@ -68,6 +68,8 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
     {
         ArgumentNullException.ThrowIfNull(builder);
         base.ConfigureWebHost(builder);
+        TestHostNetworkIsolation.Apply(builder);
+        builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(HostSettings()));
         builder.UseDefaultServiceProvider(static options =>
         {
             options.ValidateOnBuild = true;
@@ -117,6 +119,7 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
 
     private KeyValuePair<string, string?>[] HostSettingsInOrder() =>
     [
+        .. TestHostNetworkIsolation.SafeProviderSettings,
         new("ConnectionStrings:DefaultConnection", settings.DefaultConnection),
         new($"{DatabaseOptions.SectionName}:{nameof(DatabaseOptions.ApplyMigrationsOnStartup)}", "false"),
         new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}", settings.RabbitMq.HostName),
