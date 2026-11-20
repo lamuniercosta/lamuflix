@@ -73,7 +73,7 @@ public static class EvaluationFixtureLoader
         return new SimilarityWeights
         {
             Director = ReadWeight(weights, "director", defaults.Director),
-            Themes = ReadWeight(weights, "themes", ReadWeight(weights, "keyword", defaults.Themes)),
+            Themes = ReadWeight(weights, "themes", defaults.Themes),
             Plot = ReadWeight(weights, "plot", defaults.Plot),
             Cast = ReadWeight(weights, "cast", defaults.Cast),
             Genres = ReadWeight(weights, "genres", defaults.Genres),

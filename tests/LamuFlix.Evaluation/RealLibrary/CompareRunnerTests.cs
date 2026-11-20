@@ -206,9 +206,10 @@ public sealed class CompareRunnerTests
         report.MatchedNames.ShouldContain(new RecommendationMatchedName("Director", "Ada"));
         report.MatchedNames.ShouldContain(new RecommendationMatchedName("Cast", "Ann"));
         report.MatchedNames.ShouldContain(new RecommendationMatchedName("Genre", "Drama"));
-        report.MatchedNames.ShouldContain(new RecommendationMatchedName("Keyword", "heist"));
+        report.MatchedNames.ShouldContain(new RecommendationMatchedName("Themes", "heist"));
         report.MatchedNames.ShouldContain(new RecommendationMatchedName("Collection", "Franchise"));
         report.MatchedNames.ShouldNotContain(name => name.Criterion == "Writer");
+        report.MatchedNames.ShouldNotContain(name => name.Criterion == "Keyword");
     }
 
     [Fact]
@@ -229,6 +230,50 @@ public sealed class CompareRunnerTests
         row.Diagnostics.ShouldNotBeNull();
         row.Diagnostics.Breakdown.ShouldNotBeEmpty();
         row.Diagnostics.Breakdown.Sum(criterion => criterion.Contribution).ShouldBe(row.Score, 1e-9);
+    }
+
+    [Fact]
+    public void Run_pair_diagnostics_expose_all_six_ordered_criteria_and_contributions()
+    {
+        // arrange
+        var snapshot = Snapshot(
+            Movies(
+                BuildMovie(
+                    1,
+                    "Selected",
+                    genres: ["Drama"],
+                    directors: ["Ada"],
+                    cast: ["Ann"],
+                    keywords: [(9, "heist")],
+                    collection: (4, "Franchise")),
+                BuildMovie(
+                    2,
+                    "Other",
+                    genres: ["Drama"],
+                    directors: ["Ada"],
+                    cast: ["Ann"],
+                    keywords: [(9, "heist")],
+                    collection: (4, "Franchise"))),
+            Vectors((1, Vector(1.0)), (2, Vector(1.0))));
+
+        // act
+        var report = CompareRunner.Run(snapshot, Options, 1, otherId: 2, TestContext.Current.CancellationToken);
+
+        // assert
+        var row = report.Envelope.Lists[0].Rows[0];
+        var breakdown = row.Diagnostics.ShouldNotBeNull().Breakdown;
+
+        breakdown.Select(criterion => criterion.Criterion)
+            .ShouldBe(["Collection", "Director", "Themes", "Plot", "Cast", "Genre"]);
+        breakdown.Select(criterion => criterion.Weight).ShouldBe([3.0, 3.0, 3.0, 2.0, 2.0, 2.0]);
+        breakdown.Sum(criterion => criterion.Contribution).ShouldBe(row.Score, 1e-9);
+
+        foreach (var criterion in breakdown)
+        {
+            criterion.Contribution.ShouldBe(criterion.Weight * criterion.Value / 15.0, 1e-9);
+        }
+
+        breakdown.Single(criterion => criterion.Criterion == "Plot").Value.ShouldBe(1.0);
     }
 
     [Fact]

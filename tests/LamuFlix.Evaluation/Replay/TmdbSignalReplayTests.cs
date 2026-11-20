@@ -161,13 +161,13 @@ public sealed class TmdbSignalReplayTests
             1,
             ["Drama"],
             keywords: [1001],
-            fullCast: ["Actor One"],
+            fullCast: ["Actor One", "Actor Two"],
             collectionId: 201);
         var castTwin = ReplayFixtureFactory.SignalMovie(
             2,
             ["Comedy"],
             keywords: [1002],
-            fullCast: ["Actor One"],
+            fullCast: ["Actor One", "Actor Two"],
             collectionId: 202);
         var collectionTwin = ReplayFixtureFactory.SignalMovie(
             3,
@@ -197,16 +197,19 @@ public sealed class TmdbSignalReplayTests
         var collectionOnly = noWeights with { Collection = 2.0 };
         var castOnly = noWeights with { Cast = 2.0 };
 
+        ImmutableArray<EvaluationCatalogMovie> population = [anchor, castTwin, collectionTwin, keywordTwin];
+
         // act / assert
-        Score(anchor, keywordTwin, keywordOnly, genreWeights).ShouldBe(1.0);
-        Score(anchor, castTwin, keywordOnly, genreWeights).ShouldBe(0.0);
-        Score(anchor, keywordTwin, noWeights, genreWeights).ShouldBe(0.0);
+        Score(anchor, keywordTwin, keywordOnly, genreWeights, population).ShouldBe(1.0);
+        Score(anchor, castTwin, keywordOnly, genreWeights, population).ShouldBe(0.0);
 
-        Score(anchor, collectionTwin, collectionOnly, genreWeights).ShouldBe(1.0);
-        Score(anchor, castTwin, collectionOnly, genreWeights).ShouldBe(0.0);
-        Score(anchor, collectionTwin, noWeights, genreWeights).ShouldBe(0.0);
+        Score(anchor, collectionTwin, collectionOnly, genreWeights, population).ShouldBe(1.0);
+        Score(anchor, castTwin, collectionOnly, genreWeights, population).ShouldBe(0.0);
 
-        Score(anchor, castTwin, castOnly, genreWeights).ShouldBe(1.0);
+        Score(anchor, castTwin, castOnly, genreWeights, population).ShouldBe(1.0);
+
+        Should.Throw<ArgumentOutOfRangeException>(
+            () => Score(anchor, keywordTwin, noWeights, genreWeights, population));
     }
 
     [Fact]
@@ -381,13 +384,15 @@ public sealed class TmdbSignalReplayTests
         EvaluationCatalogMovie first,
         EvaluationCatalogMovie second,
         SimilarityWeights weights,
-        GenreWeights genreWeights) =>
+        GenreWeights genreWeights,
+        ImmutableArray<EvaluationCatalogMovie>? catalog = null) =>
         SimilarityScorer.Score(
             first.FeaturesFor(TmdbSignalsMode.Enabled),
             second.FeaturesFor(TmdbSignalsMode.Enabled),
             new RecommendationOptions { Weights = weights },
             genreWeights,
-            AsOfHistory.CatalogKeywordCounts([first, second])).Score;
+            AsOfHistory.CatalogKeywordCounts(
+                catalog is { IsDefault: false } population ? population : [first, second])).Score;
 
     private static EvaluationFixture LoadEnriched() =>
         EvaluationFixtureLoader.LoadFromJson(

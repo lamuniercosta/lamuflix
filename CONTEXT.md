@@ -177,6 +177,26 @@ _Avoid_: user taste weights, recommendation option weights
 The overlap of two movies genre sets, weighted by library rarity.
 _Avoid_: unweighted genre overlap, overall recommendation score
 
+**Ordered criterion**
+One of Collection, Director, Themes, Plot, Cast, Genre in that fixed table order, with configured weight, value in [0, 1], matched evidence, and contribution. The same six entries and reasons serve the Related rail, For You MMR redundancy, and collection block ranking; see [docs/recommendations.md](docs/recommendations.md).
+_Avoid_: legacy year/runtime/rating/writers terms, unordered evidence, a per-caller criterion list
+
+**Contribution**
+`weight × value / denominator`, where the denominator is the sum of all six configured weights (15 at defaults). The six contributions always sum to Score, including when a criterion has no data.
+_Avoid_: normalizing only over present criteria, a denominator that skips missing inputs
+
+**Themes**
+Rarity-weighted keyword cosine over counted library keywords, divided by ThemesCeiling and capped at 1. Stoplisted names and keywords below MinimumKeywordMovies are excluded, and evidence lists up to three shared counted names by descending rarity.
+_Avoid_: treating Keyword as a separate live weight, showing stoplisted names in reasons
+
+**Display threshold**
+The minimum value a Themes, Plot, or Genre match needs to emit a reason, in addition to a positive value (defaults 0.3 / 0.5 / 0.5). Collection, Director, and Cast need only a positive value.
+_Avoid_: suppressing the score contribution of a below-threshold positive value
+
+**Keyword-count snapshot**
+The library movie total `N` and distinct keyword movie counts `n_k` from one library population, cached with genre-weights-style invalidation and a version token. One snapshot is resolved per recommendation operation and reused across its pairs.
+_Avoid_: TTL-based cache lifetime, a read per pair, a schema change or new architectural layer
+
 **Keyword**
 Positive external metadata keyword ID with a trimmed display name; identity and overlap use the ID.
 _Avoid_: Tag, genre, free-text keyword label without ID

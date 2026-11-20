@@ -3,13 +3,12 @@
   "ranking": {
     "lambda": 0.5,
     "similarityWeights": {
+      "collection": 3.0,
       "director": 3.0,
-      "writers": 2.0,
+      "themes": 3.0,
+      "plot": 2.0,
       "cast": 2.0,
-      "genres": 3.0,
-      "yearProximity": 1.0,
-      "runtimeProximity": 0.5,
-      "ratingBoost": 0.5
+      "genres": 3.0
     }
   },
   "catalog": [

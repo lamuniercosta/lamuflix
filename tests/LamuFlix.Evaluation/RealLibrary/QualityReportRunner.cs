@@ -190,7 +190,7 @@ public static class QualityReportRunner
             Movie selected,
             CancellationToken cancellationToken)
         {
-            var selectedFeatures = MovieFeaturesMapper.From(selected, includeSignals: true);
+            var selectedFeatures = Features(snapshot, selected);
             var scored = ImmutableArray.CreateBuilder<RankedResult>();
 
             foreach (var movie in snapshot.Movies)
@@ -206,7 +206,7 @@ public static class QualityReportRunner
                     movie.Id,
                     SimilarityScorer.Score(
                         selectedFeatures,
-                        MovieFeaturesMapper.From(movie, includeSignals: true),
+                        Features(snapshot, movie),
                         options,
                         snapshot.GenreWeights,
                         snapshot.KeywordCounts)));
@@ -219,6 +219,12 @@ public static class QualityReportRunner
 
             return [.. ordered.Select((result, index) => result with { Rank = index + 1 })];
         }
+
+        private static MovieFeatures Features(RealLibrarySnapshot snapshot, Movie movie) =>
+            MovieFeaturesMapper.From(
+                movie,
+                includeSignals: true,
+                plotEmbedding: snapshot.PlotEmbeddings.TryGetValue(movie.Id, out var vector) ? vector : null);
     }
 
     private static class Coverage
