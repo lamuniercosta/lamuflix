@@ -55,13 +55,17 @@ public static class NearestSeedScorer
         var disliked = DislikedSeeds(library);
         var multipliers = options.SeedRankMultipliers ?? [];
         var criteria = StrongReasonCriteria(options);
+        var context = new ScoringContext(options, genreWeights, keywordWeights);
+        var preparedByEntry = PrepareLibrary(library, context);
+        var seedsPrepared = PrepareSeeds(seeds, preparedByEntry);
+        var dislikedPrepared = PrepareDisliked(disliked, preparedByEntry);
         var ranked = new List<NearestSeedMatch>(candidates.Count);
 
         foreach (var candidate in candidates)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (Evaluate(candidate, seeds, disliked, options, multipliers, criteria, genreWeights, keywordWeights) is { } match)
+            if (Evaluate(candidate, seedsPrepared, dislikedPrepared, preparedByEntry, context, multipliers, criteria) is { } match)
             {
                 ranked.Add(match);
             }
@@ -71,24 +75,67 @@ public static class NearestSeedScorer
         return [.. ranked];
     }
 
+    private static Dictionary<RecommendationLibraryEntry, PreparedMovie> PrepareLibrary(
+        IReadOnlyList<RecommendationLibraryEntry> library,
+        ScoringContext context)
+    {
+        var prepared = new Dictionary<RecommendationLibraryEntry, PreparedMovie>(ReferenceEqualityComparer.Instance);
+        foreach (var entry in library)
+        {
+            prepared[entry] = new PreparedMovie(entry.Features, context);
+        }
+
+        return prepared;
+    }
+
+    private static List<(PositiveSeed Seed, PreparedMovie Prepared)> PrepareSeeds(
+        ImmutableList<PositiveSeed> seeds,
+        Dictionary<RecommendationLibraryEntry, PreparedMovie> preparedByEntry)
+    {
+        var prepared = new List<(PositiveSeed Seed, PreparedMovie Prepared)>(seeds.Count);
+        foreach (var seed in seeds)
+        {
+            prepared.Add((seed, preparedByEntry[seed.Entry]));
+        }
+
+        return prepared;
+    }
+
+    private static List<(RecommendationLibraryEntry Entry, PreparedMovie Prepared)> PrepareDisliked(
+        ImmutableList<RecommendationLibraryEntry> disliked,
+        Dictionary<RecommendationLibraryEntry, PreparedMovie> preparedByEntry)
+    {
+        var prepared = new List<(RecommendationLibraryEntry Entry, PreparedMovie Prepared)>(disliked.Count);
+        foreach (var entry in disliked)
+        {
+            prepared.Add((entry, preparedByEntry[entry]));
+        }
+
+        return prepared;
+    }
+
     private static NearestSeedMatch? Evaluate(
         RecommendationLibraryEntry candidate,
-        ImmutableList<PositiveSeed> seeds,
-        ImmutableList<RecommendationLibraryEntry> disliked,
-        RecommendationOptions options,
+        List<(PositiveSeed Seed, PreparedMovie Prepared)> seeds,
+        List<(RecommendationLibraryEntry Entry, PreparedMovie Prepared)> disliked,
+        Dictionary<RecommendationLibraryEntry, PreparedMovie> preparedByEntry,
+        ScoringContext context,
         IReadOnlyList<double> multipliers,
-        IReadOnlySet<string> criteria,
-        GenreWeights genreWeights,
-        IReadOnlyDictionary<string, double> keywordWeights)
+        IReadOnlySet<string> criteria)
     {
-        var pairs = PositivePairs(candidate, seeds, options, genreWeights, keywordWeights);
-        if (pairs.Count == 0 || StrongestPair(pairs, options, criteria) is not { } best)
+        var pairs = PositivePairs(candidate, seeds, preparedByEntry[candidate], context);
+        if (pairs.Count == 0 || StrongestPair(pairs, context, criteria) is not { } best)
         {
             return null;
         }
 
         var score = Aggregate(pairs, multipliers)
-            - DislikedPenalty(candidate, disliked, options, genreWeights, keywordWeights);
+            - DislikedPenalty(candidate.Id, preparedByEntry[candidate], disliked, context);
+
+        var similarity = SimilarityScorer.ScorePreparedFull(
+            preparedByEntry[candidate],
+            preparedByEntry[best.Seed.Entry],
+            context);
 
         return new NearestSeedMatch(
             candidate,
@@ -96,31 +143,25 @@ public static class NearestSeedScorer
             best.Seed.Kind,
             best.Seed.Entry.Id,
             best.Seed.Entry.Summary.Title,
-            best.Similarity);
+            similarity);
     }
 
     private static List<SeedPair> PositivePairs(
         RecommendationLibraryEntry candidate,
-        ImmutableList<PositiveSeed> seeds,
-        RecommendationOptions options,
-        GenreWeights genreWeights,
-        IReadOnlyDictionary<string, double> keywordWeights)
+        List<(PositiveSeed Seed, PreparedMovie Prepared)> seeds,
+        PreparedMovie candidatePrepared,
+        ScoringContext context)
     {
         var pairs = new List<SeedPair>(seeds.Count);
 
-        foreach (var seed in seeds)
+        foreach (var (seed, prepared) in seeds)
         {
             if (seed.Entry.Id == candidate.Id)
             {
                 continue;
             }
 
-            var similarity = SimilarityScorer.ScoreWithoutValidation(
-                candidate.Features,
-                seed.Entry.Features,
-                options,
-                genreWeights,
-                keywordWeights);
+            var similarity = SimilarityScorer.ScorePreparedValues(candidatePrepared, prepared, context);
 
             if (double.IsFinite(similarity.Score))
             {
@@ -133,14 +174,14 @@ public static class NearestSeedScorer
 
     private static SeedPair? StrongestPair(
         List<SeedPair> pairs,
-        RecommendationOptions options,
+        ScoringContext context,
         IReadOnlySet<string> criteria)
     {
         SeedPair? strongest = null;
 
         foreach (var pair in pairs)
         {
-            if (!IsStrong(pair.Similarity, options, criteria))
+            if (!SimilarityScorer.IsStrongPrepared(pair.Similarity, context, criteria))
             {
                 continue;
             }
@@ -172,95 +213,109 @@ public static class NearestSeedScorer
         return candidate.Seed.Entry.Id.Value < current.Seed.Entry.Id.Value;
     }
 
-    private static bool IsStrong(
-        SimilarityResult similarity,
-        RecommendationOptions options,
-        IReadOnlySet<string> criteria)
-    {
-        if (similarity.Score >= options.MinimumSimilarity)
-        {
-            return true;
-        }
-
-        foreach (var contribution in similarity.Breakdown)
-        {
-            if (contribution.Weight > 0.0
-                && contribution.Value >= 1.0
-                && criteria.Contains(contribution.Name))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private static double Aggregate(List<SeedPair> pairs, IReadOnlyList<double> multipliers)
     {
-        var products = pairs
-            .Select(pair => pair.Seed.EffectiveWeight * pair.Similarity.Score)
-            .Where(double.IsFinite)
-            .OrderByDescending(product => product)
-            .ToArray();
+        if (multipliers.Count == 0 || pairs.Count == 0)
+        {
+            return 0.0;
+        }
+
+        Span<int> top = stackalloc int[Math.Min(multipliers.Count, pairs.Count)];
+        var selected = SelectTopPairs(pairs, top);
 
         var sum = 0.0;
-        var count = Math.Min(multipliers.Count, products.Length);
-
-        for (var index = 0; index < count; index++)
+        for (var rank = 0; rank < selected; rank++)
         {
-            sum += products[index] * multipliers[index];
+            sum += pairs[top[rank]].Seed.EffectiveWeight * pairs[top[rank]].Similarity.Score * multipliers[rank];
         }
 
         return sum;
     }
 
+    private static int SelectTopPairs(List<SeedPair> pairs, Span<int> top)
+    {
+        var selected = 0;
+        for (var index = 0; index < pairs.Count; index++)
+        {
+            var product = pairs[index].Seed.EffectiveWeight * pairs[index].Similarity.Score;
+            if (double.IsFinite(product))
+            {
+                selected = InsertTopPair(pairs, top, selected, index, product);
+            }
+        }
+
+        return selected;
+    }
+
+    private static int InsertTopPair(
+        List<SeedPair> pairs,
+        Span<int> top,
+        int selected,
+        int index,
+        double product)
+    {
+        var rank = selected;
+        while (rank > 0 && OutranksSeedPair(product, index, pairs, top[rank - 1]))
+        {
+            rank--;
+        }
+
+        if (rank >= top.Length)
+        {
+            return selected;
+        }
+
+        for (var move = Math.Min(selected, top.Length - 1); move > rank; move--)
+        {
+            top[move] = top[move - 1];
+        }
+
+        top[rank] = index;
+        return Math.Min(selected + 1, top.Length);
+    }
+
+    private static bool OutranksSeedPair(
+        double product,
+        int index,
+        List<SeedPair> pairs,
+        int incumbentIndex)
+    {
+        var incumbentProduct = pairs[incumbentIndex].Seed.EffectiveWeight * pairs[incumbentIndex].Similarity.Score;
+        return product > incumbentProduct
+            || (product == incumbentProduct && index < incumbentIndex);
+    }
+
     private static double DislikedPenalty(
-        RecommendationLibraryEntry candidate,
-        ImmutableList<RecommendationLibraryEntry> disliked,
-        RecommendationOptions options,
-        GenreWeights genreWeights,
-        IReadOnlyDictionary<string, double> keywordWeights)
+        MovieId candidateId,
+        PreparedMovie candidate,
+        List<(RecommendationLibraryEntry Entry, PreparedMovie Prepared)> disliked,
+        ScoringContext context)
     {
         var maximum = 0.0;
         var found = false;
 
-        foreach (var seed in disliked)
+        foreach (var (entry, prepared) in disliked)
         {
-            if (ScoreDislikedSeed(candidate, seed, options, genreWeights, keywordWeights) is not { } score)
+            if (entry.Id == candidateId)
             {
                 continue;
             }
 
-            if (!found || score > maximum)
+            var similarity = SimilarityScorer.ScorePreparedValues(candidate, prepared, context);
+
+            if (!double.IsFinite(similarity.Score))
             {
-                maximum = score;
+                continue;
+            }
+
+            if (!found || similarity.Score > maximum)
+            {
+                maximum = similarity.Score;
                 found = true;
             }
         }
 
-        return found ? maximum * options.DislikedSeedWeight : 0.0;
-    }
-
-    private static double? ScoreDislikedSeed(
-        RecommendationLibraryEntry candidate,
-        RecommendationLibraryEntry seed,
-        RecommendationOptions options,
-        GenreWeights genreWeights,
-        IReadOnlyDictionary<string, double> keywordWeights)
-    {
-        if (seed.Id == candidate.Id)
-        {
-            return null;
-        }
-
-        var similarity = SimilarityScorer.ScoreWithoutValidation(
-            candidate.Features,
-            seed.Features,
-            options,
-            genreWeights,
-            keywordWeights);
-
-        return double.IsFinite(similarity.Score) ? similarity.Score : null;
+        return found ? maximum * context.Options.DislikedSeedWeight : 0.0;
     }
 
     private static ImmutableList<PositiveSeed> PositiveSeeds(
@@ -412,5 +467,5 @@ public static class NearestSeedScorer
         SeedSignal Kind,
         double EffectiveWeight);
 
-    private readonly record struct SeedPair(PositiveSeed Seed, SimilarityResult Similarity);
+    private readonly record struct SeedPair(PositiveSeed Seed, FastSimilarity Similarity);
 }
