@@ -1,6 +1,6 @@
 # DEV-540 — Plot embedding evaluation
 
-- Branch `feature/DEV-540`, HEAD `1bbc8a63`, evaluated 2026-11-21.
+- Branch `feature/DEV-540`, base `1bbc8a63` (merge base with `main`), evaluated revision `ebf5488f`, evaluated 2026-11-21.
 - Harness: DEV-545 leave-one-out (`LeaveOneOutRunner`) and snapshot/quality
   (`QualityReportRunner`) harness with the DEV-543 nearest-seed For You
   ranking path (`GetForYouRecommendationsQueryHandler` via
@@ -34,6 +34,9 @@
   the model is not pulled here (see preflight).
 - Token counting against each model's tokenizer and the proposed 256-token
   `all-minilm` limit check are unmeasured: both need the live models.
+  The offline bound check (`PlotEmbeddingTokenBudget.IsWithinLimit`, tested at
+  0, 256, 257) pins the limit semantics so the measured run only has to supply
+  the two tokenizer counts; truncation behavior stays unrecorded until then.
 
 ## Measured runs
 
@@ -60,8 +63,15 @@ live prerequisites missing on this host:
   endpoint (`http://localhost:11434/`, from `OllamaOptions.Endpoint`).
 - Could not run: Ollama model `nomic-embed-text:v1.5` is not served at the
   configured endpoint.
-- Could not run: scratch evaluation store is unreachable
-  (`ConnectionStrings__DefaultConnection` absent; presence-only check).
+- Could not run: scratch evaluation store identity is unverified
+  (`ConnectionStrings__DefaultConnection` absent, so no scratch lane marker;
+  presence-only check).
+
+The preflight refuses readiness before any probe unless the endpoint is local
+(`localhost`, `127.0.0.1`, `::1`; redirects are not followed) and the
+connection string carries a scratch lane marker (`scratch`, `evaluation`, or
+`memory`). A non-local endpoint or a production-looking connection string
+yields its own Could not run line and no readiness signal.
 
 No embedding request left this host: the preflight only probed the local
 endpoint, which refused the connection. No (b)/(c) embeddings were stored
@@ -70,11 +80,13 @@ anywhere, and production `movie_features` data and schema are untouched
 
 ## Deterministic results (offline)
 
-- `PlotEmbeddingExperimentTests`: 15/15 passed. Covers (a)/(c) plot-only
+- `PlotEmbeddingExperimentTests`: 33/33 passed. Covers (a)/(c) plot-only
   equivalence, (b) section order (title, genres, keywords, plot), the
   3-keyword cap, rarity ordering, ordinal tie-break, stoplist and two-movie
   minimum exclusions via the real `PrepareKeywordWeights`, empty-metadata
-  handling, and preflight available/missing paths.
+  handling, preflight available/missing paths, non-local endpoint refusal
+  without probing, scratch lane-marker refusal without store probing,
+  endpoint locality, scratch marker, and 256-token limit-bound checks.
 - Live preflight script executes exit 0 and records the Could not run report
   above.
 

@@ -60,11 +60,39 @@ $reportFullPath = if ([string]::IsNullOrWhiteSpace($ReportPath)) {
     [System.IO.Path]::GetFullPath($ReportPath, $callerLocation)
 }
 
+function Test-LocalEndpoint {
+    param([string]$Target)
+
+    $uri = $null
+    if (-not [System.Uri]::TryCreate($Target, [System.UriKind]::Absolute, [ref]$uri)) {
+        return $false
+    }
+
+    if ($uri.Scheme -ne 'http' -and $uri.Scheme -ne 'https') {
+        return $false
+    }
+
+    $hostName = $uri.Host
+    return $hostName -eq 'localhost' -or $hostName -eq '127.0.0.1' -or $hostName -eq '[::1]' -or $hostName -eq '::1'
+}
+
+function Test-ScratchConnectionString {
+    param([string]$Connection)
+
+    if ([string]::IsNullOrWhiteSpace($Connection)) {
+        return $false
+    }
+
+    return $Connection.Contains('scratch', [System.StringComparison]::OrdinalIgnoreCase) `
+        -or $Connection.Contains('evaluation', [System.StringComparison]::OrdinalIgnoreCase) `
+        -or $Connection.Contains('memory', [System.StringComparison]::OrdinalIgnoreCase)
+}
+
 function Test-ModelServed {
     param([string]$BaseEndpoint, [string]$Model)
 
     try {
-        $tags = Invoke-RestMethod -Uri ($BaseEndpoint.TrimEnd('/') + '/api/tags') -TimeoutSec 10
+        $tags = Invoke-RestMethod -Uri ($BaseEndpoint.TrimEnd('/') + '/api/tags') -TimeoutSec 10 -MaximumRedirection 0
     } catch {
         return $false
     }
@@ -79,25 +107,61 @@ function Test-ModelServed {
     return $false
 }
 
-$baselineServed = Test-ModelServed -BaseEndpoint $endpoint -Model $baselineModel
-$alternateServed = Test-ModelServed -BaseEndpoint $endpoint -Model $alternateModel
+function Get-GitRevision {
+    param([string]$Arguments, [string]$WorkingDirectory)
+
+    try {
+        $output = & git -C $WorkingDirectory $Arguments.Split(' ') 2>$null
+        $text = [string]$output
+        if ([string]::IsNullOrWhiteSpace($text)) {
+            return 'unknown'
+        }
+        return $text.Trim()
+    } catch {
+        return 'unknown'
+    }
+}
+
+$endpointIsLocal = Test-LocalEndpoint -Target $endpoint
+
+$baselineServed = $false
+$alternateServed = $false
+if ($endpointIsLocal) {
+    $baselineServed = Test-ModelServed -BaseEndpoint $endpoint -Model $baselineModel
+    $alternateServed = Test-ModelServed -BaseEndpoint $endpoint -Model $alternateModel
+}
+
 $storeEntry = Get-Item -Path "Env:$connectionVariable" -ErrorAction SilentlyContinue
-$storeReachable = $null -ne $storeEntry -and -not [string]::IsNullOrWhiteSpace($storeEntry.Value)
+$storeConnection = if ($null -eq $storeEntry) { '' } else { [string]$storeEntry.Value }
+$storeIsolated = Test-ScratchConnectionString -Connection $storeConnection
+$storeReachable = -not [string]::IsNullOrWhiteSpace($storeConnection)
 
 $missing = @()
-if (-not $baselineServed) { $missing += "Ollama model '$baselineModel' is not served at the configured endpoint." }
-if (-not $alternateServed) { $missing += "Ollama model '$alternateModel' is not served at the configured endpoint." }
-if (-not $storeReachable) { $missing += 'Scratch evaluation store is unreachable.' }
+if (-not $endpointIsLocal) {
+    $missing += 'Configured Ollama endpoint is not local; refusing remote model probes.'
+} else {
+    if (-not $baselineServed) { $missing += "Ollama model '$baselineModel' is not served at the configured endpoint." }
+    if (-not $alternateServed) { $missing += "Ollama model '$alternateModel' is not served at the configured endpoint." }
+}
+if (-not $storeIsolated) {
+    $missing += 'Scratch evaluation store identity is unverified; refusing readiness without a scratch lane marker.'
+} elseif (-not $storeReachable) {
+    $missing += 'Scratch evaluation store is unreachable.'
+}
 
 $report = [ordered]@{
     endpoint = $endpoint
+    endpointIsLocal = $endpointIsLocal
     baselineModel = $baselineModel
     baselineModelServed = $baselineServed
     alternateModel = $alternateModel
     alternateModelServed = $alternateServed
+    scratchStoreIsolated = $storeIsolated
     scratchStoreReachable = $storeReachable
     canRun = $missing.Count -eq 0
     missingPrerequisites = $missing
+    evaluatedRevision = Get-GitRevision -Arguments 'rev-parse HEAD' -WorkingDirectory $repoRoot
+    baseRevision = Get-GitRevision -Arguments 'merge-base HEAD origin/main' -WorkingDirectory $repoRoot
 }
 
 $directory = Split-Path -Parent $reportFullPath

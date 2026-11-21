@@ -213,7 +213,7 @@ public sealed class PlotEmbeddingExperimentTests
     public void Preflight_AllPrerequisitesMissing_ReportsCouldNotRunWithEachPrerequisite()
     {
         // act
-        var result = PlotEmbeddingPreflight.Check(_ => false, () => false);
+        var result = PlotEmbeddingPreflight.Check(LocalEndpoint(), _ => false, ScratchConnection(), () => false);
 
         // assert
         result.CanRun.ShouldBeFalse();
@@ -229,7 +229,7 @@ public sealed class PlotEmbeddingExperimentTests
     public void Preflight_AllPrerequisitesPresent_CanRunWithNoMissingPrerequisites()
     {
         // act
-        var result = PlotEmbeddingPreflight.Check(_ => true, () => true);
+        var result = PlotEmbeddingPreflight.Check(LocalEndpoint(), _ => true, ScratchConnection(), () => true);
 
         // assert
         result.CanRun.ShouldBeTrue();
@@ -240,12 +240,134 @@ public sealed class PlotEmbeddingExperimentTests
     public void Preflight_OnlyBaselineModelMissing_ListsOnlyThatPrerequisite()
     {
         // act
-        var result = PlotEmbeddingPreflight.Check(model => model != "all-minilm", () => true);
+        var result = PlotEmbeddingPreflight.Check(LocalEndpoint(), model => model != "all-minilm", ScratchConnection(), () => true);
 
         // assert
         result.CanRun.ShouldBeFalse();
         result.MissingPrerequisites.ShouldBe(
             ["Ollama model 'all-minilm' is not served at the configured endpoint."]);
+    }
+
+    [Fact]
+    public void Preflight_NonLocalEndpoint_SkipsProbesAndRefusesReadiness()
+    {
+        // arrange
+        var probes = 0;
+
+        // act
+        var result = PlotEmbeddingPreflight.Check(
+            "http://ollama.example.com:11434/",
+            _ =>
+            {
+                probes++;
+                return true;
+            },
+            ScratchConnection(),
+            () => true);
+
+        // assert
+        result.CanRun.ShouldBeFalse();
+        result.MissingPrerequisites.ShouldContain(PlotEmbeddingPreflight.NonLocalEndpointMessage);
+        probes.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Preflight_NonScratchConnection_RefusesReadinessWithoutProbingStore()
+    {
+        // arrange
+        var probes = 0;
+
+        // act
+        var result = PlotEmbeddingPreflight.Check(
+            LocalEndpoint(),
+            _ => true,
+            "Server=prod-db;Database=LamuFlix;",
+            () =>
+            {
+                probes++;
+                return true;
+            });
+
+        // assert
+        result.CanRun.ShouldBeFalse();
+        result.MissingPrerequisites.ShouldContain(PlotEmbeddingPreflight.ScratchIdentityMessage);
+        probes.ShouldBe(0);
+    }
+
+    [Theory]
+    [InlineData("http://localhost:11434/")]
+    [InlineData("http://127.0.0.1:11434/")]
+    [InlineData("http://[::1]:11434/")]
+    public void EndpointPolicy_LocalEndpoints_AreAccepted(string endpoint)
+    {
+        // act
+        var local = PlotEmbeddingEndpointPolicy.IsLocalEndpoint(endpoint);
+
+        // assert
+        local.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData("http://ollama.example.com:11434/")]
+    [InlineData("http://192.168.1.20:11434/")]
+    [InlineData("not-a-uri")]
+    [InlineData(null)]
+    public void EndpointPolicy_NonLocalEndpoints_AreRejected(string? endpoint)
+    {
+        // act
+        var local = PlotEmbeddingEndpointPolicy.IsLocalEndpoint(endpoint);
+
+        // assert
+        local.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("Server=scratch-db;Database=LamuFlixEvaluation;")]
+    [InlineData("Host=localhost;Database=lamuflix_evaluation;")]
+    [InlineData("Data Source=:memory:;")]
+    public void ScratchPolicy_ScratchConnections_AreAccepted(string connection)
+    {
+        // act
+        var scratch = PlotEmbeddingScratchPolicy.IsScratchConnectionString(connection);
+
+        // assert
+        scratch.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData("Server=prod-db;Database=LamuFlix;")]
+    [InlineData(null)]
+    public void ScratchPolicy_ProductionConnections_AreRejected(string? connection)
+    {
+        // act
+        var scratch = PlotEmbeddingScratchPolicy.IsScratchConnectionString(connection);
+
+        // assert
+        scratch.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(256)]
+    public void TokenBudget_AtOrBelowLimit_IsWithinLimit(int tokens)
+    {
+        // act
+        var within = PlotEmbeddingTokenBudget.IsWithinLimit(tokens);
+
+        // assert
+        within.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(257)]
+    [InlineData(-1)]
+    public void TokenBudget_AboveLimitOrNegative_IsNotWithinLimit(int tokens)
+    {
+        // act
+        var within = PlotEmbeddingTokenBudget.IsWithinLimit(tokens);
+
+        // assert
+        within.ShouldBeFalse();
     }
 
     [Fact]
@@ -257,6 +379,10 @@ public sealed class PlotEmbeddingExperimentTests
         PlotEmbeddingExperiment.EnrichedKeywordCap.ShouldBe(3);
         PlotEmbeddingExperiment.ProposedTokenLimit.ShouldBe(256);
     }
+
+    private static string LocalEndpoint() => "http://localhost:11434/";
+
+    private static string ScratchConnection() => "Server=localhost;Database=LamuFlixEvaluationScratch;";
 
     private static MovieKeyword Keyword(int id, string name) => new(id, name);
 
