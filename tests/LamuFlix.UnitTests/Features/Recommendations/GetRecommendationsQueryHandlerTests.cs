@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -585,14 +585,13 @@ public sealed class GetRecommendationsQueryHandlerTests
     [Theory]
     [InlineData(false, 0.0)]
     [InlineData(true, 0.25)]
-    public async Task HandleAsync_WatchedSignal_MapsToBlendPenalty(bool isWatched, double expectedPenalty)
+    public async Task HandleAsync_WatchedCandidate_AppliesAlreadyWatchedPenalty(bool isWatched, double expectedPenalty)
     {
         // arrange
         var handler = NewHandler();
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(5, genres: ["Drama"], isWatched: isWatched);
         Arrange(selected, Candidates(candidate));
-        ArrangeProfile(ProfileMovie(90, "Drama"));
         var selectedSimilarity = SimilarityScorer.Score(
             MovieFeaturesMapper.From(selected),
             MovieFeaturesMapper.From(candidate),
@@ -604,7 +603,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
 
         // assert
-        result[0].Score.ShouldBe(selectedSimilarity.Score + 1.0 - expectedPenalty, 1e-12);
+        result[0].Score.ShouldBe(selectedSimilarity.Score - expectedPenalty, 1e-12);
     }
 
     [Fact]
@@ -627,31 +626,49 @@ public sealed class GetRecommendationsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_DerivedProfile_IsObtainedThroughThePort()
+    public async Task HandleAsync_UnrelatedLikedAndDislikedReviews_LeaveExistingScoresUnchanged()
     {
         // arrange
-        var handler = NewHandler(blendSelectedWeight: 0.0, blendProfileWeight: 1.0);
-        var selected = NewMovie(1, genres: ["Action"]);
-        var comedy = NewMovie(2, genres: ["Comedy"]);
-        var drama = NewMovie(3, genres: ["Drama"]);
-        Arrange(selected, Candidates(comedy, drama));
-        ArrangeProfile(ProfileMovie(90, "Drama"));
-        ArrangeTasteProfile(new TasteProfile(
-            System.Collections.Immutable.ImmutableDictionary<string, double>.Empty.Add("Comedy", 1.0),
-            []));
+        var handler = NewHandler();
+        var selected = NewMovie(1, genres: ["Drama"]);
+        var first = NewMovie(2, genres: ["Drama"]);
+        var second = NewMovie(3, genres: ["Drama", "Comedy"]);
+        Arrange(selected, Candidates(first, second));
+        var baseline = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // act
+        ArrangeProfileWith(
+            [
+                new TasteProfileMovie(new MovieId(90), ["Drama"], [], [Now], IsWatched: true) { Review = Review.Liked },
+                new TasteProfileMovie(new MovieId(91), ["Drama"], [], [Now], IsWatched: true) { Review = Review.Disliked },
+            ],
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty);
+        var reviewed = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        reviewed.Select(item => item.Summary.Id).ShouldBe(baseline.Select(item => item.Summary.Id));
+        reviewed.Select(item => item.Score).ShouldBe(baseline.Select(item => item.Score));
+    }
+
+    [Fact]
+    public async Task HandleAsync_ReviewedMovieThatWasEligible_IsExcludedFromRelatedResults()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = Selected();
+        var reviewed = NewMovie(2, genres: ["Drama", "Action"], directors: ["Director A"], actors: ["Actor A"], writers: ["Writer A"], releaseYear: 2000, runtimeMinutes: 120, imdbRating: 8.0m, isNotInterested: true);
+        var eligible = NewMovie(3, genres: ["Drama", "Action"], directors: ["Director A"], actors: ["Actor A"], writers: ["Writer A"], releaseYear: 2000, runtimeMinutes: 120, imdbRating: 8.0m);
+        Arrange(selected, Candidates(reviewed, eligible));
 
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
 
         // assert
-        await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
-        result.Select(item => item.Summary.Id.Value).ToArray().ShouldBe(new[] { 2, 3 });
-        result[0].Score.ShouldBeGreaterThan(0.0);
-        result[1].Score.ShouldBe(0.0);
+        result.Select(item => item.Summary.Id.Value).ShouldBe([3]);
     }
 
     [Fact]
-    public async Task HandleAsync_CandidateAndGenreWork_StayOutsideTheTasteProfileEntry()
+    public async Task HandleAsync_RelatedOperation_DoesNotAcquireTasteProfile()
     {
         // arrange
         var handler = NewHandler();
@@ -664,74 +681,12 @@ public sealed class GetRecommendationsQueryHandlerTests
         await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), cts.Token);
 
         // assert
-        await profileSource.Received(1).GetTasteProfileAsync(cts.Token);
+        await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
             Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
             cts.Token);
         await catalog.Received(1).GetGenreCountsAsync(cts.Token);
-    }
-
-    [Fact]
-    public async Task HandleAsync_DerivedProfileCancelsToken_ThrowsBeforeCandidateInputs()
-    {
-        // arrange
-        var handler = NewHandler();
-        using var cts = new CancellationTokenSource();
-        Arrange(Selected(), Pool(2));
-        profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>())
-            .Returns(_ =>
-            {
-                // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
-                cts.Cancel();
-                return Task.FromResult(EmptyTasteProfile());
-            });
-
-        // act / assert
-        await Should.ThrowAsync<OperationCanceledException>(
-            () => handler.HandleAsync(new GetRecommendationsQuery(new MovieId(1)), cts.Token));
-        await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
-            Arg.Any<IReadOnlyCollection<MovieId>>(),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleAsync_DerivedProfileFails_PropagatesErrorWithoutCandidateInputs()
-    {
-        // arrange
-        var handler = NewHandler();
-        var failure = new InvalidOperationException("derived profile failed");
-        Arrange(Selected(), Pool(2));
-        profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<TasteProfile>(failure));
-
-        // act / assert
-        var thrown = await Should.ThrowAsync<InvalidOperationException>(
-            () => handler.HandleAsync(new GetRecommendationsQuery(new MovieId(1)), CancellationToken.None));
-        thrown.ShouldBe(failure);
-        await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
-            Arg.Any<IReadOnlyCollection<MovieId>>(),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task HandleAsync_ProfileWeightOnly_OrdersByProfileSimilarityWithoutRefill()
-    {
-        // arrange
-        var handler = NewHandler(blendSelectedWeight: 0.0, blendProfileWeight: 1.0);
-        var selected = NewMovie(1, genres: ["Drama"]);
-        var comedy = NewMovie(3, genres: ["Comedy"]);
-        var drama = NewMovie(4, genres: ["Drama"]);
-        Arrange(selected, Candidates(comedy, drama));
-        ArrangeProfile(ProfileMovie(90, "Drama"));
-
-        // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
-
-        // assert
-        result.Select(item => item.Summary.Id.Value).ToArray().ShouldBe(new[] { 4, 3 });
-        result[0].Score.ShouldBe(1.0, 1e-12);
-        result[1].Score.ShouldBe(0.0, 1e-12);
     }
 
     [Fact]
@@ -954,15 +909,11 @@ public sealed class GetRecommendationsQueryHandlerTests
         result[0].Reasons.ShouldBe([Reason.Structural("No shared features identified")]);
     }
 
-    [Theory]
-    [InlineData(1.0, 3)]
-    [InlineData(0.0, 0)]
-    public async Task HandleAsync_ProfileOverlap_EmitsPersonalReasonsOnlyWhenProfileWeightPositive(
-        double profileWeight,
-        int expectedPersonalCount)
+    [Fact]
+    public async Task HandleAsync_ProfileOverlap_EmitsNoProfilePersonalReasons()
     {
         // arrange
-        var handler = NewHandler(blendProfileWeight: profileWeight);
+        var handler = NewHandler();
         var selected = Selected();
         var candidate = NewMovie(14, genres: ["Drama", "Comedy", "Horror"]);
         Arrange(selected, Candidates(candidate));
@@ -972,195 +923,11 @@ public sealed class GetRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
 
         // assert
-        result[0].Reasons.Count(reason => reason.Kind == ReasonKind.Personal).ShouldBe(expectedPersonalCount);
-        if (expectedPersonalCount == 0)
-        {
-            result[0].Reasons.ShouldAllBe(reason => reason.Kind == ReasonKind.Structural);
-        }
+        PersonalTexts(result[0]).ShouldBeEmpty();
+        result[0].Reasons.ShouldAllBe(reason => reason.Kind == ReasonKind.Structural);
+        result[0].Reasons.ShouldAllBe(reason => !reason.Text.StartsWith("Matches your", StringComparison.Ordinal));
     }
 
-    [Fact]
-    public async Task HandleAsync_MultiGenreOverlap_EmitsOnePersonalReasonPerCanonicalGenreInCaseInsensitiveThenOrdinalOrder()
-    {
-        // arrange
-        var handler = NewHandler();
-        var selected = Selected();
-        var candidate = NewMovie(15, genres: ["Horror", "Comedy", "Drama"]);
-        Arrange(selected, Candidates(candidate));
-        ArrangeProfile(ProfileMovie(90, "Drama", "Comedy", "Horror"));
-
-        // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
-
-        // assert
-        PersonalTexts(result[0]).ShouldBe(
-        [
-            "Matches your Comedy interest",
-            "Matches your Drama interest",
-            "Matches your Horror interest",
-        ]);
-    }
-
-    [Fact]
-    public async Task HandleAsync_StructuralAndPersonalReasons_KeepStructuralReasonsFirstInScorerOrder()
-    {
-        // arrange
-        var handler = NewHandler();
-        var selected = Selected();
-        var candidate = NewMovie(16, genres: ["Drama"], directors: ["Director A"], actors: ["Actor A"], writers: ["Writer A"]);
-        Arrange(selected, [Entry(candidate)]);
-        ArrangeProfile(ProfileMovie(90, "Drama"));
-        var expectedStructural = SimilarityScorer.Score(
-            MovieFeaturesMapper.From(selected),
-            MovieFeaturesMapper.From(candidate),
-            new RecommendationOptions { Weights = Weights },
-            GenreWeights.Calculate(Counts),
-            EmptyKeywordCounts);
-
-        // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
-
-        // assert
-        var reasons = result[0].Reasons;
-        reasons.Take(expectedStructural.Reasons.Count).ShouldBe(expectedStructural.Reasons);
-        var firstPersonal = reasons.Select((reason, index) => (reason, index))
-            .First(item => item.reason.Kind == ReasonKind.Personal).index;
-        reasons.Take(firstPersonal).ShouldAllBe(reason => reason.Kind == ReasonKind.Structural);
-        reasons.Skip(firstPersonal).ShouldAllBe(reason => reason.Kind == ReasonKind.Personal);
-    }
-
-    [Fact]
-    public async Task HandleAsync_PersonalReasons_UseGenericTemplatesWithoutNamedTitle()
-    {
-        // arrange
-        var handler = NewHandler();
-        var selected = Selected();
-        var candidate = NewMovie(17, title: "Untitled Personal Fixture", genres: ["Drama"]);
-        Arrange(selected, Candidates(candidate));
-        ArrangeProfile(ProfileMovie(90, "Drama"));
-
-        // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
-
-        // assert
-        PersonalTexts(result[0]).ShouldBe(["Matches your Drama interest"]);
-        result[0].Reasons.ShouldAllBe(reason => !reason.Text.Contains("Untitled Personal Fixture", StringComparison.Ordinal));
-        result[0].Reasons.ShouldAllBe(reason => !reason.Text.Contains("Because you watched", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task HandleAsync_PositivePlotChannel_EmitsViewingHistoryPersonalReason()
-    {
-        // arrange
-        var handler = NewHandler();
-        var selected = NewMovie(1, genres: ["Drama"]);
-        var candidate = NewMovie(18, genres: ["Mystery"]);
-        var vector = PlotVector(primary: 1.0f);
-        Arrange(selected, [Entry(candidate, vector)]);
-        ArrangeProfileWith(
-            [new TasteProfileMovie(new MovieId(90), [], vector, [Now], IsWatched: true)],
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty);
-
-        // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
-
-        // assert
-        PersonalTexts(result[0]).ShouldBe(["Matches your viewing history"]);
-        result[0].Reasons.Count(reason => reason.Text == "Matches your viewing history").ShouldBe(1);
-    }
-
-    [Fact]
-    public async Task HandleAsync_LikedSourceEmbeddingFromInputs_EmitsExactLikedReason()
-    {
-        // arrange
-        var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
-        var selected = NewMovie(1, genres: ["Drama"]);
-        var candidate = NewMovie(20, genres: ["Mystery"]);
-        var vector = PlotVector(primary: 1.0f);
-        Arrange(selected, [Entry(candidate, vector)]);
-        var profile = new TasteProfile(
-            System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
-            [])
-        {
-            Liked = new ReviewProfileChannels(
-                vector,
-                System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
-                System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
-                System.Collections.Immutable.ImmutableDictionary<string, double>.Empty),
-            LikedSources =
-            [
-                new LikedReviewSource(
-                    new MovieId(90),
-                    "About Time",
-                    System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
-                    System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
-                    System.Collections.Immutable.ImmutableDictionary<string, double>.Empty),
-            ],
-        };
-        ArrangeProfileWith(
-            [new TasteProfileMovie(new MovieId(90), [], [], [Now], IsWatched: true) { Review = Review.Liked }],
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty,
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
-                .Empty.Add(new MovieId(90), vector),
-            profile);
-
-        // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
-
-        // assert
-        result.ShouldHaveSingleItem();
-        result[0].Score.ShouldBe(1.0, 1e-12);
-        PersonalTexts(result[0]).ShouldContain("Because you liked About Time");
-    }
-
-    [Fact]
-    public async Task HandleAsync_ForwardsActiveProfileLikedIdentities_ToProfileInputs()
-    {
-        // arrange
-        var handler = NewHandler();
-        var selected = NewMovie(1, genres: ["Drama"]);
-        var candidate = NewMovie(22, genres: ["Mystery"]);
-        var vector = PlotVector(primary: 1.0f);
-        Arrange(selected, [Entry(candidate)]);
-        var profile = new TasteProfile(
-            System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
-            [])
-        {
-            LikedSources =
-            [
-                new LikedReviewSource(
-                    new MovieId(90),
-                    "About Time",
-                    System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
-                    System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
-                    System.Collections.Immutable.ImmutableDictionary<string, double>.Empty),
-            ],
-        };
-        ArrangeProfileWith(
-            [new TasteProfileMovie(new MovieId(90), [], [], [Now], IsWatched: true) { Review = Review.Liked }],
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty,
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
-                .Empty.Add(new MovieId(90), vector),
-            profile);
-
-        // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
-
-        // assert
-        result.ShouldHaveSingleItem();
-        await profileSource.Received(1).GetProfileInputsAsync(
-            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
-            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 1 && liked.Single() == new MovieId(90)),
-            Arg.Any<CancellationToken>());
-        Received.InOrder(() =>
-        {
-            _ = profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>());
-            _ = profileSource.GetProfileInputsAsync(
-                Arg.Any<IReadOnlyCollection<MovieId>>(),
-                Arg.Any<IReadOnlyCollection<MovieId>>(),
-                Arg.Any<CancellationToken>());
-        });
-    }
 
     [Fact]
     public async Task HandleAsync_RelatedConsumerWithoutLikedSourceEmbeddings_KeepsNonPlotBehaviour()
@@ -1791,31 +1558,10 @@ public sealed class GetRecommendationsQueryHandlerTests
 
     private void ArrangeProfileWith(
         System.Collections.Immutable.ImmutableArray<TasteProfileMovie> profileMovies,
-        System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>> embeddings)
-    {
+        System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>> embeddings) =>
         profileSource
             .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(new RecommendationProfileInputs(profileMovies, embeddings)));
-
-        profileSource
-            .GetTasteProfileAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult(ComputeProfile(profileMovies)));
-    }
-
-    private void ArrangeProfileWith(
-        System.Collections.Immutable.ImmutableArray<TasteProfileMovie> profileMovies,
-        System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>> embeddings,
-        System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>> likedSourceEmbeddings,
-        TasteProfile profile)
-    {
-        profileSource
-            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult(new RecommendationProfileInputs(profileMovies, embeddings, likedSourceEmbeddings)));
-
-        profileSource
-            .GetTasteProfileAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult(profile));
-    }
 
     private static SimilarityWeights PlotOnlyWeights => new()
     {
@@ -1827,22 +1573,6 @@ public sealed class GetRecommendationsQueryHandlerTests
         Collection = 0.0,
         ReviewPlotWeight = 1.0,
     };
-
-    private void ArrangeTasteProfile(TasteProfile profile) =>
-        profileSource
-            .GetTasteProfileAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult(profile));
-
-    private static TasteProfile ComputeProfile(
-        System.Collections.Immutable.ImmutableArray<TasteProfileMovie> profileMovies) =>
-        new TasteProfileCalculator(new FixedTimeProvider(Now), new RecommendationOptions()).Calculate(
-            profileMovies,
-            GenreWeights.Calculate(Counts));
-
-    private static TasteProfile EmptyTasteProfile() =>
-        new(
-            System.Collections.Immutable.ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase),
-            []);
 
     private GetRecommendationsQueryHandler NewHandler(
         int optionsTake = DefaultTake,

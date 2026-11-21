@@ -102,9 +102,9 @@ Ordering per brief Task order. **T002 completion is a hard dependency for T003, 
 **Independent Test**: Unrelated liked and disliked reviews preserve scores on surviving results. A disliked movie is excluded when it would otherwise be eligible. Existing watched penalty and removal of "Matches your" reasons are covered.
 **Order**: T011 → T013. Starts after T025.
 
-- [ ] T011 [US3] **Build lane**. After T025: Switch `src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs` off profile blend scoring to DEV-518 similarity with existing `AlreadyWatchedPenalty` and disliked exclusion (FR-008; SC-003). Keep landed DEV-544 pool behavior and existing Related selection. Record the shared policy integration from T001 and add no Related-handler admission filter or global disliked-seed penalty.
-- [ ] T012 [US3] **Build lane**. After T011: Remove Related profile reason emission (`RecommendationReasonBuilder.AddProfileReasons` call path) so results carry no "Matches your" profile reasons (FR-008; SC-002).
-- [ ] T013 [US3] **Build lane**. After T012: Add/adjust Related handler unit coverage in `tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerTests.cs` proving unchanged scores on existing results after unrelated liked and disliked reviews, absence of "Matches your" reasons, disliked candidate exclusion when the reviewed movie was eligible, and the watched penalty (FR-008).
+- [x] T011 [US3] **Build lane**. After T025: Switch `src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs` off profile blend scoring to DEV-518 similarity with existing `AlreadyWatchedPenalty` and disliked exclusion (FR-008; SC-003). Keep landed DEV-544 pool behavior and existing Related selection. Record the shared policy integration from T001 and add no Related-handler admission filter or global disliked-seed penalty.
+- [x] T012 [US3] **Build lane**. After T011: Remove Related profile reason emission (`RecommendationReasonBuilder.AddProfileReasons` call path) so results carry no "Matches your" profile reasons (FR-008; SC-002).
+- [x] T013 [US3] **Build lane**. After T012: Add/adjust Related handler unit coverage in `tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerTests.cs` proving unchanged scores on existing results after unrelated liked and disliked reviews, absence of "Matches your" reasons, disliked candidate exclusion when the reviewed movie was eligible, and the watched penalty (FR-008).
 
 **Checkpoint**: Both rails free of taste-profile contribution.
 

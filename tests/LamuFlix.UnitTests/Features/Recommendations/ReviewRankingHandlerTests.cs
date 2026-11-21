@@ -219,7 +219,7 @@ public sealed class ReviewRankingHandlerTests
     }
 
     [Fact]
-    public async Task Related_LikedProfile_RaisesSimilarCandidateAbovePreLikeBaseline()
+    public async Task Related_LikedProfile_LeavesSimilarCandidateScoreUnchanged()
     {
         // arrange
         var harness = new RelatedHarness();
@@ -231,12 +231,12 @@ public sealed class ReviewRankingHandlerTests
         var liked = await harness.HandleAsync(Profile(likedGenres: ["Drama"]));
 
         // assert
-        liked.Single(item => item.Summary.Id.Value == 2).Score
-            .ShouldBeGreaterThan(baseline.Single(item => item.Summary.Id.Value == 2).Score);
+        liked.Select(item => item.Summary.Id).ShouldBe(baseline.Select(item => item.Summary.Id));
+        liked.Select(item => item.Score).ShouldBe(baseline.Select(item => item.Score));
     }
 
     [Fact]
-    public async Task Related_DislikedProfile_LowersSimilarCandidateScore()
+    public async Task Related_DislikedProfile_LeavesSimilarCandidateScoreUnchanged()
     {
         // arrange
         var harness = new RelatedHarness();
@@ -248,8 +248,8 @@ public sealed class ReviewRankingHandlerTests
         var disliked = await harness.HandleAsync(Profile(dislikedGenres: ["Drama"]));
 
         // assert
-        disliked.Single(item => item.Summary.Id.Value == 2).Score
-            .ShouldBeLessThan(baseline.Single(item => item.Summary.Id.Value == 2).Score);
+        disliked.Select(item => item.Summary.Id).ShouldBe(baseline.Select(item => item.Summary.Id));
+        disliked.Select(item => item.Score).ShouldBe(baseline.Select(item => item.Score));
     }
 
     [Fact]
@@ -285,7 +285,7 @@ public sealed class ReviewRankingHandlerTests
     }
 
     [Fact]
-    public async Task Related_LikedProfile_EmitsTruthfulLikedChip()
+    public async Task Related_LikedProfile_EmitsNoLikedChip()
     {
         // arrange
         var harness = new RelatedHarness();
@@ -295,7 +295,8 @@ public sealed class ReviewRankingHandlerTests
         var result = await harness.HandleAsync(Profile(likedGenres: ["Drama"], likedTitle: "Alien"));
 
         // assert
-        result.Single().Reasons.ShouldContain(Reason.Personal("Because you liked Alien"));
+        result.Single().Reasons.ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
+        result.Single().Reasons.ShouldAllBe(reason => !reason.Text.StartsWith("Matches your", StringComparison.Ordinal));
     }
 
     [Fact]

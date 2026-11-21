@@ -117,6 +117,20 @@ Ticket reference: 155 of 422 qualifying candidates on 2026-11-16 — reference d
 | `dotnet test` IntegrationTests (Phase 3 interim) | `dotnet test tests/LamuFlix.IntegrationTests` — **1875 passed, 2 skipped, 0 failed**. Full T022 rerun on the delivery build still pending. |
 | Phase 3 static gates (interim) | Roslyn analyzers **pass** (0 findings), cyclomatic complexity **pass** (0 over 15), InspectCode **pass** (0 WARNING+), `dotnet format` applied (no residual diff). T022 is still the final gate run. |
 
+### Phase 4 Related profile removal (T011–T013)
+
+| Check | Result |
+| --- | --- |
+| Related scores with DEV-518 similarity only | **PASS (T011)** — `GetRecommendationsQueryHandler` scores each eligible candidate with `SimilarityScorer.Score` (selected movie features vs candidate features) and applies the existing `AlreadyWatchedPenalty` through `BlendScorer` with a constant zero profile contribution. Disliked candidates and the selected movie stay excluded in `Partition`/`TryScore`; no admission filter or disliked-seed penalty was added to the Related handler. Related selection (tiering + `MmrSelector` + `SeedCollectionGrouper`), the DEV-544 pool and shared selection options are unchanged. |
+| No taste-profile read on the Related path | **PASS (T012)** — `GetTasteProfileAsync` is no longer called; `GetProfileInputsAsync` is still used only to resolve a missing selected-movie embedding (empty liked-source list). Asserted by `HandleAsync_RelatedOperation_DoesNotAcquireTasteProfile`. |
+| No profile reasons in Related results | **PASS (T012)** — `RecommendationReasonBuilder.AddProfileReasons` / `AddLikedReviewReason` call path removed from the handler; reasons are the DEV-518 structural reasons plus the existing structural fallback. The builder members themselves remain until the caller-gated cleanup (T014/T015). |
+| Unrelated liked and disliked reviews leave Related scores unchanged (SC-003) | **PASS (T013)** — `HandleAsync_UnrelatedLikedAndDislikedReviews_LeaveExistingScoresUnchanged` in `tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerTests.cs`; `Related_LikedProfile_LeavesSimilarCandidateScoreUnchanged` and `Related_DislikedProfile_LeavesSimilarCandidateScoreUnchanged` in `ReviewRankingHandlerTests.cs` |
+| Disliked candidate exclusion + watched penalty (FR-008) | **PASS (T013)** — `HandleAsync_ReviewedMovieThatWasEligible_IsExcludedFromRelatedResults`; `HandleAsync_WatchedCandidate_AppliesAlreadyWatchedPenalty` (0.0 unwatched / 0.25 watched). |
+| `dotnet test` UnitTests (Phase 4 interim) | **4199 passed, 1 skipped, 0 failed** |
+| `dotnet test` IntegrationTests (Phase 4 interim) | **1875 passed, 2 skipped, 0 failed** (real Related handler paths in `EfRecommendationCandidateSourceTests`/`RecommendationEndpointTests` unchanged and green) |
+| Phase 4 static gates (interim) | Roslyn analyzers **pass** (0 findings), cyclomatic complexity **pass** (0 over 15), InspectCode **pass** (0 WARNING+), `dotnet format --verify-no-changes` **pass**. T022 is still the final gate run. |
+| Disclosed forced test adaptations | `GetRecommendationsQueryHandlerTests.cs` is the T013-named file (profile-reason/derived-profile cases removed or rewritten; watched-penalty expectation corrected). `ReviewRankingHandlerTests.cs` is **not** named by T013: its three Related cases asserted the removed profile behaviour, so they were inverted to the no-profile contract to keep the suite green. This is a substantive (not purely mechanical) adaptation of an earlier Patron-authorized call-site file and is disclosed for Patron retro-confirmation. |
+
 ## 5. Gate outcomes (honest vocabulary)
 
 Record Pass / Failure / SKIPPED (scope-empty) / SKIP (opt-out) / Could not run / N/A — never fold non-pass into PASS.
