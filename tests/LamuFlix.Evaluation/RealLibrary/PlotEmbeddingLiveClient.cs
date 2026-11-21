@@ -5,19 +5,19 @@ namespace LamuFlix.Evaluation.RealLibrary;
 
 public static class PlotEmbeddingLiveClient
 {
-    public const string EmbeddingsPath = "/api/embed";
+    private const string EmbeddingsPath = "/api/embed";
 
     public const string NonLocalEndpointMessage =
         "Configured Ollama endpoint is not local; refusing remote embedding requests.";
 
     public static Uri EmbeddingsUri(string? endpoint)
     {
-        if (!PlotEmbeddingEndpointPolicy.IsLocalEndpoint(endpoint))
+        if (string.IsNullOrWhiteSpace(endpoint) || !PlotEmbeddingEndpointPolicy.IsLocalEndpoint(endpoint))
         {
             throw new InvalidOperationException(NonLocalEndpointMessage);
         }
 
-        return new Uri(new Uri(endpoint!), EmbeddingsPath);
+        return new Uri(new Uri(endpoint), EmbeddingsPath);
     }
 
     public static SocketsHttpHandler CreateHandler(string? endpoint)
