@@ -225,31 +225,41 @@ public static class NearestSeedScorer
 
         foreach (var seed in disliked)
         {
-            if (seed.Id == candidate.Id)
+            if (ScoreDislikedSeed(candidate, seed, options, genreWeights, keywordWeights) is not { } score)
             {
                 continue;
             }
 
-            var similarity = SimilarityScorer.Score(
-                candidate.Features,
-                seed.Features,
-                options,
-                genreWeights,
-                keywordWeights);
-
-            if (!double.IsFinite(similarity.Score))
+            if (!found || score > maximum)
             {
-                continue;
-            }
-
-            if (!found || similarity.Score > maximum)
-            {
-                maximum = similarity.Score;
+                maximum = score;
                 found = true;
             }
         }
 
         return found ? maximum * options.DislikedSeedWeight : 0.0;
+    }
+
+    private static double? ScoreDislikedSeed(
+        RecommendationLibraryEntry candidate,
+        RecommendationLibraryEntry seed,
+        RecommendationOptions options,
+        GenreWeights genreWeights,
+        IReadOnlyDictionary<string, double> keywordWeights)
+    {
+        if (seed.Id == candidate.Id)
+        {
+            return null;
+        }
+
+        var similarity = SimilarityScorer.Score(
+            candidate.Features,
+            seed.Features,
+            options,
+            genreWeights,
+            keywordWeights);
+
+        return double.IsFinite(similarity.Score) ? similarity.Score : null;
     }
 
     private static ImmutableList<PositiveSeed> PositiveSeeds(
