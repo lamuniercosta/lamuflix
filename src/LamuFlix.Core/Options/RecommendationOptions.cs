@@ -119,6 +119,24 @@ public sealed record RecommendationOptions : IValidatableObject
 
     private IEnumerable<ValidationResult> ValidateNearestSeed()
     {
+        foreach (var result in ValidateSeedWeights())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateRankMultipliers())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateRecencyFloor())
+        {
+            yield return result;
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateSeedWeights()
+    {
         foreach (var result in ValidateSeedWeight(SeedWeightLiked, nameof(SeedWeightLiked)))
         {
             yield return result;
@@ -135,16 +153,6 @@ public sealed record RecommendationOptions : IValidatableObject
         }
 
         foreach (var result in ValidateSeedWeight(DislikedSeedWeight, nameof(DislikedSeedWeight)))
-        {
-            yield return result;
-        }
-
-        foreach (var result in ValidateRankMultipliers())
-        {
-            yield return result;
-        }
-
-        foreach (var result in ValidateRecencyFloor())
         {
             yield return result;
         }
@@ -186,36 +194,41 @@ public sealed record RecommendationOptions : IValidatableObject
         var previous = double.PositiveInfinity;
         for (var index = 0; index < SeedRankMultipliers.Count; index++)
         {
-            var multiplier = SeedRankMultipliers[index];
-            if (!double.IsFinite(multiplier) || multiplier < 0.0)
+            if (RankMultiplierError(SeedRankMultipliers[index], index, previous) is { } failure)
             {
-                yield return new ValidationResult(
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        "{0}[{1}] must be finite and greater than or equal to 0.0; got {2}.",
-                        nameof(SeedRankMultipliers),
-                        index,
-                        multiplier),
-                    [nameof(SeedRankMultipliers)]);
+                yield return failure;
                 yield break;
             }
 
-            if (multiplier > previous)
-            {
-                yield return new ValidationResult(
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        "{0} must be non-increasing; entry {1} ({2}) exceeds the previous entry ({3}).",
-                        nameof(SeedRankMultipliers),
-                        index,
-                        multiplier,
-                        previous),
-                    [nameof(SeedRankMultipliers)]);
-                yield break;
-            }
-
-            previous = multiplier;
+            previous = SeedRankMultipliers[index];
         }
+    }
+
+    private static ValidationResult? RankMultiplierError(double multiplier, int index, double previous)
+    {
+        if (!double.IsFinite(multiplier) || multiplier < 0.0)
+        {
+            return new ValidationResult(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0}[{1}] must be finite and greater than or equal to 0.0; got {2}.",
+                    nameof(SeedRankMultipliers),
+                    index,
+                    multiplier),
+                [nameof(SeedRankMultipliers)]);
+        }
+
+        return multiplier > previous
+            ? new ValidationResult(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} must be non-increasing; entry {1} ({2}) exceeds the previous entry ({3}).",
+                    nameof(SeedRankMultipliers),
+                    index,
+                    multiplier,
+                    previous),
+                [nameof(SeedRankMultipliers)])
+            : null;
     }
 
     private IEnumerable<ValidationResult> ValidateRecencyFloor()
