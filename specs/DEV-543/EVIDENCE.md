@@ -252,10 +252,10 @@ Closing bar: all accepted in-scope findings including Low fixed and verified wit
 
 | Artifact | Path | Status |
 | --- | --- | --- |
-| Nearest-seed ADR | Proposed `docs/adr/0047-for-you-nearest-seeds.md` (Conductor claim; Keel draft preserved for delivery; historical ticket/grill named 0045; DEV-545 took 0045; not landed at Gate 1 alone) | _pending T017 delivery-diff check with T018/T019_ |
-| ADR 0034 supersession note | `docs/adr/0034-explicit-movie-reviews.md` | _pending T018_ |
-| CONTEXT Taste Profile rewrite | `CONTEXT.md` ~143–145 | _pending T019_ |
-| Reason table documented | docs + builder parity | _pending T019_ |
+| Nearest-seed ADR | Proposed `docs/adr/0047-for-you-nearest-seeds.md` (Conductor claim; Keel draft preserved for delivery; historical ticket/grill named 0045; DEV-545 took 0045; not landed at Gate 1 alone) | **verified T017** |
+| ADR 0034 supersession note | `docs/adr/0034-explicit-movie-reviews.md` | **verified T018** |
+| CONTEXT Taste Profile rewrite | `CONTEXT.md` ~143–145 | **verified T019** |
+| Reason table documented | docs + builder parity | **verified T019** |
 
 ## 8. Compose UI smoke (verification only; no `/web` edits)
 
@@ -273,3 +273,17 @@ Record outcomes for both spec smoke scenarios after T009/T012 on the same candid
 | SMOKE-002 | Related rail | No result shows a "Matches your" profile reason | **PASS** | 2026-11-21. `/movies/549` Related rail snapshot (`artifacts/dev543/smoke002-related-snapshot.txt`, unversioned) lists only structural reasons (`Same director`, `Same collection`, `Shared themes`, `Shares cast`, `Similar story`, `Same genres`); zero `Matches your` and zero `No shared features identified` matches. Screenshot `artifacts/dev543/smoke002-related.png`. |
 
 Verification only: no `/web` file was created or edited. Browser work used the local Playwright CLI session against `http://localhost:3000`.
+
+## 9. Remediation round 1 (review round 1 findings, HEAD a98608aa)
+
+Code changes on the acceptance build (this round, fix commit 1 of at most 2):
+
+- Compass-1 (High, warm For You latency): `NearestSeedScorer.Rank` now validates `RecommendationOptions` once per request via `SimilarityScorer.ThrowIfInvalid` and scores every positive/disliked pair through `SimilarityScorer.ScoreWithoutValidation`. The public `SimilarityScorer.Score` boundary still validates, so the DEV-518 invalid-options contract is unchanged; only the per-pair repeat validation (tens of thousands of full DataAnnotations `Validate()` calls per warm request at 447 candidates x ~200 seeds) is gone. Added `Rank_InvalidOptions_ThrowsBeforeScoring` to keep the boundary covered.
+- Ledger-F1 (Medium, shared static rank multipliers): `RecommendationOptions.SeedRankMultipliers` defaults are now built per instance from `const` values; no `static readonly` mutable state remains on this member. Added `SeedRankMultipliers_DefaultsArePerInstance`.
+- Scoring contract unchanged: same weights, multipliers, recency floor and disliked penalty inputs produce the same scores; only redundant validation was removed.
+
+Docs (this round, fix commit 2 of at most 2):
+
+- Compass-3 (Low): §7 checklist now marks T017–T019 verified (receipts in tasks.md T017/T018/T019). Historical run identities in §3–§5 are preserved; they belong to builds `e537cc56`/`a98608aa` and do not attest the post-fix acceptance build.
+- Compass-2 (Medium, frozen snapshot top-10): T020 rerun on the ticket's 2026-11-16 snapshot is still pending — the snapshot was unrecoverable in this lane (see §3a) and fixture recovery is routed through recon (Wisp). SC-001 stays open; no fixture or criterion was substituted.
+- T021 acceptance rerun (450 movies / 150 liked, pinned T002 protocol, individual timings, before/after leave-one-out comparison) is pending on the post-fix acceptance build with a credentialed environment. T022 gate receipts and T024 Compose smoke for both rails are likewise pending rerun on that build with fixture and build identity recorded.
