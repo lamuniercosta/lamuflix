@@ -108,16 +108,60 @@
 
 | Check | Expected | Result |
 | --- | --- | --- |
-| Top 10 distinct best seeds | ≥ 4 | _pending T020_ |
-| The Good, the Bad and the Ugly → A Fistful of Dollars | in top 10 | _pending T020_ |
-| Hercules → Aladdin | in top 10 | _pending T020_ |
-| Pirate Radio → About Time | in top 10 | _pending T020_ |
-| Prohibited For you reason templates absent | three superseded strings absent | _pending T020_ |
-| Leave-one-out hit rate after | not lower than before | _pending T021_ |
-| Leave-one-out MRR after | recorded | _pending T021_ |
-| Warm For you runtime after | < 500 ms (450 / 150 liked) | _pending T021_ |
+| Top 10 distinct best seeds | ≥ 4 | **PASS** — 6 distinct best seeds in the top 10 (T020 run, §3a) |
+| The Good, the Bad and the Ugly → A Fistful of Dollars | in top 10 | **FAIL (rank 14)** — pair and seed exist, outside top 10 (T020 run, §3a) |
+| Hercules → Aladdin | in top 10 | **PASS** — rank 4, best seed Aladdin (T020 run, §3a) |
+| Pirate Radio → About Time | in top 10 | **FAIL (rank 26)** — pair and seed exist, outside top 10 (T020 run, §3a) |
+| Prohibited For you reason templates absent | three superseded strings absent | **PASS** — none of the three superseded templates and no `Matches your` text in the 50-item response (T020 run, §3a) |
+| Leave-one-out hit rate after | not lower than before | **PASS on both cohorts** — liked HR@10 0 → 0.3636, watched HR@10 0.0357 → 0.2679 (same fixture, before `1bbc8a63` vs after `e537cc56`, §3b) |
+| Leave-one-out MRR after | recorded | **PASS (recorded)** — liked MRR 0 → 0.2576, watched MRR 0.0058 → 0.1726 (§3b) |
+| Warm For you runtime after | < 500 ms (450 / 150 liked) | **FAIL** — median 10931.6 ms, max 11699.6 ms; all ten timings above 500 ms. Same fixture before build `1bbc8a63` measured median 9327.6 ms (§3c) |
 
 Ticket reference: 155 of 422 qualifying candidates on 2026-11-16 — reference data, not a hard gate.
+
+### T020 snapshot acceptance probe (2026-11-21, candidate `e537cc56`)
+
+**Harness disclosure.** `scripts/run-recommendation-snapshot.ps1` (DEV-545, not a DEV-543 file) rejects the response shape now landed on main: it requires `GET /api/recommendations/for-you` to return a bare JSON array, while the handler returns `{"items":[…]}` (`scripts/run-recommendation-snapshot.ps1` line ~825 → `Read-ApiList`; error: `The for-you response … must be a JSON array`). The script was **not modified** (outside this ticket's boundary). The equivalent read-only probe below reads the same endpoint's `items` array (`take=30` for the top-10 checks and `take=50` for the eligibility/rank lookup) and evaluates the same acceptance questions. The Related half of the snapshot is covered by the Compose UI smoke in §8 (SMOKE-002).
+
+**Fixture.** Live home library dumped 2026-11-21T10:28Z and restored into a disposable local pgvector container: **447 movies, 11 liked, 56 watched (all 11 liked are also watched), 39 watchlist**. The 2026-11-16 review/watched state is no longer recoverable: every home backup on disk (`F:/Dev/lamuflix-home/backups`, latest 2026-11-15) has zero reviews and zero watched flags, and DEV-545 §9 recorded liked 4 / watched 27 on 2026-11-18. The numbers below are therefore the candidate's behaviour on the **current** home library, not on the ticket's frozen snapshot. No value was tuned or invented.
+
+| Check | Expected | Measured on the current home library | Outcome |
+| --- | --- | --- | --- |
+| Distinct best seeds in top 10 | ≥ 4 | **6** — liked Batman: The Dark Knight Returns Part 2 (×3), watched Batman Begins, liked Aladdin (×4), liked Back to the Future, watched Batman: Year One, liked Batman: The Dark Knight Returns Part 1 | PASS |
+| Hercules → Aladdin | in top 10 | rank **4**, first reason `Because you liked Aladdin` | PASS |
+| The Good, the Bad and the Ugly → A Fistful of Dollars | in top 10 | rank **14**, first reason `Because you watched A Fistful of Dollars` | FAIL (pair present, outside top 10) |
+| Pirate Radio → About Time | in top 10 | rank **26**, first reason `Because you liked About Time` | FAIL (pair present, outside top 10) |
+| Prohibited reason strings | absent | `Matches your viewing history`, `Matches your`, `interest`, `No shared features identified` all absent across the 50-item response | PASS |
+
+The two rank misses are consistent with library drift: the current library carries 11 liked and 56 watched seeds versus the 4 liked / 27 watched recorded on 2026-11-18, and the extra liked seeds (Batman/Aladdin/Back to the Future) crowd the top 10. Both required pairs are still produced with the expected best seed. Reported to the Conductor as failing acceptance evidence against SC-001; no ranking parameter was tuned.
+
+### T021 leave-one-out before/after (same fixture, same protocol)
+
+Fixture: the restored home library above. Before build `1bbc8a63` (`origin/main`, pre-DEV-543) in a detached worktree; after build `e537cc56`. Both runs used `LAMUFLIX_EVALUATION_MODE=leave-one-out` with `dotnet run --project tests/LamuFlix.Evaluation -- -class LamuFlix.Evaluation.Entry.RealLibraryEntryTests`, `ConnectionStrings__DefaultConnection` pointing at the disposable container, and `Ollama__Endpoint` at the home `all-minilm` provider. Both runs exited 0.
+
+| Cohort | Seeds | Before HR@1 / HR@3 / HR@10 | After HR@1 / HR@3 / HR@10 | Before MRR | After MRR |
+| --- | --- | --- | --- | --- | --- |
+| Liked | 11 | 0 / 0 / 0 | 0.1818 / 0.3636 / 0.3636 | 0 | 0.2576 |
+| Watched | 56 | 0 / 0 / 0.0357 | 0.1071 / 0.2679 / 0.2679 | 0.0058 | 0.1726 |
+
+Hit rate does not decline: it rises on both cohorts. Overlap disclosure: all 11 liked seeds are also watched in this library state. Absolute values are harness-relative (endpoint and request validator bypassed; full-eligible `take`), so only same-protocol deltas are comparable.
+
+| No-write check | Result |
+| --- | --- |
+| DB before-state (per-table counts for 15 tables + every movie review value) | captured before the after-run, 465 lines, SHA-256 `a102d7f17cb201596757a4c7e8f71c2340c97d65ed755f31e09b74289a744e90` (unversioned) |
+| DB after-state immediately after the after-run | byte-identical (`diff` clean) — counts plus every review value unchanged |
+| Artifacts | `artifacts/dev543/leave-one-out-before.json`, `leave-one-out-after.json` (unversioned, git-ignored) |
+
+### T021 warm For you runtime (447 movies / 150 liked)
+
+Fixture: a clone of the restored home library with the liked cohort raised to exactly **150** (139 additional likes on unwatched, unreviewed movies; 447 movies total, not 450 — the home library holds 447 and no rows were invented). Protocol: the pinned T002 protocol — 5 discarded primes, 10 measured sequential `GET /api/recommendations/for-you?take=30`, individual durations, median, maximum, pass only if all ten are under 500 ms. Both APIs were warmed containers against the same database; TMDb disabled.
+
+| Build | Individual timings (ms) | Median (ms) | Max (ms) | All ten < 500 ms |
+| --- | --- | --- | --- | --- |
+| Before `1bbc8a63` | 9345.2, 8717.8, 8623.2, 9302.4, 9881.8, 9339.5, 9315.7, 8858.8, 13025.3, 11682.9 | 9327.6 | 13025.3 | **FAIL** |
+| After `e537cc56` | 11588.5, 10225.0, 10776.1, 11259.8, 11699.6, 11466.1, 10672.6, 10351.6, 10493.4, 11087.1 | 10931.6 | 11699.6 | **FAIL** |
+
+**SC-007 speed criterion FAILS and is recorded as failing evidence**: warm For you is ~11 s, 22× the 500 ms bar, and the candidate is ~1.6 s slower in median than the pre-change build on the identical fixture. The T025 disclosure is confirmed: the reset cost is the per-pair `SimilarityScorer.Score` call over every candidate × positive seed (447 × ~200 pairs per request), which re-validates options per call. No query, cache, timeout or fixture was changed to move the number. Reported to the Conductor for T023 scoping.
 
 ### T025 early For you probe (Phase 3, in place of T020/T021 acceptance)
 
@@ -139,7 +183,7 @@ Ticket reference: 155 of 422 qualifying candidates on 2026-11-16 — reference d
 | No second profile-inputs read on cache miss | **PASS (T005)** — the handler no longer calls `IRecommendationProfileSource.GetProfileInputsAsync`; playback is carried on `TasteProfile.PlaybackByMovieId` produced by the single `GetTasteProfileAsync` read (asserted `DidNotReceive` in the handler tests and `HandleAsync_ProfileCancelsToken_ThrowsBeforeGenreWeights`) |
 | Cache not growing with library size × embedding size | **PASS (T005, serializer fix T006)** — `CachedProfile` shape unchanged (DEV-510); the added payload field is playback timestamps keyed by movie id, independent of embedding dimension. `CachedProfileSerializer` now registers a `MovieId` dictionary-key converter so `PlaybackByMovieId` round-trips; integration cache/freshness suites (`ReviewTasteProfileFreshnessTests`, `HybridCachedRecommendationProfileSource*`, feedback/playback invalidation) are green. |
 | Playback joined by seed movie ID | **PASS (T005)** — `GetTasteProfileAsync_RetainsPlaybackBySeedMovieId_SoOldAndFreshSeedsScaleDifferently` in `tests/LamuFlix.IntegrationTests/EfRecommendationProfileSourceTests.cs` (Testcontainers, real persistence path): old and fresh equal-feature seeds receive different effective weights (0.25 floor vs 1.0) and a no-playback positive stays unscaled |
-| `OpenApiContractTests` snapshot unchanged | _pending T022_ |
+| `OpenApiContractTests` snapshot unchanged | **PASS (T022)** — snapshot and derived files untouched in the diff; `OpenApiContractTests` green in the 1868-passed IntegrationTests run (§5) |
 | `dotnet test` UnitTests + IntegrationTests (Phase 2 scope) | `dotnet test tests/LamuFlix.UnitTests` — 4188 passed, 1 skipped, 0 failed. `dotnet test tests/LamuFlix.IntegrationTests --filter EfRecommendationProfileSourceTests` — 24 passed, 0 failed. Full T022 run still pending. |
 | `dotnet test` UnitTests (Phase 3 interim) | `dotnet test tests/LamuFlix.UnitTests` — **4208 passed, 1 skipped, 0 failed**. |
 | `dotnet test` IntegrationTests (Phase 3 interim) | `dotnet test tests/LamuFlix.IntegrationTests` — **1875 passed, 2 skipped, 0 failed**. Full T022 rerun on the delivery build still pending. |
@@ -183,16 +227,16 @@ Record Pass / Failure / SKIPPED (scope-empty) / SKIP (opt-out) / Could not run /
 
 | Gate | Outcome | Notes |
 | --- | --- | --- |
-| Build / `dotnet test` | _pending T022_ | |
-| Roslyn analyzers | _pending_ | |
-| Cyclomatic complexity | _pending_ | |
-| InspectCode | _pending_ | |
-| Property tests | _pending_ | |
-| Vulnerable packages | _pending_ | |
-| Format | _pending_ | |
-| Mutation | _pending_ | |
-| OpenAPI / contract | _pending_ | |
-| Web / e2e | _pending_ | expect SKIPPED if `/web` untouched |
+| Build / `dotnet test` | **Pass** | `dotnet build LamuFlix.sln` 0 errors. UnitTests 4073 passed / 1 skipped / 0 failed; IntegrationTests 1868 passed / 2 skipped / 0 failed; ArchitectureTests 16 passed; Evaluation 211 passed. All runs used `--blame-hang --blame-hang-timeout 10m`. |
+| Roslyn analyzers | **Pass** | `run-roslyn-analyzers.ps1` exit 0, no CA/IDE warnings. |
+| Cyclomatic complexity | **Pass** | `run-cyclomatic-complexity.ps1` exit 0, 0 methods over 15. |
+| InspectCode | **Pass** | `run-jetbrains-inspectcode.ps1` exit 0, no WARNING+ issues. |
+| Property tests | **Pass** | `run-property-tests.ps1` 147 UnitTests property tests passed; harness reports 150 tests across 5 projects. |
+| Vulnerable packages | **Pass** | `run-vulnerable-packages.ps1` PASS, no vulnerable packages (transitive included). |
+| Format | **Pass** | `dotnet format --verify-no-changes` exit 0 (workspace-load informational warnings only, no file changes). |
+| Mutation | **Pass** | `run-mutation.ps1` against `origin/main`: 561 tested mutants, 461 killed, 88 survived, 12 no-coverage, score **82.17%** vs threshold 80; no artifact-kill limit breach. |
+| OpenAPI / contract | **Pass** | `OpenApiContractTests` green, snapshot unchanged (see §4). |
+| Web / e2e | **N/A (scope-empty) for source; PASS for smoke** | No `/web` source file changed by this ticket. The Compose UI smoke in §8 was executed read-only and both scenarios passed. |
 
 ## 6. Size L review dispositions
 
@@ -219,11 +263,13 @@ Record outcomes for both spec smoke scenarios after T009/T012 on the same candid
 
 | Slot | Value |
 | --- | --- |
-| Build identity (`git rev-parse HEAD` / compose service or image id) | _pending T024_ |
-| Fixture | _pending T024_ |
-| Both rail changes present on this identity (For you seed reasons + Related profile-reason removal) | _pending T024_ |
+| Build identity (`git rev-parse HEAD` / compose service or image id) | `git rev-parse HEAD` = `e537cc56b7eabcd293035e52675ee1dde7047a5c` (`feature/DEV-543`). Shipped Compose stack `docker-compose.yml`, project `dev543smoke`, images built from that HEAD: api `dev543smoke-api:latest` ID `44c91e48d9c2`, web `dev543smoke-web:latest` ID `e7486b84b2c4` (container images `sha256:44c91e48…`, `sha256:e7486b84…`). UI served through the shipped nginx at `http://localhost:3000`. |
+| Fixture | Live home library dump taken 2026-11-21T10:28Z with `kubectl exec postgres-0 -- pg_dump` (no credential read, echoed or committed), restored into the stack Postgres: **447 movies, 11 liked, 56 watched, 39 watchlist**. The user library changed after 2026-11-16, so this is the current home library, not the ticket's 2026-11-16 snapshot (see §3a). Local API settings: `Features:LocalPlay` false, TMDb disabled, Ollama at the home `all-minilm` endpoint for startup verification. |
+| Both rail changes present on this identity (For you seed reasons + Related profile-reason removal) | **PASS** — the same For you cards carry seed-first `Because you liked/watched …` lines while the Related rail on the same build carries structural reasons only, no profile reason. |
 
 | Scenario | Surface | Expected | Outcome | Notes / date |
 | --- | --- | --- | --- | --- |
-| SMOKE-001 | Home For you rail | Seed-first reason lines naming liked/watched/watchlist title; three superseded generic templates absent | _pending T024_ | |
-| SMOKE-002 | Related rail | No result shows a "Matches your" profile reason | _pending T024_ | |
+| SMOKE-001 | Home For you rail | Seed-first reason lines naming liked/watched/watchlist title; three superseded generic templates absent | **PASS** | 2026-11-21. `/for-you` rail snapshot (`artifacts/dev543/smoke001-for-you-snapshot.txt`, unversioned) shows every card's first reason naming a seed title, e.g. `Because you liked Batman - The Dark Knight Returns - Part 2`, `Because you watched Batman Begins`, followed by structural reasons. Zero matches for `Matches your viewing history`, `Matches your … interest` or `No shared features identified`. |
+| SMOKE-002 | Related rail | No result shows a "Matches your" profile reason | **PASS** | 2026-11-21. `/movies/549` Related rail snapshot (`artifacts/dev543/smoke002-related-snapshot.txt`, unversioned) lists only structural reasons (`Same director`, `Same collection`, `Shared themes`, `Shares cast`, `Similar story`, `Same genres`); zero `Matches your` and zero `No shared features identified` matches. Screenshot `artifacts/dev543/smoke002-related.png`. |
+
+Verification only: no `/web` file was created or edited. Browser work used the local Playwright CLI session against `http://localhost:3000`.
