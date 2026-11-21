@@ -6,7 +6,6 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 

@@ -71,7 +71,7 @@ public sealed class GenreWeights
         return SimilarityPrepared(Prepare(first), Prepare(second));
     }
 
-    internal static HashSet<string> Prepare(IEnumerable<string> values) => Names(values);
+    private static HashSet<string> Prepare(IEnumerable<string> values) => Names(values);
 
     internal static string[] PrepareSorted(IEnumerable<string> values)
     {
