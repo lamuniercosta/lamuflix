@@ -9,9 +9,38 @@ namespace LamuFlix.Core.Features.Recommendations;
 public static class RecommendationReasonBuilder
 {
     private const string LikedReviewTemplate = "Because you liked {0}";
+    private const string WatchedSeedTemplate = "Because you watched {0}";
+    private const string WatchlistSeedTemplate = "Because {0} is on your watchlist";
     private const string NoSharedFeaturesReason = "No shared features identified";
     private const string ViewingHistoryReason = "Matches your viewing history";
     private const string GenreInterestTemplate = "Matches your {0} interest";
+
+    public static ImmutableList<Reason> BuildSeedReasons(
+        SeedSignal signal,
+        string? title,
+        ImmutableList<Reason> evidence)
+    {
+        ArgumentNullException.ThrowIfNull(evidence);
+
+        var builder = ImmutableList.CreateBuilder<Reason>();
+        var display = Sanitize(title);
+
+        if (display.Length > 0)
+        {
+            builder.Add(Reason.Personal(SeedTemplate(signal, display)));
+        }
+
+        builder.AddRange(evidence);
+        return builder.ToImmutable();
+    }
+
+    private static string SeedTemplate(SeedSignal signal, string display) =>
+        signal switch
+        {
+            SeedSignal.Liked => string.Format(CultureInfo.InvariantCulture, LikedReviewTemplate, display),
+            SeedSignal.WatchedWithoutReview => string.Format(CultureInfo.InvariantCulture, WatchedSeedTemplate, display),
+            _ => string.Format(CultureInfo.InvariantCulture, WatchlistSeedTemplate, display),
+        };
 
     public static void AddProfileReasons(
         ImmutableList<Reason>.Builder builder,

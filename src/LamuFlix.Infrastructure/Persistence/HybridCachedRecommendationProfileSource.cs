@@ -1,7 +1,9 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -154,7 +156,14 @@ internal sealed record CachedProfile(TasteProfile Profile, long Generation, Date
 
 internal sealed class CachedProfileSerializer : IHybridCacheSerializer<CachedProfile>
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
+
+    private static JsonSerializerOptions CreateSerializerOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.Converters.Add(new MovieIdDictionaryKeyConverter());
+        return options;
+    }
 
     private int serializeCount;
     private int deserializeCount;
@@ -187,5 +196,49 @@ internal sealed class CachedProfileSerializer : IHybridCacheSerializer<CachedPro
         Volatile.Write(ref lastSerializedBytes, bytes.Length);
 
         target.Write(bytes);
+    }
+
+    private sealed class MovieIdDictionaryKeyConverter : JsonConverter<MovieId>
+    {
+        public override MovieId Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.StartObject)
+            {
+                using var document = JsonDocument.ParseValue(ref reader);
+                foreach (var property in document.RootElement.EnumerateObject())
+                {
+                    return new MovieId(property.Value.GetInt32());
+                }
+
+                throw new JsonException("The cached taste profile contains an empty movie id object.");
+            }
+
+            return reader.TokenType == JsonTokenType.String
+                ? Parse(reader.GetString())
+                : new MovieId(reader.GetInt32());
+        }
+
+        public override void Write(Utf8JsonWriter writer, MovieId value, JsonSerializerOptions options) =>
+            writer.WriteNumberValue(value.Value);
+
+        public override MovieId ReadAsPropertyName(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options) =>
+            Parse(reader.GetString());
+
+        public override void WriteAsPropertyName(
+            Utf8JsonWriter writer,
+            MovieId value,
+            JsonSerializerOptions options) =>
+            writer.WritePropertyName(value.Value.ToString(CultureInfo.InvariantCulture));
+
+        private static MovieId Parse(string? value) =>
+            int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+                ? new MovieId(parsed)
+                : throw new JsonException($"The cached taste profile contains an invalid movie id '{value}'.");
     }
 }
