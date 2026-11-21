@@ -63,6 +63,29 @@ public static class SimilarityScorer
             Create("Genre", weights.Genres, genreWeights.Similarity(a.Genres, b.Genres), SharedNames(a.Genres, b.Genres)),
         };
 
+        return BuildResult(terms, denominator, options);
+    }
+
+    internal static SimilarityResult ScorePreparedFull(PreparedMovie a, PreparedMovie b, ScoringContext context)
+    {
+        var options = context.Options;
+        var weights = options.Weights;
+        var fast = ScorePreparedValues(a, b, context);
+        var terms = new[]
+        {
+            Create("Collection", weights.Collection, fast.Collection, CollectionEvidence(a.CollectionId, a.CollectionName, b.CollectionId, b.CollectionName)),
+            Create("Director", weights.Director, fast.Director, SharedEvidence(a.Directors, b.Directors)),
+            Create("Themes", weights.Themes, fast.Themes, ThemesEvidence(a, b, context)),
+            Create("Plot", weights.Plot, fast.Plot, Array.Empty<string>()),
+            Create("Cast", weights.Cast, fast.Cast, SharedEvidence(a.Cast, b.Cast)),
+            Create("Genre", weights.Genres, fast.Genre, SharedEvidence(a.CleanedGenres, b.CleanedGenres)),
+        };
+
+        return BuildResult(terms, context.Denominator, options);
+    }
+
+    private static SimilarityResult BuildResult(ScoringTerm[] terms, double denominator, RecommendationOptions options)
+    {
         var breakdown = terms.Select(term => new CriterionContribution(
             term.Name,
             term.Value,
@@ -76,11 +99,50 @@ public static class SimilarityScorer
         return new SimilarityResult(breakdown.Sum(entry => entry.Contribution), reasons) { Breakdown = breakdown };
     }
 
+    private static IReadOnlyList<string> CollectionEvidence(int? leftId, string? leftName, int? rightId, string? rightName)
+    {
+        if (CollectionValue(leftId, rightId) == 0.0)
+        {
+            return Array.Empty<string>();
+        }
+
+        var name = string.IsNullOrWhiteSpace(leftName) ? rightName : leftName;
+        return string.IsNullOrWhiteSpace(name) ? Array.Empty<string>() : [name.Trim()];
+    }
+
+    private static string[] SharedEvidence(HashSet<string> left, HashSet<string> right) =>
+        [.. left.Where(right.Contains)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(name => name, StringComparer.Ordinal)];
+
+    private static string[] ThemesEvidence(PreparedMovie a, PreparedMovie b, ScoringContext context)
+    {
+        var shared = new List<string>();
+        foreach (var name in a.CleanedKeywords)
+        {
+            if (b.CleanedKeywords.Contains(name)
+                && context.KeywordWeights.ContainsKey(name))
+            {
+                shared.Add(context.CanonicalKeywords[name]);
+            }
+        }
+
+        return [.. shared.OrderByDescending(name => context.KeywordWeights[name])
+            .ThenBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(name => name, StringComparer.Ordinal)
+            .Take(3)];
+    }
+
     private static ScoringTerm Create(string name, double weight, double value, IReadOnlyList<string> evidence) =>
         new(name, weight, Math.Clamp(value, 0.0, 1.0), evidence);
 
     private static double CollectionValue(MovieFeatures a, MovieFeatures b) =>
-        a.CollectionId is not null && b.CollectionId is not null && a.CollectionId == b.CollectionId ? 1.0 : 0.0;
+        CollectionValue(a.CollectionId, b.CollectionId);
+
+    private static double CollectionValue(int? left, int? right) =>
+        left is not null && right is not null && left == right ? 1.0 : 0.0;
+
+    internal static HashSet<string> CleanNamesForRequest(IEnumerable<string> names) => CleanNames(names);
 
     private static IReadOnlyList<string> CollectionEvidence(MovieFeatures a, MovieFeatures b)
     {
@@ -307,4 +369,267 @@ public static class SimilarityScorer
 
     private readonly record struct ScoringTerm(string Name, double Weight, double Value, IReadOnlyList<string> Evidence);
 
+    internal static FastSimilarity ScorePreparedValues(PreparedMovie a, PreparedMovie b, ScoringContext context)
+    {
+        var weights = context.Options.Weights;
+        var collection = CollectionValue(a.CollectionId, b.CollectionId);
+        var director = SharedCount(a.Directors, b.Directors) > 0 ? 1.0 : 0.0;
+        var themes = ThemesPreparedValue(a, b, context);
+        var plot = PlotPreparedValue(a, b, context);
+        var cast = Math.Min(1.0, SharedCount(a.Cast, b.Cast) / 2.0);
+        var genre = context.GenreWeights.SimilaritySorted(
+            a.GenresSorted,
+            a.GenreWeightValues,
+            b.GenresSorted,
+            b.GenreWeightValues);
+
+        var denominator = context.Denominator;
+        var score = weights.Collection * collection / denominator
+            + weights.Director * director / denominator
+            + weights.Themes * themes / denominator
+            + weights.Plot * plot / denominator
+            + weights.Cast * cast / denominator
+            + weights.Genres * genre / denominator;
+
+        return new FastSimilarity(collection, director, themes, plot, cast, genre, score);
+    }
+
+    internal static bool IsStrongPrepared(FastSimilarity similarity, ScoringContext context, IReadOnlySet<string> criteria)
+    {
+        if (similarity.Score >= context.Options.MinimumSimilarity)
+        {
+            return true;
+        }
+
+        var weights = context.Options.Weights;
+        return IsStrongTerm("Collection", similarity.Collection, weights.Collection, criteria)
+            || IsStrongTerm("Director", similarity.Director, weights.Director, criteria)
+            || IsStrongTerm("Themes", similarity.Themes, weights.Themes, criteria)
+            || IsStrongTerm("Plot", similarity.Plot, weights.Plot, criteria)
+            || IsStrongTerm("Cast", similarity.Cast, weights.Cast, criteria)
+            || IsStrongTerm("Genre", similarity.Genre, weights.Genres, criteria);
+    }
+
+    private static bool IsStrongTerm(string name, double value, double weight, IReadOnlySet<string> criteria) =>
+        weight > 0.0 && value >= 1.0 && criteria.Contains(name);
+
+    private static int SharedCount(HashSet<string> left, HashSet<string> right)
+    {
+        var (smaller, larger) = left.Count <= right.Count ? (left, right) : (right, left);
+        var count = 0;
+        foreach (var name in smaller)
+        {
+            if (larger.Contains(name))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static double ThemesPreparedValue(PreparedMovie a, PreparedMovie b, ScoringContext context)
+    {
+        if (context.KeywordWeights.Count == 0)
+        {
+            return 0.0;
+        }
+
+        if (a.KeywordNormSquares <= 0.0 || b.KeywordNormSquares <= 0.0)
+        {
+            return 0.0;
+        }
+
+        var numerator = 0.0;
+        for (var index = 0; index < a.KeywordNames.Length; index++)
+        {
+            if (b.Keywords.Contains(a.KeywordNames[index]))
+            {
+                numerator += a.KeywordSquares[index];
+            }
+        }
+
+        return Math.Min(1.0, numerator / (Math.Sqrt(a.KeywordNormSquares) * Math.Sqrt(b.KeywordNormSquares)) / context.Options.ThemesCeiling);
+    }
+
+    private static double PlotPreparedValue(PreparedMovie a, PreparedMovie b, ScoringContext context)
+    {
+        if (a.PlotEmbedding.IsDefaultOrEmpty
+            || b.PlotEmbedding.IsDefaultOrEmpty
+            || a.PlotEmbedding.Length != b.PlotEmbedding.Length
+            || a.PlotHasNonFinite
+            || b.PlotHasNonFinite)
+        {
+            return 0.0;
+        }
+
+        if (a.PlotNormSquares == 0.0 || b.PlotNormSquares == 0.0)
+        {
+            return 0.0;
+        }
+
+        var dot = 0.0;
+        for (var index = 0; index < a.PlotEmbedding.Length; index++)
+        {
+            dot += a.PlotEmbedding[index] * b.PlotEmbedding[index];
+        }
+
+        var cosine = Math.Clamp(dot / (Math.Sqrt(a.PlotNormSquares) * Math.Sqrt(b.PlotNormSquares)), -1.0, 1.0);
+        return Math.Clamp((cosine - context.Options.PlotFloor) / (context.Options.PlotCeiling - context.Options.PlotFloor), 0.0, 1.0);
+    }
 }
+
+internal sealed class ScoringContext
+{
+    public ScoringContext(
+        RecommendationOptions options,
+        GenreWeights genreWeights,
+        IReadOnlyDictionary<string, double> keywordWeights)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(genreWeights);
+        ArgumentNullException.ThrowIfNull(keywordWeights);
+
+        Options = options;
+        GenreWeights = genreWeights;
+        KeywordWeights = keywordWeights;
+        var weights = options.Weights;
+        Denominator = weights.Collection + weights.Director + weights.Themes + weights.Plot + weights.Cast + weights.Genres;
+
+        var canonical = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in keywordWeights.Keys)
+        {
+            if (!canonical.ContainsKey(key))
+            {
+                canonical[key] = key;
+            }
+        }
+
+        CanonicalKeywords = canonical;
+    }
+
+    public RecommendationOptions Options { get; }
+
+    public GenreWeights GenreWeights { get; }
+
+    public IReadOnlyDictionary<string, double> KeywordWeights { get; }
+
+    public double Denominator { get; }
+
+    public IReadOnlyDictionary<string, string> CanonicalKeywords { get; }
+}
+
+internal sealed class PreparedMovie
+{
+    public PreparedMovie(MovieFeatures features, ScoringContext context)
+    {
+        ArgumentNullException.ThrowIfNull(features);
+        ArgumentNullException.ThrowIfNull(context);
+
+        CollectionId = features.CollectionId;
+        CollectionName = features.CollectionName;
+        CleanedGenres = SimilarityScorer.CleanNamesForRequest(features.Genres);
+        Directors = SimilarityScorer.CleanNamesForRequest(features.Directors);
+        Cast = SimilarityScorer.CleanNamesForRequest(features.Cast);
+        GenresSorted = GenreWeights.PrepareSorted(features.Genres);
+        GenreWeightValues = WeighGenres(GenresSorted, context.GenreWeights);
+        CleanedKeywords = SimilarityScorer.CleanNamesForRequest(features.KeywordNames);
+        Keywords = FilterKeywords(CleanedKeywords, context.KeywordWeights);
+        KeywordNames = new string[Keywords.Count];
+        Keywords.CopyTo(KeywordNames);
+        KeywordSquares = new double[KeywordNames.Length];
+        for (var index = 0; index < KeywordNames.Length; index++)
+        {
+            KeywordSquares[index] = Math.Pow(context.KeywordWeights[KeywordNames[index]], 2);
+        }
+
+        PlotEmbedding = features.PlotEmbedding;
+        PlotNormSquares = PlotNormSquaresOf(features.PlotEmbedding, out var nonFinite);
+        PlotHasNonFinite = nonFinite;
+        KeywordNormSquares = KeywordSquares.Sum();
+    }
+
+    public int? CollectionId { get; }
+
+    public string? CollectionName { get; }
+
+    public HashSet<string> CleanedGenres { get; }
+
+    public HashSet<string> Directors { get; }
+
+    public HashSet<string> Cast { get; }
+
+    public string[] GenresSorted { get; }
+
+    public double[] GenreWeightValues { get; }
+
+    public HashSet<string> CleanedKeywords { get; }
+
+    public HashSet<string> Keywords { get; }
+
+    public string[] KeywordNames { get; }
+
+    public double[] KeywordSquares { get; }
+
+    public ImmutableArray<float> PlotEmbedding { get; }
+
+    public double PlotNormSquares { get; }
+
+    public bool PlotHasNonFinite { get; }
+
+    public double KeywordNormSquares { get; }
+
+    private static double[] WeighGenres(string[] sorted, GenreWeights genreWeights)
+    {
+        var weights = new double[sorted.Length];
+        for (var index = 0; index < sorted.Length; index++)
+        {
+            weights[index] = genreWeights.GetWeight(sorted[index]);
+        }
+
+        return weights;
+    }
+
+    private static HashSet<string> FilterKeywords(
+        HashSet<string> cleaned,
+        IReadOnlyDictionary<string, double> keywordWeights)
+    {
+        var filtered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in cleaned)
+        {
+            if (keywordWeights.ContainsKey(name))
+            {
+                filtered.Add(name);
+            }
+        }
+
+        return filtered;
+    }
+
+    private static double PlotNormSquaresOf(ImmutableArray<float> embedding, out bool nonFinite)
+    {
+        nonFinite = false;
+        var norm = 0.0;
+        for (var index = 0; index < embedding.Length; index++)
+        {
+            var value = embedding[index];
+            if (!float.IsFinite(value))
+            {
+                nonFinite = true;
+            }
+
+            norm += value * value;
+        }
+
+        return norm;
+    }
+}
+
+internal readonly record struct FastSimilarity(
+    double Collection,
+    double Director,
+    double Themes,
+    double Plot,
+    double Cast,
+    double Genre,
+    double Score);

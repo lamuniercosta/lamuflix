@@ -68,8 +68,99 @@ public sealed class GenreWeights
         ArgumentNullException.ThrowIfNull(first);
         ArgumentNullException.ThrowIfNull(second);
 
-        var left = Names(first);
-        var right = Names(second);
+        return SimilarityPrepared(Prepare(first), Prepare(second));
+    }
+
+    internal static HashSet<string> Prepare(IEnumerable<string> values) => Names(values);
+
+    internal static string[] PrepareSorted(IEnumerable<string> values)
+    {
+        var prepared = Names(values);
+        var sorted = new string[prepared.Count];
+        prepared.CopyTo(sorted);
+        Array.Sort(sorted, StringComparer.Ordinal);
+        return sorted;
+    }
+
+    internal double SimilaritySorted(string[] left, double[] leftWeights, string[] right, double[] rightWeights)
+    {
+        Span<bool> rightMissing = stackalloc bool[right.Length];
+        for (var index = 0; index < right.Length; index++)
+        {
+            rightMissing[index] = !ContainsGenre(left, right[index]);
+        }
+
+        var weights = new GenreMergeWeights(0.0, 0.0);
+        var leftIndex = 0;
+        var rightIndex = 0;
+
+        while (leftIndex < left.Length && rightIndex < right.Length)
+        {
+            if (!rightMissing[rightIndex])
+            {
+                rightIndex++;
+            }
+            else if (string.CompareOrdinal(left[leftIndex], right[rightIndex]) <= 0)
+            {
+                weights = AddLeftMember(weights, leftWeights[leftIndex], left[leftIndex], right);
+                leftIndex++;
+            }
+            else
+            {
+                weights = AddRightMember(weights, rightWeights[rightIndex]);
+                rightIndex++;
+            }
+        }
+
+        while (leftIndex < left.Length)
+        {
+            weights = AddLeftMember(weights, leftWeights[leftIndex], left[leftIndex], right);
+            leftIndex++;
+        }
+
+        while (rightIndex < right.Length)
+        {
+            if (rightMissing[rightIndex])
+            {
+                weights = AddRightMember(weights, rightWeights[rightIndex]);
+            }
+
+            rightIndex++;
+        }
+
+        if (weights.Union == 0.0)
+        {
+            return 0.0;
+        }
+
+        return Math.Clamp(weights.Intersection / weights.Union, 0.0, 1.0);
+    }
+
+    private static GenreMergeWeights AddLeftMember(GenreMergeWeights weights, double weight, string genre, string[] right) =>
+        new(
+            weights.Union + weight,
+            weights.Intersection + (ContainsGenre(right, genre) ? weight : 0.0));
+
+    private static GenreMergeWeights AddRightMember(GenreMergeWeights weights, double weight) =>
+        new(weights.Union + weight, weights.Intersection);
+
+    private static bool ContainsGenre(string[] values, string value)
+    {
+        for (var index = 0; index < values.Length; index++)
+        {
+            if (values[index].Equals(value, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private readonly record struct GenreMergeWeights(double Union, double Intersection);
+
+    internal double SimilarityPrepared(HashSet<string> left, HashSet<string> right)
+    {
         var union = new HashSet<string>(left, StringComparer.OrdinalIgnoreCase);
         union.UnionWith(right);
 
