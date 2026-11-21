@@ -371,6 +371,53 @@ public sealed class PlotEmbeddingExperimentTests
     }
 
     [Fact]
+    public void LiveClient_LocalEndpoint_BuildsEmbedUri()
+    {
+        // act
+        var uri = PlotEmbeddingLiveClient.EmbeddingsUri(LocalEndpoint());
+
+        // assert
+        uri.ShouldBe(new Uri("http://localhost:11434/api/embed"));
+    }
+
+    [Theory]
+    [InlineData("http://ollama.example.com:11434/")]
+    [InlineData("http://192.168.1.20:11434/")]
+    [InlineData("not-a-uri")]
+    [InlineData(null)]
+    public void LiveClient_NonLocalEndpoint_RefusesEmbeddingsUri(string? endpoint)
+    {
+        // act
+        Action action = () => PlotEmbeddingLiveClient.EmbeddingsUri(endpoint);
+
+        // assert
+        action.ShouldThrow<InvalidOperationException>()
+            .Message.ShouldBe(PlotEmbeddingLiveClient.NonLocalEndpointMessage);
+    }
+
+    [Fact]
+    public void LiveClient_Handler_DisallowsAutoRedirect()
+    {
+        // act
+        using var handler = PlotEmbeddingLiveClient.CreateHandler(LocalEndpoint());
+
+        // assert
+        handler.AllowAutoRedirect.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void LiveClient_NonLocalEndpoint_RefusesHandlerAndClient()
+    {
+        // act
+        Action handler = () => PlotEmbeddingLiveClient.CreateHandler("http://ollama.example.com:11434/");
+        Action client = () => PlotEmbeddingLiveClient.CreateClient("http://ollama.example.com:11434/");
+
+        // assert
+        handler.ShouldThrow<InvalidOperationException>();
+        client.ShouldThrow<InvalidOperationException>();
+    }
+
+    [Fact]
     public void Experiment_PinsVariantModelNamesKeywordCapAndTokenLimit()
     {
         // assert

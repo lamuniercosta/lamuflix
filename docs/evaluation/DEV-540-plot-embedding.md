@@ -1,6 +1,6 @@
 # DEV-540 — Plot embedding evaluation
 
-- Branch `feature/DEV-540`, base `1bbc8a63` (merge base with `main`), evaluated revision `ebf5488f`, evaluated 2026-11-21.
+- Branch `feature/DEV-540`, base `1bbc8a63` (merge base with `main`), evaluated revision `989b29b0`, evaluated 2026-11-21.
 - Harness: DEV-545 leave-one-out (`LeaveOneOutRunner`) and snapshot/quality
   (`QualityReportRunner`) harness with the DEV-543 nearest-seed For You
   ranking path (`GetForYouRecommendationsQueryHandler` via
@@ -33,10 +33,20 @@
   fetched 2026-11-21). Served output dimensions on the host are unverified:
   the model is not pulled here (see preflight).
 - Token counting against each model's tokenizer and the proposed 256-token
-  `all-minilm` limit check are unmeasured: both need the live models.
-  The offline bound check (`PlotEmbeddingTokenBudget.IsWithinLimit`, tested at
-  0, 256, 257) pins the limit semantics so the measured run only has to supply
-  the two tokenizer counts; truncation behavior stays unrecorded until then.
+  `all-minilm` limit check are unmeasured: both need the live models, so both
+  counts are recorded as Could not run (missing prerequisites: neither
+  `all-minilm` nor `nomic-embed-text:v1.5` is served at the configured
+  endpoint on this host).
+- Truncation handling is unverified for the same reason. The enriched (b)
+  input is strictly longer than the plot-only (a)/(c) input (title, genres,
+  and up to 3 keywords prepended), so any server-side truncation would cut
+  into (b) first, potentially removing plot tail tokens that (a) keeps and
+  skewing the comparison in (a)'s favor. Which end truncates, and at what
+  length, is unrecorded until the measured run. The offline bound check
+  (`PlotEmbeddingTokenBudget.IsWithinLimit`, tested at 0, 256, 257) pins the
+  limit semantics only; the measured run must record per-variant token counts
+  from each model's own tokenizer, whether truncation occurred, and the
+  256-token re-check before any (b) recommendation can stand.
 
 ## Measured runs
 
@@ -65,7 +75,8 @@ live prerequisites missing on this host:
   configured endpoint.
 - Could not run: scratch evaluation store identity is unverified
   (`ConnectionStrings__DefaultConnection` absent, so no scratch lane marker;
-  presence-only check).
+  identity is checked before reachability, and a marked server store is
+  TCP-probed while an explicit `:memory:` lane is reachable by selection).
 
 The preflight refuses readiness before any probe unless the endpoint is local
 (`localhost`, `127.0.0.1`, `::1`; redirects are not followed) and the
@@ -76,17 +87,24 @@ yields its own Could not run line and no readiness signal.
 No embedding request left this host: the preflight only probed the local
 endpoint, which refused the connection. No (b)/(c) embeddings were stored
 anywhere, and production `movie_features` data and schema are untouched
-(no live database access occurred).
+(no live database access occurred). Any future live embedding request must
+go through `PlotEmbeddingLiveClient`, which refuses non-loopback endpoints
+before creating a client and disables HTTP redirects (`AllowAutoRedirect =
+false`) so a redirect cannot route the request off-host; the `/api/embed`
+path matches the production `OllamaApiClient.EmbedAsync` call.
 
 ## Deterministic results (offline)
 
-- `PlotEmbeddingExperimentTests`: 33/33 passed. Covers (a)/(c) plot-only
-  equivalence, (b) section order (title, genres, keywords, plot), the
-  3-keyword cap, rarity ordering, ordinal tie-break, stoplist and two-movie
-  minimum exclusions via the real `PrepareKeywordWeights`, empty-metadata
-  handling, preflight available/missing paths, non-local endpoint refusal
-  without probing, scratch lane-marker refusal without store probing,
-  endpoint locality, scratch marker, and 256-token limit-bound checks.
+- `PlotEmbeddingExperimentTests`: 40/40 passed at the evaluated revision.
+  Covers (a)/(c) plot-only equivalence, (b) section order (title, genres,
+  keywords, plot), the 3-keyword cap, rarity ordering, ordinal tie-break,
+  stoplist and two-movie minimum exclusions via the real
+  `PrepareKeywordWeights`, empty-metadata handling, preflight
+  available/missing paths, non-local endpoint refusal without probing,
+  scratch lane-marker refusal without store probing, endpoint locality,
+  scratch marker, the live embedding client (loopback-only `/api/embed`
+  URI, no-redirect handler, non-local refusal), and 256-token
+  limit-bound checks.
 - Live preflight script executes exit 0 and records the Could not run report
   above.
 
@@ -112,7 +130,7 @@ plan before merging.
 
 ## Change verification
 
-- `git diff` touches only `tests/LamuFlix.Evaluation/RealLibrary/` (4 files),
+- `git diff` touches only `tests/LamuFlix.Evaluation/RealLibrary/` (5 files),
   `scripts/run-plot-embedding-preflight.ps1`, and this note. No changes
   under `src/`, no migration added, no public API shape change.
 - The run leaves production `movie_features` data and schema intact and uses
