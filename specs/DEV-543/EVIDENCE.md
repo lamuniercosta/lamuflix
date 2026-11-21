@@ -1,21 +1,27 @@
 # DEV-543 evidence slots (Phase B)
 
 **Status**: Slots only — no invented measurements, seed IDs beyond ticket-named titles, or gate PASS claims from planning.
-**Worktree (draft)**: `F:/Dev/LamuFlix.worktrees/feature-543-spec`
+**Worktree**: `F:/Dev/LamuFlix.worktrees/DEV-543`
 **Rules**: Never commit credentials, connection strings, tokens, or live secret values. Presence-only checks for any environment credentials. Scrub disposable artifacts.
 
 ## 0. Prerequisites and identity
 
 | Slot | Command / note | Result |
 | --- | --- | --- |
-| DEV-518 merged | `git merge-base --is-ancestor feature/DEV-518 origin/main`; `git log --all --oneline --grep=DEV-518` | **NOT MERGED** — branch `feature/DEV-518` at `b00b9af5`; only spec commit `25f2bd98` is in main |
-| DEV-544 merged (library feature load + strong-match options) | same ancestry check; `git branch -a`; `git log --grep=DEV-544` | **NOT MERGED** — only spec commit `c589ff8c` is in main; no `feature/DEV-544` branch and no implementation commit |
-| DEV-510 merged (cache shape) | same ancestry check; `git log --grep=DEV-510` | **MERGED** — `5fa68c83` (final gate receipts) is an ancestor of `origin/main` `34c10f3e` |
-| DEV-545 harness available | path / mode notes | Present: `scripts/run-evaluation.ps1`, `scripts/run-recommendation-snapshot.ps1`; `harness.yml` `harnessVersion: 0.7.1` |
-| Pickup HEAD | `git rev-parse HEAD` | `637d7ca7dc824bc19c9b363fe8f3fc8e4e432d4c` |
-| `origin/main` SHA at pickup | `git rev-parse origin/main` | `34c10f3e312176a67d2aa140f11ecd838adc7783` |
+| Gate 1 | CONCLUSIONS.md, verified spec PR merge receipt | T000 complete. PR #450 landed at `18e012145a9a8b2f1a3c00b1437611870b5a2433`. |
+| Worktree / branch | Pickup identity | `F:/Dev/LamuFlix.worktrees/DEV-543` / `feature/DEV-543` |
+| Pickup HEAD | `git log -1` | `345d3974657d577d60d5caaeac477197dd6d9c2f` |
+| Landed main | `git rev-parse main origin/main`; `git merge-base HEAD origin/main` | Both refs and the merge base resolve to `1bbc8a637b97ec2efdf0eaa6f2be6da8abbbc089`. |
+| DEV-518 implementation | Wisp, recon-DEV-543:51–52, 65 | **MERGED**. `2f1647b2` is an ancestor of pickup main. `SimilarityScorer` is present. Missing-feature semantics still need a pinned source reference for T001. |
+| DEV-544 implementation | Wisp, recon-DEV-543:51–52, 58, 66–67; landed DEV-544 CONCLUSIONS Q3/Q5 | **MERGED**. `7d31c4b1` is an ancestor. Wisp identifies `IRecommendationCandidateSource.GetLibraryFeaturesAsync(CancellationToken)`, its EF implementation, `RecommendationOptions.StrongReasonCriteria`, and Related strong-reason tiering. Landed DEV-544 decisions document `MinimumSimilarity` at 0.225 and strong criteria Collection, Director and Themes at 1. Exact Related policy application and selection/tie keys remain to be pinned. |
+| DEV-510 cache shape | Wisp, recon-DEV-543:51–52, 68 | **MERGED**. `5fa68c83` is an ancestor. Wisp identifies `HybridCachedRecommendationProfileSource` and `CachedProfile`. Serialized fields, playback timestamp join and freshness paths remain open. |
+| DEV-545 harness / pre-edit baseline | Prior §0 receipt; T001 Gauge slot | Prior receipt identified `scripts/run-evaluation.ps1` and `scripts/run-recommendation-snapshot.ps1`. Pickup availability and Gauge's pre-edit baseline are pending on this identity. |
+| Wanted 11 inventory | Wisp, recon-DEV-543:70–73 | **Incomplete**. Partial production caller matches only. Full per-member inventory and downstream evidence are pending in §1. |
+| Typed recommendation options | Wisp, recon-DEV-543:74 | **Gap reported**. Consumers use `IOptions<RecommendationOptions>`. Wisp found startup validation for other option types and did not establish a recommendation registration with `ValidateOnStart()`. Pin the live registration and obtain a cited ruling if the required wiring falls outside the authorized files. |
+| Proposed ADR 0047 | `git ls-tree origin/main docs/adr/0047-for-you-nearest-seeds.md`; T001 draft | Draft at [ADR 0047](../../docs/adr/0047-for-you-nearest-seeds.md) on the delivery branch. No standalone landing on pickup main. |
+| SpecKit prerequisites | `check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` | **Could not run**. Script rejected `feature/DEV-543` because it expects a numeric feature-branch name. Manual bounded reanalysis is recorded in [CONCLUSIONS.md](CONCLUSIONS.md). |
 
-**T001 status: STOPPED — prerequisites unmerged (2026-11-19, read-only).** `git merge-base --is-ancestor` and `git log --grep` show DEV-518 and DEV-544 implementation is not on `origin/main`; only their spec/ADR commits (`25f2bd98`, `c589ff8c`) are. `docs/adr/0047-for-you-nearest-seeds.md` is absent from every local/remote ref (`git log --all -- docs/adr/0047-for-you-nearest-seeds.md` returns nothing; `git ls-tree -r origin/main docs/adr` lists `0045-read-only-recommendation-evaluation.md` and `0046-shared-recommendation-similarity.md`, no 0047). The DEV-544 library feature load and shared strong-match option set do not exist on the pickup HEAD (`grep -rl 'StrongMatch|LibraryFeature|StrongReason' src/` returns nothing; `RecommendationOptions` has only legacy blend/review members). Consequently §1 (complete Wanted 11 caller inventory against landed consumers) and the pin of the DEV-544 pool/strong-match contract cannot be executed against a real landed contract; §1 remains unpopulated. No production file was edited.
+**T001 status (2026-11-21): BLOCKED — needs recon.** The upstream merge stop from 2026-11-19 is cleared. The cross-artifact reread and Proposed ADR draft are complete. T001 remains open for the caller and contract evidence, options wiring disposition and Gauge baseline above. T002 and Build are held.
 
 ## 1. Wanted 11 caller inventory
 
