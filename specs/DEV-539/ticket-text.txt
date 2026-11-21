@@ -1,0 +1,92 @@
+# DEV-539
+
+**Id:** DEV-539
+
+**Summary:** Recommendations: crowd similarity from TMDb recommendations
+
+**Type:** feature
+
+## Description
+
+## Goal
+Add the "people who like this also like that" signal that metadata misses: a Crowd criterion built from TMDb recommendation lists, behind a new ADR that amends ADR-0011. It ships enabled only if the DEV-545 leave-one-out hit rate does not drop.
+
+## Problem
+
+Every criterion in DEV-518 compares metadata: director, cast, genres, keywords, plot. None of them captures "people who like this also like that", which is the part of style that metadata misses.
+
+- TMDb publishes a recommendations list per movie (`/movie/{id}/recommendations`). The app cannot ask for it yet, because it does not store a TMDb id.
+- The TMDb id is not stored anywhere. A search of `src` finds no `TmdbId` or `tmdb_id`. The movie entity (`src/LamuFlix.Core/Domain/Movie.cs:5-59`) has no TMDb id property. The table mapping (`src/LamuFlix.Infrastructure/Persistence/Configurations/MovieConfiguration.cs:112-174`) has no TMDb id column.
+- The TMDb response does carry the id. The response class reads it (`src/LamuFlix.Infrastructure/Adapters/TmdbMetadataProvider.Mapping.cs:228`), but the mapping to `MovieMetadata` (`Map`, line 33) does not keep it.
+- Each enriched movie already costs several TMDb requests: details (`src/LamuFlix.Infrastructure/Adapters/TmdbMetadataProvider.cs:194`), keywords and credits (`TmdbMetadataProvider.Signals.cs:35` and `:43`), and one or two video lists (`TmdbMetadataProvider.cs:215` and `:225-240`). A search (`:99`) or a find by IMDb id (`:159`) runs first. A find by IMDb id exists (`TmdbMetadataProvider.cs:462-464`), but today it runs only when the owner typed an IMDb id by hand (`:78-79`).
+- Collaborative filtering was rejected by ADR-0011 (`docs/adr/ADR-0011.md:13`). This feature needs a decision first.
+
+## Wanted
+
+Add a Crowd criterion: two library movies are linked when TMDb recommends one for the other, and the link adds to the score in For you and on the Related rail.
+
+1. ADR first. Write a new ADR that amends ADR-0011. It records that this is item-to-item similarity from an external catalogue, not behaviour data from this instance. Candidates stay library-only, as ADR-0011 requires (`docs/adr/ADR-0011.md:14`). It takes the next free ADR number at the time. The highest file on 2026-11-16 is `docs/adr/0044-release-tags-gated-on-the-mutation-job.md`, and DEV-543 takes 0045. Nothing in this ticket starts before the ADR has status Accepted.
+2. Store the TMDb id on the movie. Add a nullable `tmdb_id` column. Set it during TMDb enrichment from the id the response already carries (`TmdbMetadataProvider.Mapping.cs:228`), and carry it through `MovieMetadata`.
+   Existing movies get it from a one-off backfill. The home library had 449 movies on 2026-11-16. The backfill reports how many of them have an IMDb id. For each movie with an IMDb id and no `tmdb_id`, call the find endpoint (`TmdbMetadataProvider.cs:462-464`) once and store the id it returns. Movies TMDb cannot match keep no id and are skipped. The backfill is safe to run twice: it skips movies that already have an id. It runs only when TMDb is configured (`Enabled` is true and `ApiKey` is not blank, the same test as `MetadataProviderServiceCollectionExtensions.cs:74-75`). The owner's TMDb key comes from the existing configuration and is never written into code or this ticket.
+3. During TMDb enrichment, fetch the first page of `movie/{id}/recommendations`, the same way keywords and credits are fetched (`TmdbMetadataProvider.Signals.cs:16-31`). Store the recommended TMDb ids for that movie. The first run costs about 450 calls for the home library, then one call per new movie. Use the existing resilience handler and its options, which are shared with OMDb (`MetadataProviderServiceCollectionExtensions.cs:38-41`, options in `src/LamuFlix.Core/Options/MetadataProviderResilienceOptions.cs`). That handler retries 429 and 5xx responses (`MetadataProviderServiceCollectionExtensions.cs:101-114`). Do not add a second rate limiter.
+4. A link exists between two library movies when either one lists the other. Links are resolved against the library when features are loaded. After DEV-544 that is the one library feature load. Today the same place is `src/LamuFlix.Infrastructure/Persistence/EfRecommendationCandidateSource.cs:102-103` and `:181-182`, which load keywords, cast and signals. A movie added later creates links without re-enriching the others.
+5. Add Crowd to the criteria list from DEV-518. Value is 1 when linked, else 0. Default weight is 2, set in `RecommendationOptions.Weights` (`src/LamuFlix.Core/Options/RecommendationOptions.cs:39`). Reason text on For you: "Often liked together with {seed title}". Reason text on the Related rail: "Often liked together". The denominator of the score grows by this weight only when TMDb is configured. A larger denominator lowers the score of every pair without a Crowd link, so the strong-match bar cuts more movies. Re-run the DEV-545 coverage table and the judged pairs with the criterion on, and set the bar again in this ticket.
+6. When TMDb is not configured, the criterion is absent and nothing else changes. "Not configured" means `Enabled` is false or `ApiKey` is blank (`MetadataProviderServiceCollectionExtensions.cs:74-75`). The default is `Enabled: false` (`src/LamuFlix.Api/appsettings.json:21`, `src/LamuFlix.Core/Options/TmdbOptions.cs:11`).
+7. Measure with the DEV-545 harness before and after. The criterion ships enabled only if the leave-one-out hit rate is not lower. The hit rate is the DEV-545 one: the hidden seed is in the top 10 of the unwatched movies.
+
+## Acceptance criteria
+
+
+- The ADR is Accepted and sits in `docs/adr/`. It names ADR-0011 as amended. No code under this ticket is merged before that.
+- A migration adds `movies.tmdb_id` (nullable) and the link table. It applies on a database that already holds the home library.
+- A new enrichment writes `tmdb_id` and the recommended TMDb ids. A test with WireMock, through the real typed `HttpClient`, checks the request path `movie/{id}/recommendations` and that only the first page is read.
+- The backfill is run once. Its output reports counts of matched, unmatched and skipped movies. The numbers are written in the PR, not guessed.
+- A test shows that a movie added after enrichment creates a link to an existing movie, and that the existing movie is not re-enriched.
+- A test with `Tmdb:Enabled` false shows that the criterion is absent and that For you and Related scores match the scores from before this change (from the DEV-545 snapshot).
+- A test with `Enabled` true and a blank `ApiKey` shows the same result.
+- A test pins the criteria table and shows Crowd only when TMDb is configured.
+- Every recommendation returned is a library movie. No TMDb-only title appears in any result.
+- The before and after leave-one-out hit rate and MRR from DEV-545 are attached to the PR. The criterion is enabled by default only if the hit rate is not lower.
+
+## Out of scope
+
+- Showing movies that are not in the library.
+- TMDb "similar" lists. Only the recommendations list is used.
+- User ratings from TMDb.
+- Any second external source.
+- Changes to keyword, cast or trailer enrichment.
+
+## Where it lands
+
+| File or folder | What changes | Code today |
+|---|---|---|
+| `docs/adr/` (new ADR) | Amends ADR-0011. | `docs/adr/ADR-0011.md:13-14` |
+| `src/LamuFlix.Infrastructure/Persistence/Migrations/` (new migration) | Adds `movies.tmdb_id` and the link table. | Latest existing: `20261114155940_AddManualImdbIdUniqueIndex.cs` |
+| `src/LamuFlix.Infrastructure/Persistence/Configurations/MovieConfiguration.cs` | Maps `tmdb_id` and the link table. | `:112-174` (metadata columns), `:220-231` (existing many-to-many tables) |
+| `src/LamuFlix.Infrastructure/Adapters/TmdbMetadataProvider.Mapping.cs` | Keeps the response id in the mapped metadata. | `:228` (response `id`), `:33` (`Map`) |
+| `src/LamuFlix.Infrastructure/Adapters/TmdbMetadataProvider.cs` | New URI builder for recommendations, next to keywords and credits. Find by IMDb id reused for the backfill. | `:462-467`, `:214-216` (enrichment flow), `:462-464` (find) |
+| `src/LamuFlix.Infrastructure/Adapters/TmdbMetadataProvider.Signals.cs` | Reads the recommended ids with keywords and credits. | `:16-31`, `:33-39` |
+| `src/LamuFlix.Core/Domain/MovieMetadata.cs` | Carries the TMDb id and the recommended ids. | `:20-60` (constructor), `:146` (`CollectionId`) |
+| `src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs` | Nothing new. `MarkEnriched` already persists the metadata. | `:193-197` |
+| `src/LamuFlix.Infrastructure/Persistence/EfRecommendationCandidateSource.cs` | Loads the links for the library when features are read. | `:102-103`, `:181-182` |
+| `src/LamuFlix.Core/Options/RecommendationOptions.cs` | Crowd weight, default 2. | `:39` (`Weights`) |
+| `src/LamuFlix.Core/Options/TmdbOptions.cs` | No change expected. | `:8` (section), `:11` (`Enabled`), `:20` (`ApiKey`) |
+| `src/LamuFlix.Infrastructure/Adapters/MetadataProviderServiceCollectionExtensions.cs` | No change expected. The TMDb client already has the shared resilience handler. | `:35-41`, `:74-75`, `:101-114` |
+| `tests/LamuFlix.IntegrationTests` | WireMock tests for the recommendations call and the backfill. | `docs/adr/0030-tmdb-secondary-metadata-provider.md:35` (test rule) |
+
+## Open points for the spec
+
+- Store links as a table of pairs (movie id and recommended TMDb id), or as an array of ids on each movie? Default: a table of movie id and recommended TMDb id.
+- Position of Crowd in the criteria order. Default: after Themes.
+- Does a one-way link count the same as a two-way link? Default: yes, the same.
+- Does a recommended id for a movie outside the library get stored? Default: yes. Storing it lets a later movie create the link without re-enriching.
+- How is the backfill started? Default: a one-off command, run once after deploy, safe to run again.
+- Bar with Crowd on. Default: re-tune the one bar option on the DEV-545 quality report, and keep one value for both states only if the coverage table shows it holds.
+
+## Needs
+
+- DEV-543: For you on nearest seeds, which the criterion plugs into.
+- DEV-545: the harness, for the before and after numbers.
+- The ADR in the first instruction, Accepted.
+
+Source: LamuFlix recommendations v2 design note (2026-11-16, added to the repo under docs/ by DEV-518), section 3.3 (option C) and section 5.
