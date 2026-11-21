@@ -282,7 +282,7 @@ public static class NearestSeedScorer
     {
         var incumbentProduct = pairs[incumbentIndex].Seed.EffectiveWeight * pairs[incumbentIndex].Similarity.Score;
         return product > incumbentProduct
-            || (product == incumbentProduct && index < incumbentIndex);
+            || (product.CompareTo(incumbentProduct) == 0 && index < incumbentIndex);
     }
 
     private static double DislikedPenalty(

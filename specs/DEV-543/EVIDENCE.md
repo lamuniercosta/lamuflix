@@ -287,3 +287,89 @@ Docs (this round, fix commit 2 of at most 2):
 - Compass-3 (Low): §7 checklist now marks T017–T019 verified (receipts in tasks.md T017/T018/T019). Historical run identities in §3–§5 are preserved; they belong to builds `e537cc56`/`a98608aa` and do not attest the post-fix acceptance build.
 - Compass-2 (Medium, frozen snapshot top-10): T020 rerun on the ticket's 2026-11-16 snapshot is still pending — the snapshot was unrecoverable in this lane (see §3a) and fixture recovery is routed through recon (Wisp). SC-001 stays open; no fixture or criterion was substituted.
 - T021 acceptance rerun (450 movies / 150 liked, pinned T002 protocol, individual timings, before/after leave-one-out comparison) is pending on the post-fix acceptance build with a credentialed environment. T022 gate receipts and T024 Compose smoke for both rails are likewise pending rerun on that build with fixture and build identity recorded.
+
+## 10. Remediation round 2 (review round 1 findings, code HEAD 6ac86aab)
+
+Code (fix commit 1 of at most 2: `6ac86aab`, `DEV-543 - remediation round 2 WIP: prepared per-request scoring facets with exact-equivalence tests`):
+
+- Compass-1 latency fix, second half: per-request prepared scoring facets. `GenreWeights.Prepare` / `PrepareSorted` precompute lookup sets once per request; `SimilarityScorer` gained prepared overloads; `NearestSeedScorer` scores every positive/disliked pair through the prepared path instead of rebuilding sets per pair. Added exact-equivalence tests in `SimilarityScorerPreparedTests.cs` (prepared vs unprepared scores identical).
+- Analyzer-driven tweaks folded into the docs commit (commit 2 of 2, behavior-neutral): `GenreWeights.Prepare` internal-to-private, `NearestSeedScorer` tiebreak `==` to `CompareTo` (total ordering; differs from `==` only when a score is NaN), removed unused `using Xunit`. Full suite green on the final tree (see T022 below).
+
+Docs (commit 2 of 2): this appendix plus the CONCLUSIONS EOF fix (trailing blank lines removed; `12110d4f` ref updated to `6ac86aab`).
+
+
+### T020 round-2 probe (approved fixtures, post-fix build)
+
+Probe: `artifacts/dev543/probe-t020.ps1` against `GET /api/recommendations/for-you?take=50`, raw response `artifacts/dev543/foryou-round2-t020-take50.json` (SHA-256 `fcc1cb87901cdc42`, 19:03 local). Fixture: current home library, 447 movies / 11 liked / 56 watched / 39 watchlist (same state as round-1 section 3a and the T024 compose DB below; corroborated live: the compose stack serves the identical top ranking, first item id 686).
+
+| Check | Expected | Measured | Outcome |
+| --- | --- | --- | --- |
+| Distinct best seeds in top 10 | >= 4 | **6** -- liked Batman: The Dark Knight Returns Part 2, watched Batman Begins, liked Aladdin (x4 across items 8-10), liked Back to the Future, watched Batman: Year One, liked Batman: The Dark Knight Returns Part 1 | PASS |
+| Hercules -> Aladdin | in top 10 | rank **4**, first reason `Because you liked Aladdin` | PASS |
+| The Good, the Bad and the Ugly -> A Fistful of Dollars | pair present with expected seed | rank **14**, `Because you watched A Fistful of Dollars` | pair present, outside top 10 (owner-accepted) |
+| Pirate Radio -> About Time | pair present with expected seed | rank **26**, `Because you liked About Time` | pair present, outside top 10 (owner-accepted) |
+| Prohibited reason strings | absent | `Matches your viewing history`, `Matches your`, `interest`, `No shared features identified` all absent across the 50-item response | PASS |
+
+Ranks and seed attributions are identical to the owner-accepted round-1 values (6 distinct, 4/14/26). Per the Owner Decision Receipt, available fixtures stand in for the unrecoverable 2026-11-16 snapshot; no score was tuned and no row fabricated.
+
+
+### T021 leave-one-out round-2 before/after (same protocol, same eval fixture)
+
+Protocol: `LAMUFLIX_EVALUATION_MODE=leave-one-out` with `dotnet run --project tests/LamuFlix.Evaluation -- -class LamuFlix.Evaluation.Entry.RealLibraryEntryTests`, `ConnectionStrings__DefaultConnection` at the fixture container, `Ollama__Endpoint` at the home all-minilm provider. The endpoint and its request validator are bypassed; the real For-you handler runs in-process with take equal to the eligible candidate count. Absolute values are harness-relative; only same-protocol deltas are comparable.
+Fixture: 447-movie clone of the home library with the liked cohort raised to 150 (overlap liked 150 / watched 56 / overlap 11, identical in both files).
+
+| File | SHA-256 | Cohorts |
+| --- | --- | --- |
+| `artifacts/dev543/leave-one-out-round2-before.json` (17:38 local) | `ef2a2c8068d0b7` | liked 150, watched 56 |
+| `artifacts/dev543/leave-one-out-round2-after.json` (16:52 local) | `8b45c34dd2a88fa` | liked 150, watched 56 |
+
+Before provenance: executed from the before-worktree `F:/Dev/LamuFlix.worktrees/DEV-543-LOO-before`, verified clean at `1bbc8a63` (the review base_sha, pre-DEV-543). After build: worktree content committed as `6ac86aab`. The two files cannot share a source build: their quality numbers differ well beyond noise (below), and the before timestamp postdates the after run, consistent with a separate pre-fix-code session.
+
+| Cohort | Before HR@1 / HR@3 / HR@10 | After HR@1 / HR@3 / HR@10 | Before MRR | After MRR |
+| --- | --- | --- | --- | --- |
+| Liked (150) | 0.0067 / 0.0133 / 0.04 | 0.0067 / 0.0133 / 0.0867 | 0.0137 | 0.0223 |
+| Watched (56) | 0 / 0 / 0.0536 | 0 / 0 / 0.0893 | 0.0073 | 0.0148 |
+
+Hit rate does not decline: HR@10 and MRR rise on both cohorts after the round-2 facet change.
+
+
+### T021 warm For-you runtime round-2 (447 movies / 150 liked fixture)
+
+Fixture: `dev543-fixture-db` (`localhost:55432`, `lamuflix_fixture`), 447 movies with the liked cohort at 150. Protocol: the pinned T002 protocol (5 discarded primes, 10 sequential `GET /api/recommendations/for-you?take=30`, individual/median/max, pass only if all ten under 500 ms). TMDb disabled; `Features:LocalPlay` false. API from the final tree (Release; `6ac86aab` plus the behavior-neutral analyzer tweaks folded into commit 2). The embedding startup validator requires a reachable provider, so a local stub answered `POST /api/embed` with one finite 384-dim vector; the stub log shows exactly 2 hits (manual check + startup probe) and zero hits during any measurement window, so measured timings are pure ranking plus database.
+
+| Run | Build / port | Individual timings (ms) | Median | Max | All ten < 500 ms |
+| --- | --- | --- | --- | --- | --- |
+| 18083 session (prior, 16:48 local) | post-fix worktree | 350.0, 322.4, 351.1, 384.1, 402.2, 338.1, 319.6, 344.1, 307.1, 396.0 | 347.0 | 402.2 | **PASS** (`warm-round2-t021.json`, SHA-256 `64476c242243dbdb`) |
+| 18084 session (prior, 19:13 local) | unknown, no API log preserved | 1166.9, 914.9, 859.2, 892.0, 1015.6, 966.5, 815.5, 932.8, 990.8, 929.1 | 931.0 | 1166.9 | **FAIL** (`warm-round2-t021-final.json`); all ten slow, cause unrecoverable forensically (suspected machine contention; no server log was kept) |
+| Rerun (this session) | final tree, Release, :18085 | 816.6, 441.8, 435.3, 459.8, 346.3, 390.9, 334.9, 303.8, 384.1, 352.3 | 387.5 | 816.6 | 9/10 (`warm-round2-t021-rerun.json`); first request slow, rest 303-460 |
+| Confirm (this session) | final tree, Release, :18085 | 663.3, 696.8, 396.6, 364.6, 383.1, 431.9, 345.8, 356.3, 343.0, 292.3 | 373.8 | 696.8 | 8/10 early, then steady (`warm-round2-t021-confirm.json`); first two slow, rest 292-432 |
+
+Reading: the Compass-1 fix holds (round-1 median 10931.6 ms on this fixture; all round-2 runs median 347-931 ms, steady state 290-460 ms, about 30x faster). But the strict all-ten-under-500 bar is flaky on a fresh process: 5 primes do not reliably reach steady state (tiered-JIT/pool warmup lands inside the measured window), and one prior run shows unexplained sustained slowness. Only the 18083 run fully clears the bar. This appendix reports all four runs; the close-out verdict on the T021 bar belongs to verification (Keel/T023), not to this remediation.
+
+
+### T022 gates round-2 (final tree: 6ac86aab plus analyzer tweaks)
+
+Solution suite `dotnet test LamuFlix.sln --blame-hang --blame-hang-timeout 10m`, exit 0: Evaluation 211 passed; Architecture 16 passed; UnitTests 4201 passed / 1 skipped (FifoFile platform test) / 0 failed; Evaluation.IntegrationTests 68 passed; IntegrationTests 1868 passed / 2 skipped / 0 failed. Skips are by design: `OpenApiRegeneration_OptInEnabled` (snapshot rewrite is opt-in only; the contract snapshot itself is asserted green) and the Ollama live-sample test (no provider in this shell).
+
+| Gate | Result |
+| --- | --- |
+| `dotnet test` (unit + integration + OpenAPI contract snapshot) | **Pass**, exit 0, counts above |
+| Roslyn analyzers | **Pass**, no CA/IDE warnings on changed files |
+| Cyclomatic complexity | **Pass**, no method over threshold 15 |
+| InspectCode | **Pass**, no WARNING+ issues |
+| Property tests | **Pass**, 150 tests across 5 projects |
+| Vulnerable packages | **Pass**, no vulnerable packages (transitive included) |
+| Format | **Pass on changed projects** (`LamuFlix.Core`, `LamuFlix.UnitTests` verify-no-changes clean). Solution-wide `dotnet format` cannot load `src/LamuFlix.AppHost` in this shell: MSBuild rejects the Aspire bundle configuration (`AspireUseCliBundle=false`), an environmental tooling gap unrelated to this diff (AppHost untouched; last touch is an unrelated dependabot bump). |
+| Mutation | **PASSED** vs threshold 80: 1019 tested mutants (Killed 852, Timeout 4, Survived 150, NoCoverage 13; Ignored 284 and CompileError 104 excluded), score **84.0%**, 1835.3 s wall, concurrency 8, perTestInIsolation. Range `origin/main...HEAD`; output root `C:\Users\lamun\AppData\Local\Temp\stryker\20261121-230253-413577` (outside repo). Kill-share and file-span artifact rules validated by the gate script (exit 0). |
+| Web gates | **N/A scope-empty**: no `/web` file changed by this ticket. |
+
+### T024 compose smoke round-2 (verification only; no `/web` edits)
+
+Stack `dev543round2` from `F:\Dev\LamuFlix.worktrees\DEV-543\docker-compose.yml`: api image `dev543round2-api:latest` `0d11dd3f` (built 18:57 local from this worktree, post-`6ac86aab`), web `dev543round2-web:latest` `110e58cc1b71`, postgres/rabbitmq/ollama companions; services up since 18:58 local, api `/health/ready` 200, zero restarts. Fixture (live-counted in the compose postgres): **447 movies, 11 liked, 56 watched, 39 watchlist** -- the current home-library state, same as the T020 probe fixture.
+
+| Scenario | Surface | Expected | Outcome |
+| --- | --- | --- | --- |
+| SMOKE-001 | Home For-you rail | Seed-first reason lines naming liked/watched/watchlist title; superseded generic templates absent | **PASS** -- UI dump `artifacts/dev543/smoke001-for-you-round2.txt` (19:00 local) shows every card leading with `Because you liked/watched ...` (e.g. `Because you liked Batman - The Dark Knight Returns - Part 2`); live API re-check this session via the `:3000` proxy returns the identical top ranking (first item id 686) with personal-first reasons. |
+| SMOKE-002 | Related rail (`/movies/549`) | Structural reasons only; no `Matches your` profile reason | **PASS** -- UI dump `artifacts/dev543/smoke002-related-round2.txt` (19:00 local) lists only structural reasons; live API re-check this session (`GET /api/movies/549/recommendations?take=8`) returns 8 items (Rises, Begins, Sin City, Inception, Prestige, ...) with zero profile hits. |
+
+Both rails verified present on the same stack identity. The UI dumps and the live API re-checks corroborate each other (identical ordering and reason shapes). No `/web` file was created or edited.
