@@ -34,9 +34,10 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
-    private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
+    private readonly IRecommendationCandidateSource candidateSource = Substitute.For<IRecommendationCandidateSource>();
     private readonly IRecommendationProfileSource profileSource = Substitute.For<IRecommendationProfileSource>();
-    private readonly List<MovieQuery> browseQueries = [];
+    private Movie[] libraryMovies = [];
+    private RecommendationProfileInputs currentInputs = Inputs();
 
     [Fact]
     public async Task HandleAsync_ExcludingEligibleMoviePromotesNextMovieAndPagesWithHasMore()
@@ -119,8 +120,24 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(Counts));
         catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new KeywordCounts(0, new Dictionary<string, long>())));
-        movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<Movie?>(null));
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<IReadOnlyList<RecommendationLibraryEntry>>(LibraryEntries()));
     }
+
+    private List<RecommendationLibraryEntry> LibraryEntries() =>
+    [
+        .. libraryMovies.Select(movie => new RecommendationLibraryEntry(
+            MovieFeaturesMapper.From(
+                movie,
+                includeSignals: true,
+                plotEmbedding: VectorFor(movie.Id)),
+            Summary(movie))),
+    ];
+
+    private ImmutableArray<float> VectorFor(MovieId id) =>
+        currentInputs.CandidateEmbeddings.TryGetValue(id, out var candidateVector)
+            ? candidateVector
+            : currentInputs.LikedSourceEmbeddings.GetValueOrDefault(id, ImmutableArray<float>.Empty);
 
     [Fact]
     public async Task HandleAsync_NoHistory_ReturnsEmptyBeforeScoring()
@@ -137,7 +154,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         result.Items.ShouldBeEmpty();
         await catalog.DidNotReceive().GetGenreCountsAsync(Arg.Any<CancellationToken>());
         await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
-        await profileSource.Received(1).GetProfileInputsAsync(
+        await profileSource.DidNotReceive().GetProfileInputsAsync(
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
@@ -172,16 +189,15 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     {
         // arrange
         var handler = NewHandler();
-        ArrangeBrowse(
-            Summary(NewMovie(2, genres: ["Drama"]), isNotInterested: true),
-            Summary(NewMovie(3, genres: ["Drama"]), isNotInterested: true));
+        ArrangeLibrary(
+            NewMovie(2, genres: ["Drama"], isNotInterested: true),
+            NewMovie(3, genres: ["Drama"], isNotInterested: true));
 
         // act
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
         result.Items.ShouldBeEmpty();
-        await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
@@ -202,7 +218,6 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
         // assert
         result.Items.ShouldBeEmpty();
-        await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
     }
 
@@ -211,7 +226,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     {
         // arrange
         var handler = NewHandler();
-        ArrangeBrowse();
+        ArrangeLibrary();
 
         // act
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
@@ -378,7 +393,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_AllLibraryBeyondCandidatePoolSize_IsPagedAndScored()
+    public async Task HandleAsync_LibraryBeyondCandidatePoolSize_IsScoredFromOneLibraryLoad()
     {
         // arrange
         var handler = NewHandler(candidatePoolSize: 50);
@@ -393,54 +408,45 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
         // assert
         result.Items.Count.ShouldBe(50);
-        browseQueries.Count.ShouldBe(2);
-        browseQueries[0].Page.Number.ShouldBe(1);
-        browseQueries[1].Page.Number.ShouldBe(2);
-        browseQueries.ShouldAllBe(query => query.Sort == MovieSort.Title);
-        browseQueries.ShouldAllBe(query => query.Direction == SortDirection.Ascending);
-        browseQueries.ShouldAllBe(query => query.Page.Size >= 1 && query.Page.Size <= 100);
-        await movies.Received(130).GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
+        await candidateSource.Received(1).GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
+        await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
+        await profileSource.DidNotReceive().GetProfileInputsAsync(
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_NotInterestedSummary_IsExcludedWithoutLoadingDomainRow()
+    public async Task HandleAsync_DislikedEntry_IsExcludedAndNoSecondProfileReadHappens()
     {
         // arrange
         var handler = NewHandler();
-        var excluded = NewMovie(2, genres: ["Drama"]);
-        var eligible = NewMovie(3, genres: ["Drama"]);
-        ArrangeBrowse(Summary(excluded, isNotInterested: true), Summary(eligible));
-        ArrangeMovies(excluded, eligible);
+        ArrangeLibrary(
+            NewMovie(2, genres: ["Drama"], isNotInterested: true),
+            NewMovie(3, genres: ["Drama"]));
         ArrangeProfile(Inputs(WatchedHistory(90, "Drama")), Profile(("Drama", 1.0)));
 
         // act
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Items.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 3 });
-        await movies.DidNotReceive().GetAsync(excluded.Id, Arg.Any<CancellationToken>());
+        result.Items.Select(item => item.Summary.Id.Value).ShouldBe([3]);
+        await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
+        await profileSource.DidNotReceive().GetProfileInputsAsync(
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_RepeatedIdAcrossPages_IsDeDuplicated()
+    public async Task HandleAsync_FullLibrary_IsReadOnceAndScored()
     {
         // arrange
         var handler = NewHandler(candidatePoolSize: 200);
         var library = Enumerable.Range(1, 101)
             .Select(id => NewMovie(id, genres: ["Drama"]))
             .ToArray();
-        var pageOne = library.Take(100).Select(movie => Summary(movie)).ToImmutableArray();
-        var repeated = library[0];
-        var pageTwo = new[] { Summary(repeated), Summary(library[100]) }.ToImmutableArray();
-        catalog.BrowseAsync(Arg.Any<MovieQuery>(), Arg.Any<CancellationToken>())
-            .Returns(call =>
-            {
-                var query = call.Arg<MovieQuery>();
-                browseQueries.Add(query);
-                var items = query.Page.Number == 1 ? pageOne : pageTwo;
-                return Task.FromResult(new PagedResult<MovieSummary>(items, 1000));
-            });
-        ArrangeMovies(library);
+        ArrangeLibrary(library);
         ArrangeProfile(Inputs(WatchedHistory(900, "Drama")), Profile(("Drama", 1.0)));
 
         // act
@@ -449,51 +455,42 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // assert
         result.Items.Count.ShouldBe(101);
         result.Items.Select(item => item.Summary.Id.Value).Distinct().Count().ShouldBe(101);
-        await profileSource.Received(1).GetProfileInputsAsync(
-            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 101),
-            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
-            Arg.Any<CancellationToken>());
+        await candidateSource.Received(1).GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_NotInterestedDomainRow_IsRecheckedAndExcluded()
+    public async Task HandleAsync_SingleLoadSource_ExcludesDislikedAndKeepsEligible()
     {
         // arrange
         var handler = NewHandler();
         var excluded = NewMovie(2, genres: ["Drama"], isNotInterested: true);
         var eligible = NewMovie(3, genres: ["Drama"]);
-        ArrangeBrowse(Summary(excluded, isNotInterested: false), Summary(eligible));
-        ArrangeMovies(excluded, eligible);
+        ArrangeLibrary(excluded, eligible);
         ArrangeProfile(Inputs(WatchedHistory(90, "Drama")), Profile(("Drama", 1.0)));
 
         // act
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Items.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 3 });
-        await profileSource.Received(1).GetProfileInputsAsync(
-            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 1 && ids.Single() == eligible.Id),
-            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
-            Arg.Any<CancellationToken>());
+        result.Items.Select(item => item.Summary.Id.Value).ShouldBe([3]);
+        await candidateSource.Received(1).GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_NullDomainRow_IsSkipped()
+    public async Task HandleAsync_UnwatchedNotDislikedCandidate_IsRetained()
     {
         // arrange
         var handler = NewHandler();
-        var missing = NewMovie(3, genres: ["Drama"]);
         var eligible = NewMovie(4, genres: ["Drama"]);
-        ArrangeBrowse(Summary(missing), Summary(eligible));
-        ArrangeMovies(eligible);
+        ArrangeLibrary(eligible);
         ArrangeProfile(Inputs(WatchedHistory(90, "Drama")), Profile(("Drama", 1.0)));
 
         // act
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Items.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 4 });
-        await movies.Received(1).GetAsync(missing.Id, Arg.Any<CancellationToken>());
+        result.Items.Select(item => item.Summary.Id.Value).ShouldBe([4]);
+        await candidateSource.Received(1).GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -556,7 +553,12 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var first = NewMovie(2, genres: ["Drama"]);
         var representative = NewMovie(3, genres: ["Drama"], releaseYear: 2000, collectionId: 7);
         var laterMember = NewMovie(4, genres: ["Drama"], releaseYear: 2001, collectionId: 7);
-        ArrangeLibrary(first, representative, laterMember);
+        ArrangeLibrary(
+            first,
+            representative,
+            laterMember,
+            NewMovie(90, genres: ["Drama"], isWatched: true),
+            NewMovie(91, genres: ["Drama"], isWatched: true));
 
         var firstVector = PlotVector(primary: 1.0f);
         var laterVector = PlotVector(primary: 0.0f, secondary: 1.0f);
@@ -680,9 +682,9 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        await profileSource.Received(1).GetProfileInputsAsync(
-            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 3 && ids.Contains(new MovieId(2)) && ids.Contains(new MovieId(3)) && ids.Contains(new MovieId(4))),
-            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
+        await profileSource.DidNotReceive().GetProfileInputsAsync(
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -697,8 +699,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // act / assert
         await Should.ThrowAsync<OperationCanceledException>(
             () => handler.HandleAsync(new GetForYouRecommendationsQuery(), cts.Token));
-        await catalog.DidNotReceive().BrowseAsync(Arg.Any<MovieQuery>(), Arg.Any<CancellationToken>());
-        await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
+        await candidateSource.DidNotReceive().GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
@@ -706,66 +707,60 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_BrowseCancelsToken_ThrowsBeforeLoadingDomainRows()
+    public async Task HandleAsync_LibraryLoadCancelsToken_ThrowsBeforeProfileAcquisition()
     {
         // arrange
         var handler = NewHandler();
         using var cts = new CancellationTokenSource();
-        catalog.BrowseAsync(Arg.Any<MovieQuery>(), Arg.Any<CancellationToken>())
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
                 cts.Cancel();
-                return Task.FromResult(new PagedResult<MovieSummary>(
-                    [Summary(NewMovie(2, genres: ["Drama"]))],
-                    1));
+                return Task.FromResult<IReadOnlyList<RecommendationLibraryEntry>>([]);
             });
 
         // act / assert
         await Should.ThrowAsync<OperationCanceledException>(
             () => handler.HandleAsync(new GetForYouRecommendationsQuery(), cts.Token));
-        await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
+        await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_DomainRowLoadCancelsToken_ThrowsBeforeProfileAcquisition()
+    public async Task HandleAsync_LibraryLoadWithoutEligibleCandidates_NeverReadsTheProfile()
     {
         // arrange
         var handler = NewHandler();
-        using var cts = new CancellationTokenSource();
-        var candidate = NewMovie(2, genres: ["Drama"]);
-        ArrangeBrowse(Summary(candidate));
-        movies.GetAsync(candidate.Id, Arg.Any<CancellationToken>())
-            .Returns(_ =>
-            {
-                // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
-                cts.Cancel();
-                return Task.FromResult<Movie?>(candidate);
-            });
+        ArrangeLibrary(
+            NewMovie(2, genres: ["Drama"], isNotInterested: true),
+            NewMovie(3, genres: ["Drama"], isWatched: true));
 
-        // act / assert
-        await Should.ThrowAsync<OperationCanceledException>(
-            () => handler.HandleAsync(new GetForYouRecommendationsQuery(), cts.Token));
-        await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.Items.ShouldBeEmpty();
+        await candidateSource.Received(1).GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
+        await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
+        await profileSource.DidNotReceive().GetProfileInputsAsync(
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task HandleAsync_ProfileInputsCancelToken_ThrowsBeforeGenreWeights()
+    public async Task HandleAsync_ProfileCancelsToken_ThrowsBeforeGenreWeights()
     {
         // arrange
         var handler = NewHandler();
         using var cts = new CancellationTokenSource();
         ArrangeLibrary(NewMovie(2, genres: ["Drama"]));
         profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Profile(("Drama", 1.0))));
-        profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
                 cts.Cancel();
-                return Task.FromResult(Inputs(WatchedHistory(90, "Drama")));
+                return Task.FromResult(WithPlayback(Profile(("Drama", 1.0)), Inputs(WatchedHistory(90, "Drama"))));
             });
 
         // act / assert
@@ -794,7 +789,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         await Should.ThrowAsync<OperationCanceledException>(
             () => handler.HandleAsync(new GetForYouRecommendationsQuery(), cts.Token));
         await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
-        await profileSource.Received(1).GetProfileInputsAsync(
+        await profileSource.DidNotReceive().GetProfileInputsAsync(
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
@@ -832,7 +827,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // arrange
         var handler = NewHandler();
         var candidate = NewMovie(2, genres: ["Drama"]);
-        ArrangeLibrary(candidate);
+        var liked = NewMovie(90, genres: ["Drama"], isWatched: true);
+        ArrangeLibrary(candidate, liked);
         var vector = PlotVector(primary: 1.0f);
         var inputs = new RecommendationProfileInputs(
             [WatchedHistory(90, "Drama")],
@@ -845,18 +841,12 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
         // assert
         result.Items.ShouldHaveSingleItem();
-        await profileSource.Received(1).GetProfileInputsAsync(
-            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 1 && ids.Single() == candidate.Id),
-            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 1 && liked.Single() == new MovieId(90)),
+        await candidateSource.Received(1).GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
+        await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
+        await profileSource.DidNotReceive().GetProfileInputsAsync(
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
-        Received.InOrder(() =>
-        {
-            _ = profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>());
-            _ = profileSource.GetProfileInputsAsync(
-                Arg.Any<IReadOnlyCollection<MovieId>>(),
-                Arg.Any<IReadOnlyCollection<MovieId>>(),
-                Arg.Any<CancellationToken>());
-        });
     }
 
     private GetForYouRecommendationsQueryHandler NewHandler(
@@ -870,8 +860,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         SimilarityWeights? weights = null,
         KeywordWeightsCache? keywordCache = null) =>
         new(
-            catalog,
-            movies,
+            candidateSource,
             profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
             new KeywordWeightsCalculator(catalog, keywordCache ?? new KeywordWeightsCache()),
@@ -887,45 +876,29 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
                 Weights = weights ?? new SimilarityWeights(),
             }));
 
-    private void ArrangeLibrary(params Movie[] library)
-    {
-        ArrangeBrowse([.. library.Select(movie => Summary(movie))]);
-        ArrangeMovies(library);
-    }
-
-    private void ArrangeBrowse(params MovieSummary[] summaries)
-    {
-        catalog.BrowseAsync(Arg.Any<MovieQuery>(), Arg.Any<CancellationToken>())
-            .Returns(call =>
-            {
-                var query = call.Arg<MovieQuery>();
-                browseQueries.Add(query);
-                var items = summaries
-                    .Skip((query.Page.Number - 1) * query.Page.Size)
-                    .Take(query.Page.Size)
-                    .ToImmutableArray();
-                return Task.FromResult(new PagedResult<MovieSummary>(items, summaries.Length));
-            });
-    }
-
-    private void ArrangeMovies(params Movie[] library)
-    {
-        foreach (var movie in library)
-        {
-            var captured = movie;
-            movies.GetAsync(Arg.Is<MovieId>(id => id == captured.Id), Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult<Movie?>(captured));
-        }
-    }
+    private void ArrangeLibrary(params Movie[] library) => libraryMovies = library;
 
     private void ArrangeProfile(RecommendationProfileInputs inputs, TasteProfile profile)
     {
-        profileSource
-            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(inputs));
+        currentInputs = inputs;
         profileSource
             .GetTasteProfileAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(profile));
+            .Returns(Task.FromResult(WithPlayback(profile, inputs)));
+    }
+
+    private static TasteProfile WithPlayback(TasteProfile profile, RecommendationProfileInputs inputs)
+    {
+        var builder = ImmutableDictionary.CreateBuilder<MovieId, ImmutableArray<DateTimeOffset>>();
+
+        foreach (var movie in inputs.Movies)
+        {
+            if (!movie.PlayedAt.IsDefaultOrEmpty)
+            {
+                builder[movie.MovieId] = [.. movie.PlayedAt];
+            }
+        }
+
+        return profile with { PlaybackByMovieId = builder.ToImmutable() };
     }
 
     private static Movie[] DiversificationLibrary() =>
@@ -955,7 +928,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // arrange
         var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
         var candidate = NewMovie(2, genres: ["Drama"]);
-        ArrangeLibrary(candidate);
+        var liked = NewMovie(90, genres: ["Drama"], isWatched: true);
+        ArrangeLibrary(candidate, liked);
         var candidateVector = PlotVector(primary: 1.0f);
         var inputs = new RecommendationProfileInputs(
             [WatchedHistory(90, "Drama")],
@@ -979,7 +953,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // arrange
         var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
         var candidate = NewMovie(2, genres: ["Drama"]);
-        ArrangeLibrary(candidate);
+        var liked = NewMovie(90, genres: ["Drama"], isWatched: true);
+        ArrangeLibrary(candidate, liked);
         var candidateVector = PlotVector(primary: 1.0f);
         var inputs = new RecommendationProfileInputs(
             [WatchedHistory(90, "Drama")],
@@ -1001,7 +976,10 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // arrange
         var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
         var candidate = NewMovie(2, genres: ["Drama"]);
-        ArrangeLibrary(candidate);
+        ArrangeLibrary(
+            candidate,
+            NewMovie(90, genres: ["Drama"], isWatched: true),
+            NewMovie(91, genres: ["Drama"], isWatched: true));
         var candidateVector = PlotVector(primary: 1.0f, secondary: 0.0f);
         var weakVector = PlotVector(primary: 1.0f, secondary: 1.0f);
         var inputs = new RecommendationProfileInputs(
@@ -1305,42 +1283,30 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
     private static ImmutableList<RecommendedMovie> Handle(IReadOnlyList<Movie> library, int take)
     {
         var catalog = Substitute.For<IMovieCatalog>();
-        catalog.BrowseAsync(Arg.Any<MovieQuery>(), Arg.Any<CancellationToken>())
-            .Returns(call =>
-            {
-                var query = call.Arg<MovieQuery>();
-                var items = library
-                    .Skip((query.Page.Number - 1) * query.Page.Size)
-                    .Take(query.Page.Size)
-                    .Select(Summary)
-                    .ToImmutableArray();
-                return Task.FromResult(new PagedResult<MovieSummary>(items, library.Count));
-            });
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(Counts));
         catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new KeywordCounts(0, new Dictionary<string, long>())));
 
-        var movies = Substitute.For<IMovieRepository>();
-        foreach (var movie in library)
-        {
-            var captured = movie;
-            movies.GetAsync(Arg.Is<MovieId>(id => id == captured.Id), Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult<Movie?>(captured));
-        }
+        var candidates = Substitute.For<IRecommendationCandidateSource>();
+        candidates.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<IReadOnlyList<RecommendationLibraryEntry>>(
+            [
+                .. library.Select(movie => new RecommendationLibraryEntry(
+                    MovieFeaturesMapper.From(movie, includeSignals: true),
+                    Summary(movie))),
+            ]));
 
         var profileSource = Substitute.For<IRecommendationProfileSource>();
         profileSource
-            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new RecommendationProfileInputs(
-                [new TasteProfileMovie(new MovieId(900), ["Drama"], [], [Now], IsWatched: true)],
-                ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty)));
-        profileSource
             .GetTasteProfileAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(ProfileWithDramaPreference()));
+            .Returns(Task.FromResult(ProfileWithDramaPreference() with
+            {
+                PlaybackByMovieId = ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>
+                    .Empty.Add(new MovieId(900), [Now]),
+            }));
 
         var handler = new GetForYouRecommendationsQueryHandler(
-            catalog,
-            movies,
+            candidates,
             profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
             new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),

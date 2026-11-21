@@ -490,6 +490,49 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         await Should.ThrowAsync<OperationCanceledException>(act);
     }
 
+    [Fact]
+    public async Task GetTasteProfileAsync_RetainsPlaybackBySeedMovieId_SoOldAndFreshSeedsScaleDifferently()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var now = new DateTimeOffset(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);
+        var oldSeed = await SeedLikedMovieAsync("Old seed", ct, "Drama");
+        var freshSeed = await SeedLikedMovieAsync("Fresh seed", ct, "Drama");
+        var unplayedSeed = await SeedLikedMovieAsync("Unplayed seed", ct, "Drama");
+        await SeedLaunchAsync(oldSeed, now.AddDays(-90), ct);
+        await SeedLaunchAsync(freshSeed, now.AddDays(-1), ct);
+
+        await using var db = fixture.CreateMigratedContext();
+        var source = new EfRecommendationProfileSource(
+            db,
+            new GenreWeightsCalculator(new EfMovieCatalog(db), new GenreWeightsCache()),
+            new FixedTimeProvider(now),
+            Options.Create(new RecommendationOptions()));
+
+        // act
+        var profile = await source.GetTasteProfileAsync(ct);
+
+        // assert
+        profile.LikedSources.Select(source => source.MovieId).ShouldBe([oldSeed, freshSeed, unplayedSeed]);
+        profile.PlaybackByMovieId[oldSeed].ShouldBe([now.AddDays(-90)]);
+        profile.PlaybackByMovieId[freshSeed].ShouldBe([now.AddDays(-1)]);
+        profile.PlaybackByMovieId.ContainsKey(unplayedSeed).ShouldBeFalse();
+
+        var decay = new RecommendationRecencyDecay(new FixedTimeProvider(now), new RecommendationOptions());
+        var reference = profile.PlaybackByMovieId[freshSeed].Single();
+        var oldWeight = decay.Weight(now, profile.PlaybackByMovieId[oldSeed].Single(), reference);
+        var freshWeight = decay.Weight(now, reference, reference);
+
+        oldWeight.ShouldBe(0.25, 1e-12);
+        freshWeight.ShouldBe(RecommendationRecencyDecay.UnscaledWeight, 1e-12);
+        oldWeight.ShouldBeLessThan(freshWeight);
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
+    }
+
     private static EfRecommendationProfileSource CreateSource(LamuFlixDbContext db) =>
         new(
             db,

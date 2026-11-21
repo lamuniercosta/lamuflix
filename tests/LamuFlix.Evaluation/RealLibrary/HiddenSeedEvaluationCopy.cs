@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -28,6 +28,7 @@ public sealed class HiddenSeedEvaluationCopy
         HiddenSeed = hiddenSeed;
         Catalog = new SnapshotCatalog(snapshot, hiddenSeed);
         Repository = new SnapshotRepository(snapshot, hiddenSeed);
+        Candidates = new SnapshotCandidateSource(snapshot, hiddenSeed);
         ProfileSource = new SnapshotProfileSource(
             [.. snapshot.ProfileMovies.Where(movie => movie.MovieId != hiddenSeed)],
             snapshot.PlotEmbeddings,
@@ -43,6 +44,8 @@ public sealed class HiddenSeedEvaluationCopy
     public IMovieCatalog Catalog { get; }
 
     public IMovieRepository Repository { get; }
+
+    public IRecommendationCandidateSource Candidates { get; }
 
     public IRecommendationProfileSource ProfileSource { get; }
 
@@ -80,8 +83,7 @@ public sealed class HiddenSeedEvaluationCopy
 
     private GetForYouRecommendationsQueryHandler CreateHandler() =>
         new(
-            Catalog,
-            Repository,
+            Candidates,
             ProfileSource,
             GenreWeights,
             KeywordWeights,
@@ -204,6 +206,37 @@ public sealed class HiddenSeedEvaluationCopy
             direction == LibrarySortDirection.Descending
                 ? movies.OrderByDescending(movie => movie.Title, StringComparer.Ordinal).ThenByDescending(movie => movie.Id.Value)
                 : movies.OrderBy(movie => movie.Title, StringComparer.Ordinal).ThenBy(movie => movie.Id.Value);
+    }
+
+    private sealed class SnapshotCandidateSource(RealLibrarySnapshot snapshot, MovieId hiddenSeed)
+        : IRecommendationCandidateSource
+    {
+        public Task<IReadOnlyList<RecommendationLibraryEntry>> GetLibraryFeaturesAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            IReadOnlyList<RecommendationLibraryEntry> entries =
+            [
+                .. snapshot.Movies.Select(movie =>
+                {
+                    var view = movie.Id == hiddenSeed ? HiddenView(movie) : movie;
+                    return new RecommendationLibraryEntry(
+                        MovieFeaturesMapper.From(
+                            view,
+                            includeSignals: true,
+                            plotEmbedding: snapshot.PlotEmbeddings.GetValueOrDefault(view.Id)),
+                        MovieSummaryMapper.From(view));
+                }),
+            ];
+
+            return Task.FromResult(entries);
+        }
+
+        public Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(
+            MovieId selectedMovieId,
+            int? collectionId,
+            CancellationToken ct) =>
+            throw new NotSupportedException("The evaluation snapshot candidate source serves library features only.");
     }
 
     private sealed class SnapshotRepository(RealLibrarySnapshot snapshot, MovieId hiddenSeed) : IMovieRepository

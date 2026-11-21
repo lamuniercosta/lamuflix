@@ -17,6 +17,18 @@ public sealed record RecommendationOptions : IValidatableObject
 
     private const int DefaultMaxExcludeCount = 50;
 
+    public const double DefaultSeedWeightLiked = 1.0;
+
+    public const double DefaultSeedWeightWatched = 0.6;
+
+    public const double DefaultSeedWeightWatchlist = 0.4;
+
+    public const double DefaultDislikedSeedWeight = 1.0;
+
+    public const double DefaultRecencyFloor = 0.25;
+
+    private static readonly double[] DefaultSeedRankMultipliers = [1.0, 0.5, 0.25];
+
     private static readonly string[] DefaultStrongReasonCriteria = ["Collection", "Director", "Themes"];
 
     private static readonly string[] SupportedStrongReasonCriteria = ["Collection", "Director", "Themes"];
@@ -76,6 +88,23 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public double DislikedReviewWeight { get; init; } = 1.0;
 
+    [Range(0.0, double.MaxValue)]
+    public double SeedWeightLiked { get; init; } = DefaultSeedWeightLiked;
+
+    [Range(0.0, double.MaxValue)]
+    public double SeedWeightWatched { get; init; } = DefaultSeedWeightWatched;
+
+    [Range(0.0, double.MaxValue)]
+    public double SeedWeightWatchlist { get; init; } = DefaultSeedWeightWatchlist;
+
+    [Range(0.0, double.MaxValue)]
+    public double DislikedSeedWeight { get; init; } = DefaultDislikedSeedWeight;
+
+    [Range(0.0, 1.0)]
+    public double RecencyFloor { get; init; } = DefaultRecencyFloor;
+
+    public IReadOnlyList<double>? SeedRankMultipliers { get; init; } = DefaultSeedRankMultipliers;
+
     public SimilarityWeights Weights { get; init; } = new();
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -93,6 +122,126 @@ public sealed record RecommendationOptions : IValidatableObject
         foreach (var result in ValidateReview())
         {
             yield return result;
+        }
+
+        foreach (var result in ValidateNearestSeed())
+        {
+            yield return result;
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateNearestSeed()
+    {
+        foreach (var result in ValidateSeedWeight(SeedWeightLiked, nameof(SeedWeightLiked)))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateSeedWeight(SeedWeightWatched, nameof(SeedWeightWatched)))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateSeedWeight(SeedWeightWatchlist, nameof(SeedWeightWatchlist)))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateSeedWeight(DislikedSeedWeight, nameof(DislikedSeedWeight)))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateRankMultipliers())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateRecencyFloor())
+        {
+            yield return result;
+        }
+    }
+
+    private static IEnumerable<ValidationResult> ValidateSeedWeight(double value, string memberName)
+    {
+        if (!double.IsFinite(value) || value < 0.0)
+        {
+            yield return new ValidationResult(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} must be finite and greater than or equal to 0.0; got {1}.",
+                    memberName,
+                    value),
+                [memberName]);
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateRankMultipliers()
+    {
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - configuration binder can set the collection to null via reflection.
+        if (SeedRankMultipliers is null)
+        {
+            yield return new ValidationResult(
+                $"The {nameof(SeedRankMultipliers)} field is required.",
+                [nameof(SeedRankMultipliers)]);
+            yield break;
+        }
+
+        if (SeedRankMultipliers.Count == 0)
+        {
+            yield return new ValidationResult(
+                $"{nameof(SeedRankMultipliers)} must contain at least one multiplier.",
+                [nameof(SeedRankMultipliers)]);
+            yield break;
+        }
+
+        var previous = double.PositiveInfinity;
+        for (var index = 0; index < SeedRankMultipliers.Count; index++)
+        {
+            var multiplier = SeedRankMultipliers[index];
+            if (!double.IsFinite(multiplier) || multiplier < 0.0)
+            {
+                yield return new ValidationResult(
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "{0}[{1}] must be finite and greater than or equal to 0.0; got {2}.",
+                        nameof(SeedRankMultipliers),
+                        index,
+                        multiplier),
+                    [nameof(SeedRankMultipliers)]);
+                yield break;
+            }
+
+            if (multiplier > previous)
+            {
+                yield return new ValidationResult(
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "{0} must be non-increasing; entry {1} ({2}) exceeds the previous entry ({3}).",
+                        nameof(SeedRankMultipliers),
+                        index,
+                        multiplier,
+                        previous),
+                    [nameof(SeedRankMultipliers)]);
+                yield break;
+            }
+
+            previous = multiplier;
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateRecencyFloor()
+    {
+        if (!double.IsFinite(RecencyFloor) || RecencyFloor <= 0.0 || RecencyFloor > 1.0)
+        {
+            yield return new ValidationResult(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} must be finite and greater than 0.0 and at most 1.0; got {1}.",
+                    nameof(RecencyFloor),
+                    RecencyFloor),
+                [nameof(RecencyFloor)]);
         }
     }
 

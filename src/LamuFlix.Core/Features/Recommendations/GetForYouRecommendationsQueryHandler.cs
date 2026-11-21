@@ -1,12 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
-using LamuFlix.Core.Library;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
@@ -15,46 +13,34 @@ using Microsoft.Extensions.Options;
 namespace LamuFlix.Core.Features.Recommendations;
 
 public sealed class GetForYouRecommendationsQueryHandler(
-    IMovieCatalog catalog,
-    IMovieRepository movies,
+    IRecommendationCandidateSource candidates,
     IRecommendationProfileSource profileSource,
     GenreWeightsCalculator genreWeightsCalculator,
     KeywordWeightsCalculator keywordWeightsCalculator,
     IOptions<RecommendationOptions> options)
     : IQueryHandler<GetForYouRecommendationsQuery, ForYouRecommendationsPage>
 {
-    private const int BrowsePageSize = 100;
-
     public async Task<ForYouRecommendationsPage> HandleAsync(
         GetForYouRecommendationsQuery query,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var eligible = await AcquireEligibleMoviesAsync(cancellationToken);
-        if (query.ExcludedMovieIds is { Count: > 0 } excludedMovieIds)
-        {
-            eligible.RemoveAll(movie => excludedMovieIds.Contains(movie.Id));
-        }
+        var library = await candidates.GetLibraryFeaturesAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var eligible = Eligible(library, query.ExcludedMovieIds);
         if (eligible.Count == 0)
         {
-            return new ForYouRecommendationsPage(ImmutableList<RecommendedMovie>.Empty, false);
+            return EmptyPage;
         }
 
         var profile = await profileSource.GetTasteProfileAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var profileInputs = await profileSource.GetProfileInputsAsync(
-            [.. eligible.Select(movie => movie.Id)],
-            [.. profile.LikedSources.Select(source => source.MovieId)],
-            cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (!HasPositiveSignal(profileInputs.Movies))
+        if (!HasPositiveSignal(library, profile))
         {
-            return new ForYouRecommendationsPage(ImmutableList<RecommendedMovie>.Empty, false);
+            return EmptyPage;
         }
 
         var genreWeights = await genreWeightsCalculator.GetAsync(cancellationToken);
@@ -67,7 +53,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
         var scored = Score(
             eligible,
             profile,
-            profileInputs,
+            LikedSourceEmbeddings(library, profile),
             genreWeights,
             recommendationOptions,
             cancellationToken);
@@ -76,7 +62,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
 
         if (query.Offset >= scored.Count)
         {
-            return new ForYouRecommendationsPage(ImmutableList<RecommendedMovie>.Empty, false);
+            return EmptyPage;
         }
 
         var relevanceOffset = BlendScorer.NonNegativeOffset(scored.Select(item => item.Result.Score));
@@ -86,7 +72,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
             (long)query.Offset + take + 1);
         var selectedIds = MmrSelector.Select(
             [.. scored.Select(item => new MmrCandidate(
-                item.Movie.Id,
+                item.Entry.Id,
                 item.Result.Score + relevanceOffset,
                 item.Features,
                 item.BestSeedId))],
@@ -98,14 +84,14 @@ public sealed class GetForYouRecommendationsQueryHandler(
             recommendationOptions.MaxPerBestSeed,
             recommendationOptions.MaxPerCollection);
 
-        var byId = scored.ToDictionary(item => item.Movie.Id);
+        var byId = scored.ToDictionary(item => item.Entry.Id);
 
         var items = selectedIds
                 .Select(id => byId[id])
                 .Skip(query.Offset)
                 .Take(take)
                 .Select(item => new RecommendedMovie(
-                    MovieSummaryMapper.From(item.Movie),
+                    item.Entry.Summary,
                     item.Result.Score,
                     item.Result.Reasons))
                 .ToImmutableList();
@@ -113,75 +99,42 @@ public sealed class GetForYouRecommendationsQueryHandler(
         return new ForYouRecommendationsPage(items, selectedIds.Count > (long)query.Offset + take);
     }
 
-    private async Task<List<Movie>> AcquireEligibleMoviesAsync(CancellationToken cancellationToken)
+    private static ForYouRecommendationsPage EmptyPage =>
+        new(ImmutableList<RecommendedMovie>.Empty, false);
+
+    private static List<RecommendationLibraryEntry> Eligible(
+        IReadOnlyList<RecommendationLibraryEntry> library,
+        IReadOnlyCollection<MovieId>? excludedMovieIds)
     {
-        var eligible = new List<Movie>();
-        var seen = new HashSet<MovieId>();
+        var eligible = new List<RecommendationLibraryEntry>(library.Count);
 
-        for (var pageNumber = 1; ; pageNumber++)
+        foreach (var entry in library)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var page = await catalog.BrowseAsync(
-                new MovieQuery
-                {
-                    Sort = MovieSort.Title,
-                    Direction = SortDirection.Ascending,
-                    Page = new Page(pageNumber, BrowsePageSize),
-                },
-                cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            foreach (var summary in page.Items)
+            if (IsEligible(entry.Review, entry.IsWatched)
+                && (excludedMovieIds is null || !excludedMovieIds.Contains(entry.Id)))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (IsEligible(summary.IsWatched, summary.Review))
-                {
-                    await AddEligibleAsync(eligible, seen, summary.Id, cancellationToken);
-                }
-            }
-
-            if (page.Items.Length < BrowsePageSize)
-            {
-                return eligible;
+                eligible.Add(entry);
             }
         }
+
+        return eligible;
     }
 
-    private async Task AddEligibleAsync(
-        List<Movie> eligible,
-        HashSet<MovieId> seen,
-        MovieId id,
-        CancellationToken cancellationToken)
-    {
-        if (!seen.Add(id))
-        {
-            return;
-        }
-
-        var movie = await movies.GetAsync(id, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (movie is not null && IsEligible(movie.IsWatched, movie.Review))
-        {
-            eligible.Add(movie);
-        }
-    }
-
-    private static bool IsEligible(bool isWatched, Review review) =>
+    private static bool IsEligible(Review review, bool isWatched) =>
         !isWatched && !review.IsDisliked;
 
-    private static bool HasPositiveSignal(ImmutableArray<TasteProfileMovie> movies)
+    private static bool HasPositiveSignal(
+        IReadOnlyList<RecommendationLibraryEntry> library,
+        TasteProfile profile)
     {
-        if (movies.IsDefaultOrEmpty)
+        if (!profile.PlaybackByMovieId.IsEmpty || !profile.LikedSources.IsDefaultOrEmpty)
         {
-            return false;
+            return true;
         }
 
-        foreach (var movie in movies)
+        foreach (var entry in library)
         {
-            if (movie.IsWatched || !movie.PlayedAt.IsDefaultOrEmpty || movie.Review.IsLiked)
+            if (entry.IsWatched || entry.Review.IsLiked)
             {
                 return true;
             }
@@ -191,38 +144,35 @@ public sealed class GetForYouRecommendationsQueryHandler(
     }
 
     private static List<ScoredCandidate> Score(
-        IReadOnlyList<Movie> eligible,
+        IReadOnlyList<RecommendationLibraryEntry> eligible,
         TasteProfile profile,
-        RecommendationProfileInputs profileInputs,
+        ImmutableDictionary<MovieId, ImmutableArray<float>> likedSourceEmbeddings,
         GenreWeights genreWeights,
         RecommendationOptions options,
         CancellationToken cancellationToken)
     {
         var scored = new List<ScoredCandidate>(eligible.Count);
-        var candidateEmbeddings = profileInputs.CandidateEmbeddings;
 
-        foreach (var movie in eligible)
+        foreach (var entry in eligible)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var scoringFeatures = MovieFeaturesMapper.From(movie);
-            var genres = RecommendationScoring.Genres(scoringFeatures);
-            var embedding = candidateEmbeddings.GetValueOrDefault(movie.Id, ImmutableArray<float>.Empty);
-            var features = MovieFeaturesMapper.From(movie, includeSignals: true, plotEmbedding: embedding);
+            var features = entry.Features;
+            var genres = RecommendationScoring.Genres(features);
 
             var profileSimilarity = ProfileSimilarityCalculator.Evaluate(
                 genres,
-                embedding,
+                features.PlotEmbedding,
                 profile,
                 genreWeights);
 
             var reviewAffinity = ProfileSimilarityCalculator.EvaluateReviewAffinity(
                 genres,
-                RecommendationScoring.Cast(scoringFeatures),
-                RecommendationScoring.Directors(scoringFeatures),
-                embedding,
+                RecommendationScoring.Cast(features),
+                RecommendationScoring.Directors(features),
+                features.PlotEmbedding,
                 profile,
-                profileInputs.LikedSourceEmbeddings,
+                likedSourceEmbeddings,
                 options.Weights,
                 genreWeights);
 
@@ -234,12 +184,12 @@ public sealed class GetForYouRecommendationsQueryHandler(
             var score = BlendScorer.ScoreWithProfileContribution(
                 0.0,
                 contribution,
-                movie.IsWatched ? 1.0 : 0.0,
+                0.0,
                 0.0,
                 options);
 
             scored.Add(new ScoredCandidate(
-                movie,
+                entry,
                 features,
                 reviewAffinity.LikedSource?.MovieId,
                 new SimilarityResult(
@@ -248,6 +198,31 @@ public sealed class GetForYouRecommendationsQueryHandler(
         }
 
         return scored;
+    }
+
+    private static ImmutableDictionary<MovieId, ImmutableArray<float>> LikedSourceEmbeddings(
+        IReadOnlyList<RecommendationLibraryEntry> library,
+        TasteProfile profile)
+    {
+        if (profile.LikedSources.IsDefaultOrEmpty)
+        {
+            return ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty;
+        }
+
+        var likedSourceIds = new HashSet<MovieId>(
+            profile.LikedSources.Select(source => source.MovieId));
+
+        var builder = ImmutableDictionary.CreateBuilder<MovieId, ImmutableArray<float>>();
+
+        foreach (var entry in library)
+        {
+            if (likedSourceIds.Contains(entry.Id) && !entry.Features.PlotEmbedding.IsDefaultOrEmpty)
+            {
+                builder[entry.Id] = entry.Features.PlotEmbedding;
+            }
+        }
+
+        return builder.ToImmutable();
     }
 
     private static List<ScoredCandidate> ApplyCollectionCut(
@@ -262,17 +237,16 @@ public sealed class GetForYouRecommendationsQueryHandler(
             foreach (var candidate in group
                          .OrderBy(candidate => candidate.Features.ReleaseYear is null)
                          .ThenBy(candidate => candidate.Features.ReleaseYear?.Value)
-                         .ThenBy(candidate => candidate.Movie.Id.Value)
+                         .ThenBy(candidate => candidate.Entry.Id.Value)
                          .Take(maxPerCollection))
             {
-                retained.Add(candidate.Movie.Id);
+                retained.Add(candidate.Entry.Id);
             }
         }
 
         return [.. candidates.Where(candidate =>
-            candidate.Features.CollectionId is null || retained.Contains(candidate.Movie.Id))];
+            candidate.Features.CollectionId is null || retained.Contains(candidate.Entry.Id))];
     }
-
 
     private static ImmutableList<Reason> BuildReasons(
         ProfileSimilarityEvidence profileSimilarity,
@@ -297,12 +271,8 @@ public sealed class GetForYouRecommendationsQueryHandler(
         return builder.ToImmutable();
     }
 
-
-
-
-
     private readonly record struct ScoredCandidate(
-        Movie Movie,
+        RecommendationLibraryEntry Entry,
         MovieFeatures Features,
         MovieId? BestSeedId,
         SimilarityResult Result);

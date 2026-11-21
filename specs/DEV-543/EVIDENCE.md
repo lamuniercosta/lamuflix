@@ -44,12 +44,37 @@ Record disposition per member before deletion. Keep `AlreadyWatchedPenalty`.
 
 ## 2. DEV-545 before (capture before behaviour change)
 
+**T002 executed on 2026-11-21 before any T003/T004/T005 edit**, on worktree `F:/Dev/LamuFlix.worktrees/DEV-543`, branch `feature/DEV-543`, HEAD `52c48c21` (production recommendation sources identical to `origin/main` at pickup; no scoring edit yet).
+
+### Timing protocol (pinned — reused at T025 and T021)
+
+1. Identity: `git rev-parse HEAD` recorded with every run.
+2. Cache state: warm — five priming requests, discarded.
+3. Measurement: ten sequential `GET /api/recommendations/for-you?take=30` requests; individual durations recorded, then median and maximum.
+4. Pass bar: all ten under 500 ms with the 450-movie / 150-liked fixture.
+5. No permanent telemetry is added for the count probe at T025.
+
+### Baseline values
+
+| Metric | Fixture / protocol | Value | Artifact path (untracked OK) |
+| --- | --- | --- | --- |
+| Leave-one-out hit rate @10 (synthetic publish) | `pwsh -NoProfile -File ./scripts/run-evaluation.ps1`, fixture `dev-356-baseline`, seed 356, cutoff 10 | **0.75** (9/12 observations), exit 0 | `artifacts/evaluation/metrics-summary.json` |
+| Leave-one-out MRR (synthetic publish) | same run | **0.22903439153439153** (`reciprocalRankSum` 2.7484126984126984) | same |
+| Leave-one-out HR/MRR on the real home library | `LAMUFLIX_EVALUATION_MODE=leave-one-out` (DEV-545 harness) | **Could not run** — the DEV-545 protocol requires a pre-provisioned `ConnectionStrings__DefaultConnection` in the process environment; it is absent in this Build-lane shell and the home Postgres service is ClusterIP-only. Not invented, not substituted. | n/a |
+| Home snapshot capture | `pwsh -NoProfile -File ./scripts/run-recommendation-snapshot.ps1 -Mode Capture` against `http://localhost:3100`; 449-movie home library, seed ids 575/518/515/519/831, For you take 30, Related take 10 | exit 0, published 39236 bytes, SHA-256 `1E658F8F05BFBF95DC70B8518893F9116C1D0A80A27FCBEC9B2D1B465FEEEB93` | `artifacts/recommendations/t002-before-capture.json` |
+| Warm For you runtime, individual (ms) | home instance `http://localhost:3100`, 449 movies / 4 liked (DEV-545 §9 cohort), 5 primes + 10 measured, take 30 | 12530.1, 12249.5, 12432.9, 12141.4, 10365.4, 10948.0, 11409.0, 11390.9, 12413.7, 11727.6 | n/a (measured in-shell) |
+| Warm For you runtime, median | same run | **11727.6 ms** | |
+| Warm For you runtime, maximum | same run | **12530.1 ms** | |
+| 500 ms bar at T002 | brief fallback protocol | **NOT MET at baseline**: all ten timings exceeded 500 ms. This is the pre-change state the one-load/cache work (T005) and T021 must move. No score or bar was tuned to hide it. | |
+
+**Disclosure**: the home instance serves 449 movies and 4 liked movies, not the 450/150 acceptance fixture; the absolute numbers are home-instance-relative and only same-protocol deltas are comparable. Library size obtained from `GET /api/movies?...` `totalCount` = 449. Cohort sizes quoted from `specs/DEV-545/EVIDENCE.md` §9 (liked 4, watched 27, overlap 4).
+
 | Metric | Fixture | Value | Artifact path (untracked OK) |
 | --- | --- | --- | --- |
-| Leave-one-out hit rate | 2026-11-16 home / harness protocol | _pending T002_ | |
-| Leave-one-out MRR | same | _pending T002_ | |
-| Warm For you runtime | 450 movies / 150 liked | _pending T002_ | |
-| Notes / LOO disclaimer | harness-relative validity | _pending_ | |
+| Leave-one-out hit rate | 2026-11-16 home / harness protocol | **pending** — could not run (credential absent); synthetic publish 0.75 recorded above | |
+| Leave-one-out MRR | same | **pending** — could not run (credential absent); synthetic publish 0.229 recorded above | |
+| Warm For you runtime | 450 movies / 150 liked | **pending** — measured on the 449/4 home library at 11727.6 ms median / 12530.1 ms max; 500 ms bar not met at baseline | |
+| Notes / LOO disclaimer | harness-relative validity | The synthetic publish is deterministic and protocol-stable; real-library HR/MRR stay open until a credential-provisioned operator run. Only same-protocol deltas are comparable. | |
 
 ## 3. DEV-545 after + acceptance pairs
 
@@ -70,12 +95,13 @@ Ticket reference: 155 of 422 qualifying candidates on 2026-11-16 — reference d
 
 | Check | Result |
 | --- | --- |
-| One DEV-544 library feature load per For you request | _pending_ |
-| No per-movie `GetAsync` | _pending_ |
-| No second profile-inputs read on cache miss | _pending_ |
-| Cache not growing with library size × embedding size | _pending_ |
+| One DEV-544 library feature load per For you request | **PASS (T005)** — `GetForYouRecommendationsQueryHandler` takes `IRecommendationCandidateSource` and calls `GetLibraryFeaturesAsync` exactly once; asserted by `HandleAsync_LibraryBeyondCandidatePoolSize_IsScoredFromOneLibraryLoad`, `HandleAsync_FullLibrary_IsReadOnceAndScored`, `HandleAsync_ForwardsActiveProfileLikedIdentities_ToProfileInputs` and `HandleAsync_LibraryLoadWithoutEligibleCandidates_NeverReadsTheProfile` in `tests/LamuFlix.UnitTests/Features/Recommendations/GetForYouRecommendationsQueryHandlerTests.cs` |
+| No per-movie `GetAsync` | **PASS (T005)** — `IMovieCatalog`/`IMovieRepository` removed from the handler; no paged walk and no per-movie load remain in the path |
+| No second profile-inputs read on cache miss | **PASS (T005)** — the handler no longer calls `IRecommendationProfileSource.GetProfileInputsAsync`; playback is carried on `TasteProfile.PlaybackByMovieId` produced by the single `GetTasteProfileAsync` read (asserted `DidNotReceive` in the handler tests and `HandleAsync_ProfileCancelsToken_ThrowsBeforeGenreWeights`) |
+| Cache not growing with library size × embedding size | **PASS (T005)** — `CachedProfile` shape unchanged (DEV-510); the added payload field is playback timestamps keyed by movie id, independent of embedding dimension |
+| Playback joined by seed movie ID | **PASS (T005)** — `GetTasteProfileAsync_RetainsPlaybackBySeedMovieId_SoOldAndFreshSeedsScaleDifferently` in `tests/LamuFlix.IntegrationTests/EfRecommendationProfileSourceTests.cs` (Testcontainers, real persistence path): old and fresh equal-feature seeds receive different effective weights (0.25 floor vs 1.0) and a no-playback positive stays unscaled |
 | `OpenApiContractTests` snapshot unchanged | _pending T022_ |
-| `dotnet test` UnitTests + IntegrationTests | _pending T022_ |
+| `dotnet test` UnitTests + IntegrationTests (Phase 2 scope) | `dotnet test tests/LamuFlix.UnitTests` — 4188 passed, 1 skipped, 0 failed. `dotnet test tests/LamuFlix.IntegrationTests --filter EfRecommendationProfileSourceTests` — 24 passed, 0 failed. Full T022 run still pending. |
 
 ## 5. Gate outcomes (honest vocabulary)
 
