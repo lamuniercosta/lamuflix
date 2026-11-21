@@ -12,14 +12,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace LamuFlix.IntegrationTests;
 
-/// <summary>
-/// Keeps an in-process API test host away from every real external API. Integration tests talk to
-/// WireMock stubs on loopback only, never to OMDb, TMDb or OpenSubtitles themselves. The isolation
-/// has three layers, so one forgotten override cannot leak a request:
-/// the user-secrets configuration source is dropped (a developer's real keys never load),
-/// each provider is pinned to a URL that cannot reach a real service,
-/// and every <see cref="IHttpClientFactory"/> client refuses any request whose host is not loopback.
-/// </summary>
 internal static class TestHostNetworkIsolation
 {
     public const string BlockedRequestMessagePrefix = "Test host blocked a request to a non-loopback host: ";
@@ -28,11 +20,6 @@ internal static class TestHostNetworkIsolation
     private const string UnreachableBaseUrl = "https://example.invalid/";
     private const string RelativeUriHost = "(relative uri)";
 
-    /// <summary>
-    /// Provider settings every test host starts from. They override the real URLs in appsettings.json
-    /// and match what a CI runner without user secrets sees. A test that needs a provider overrides
-    /// these with a WireMock URL in its own settings.
-    /// </summary>
     public static IReadOnlyList<KeyValuePair<string, string?>> SafeProviderSettings { get; } =
     [
         new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}", UnreachableBaseUrl),
@@ -78,10 +65,6 @@ internal static class TestHostNetworkIsolation
     private static string DescribeHost(Uri? uri) =>
         uri is { IsAbsoluteUri: true } ? uri.Host : RelativeUriHost;
 
-    /// <summary>
-    /// Outermost handler on every factory client: it fails the request before any retry,
-    /// quota or socket code runs, so a blocked request never leaves the machine.
-    /// </summary>
     private sealed class LoopbackOnlyHandler : DelegatingHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(

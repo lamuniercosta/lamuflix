@@ -102,8 +102,6 @@ public sealed class OpenSubtitlesSubtitleProvider(
         request.Headers.TryAddWithoutValidation(UserAgentHeader, Options.UserAgent);
         if (IsProviderApiHost(request.RequestUri))
         {
-            // The API host answers a download without Accept: application/json with a 503 HTML page.
-            // The link host serves text/plain, so it gets neither header.
             request.Headers.TryAddWithoutValidation(ApiKeyHeader, Options.ApiKey);
             request.Headers.TryAddWithoutValidation(AcceptHeader, JsonMediaType);
         }

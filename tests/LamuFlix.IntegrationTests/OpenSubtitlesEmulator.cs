@@ -15,12 +15,6 @@ using WireMock.Util;
 
 namespace LamuFlix.IntegrationTests;
 
-/// <summary>
-/// Emulates the observed OpenSubtitles REST API (specs/DEV-525/provider-contract.md) on two loopback HTTPS servers:
-/// the API server, which is the BaseUrl, and the link server, which the download links point at. The default rules
-/// follow the contract. Tests inject faults with the Override* methods, which add a higher-priority mapping and leave
-/// every other rule in place.
-/// </summary>
 public sealed class OpenSubtitlesEmulator : IDisposable
 {
     public const string SearchPath = "/api/v1/subtitles";
@@ -67,23 +61,14 @@ public sealed class OpenSubtitlesEmulator : IDisposable
         RegisterLinkRules();
     }
 
-    /// <summary>The API server. <see cref="BaseUrl"/> is its root, with no path.</summary>
     public WireMockServer Api { get; }
 
-    /// <summary>The link server. Its authority differs from the API server, so the adapter never sends Api-Key to it.</summary>
     public WireMockServer Links { get; }
 
     public string BaseUrl => Api.Urls[0];
 
-    /// <summary>The download link the emulator issues for a file id.</summary>
     public string DownloadLinkFor(int fileId) => LinkFor(fileId);
 
-    /// <summary>
-    /// Returns the canonical form of a raw search query (contract section 2). A request is redirected with 301
-    /// when <paramref name="rawQuery"/> differs from the returned value. Names are lowercased, pairs are sorted by
-    /// name, <c>%20</c> becomes <c>+</c>, and values that are pure ASCII once decoded are lowercased. Percent escapes
-    /// keep their case, and values with percent-encoded non-ASCII bytes are left as sent.
-    /// </summary>
     public static string CanonicalQuery(string rawQuery)
     {
         ArgumentNullException.ThrowIfNull(rawQuery);
@@ -96,15 +81,12 @@ public sealed class OpenSubtitlesEmulator : IDisposable
                 .Select(pair => pair.Text));
     }
 
-    /// <summary>Replaces the search endpoint for a single test. The override takes precedence over the default rules.</summary>
     public void OverrideSearch(IResponseBuilder response) =>
         AddOverride(Api, Request.Create().WithPath(new RegexMatcher(SearchPathPattern)).UsingGet(), response);
 
-    /// <summary>Replaces the download endpoint for a single test. The override takes precedence over the default rules.</summary>
     public void OverrideDownload(IResponseBuilder response) =>
         AddOverride(Api, Request.Create().WithPath(DownloadPath).UsingPost(), response);
 
-    /// <summary>Replaces the link server response for a single test. The override takes precedence over the default rules.</summary>
     public void OverrideLink(IResponseBuilder response) =>
         AddOverride(Links, Request.Create().WithPath(new RegexMatcher(LinkPathPattern)).UsingGet(), response);
 
@@ -136,12 +118,10 @@ public sealed class OpenSubtitlesEmulator : IDisposable
 
     private void AddOverride(WireMockServer server, IRequestBuilder request, IResponseBuilder response)
     {
-        // Each later override gets a lower value, which WireMock treats as higher priority, so the newest override wins.
         overridePriority--;
         server.Given(request).AtPriority(overridePriority).RespondWith(response);
     }
 
-    // Canonical rule first (GET /subtitles only, before auth), then User-Agent, Api-Key, and the 200 body.
     private ResponseMessage HandleSearch(IRequestMessage request)
     {
         var rawQuery = RawQueryOf(request);
@@ -160,7 +140,6 @@ public sealed class OpenSubtitlesEmulator : IDisposable
             new JsonObject { ["status"] = 404, ["error"] = "Not Found" },
             rateLimited: true);
 
-    // Contract section 5: a download without Accept: application/json gets the 503 HTML error page, not JSON.
     private ResponseMessage HandleDownload(IRequestMessage request) =>
         Gate(request) ?? RequireJsonAccept(request) ?? (ReadFileId(request.Body) is { } fileId
             ? Json(200, DownloadBody(fileId), rateLimited: true)
@@ -214,7 +193,6 @@ public sealed class OpenSubtitlesEmulator : IDisposable
         ["data"] = new JsonArray(entries.Select(entry => (JsonNode)SearchEntry(entry, hashSearch)).ToArray()),
     };
 
-    // comments and uploader are omitted; the contract says they hold user-written content and are not recorded.
     private JsonObject SearchEntry(OpenSubtitlesSubtitle subtitle, bool hashSearch)
     {
         var fileId = subtitle.FileId.ToString(CultureInfo.InvariantCulture);
@@ -269,7 +247,6 @@ public sealed class OpenSubtitlesEmulator : IDisposable
         ["ts"] = 1,
     };
 
-    // Chunked transfer: see OpenSubtitlesEmulatorTests for what WireMock actually sent.
     private IResponseBuilder SrtResponse() => Response.Create()
         .WithStatusCode(200)
         .WithHeader("Content-Type", "text/plain")
@@ -350,7 +327,6 @@ public sealed class OpenSubtitlesEmulator : IDisposable
     private static bool IsPureAscii(string raw) =>
         Uri.UnescapeDataString(raw).All(static character => character < 0x80);
 
-    // Percent escapes keep their case. Only literal characters are lowercased.
     private static string LowercaseOutsideEscapes(string value)
     {
         var builder = new StringBuilder(value.Length);
@@ -433,7 +409,6 @@ public sealed class OpenSubtitlesEmulator : IDisposable
     }
 }
 
-/// <summary>One search result entry. <see cref="FeatureType"/> is "Movie" or "Episode"; <see cref="Language"/> is returned as given.</summary>
 public sealed record OpenSubtitlesSubtitle(
     long FileId,
     string Language,
@@ -443,7 +418,6 @@ public sealed record OpenSubtitlesSubtitle(
     string FeatureTitle,
     bool MovieHashMatch = false);
 
-/// <summary>Scenario data for <see cref="OpenSubtitlesEmulator"/>.</summary>
 public sealed record OpenSubtitlesScenario
 {
     public const string DefaultSrt =
@@ -451,7 +425,6 @@ public sealed record OpenSubtitlesScenario
 
     public IReadOnlyList<OpenSubtitlesSubtitle> Subtitles { get; init; } = [];
 
-    /// <summary>The SRT body the link server returns for every download link.</summary>
     public string SrtText { get; init; } = DefaultSrt;
 
     public int DownloadsRemaining { get; init; } = 99;

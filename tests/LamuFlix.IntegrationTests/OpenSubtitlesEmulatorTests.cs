@@ -24,8 +24,6 @@ public sealed class OpenSubtitlesEmulatorTests
         ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
     });
 
-    // Rows from specs/DEV-525/provider-contract.md section 2. Redirected rows map to the canonical form;
-    // accepted rows map to themselves.
     public static TheoryData<string, string> CanonicalRows => new()
     {
         { "query=13+Going+On+30", "query=13+going+on+30" },

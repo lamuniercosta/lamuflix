@@ -1,9 +1,6 @@
-// Self-check for the OpenSubtitles canonical-query rule. Run: node e2e/subtitle-canonical.selfcheck.mjs
-// Rows come from specs/DEV-525/provider-contract.md section 2.
 import assert from 'node:assert/strict';
 import { canonicalSubtitleQuery } from './stub.mjs';
 
-// [raw query, canonical query]: the raw query must be redirected to the canonical one.
 const redirected = [
   ['query=13+Going+On+30', 'query=13+going+on+30'],
   ['query=AMELIE', 'query=amelie'],
@@ -17,7 +14,6 @@ const redirected = [
   ['query=13+going&languages=pt-br', 'languages=pt-br&query=13+going'],
 ];
 
-// Raw queries that are already canonical: canonical must equal raw (no redirect).
 const accepted = [
   'query=am%C3%A9lie',
   'query=am%c3%a9lie',

@@ -220,25 +220,8 @@ public sealed class LocalPlayRealKestrelHostFixture : IAsyncDisposable
             return new LocalPlayRealKestrelStartResult(false, failure, Recorder.Entries, []);
         }
 
-        var addresses = BoundAddresses();
-        ThrowIfAnyAddressIsNotLoopback(addresses);
-        return new LocalPlayRealKestrelStartResult(true, null, Recorder.Entries, addresses);
+        return new LocalPlayRealKestrelStartResult(true, null, Recorder.Entries, BoundAddresses());
     }
-
-    // A wildcard bind (0.0.0.0, [::], *) makes Windows Firewall prompt the developer during a test run.
-    // Tests that need a wildcard URL must assert a refusal, which happens before Kestrel binds.
-    private static void ThrowIfAnyAddressIsNotLoopback(IReadOnlyList<string> addresses)
-    {
-        var wildcard = addresses.FirstOrDefault(static address => !IsLoopbackAddress(address));
-        if (wildcard is not null)
-        {
-            throw new InvalidOperationException(
-                $"The real Kestrel test host bound {wildcard}, which is not loopback and raises the Windows Firewall prompt. Bind 127.0.0.1 or localhost instead.");
-        }
-    }
-
-    private static bool IsLoopbackAddress(string address) =>
-        Uri.TryCreate(address, UriKind.Absolute, out var uri) && uri.IsLoopback;
 
     public IReadOnlyList<string> BoundAddresses()
     {

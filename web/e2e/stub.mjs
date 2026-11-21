@@ -323,10 +323,6 @@ function recordSubtitleRequest(request, url, outcome) {
   return entry;
 }
 
-// OpenSubtitles emulation. Shapes and rules follow specs/DEV-525/provider-contract.md.
-
-// Lowercases ASCII letters outside %XX escapes. Escapes stay byte-for-byte, which keeps
-// observed rows such as "%3A" and "%2B" unredirected (contract section 2).
 const PERCENT_ESCAPE_OR_LETTERS = /%[0-9A-Fa-f]{2}|[A-Za-z]+/g;
 
 function isPureAscii(text) {
@@ -360,7 +356,6 @@ function compareNames(left, right) {
   return left.name < right.name ? -1 : 1;
 }
 
-// Canonical form of a raw query string (the text after "?" in req.url).
 export function canonicalSubtitleQuery(rawQuery) {
   return rawQuery
     .split('&')
@@ -409,7 +404,6 @@ function sendCanonicalRedirect(response, canonical) {
   response.end(body);
 }
 
-// The real /download answers 503 with this HTML page when the request lacks Accept: application/json.
 function sendServiceUnavailablePage(response) {
   const body =
     '<!DOCTYPE html>\n<html><head><title>Error 503 - OpenSubtitles.com</title></head>' +
@@ -426,7 +420,6 @@ function acceptsJson(request) {
   return (request.headers.accept ?? '').toLowerCase().includes('application/json');
 }
 
-// The key itself is never logged; only the outcome label and the reason are recorded.
 function apiAuthFailure(request) {
   if (!request.headers['user-agent']) {
     return {
@@ -475,8 +468,6 @@ function searchEntry(entry) {
   };
 }
 
-// The Movie entry keeps the release the E2E spec expects. The Episode entry is a decoy
-// that the real title search also returns.
 function searchEntries(subtitle) {
   return [
     searchEntry({
@@ -535,8 +526,6 @@ function subtitleLinkPath(subtitle) {
   return `${SUBTITLE_DOWNLOAD_PREFIX}${subtitleDownloadToken(subtitle)}/subfile/${subtitleDownloadName(subtitle)}`;
 }
 
-// The link lives on another authority (localhost) than the API BaseUrl (127.0.0.1),
-// matching the real www host, and the adapter therefore sends no Api-Key to it.
 function subtitleDownloadLink(subtitle) {
   return `https://${LINK_HOST}:${TLS_PORT}${subtitleLinkPath(subtitle)}`;
 }
@@ -621,7 +610,6 @@ function handleSubtitleLink(request, response, url, subtitle) {
   }
 
   recordSubtitleRequest(request, url, 'download-payload-served');
-  // write() before end() so no Content-Length is set, as on the real link.
   response.writeHead(200, {
     'content-type': 'text/plain',
     'content-disposition': 'attachment',
