@@ -131,10 +131,63 @@ if ($endpointIsLocal) {
     $alternateServed = Test-ModelServed -BaseEndpoint $endpoint -Model $alternateModel
 }
 
+function Test-ScratchStoreReachable {
+    param([string]$Connection)
+
+    if ($Connection.Contains(':memory:', [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
+    }
+
+    $match = [regex]::Match(
+        $Connection,
+        '(?:Server|Data Source|Host)\s*=\s*([^;,]+)',
+        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if (-not $match.Success) {
+        return $false
+    }
+
+    $hostPart = $match.Groups[1].Value.Trim()
+    if ($hostPart.StartsWith('(') -or $hostPart.Contains('/') -or $hostPart.Contains('\') -or $hostPart.Contains('.db')) {
+        return $true
+    }
+
+    $bareHost = $hostPart.Split(',')[0].Split(':')[0].Trim()
+    if ([string]::IsNullOrWhiteSpace($bareHost)) {
+        return $false
+    }
+
+    $ports = @()
+    $portMatch = [regex]::Match($hostPart, '[,:]\s*(\d{2,5})\s*$')
+    if ($portMatch.Success) {
+        $ports += [int]$portMatch.Groups[1].Value
+    } else {
+        $ports += 1433
+        $ports += 5432
+    }
+
+    foreach ($port in $ports) {
+        $probe = New-Object System.Net.Sockets.TcpClient
+        try {
+            $task = $probe.BeginConnect($bareHost, $port, $null, $null)
+            if ($task.AsyncWaitHandle.WaitOne(1500) -and $probe.Connected) {
+                return $true
+            }
+        } catch {
+        } finally {
+            $probe.Close()
+        }
+    }
+
+    return $false
+}
+
 $storeEntry = Get-Item -Path "Env:$connectionVariable" -ErrorAction SilentlyContinue
 $storeConnection = if ($null -eq $storeEntry) { '' } else { [string]$storeEntry.Value }
 $storeIsolated = Test-ScratchConnectionString -Connection $storeConnection
-$storeReachable = -not [string]::IsNullOrWhiteSpace($storeConnection)
+$storeReachable = $false
+if ($storeIsolated) {
+    $storeReachable = Test-ScratchStoreReachable -Connection $storeConnection
+}
 
 $missing = @()
 if (-not $endpointIsLocal) {
