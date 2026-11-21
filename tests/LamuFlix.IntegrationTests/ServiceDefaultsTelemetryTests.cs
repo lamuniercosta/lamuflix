@@ -57,6 +57,8 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
     private const int MetricsFlushAttempts = 3;
     private static readonly TimeSpan LogBodyTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan LogBodyPollInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan SignalTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan SignalPollInterval = TimeSpan.FromMilliseconds(100);
     private const string MeterScopeName = "LamuFlix";
     private const string DurationMetricName = "lamuflix.enrichment.duration";
     private const string OutcomeMetricName = "lamuflix.enrichment.outcome";
@@ -106,17 +108,11 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
 
             // act
             EmitSignals(host);
-            var tracesFlushed = tracer.ForceFlush(FlushTimeoutMilliseconds);
-            var metricsFlushed = FlushMetricsWithRetry(meterProvider);
-            var logsFlushed = loggerProvider.ForceFlush(FlushTimeoutMilliseconds);
+            await WaitForSignalAsync(stub, TracesPath, () => tracer.ForceFlush(FlushTimeoutMilliseconds), cancellationToken);
+            await WaitForSignalAsync(stub, MetricsPath, () => FlushMetricsWithRetry(meterProvider), cancellationToken);
+            await WaitForSignalAsync(stub, LogsPath, () => loggerProvider.ForceFlush(FlushTimeoutMilliseconds), cancellationToken);
 
             // assert
-            tracesFlushed.ShouldBeTrue();
-            metricsFlushed.ShouldBeTrue();
-            logsFlushed.ShouldBeTrue();
-            Received(stub, TracesPath).ShouldBeTrue();
-            Received(stub, MetricsPath).ShouldBeTrue();
-            Received(stub, LogsPath).ShouldBeTrue();
             await WaitForLogBodyAsync(stub, loggerProvider, cancellationToken);
         }
         finally
@@ -365,6 +361,31 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
                 new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", "00:00:01"),
             ],
             disableEnrichmentConsumer: true);
+
+    private static async Task WaitForSignalAsync(
+        WireMockServer stub,
+        string path,
+        Func<bool> flush,
+        CancellationToken cancellationToken)
+    {
+        // arrange
+        var deadline = TimeProvider.System.GetUtcNow() + SignalTimeout;
+
+        // act
+        while (TimeProvider.System.GetUtcNow() < deadline)
+        {
+            if (flush() && Received(stub, path))
+            {
+                return;
+            }
+
+            await Task.Delay(SignalPollInterval, cancellationToken);
+        }
+
+        // assert
+        flush().ShouldBeTrue();
+        Received(stub, path).ShouldBeTrue();
+    }
 
     private static async Task WaitForLogBodyAsync(
         WireMockServer stub,
