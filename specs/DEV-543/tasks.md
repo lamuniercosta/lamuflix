@@ -129,8 +129,8 @@ Ordering per brief Task order. **T002 completion is a hard dependency for T003, 
 **Order**: T018 and T019 can run in parallel after T016 and confirmation of the ADR 0047 draft at T001. T017 follows both.
 
 - [ ] T017 [US5] **Keel / Build handoff**. After T018 and T019: Keel updates the proposed draft at `docs/adr/0047-for-you-nearest-seeds.md` with the published-order decision, Related boundary and shared-policy evidence requirement from the brief, cites Q1–Q8 and removes the allocation process sentence. Verify the ADR is in the delivery diff with T018/T019 (FR-010; SC-009).
-- [ ] T018 [P] [US5] **Build lane**. After T016 and T001 confirmation of the ADR 0047 draft: Mark signed-formula decision superseded in `docs/adr/0034-explicit-movie-reviews.md` citing ADR 0047 (FR-010). Same delivery PR as T017/T019. Retain the ADR 0034 status, since its movie review decision still governs.
-- [ ] T019 [P] [US5] **Build lane**. After T016 and T001 confirmation of the ADR 0047 draft: Rewrite Taste Profile entry at `CONTEXT.md` (~lines 143–145) for post-centroid nearest-seed world; ensure reason templates are documented in one place mirroring `RecommendationReasonBuilder` / brief table (FR-010; SC-009). Same delivery PR as T017/T018.
+- [x] T018 [P] [US5] **Build lane**. After T016 and T001 confirmation of the ADR 0047 draft: Mark signed-formula decision superseded in `docs/adr/0034-explicit-movie-reviews.md` citing ADR 0047 (FR-010). Same delivery PR as T017/T019. Retain the ADR 0034 status, since its movie review decision still governs.
+- [x] T019 [P] [US5] **Build lane**. After T016 and T001 confirmation of the ADR 0047 draft: Rewrite Taste Profile entry at `CONTEXT.md` (~lines 143–145) for post-centroid nearest-seed world; ensure reason templates are documented in one place mirroring `RecommendationReasonBuilder` / brief table (FR-010; SC-009). Same delivery PR as T017/T018.
 
 ---
 
