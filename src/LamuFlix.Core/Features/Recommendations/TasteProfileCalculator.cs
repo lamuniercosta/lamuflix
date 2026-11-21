@@ -10,24 +10,14 @@ namespace LamuFlix.Core.Features.Recommendations;
 
 public sealed class TasteProfileCalculator
 {
-    private readonly TimeProvider _timeProvider;
-    private readonly double _recencyDecayLambda;
+    private readonly RecommendationRecencyDecay decay;
 
     public TasteProfileCalculator(TimeProvider timeProvider, RecommendationOptions options)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(options);
 
-        if (!double.IsFinite(options.RecencyDecayLambda) || options.RecencyDecayLambda <= 0.0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(options),
-                options.RecencyDecayLambda,
-                "RecencyDecayLambda must be finite and greater than 0.0.");
-        }
-
-        _timeProvider = timeProvider;
-        _recencyDecayLambda = options.RecencyDecayLambda;
+        decay = new RecommendationRecencyDecay(timeProvider, options);
     }
 
     public TasteProfile Calculate(ImmutableArray<TasteProfileMovie> movies, GenreWeights genreWeights)
@@ -35,7 +25,7 @@ public sealed class TasteProfileCalculator
         ArgumentNullException.ThrowIfNull(genreWeights);
         ValidateMovies(movies);
 
-        var now = _timeProvider.GetUtcNow();
+        var now = decay.UtcNow;
         var signals = BuildSignals(movies, now);
         var liked = ReviewAggregate(movies, Review.Liked, genreWeights);
         var disliked = ReviewAggregate(movies, Review.Disliked, genreWeights);
@@ -47,7 +37,31 @@ public sealed class TasteProfileCalculator
             Liked = liked,
             Disliked = disliked,
             LikedSources = LikedSources(movies, Review.Liked, genreWeights),
+            PlaybackByMovieId = PlaybackByMovieId(movies),
         };
+    }
+
+    private static ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>> PlaybackByMovieId(
+        ImmutableArray<TasteProfileMovie> movies)
+    {
+        if (movies.IsDefaultOrEmpty)
+        {
+            return ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>.Empty;
+        }
+
+        var builder = ImmutableDictionary.CreateBuilder<MovieId, ImmutableArray<DateTimeOffset>>();
+
+        foreach (var movie in movies)
+        {
+            if (movie.PlayedAt.IsDefaultOrEmpty)
+            {
+                continue;
+            }
+
+            builder[movie.MovieId] = [.. movie.PlayedAt];
+        }
+
+        return builder.ToImmutable();
     }
 
     private static ImmutableArray<LikedReviewSource> LikedSources(
@@ -344,7 +358,7 @@ public sealed class TasteProfileCalculator
     }
 
     private static double ComputeAge(DateTimeOffset now, DateTimeOffset playedAt) =>
-        Math.Max(0.0, (now - playedAt).TotalDays);
+        RecommendationRecencyDecay.AgeInDays(now, playedAt);
 
     private ImmutableDictionary<string, double> ComputeGenrePreferences(
         ImmutableArray<Signal> signals,
@@ -457,7 +471,7 @@ public sealed class TasteProfileCalculator
     }
 
     private double ScaledWeight(double age, double minimumAge) =>
-        Math.Exp(-_recencyDecayLambda * (age - minimumAge));
+        decay.RelativeWeight(age, minimumAge);
 
     private static bool TryFindMinimumAge(
         ImmutableArray<Signal> signals,

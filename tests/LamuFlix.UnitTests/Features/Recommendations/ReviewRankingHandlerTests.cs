@@ -389,7 +389,7 @@ public sealed class ReviewRankingHandlerTests
     private sealed class ForYouHarness
     {
         private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
-        private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
+        private readonly IRecommendationCandidateSource candidates = Substitute.For<IRecommendationCandidateSource>();
         private readonly IRecommendationProfileSource profileSource = Substitute.For<IRecommendationProfileSource>();
 
         public ForYouHarness()
@@ -415,13 +415,15 @@ public sealed class ReviewRankingHandlerTests
                     movie.Review))
                 .ToImmutableArray();
 
-            catalog.BrowseAsync(Arg.Any<MovieQuery>(), Arg.Any<CancellationToken>())
-                .Returns(new PagedResult<MovieSummary>(summaries, summaries.Length));
+            IReadOnlyList<RecommendationLibraryEntry> entries =
+            [
+                .. library.Select((movie, index) => new RecommendationLibraryEntry(
+                    MovieFeaturesMapper.From(movie, includeSignals: true),
+                    summaries[index])),
+            ];
 
-            foreach (var movie in library)
-            {
-                movies.GetAsync(movie.Id, Arg.Any<CancellationToken>()).Returns(movie);
-            }
+            candidates.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(entries));
         }
 
         public async Task<ImmutableList<RecommendedMovie>> HandleAsync(
@@ -429,7 +431,11 @@ public sealed class ReviewRankingHandlerTests
             Func<RecommendationOptions, RecommendationOptions>? configure = null)
         {
             profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(profile));
+                .Returns(Task.FromResult(profile with
+                {
+                    PlaybackByMovieId = ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>
+                        .Empty.Add(new MovieId(500), [Now]),
+                }));
             profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new RecommendationProfileInputs(
                     [
@@ -447,8 +453,7 @@ public sealed class ReviewRankingHandlerTests
                 : configure(new RecommendationOptions { Weights = GenreOnlyWeights, MmrLambda = 1.0 });
 
             var handler = new GetForYouRecommendationsQueryHandler(
-                catalog,
-                movies,
+                candidates,
                 profileSource,
                 new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
                 new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
@@ -503,7 +508,11 @@ public sealed class ReviewRankingHandlerTests
         public async Task<ImmutableList<RecommendedMovie>> HandleAsync(TasteProfile profile)
         {
             profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(profile));
+                .Returns(Task.FromResult(profile with
+                {
+                    PlaybackByMovieId = ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>
+                        .Empty.Add(new MovieId(500), [Now]),
+                }));
             profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new RecommendationProfileInputs(
                     [

@@ -511,6 +511,142 @@ public sealed class RecommendationOptionsTests
         exception.Message.ShouldContain(nameof(RecommendationOptions.CandidatePoolSize));
     }
 
+    [Fact]
+    public void Defaults_NearestSeedOptions_MatchTheAgreedValues()
+    {
+        // arrange
+        var options = new RecommendationOptions();
+
+        // act
+        var defaults = (
+            options.SeedWeightLiked,
+            options.SeedWeightWatched,
+            options.SeedWeightWatchlist,
+            options.DislikedSeedWeight,
+            options.RecencyFloor,
+            options.SeedRankMultipliers);
+
+        // assert
+        defaults.SeedWeightLiked.ShouldBe(1.0);
+        defaults.SeedWeightWatched.ShouldBe(0.6);
+        defaults.SeedWeightWatchlist.ShouldBe(0.4);
+        defaults.DislikedSeedWeight.ShouldBe(1.0);
+        defaults.RecencyFloor.ShouldBe(0.25);
+        defaults.SeedRankMultipliers.ShouldBe([1.0, 0.5, 0.25]);
+    }
+
+    [Theory]
+    [InlineData(0.0, true)]
+    [InlineData(0.6, true)]
+    [InlineData(1.0, true)]
+    [InlineData(-0.0001, false)]
+    [InlineData(double.NaN, false)]
+    [InlineData(double.PositiveInfinity, false)]
+    public void TryValidateObject_SeedWeight_AtEachEdge_MatchesTheFiniteNonNegativeRule(double value, bool expectedValid)
+    {
+        // arrange
+        var options = new RecommendationOptions
+        {
+            SeedWeightLiked = value,
+            SeedWeightWatched = value,
+            SeedWeightWatchlist = value,
+            DislikedSeedWeight = value,
+        };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        AssertEdge(results, nameof(RecommendationOptions.SeedWeightLiked), expectedValid);
+    }
+
+    [Theory]
+    [InlineData(0.25, true)]
+    [InlineData(1.0, true)]
+    [InlineData(-0.0001, false)]
+    [InlineData(1.0001, false)]
+    [InlineData(double.NaN, false)]
+    [InlineData(double.PositiveInfinity, false)]
+    public void TryValidateObject_RecencyFloor_AtEachEdge_MatchesTheUnitRangeRule(double value, bool expectedValid)
+    {
+        // arrange
+        var options = new RecommendationOptions { RecencyFloor = value };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        AssertEdge(results, nameof(RecommendationOptions.RecencyFloor), expectedValid);
+    }
+
+    [Fact]
+    public void TryValidateObject_RecencyFloorZero_IsRejected()
+    {
+        // arrange
+        var options = new RecommendationOptions { RecencyFloor = 0.0 };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        results.SelectMany(result => result.MemberNames).ShouldContain(nameof(RecommendationOptions.RecencyFloor));
+    }
+
+    [Fact]
+    public void TryValidateObject_SeedRankMultipliers_DefaultsAreAccepted()
+    {
+        // arrange
+        var options = new RecommendationOptions();
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        results.ShouldBeEmpty();
+    }
+
+    public static TheoryData<double[], bool> SeedRankMultiplierEdges =>
+        new()
+        {
+            { [1.0, 0.5, 0.25], true },
+            { [1.0], true },
+            { [0.0, 0.0], true },
+            { [], false },
+            { [0.5, 1.0], false },
+            { [-0.1], false },
+            { [double.NaN], false },
+            { [double.PositiveInfinity], false },
+        };
+
+    [Theory]
+    [MemberData(nameof(SeedRankMultiplierEdges))]
+    public void TryValidateObject_SeedRankMultipliers_MatchTheNonIncreasingFiniteRule(
+        double[] multipliers,
+        bool expectedValid)
+    {
+        // arrange
+        var options = new RecommendationOptions { SeedRankMultipliers = multipliers };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        AssertEdge(results, nameof(RecommendationOptions.SeedRankMultipliers), expectedValid);
+    }
+
+    [Fact]
+    public void Validate_SeedRankMultipliersNull_ReturnsSingleRequiredFieldResult()
+    {
+        // arrange
+        var options = new RecommendationOptions { SeedRankMultipliers = null };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        results.ShouldHaveSingleItem().MemberNames.ShouldContain(nameof(RecommendationOptions.SeedRankMultipliers));
+    }
+
     private static RecommendationOptions WithBlendCoefficient(string memberName, double value) =>
         memberName switch
         {
