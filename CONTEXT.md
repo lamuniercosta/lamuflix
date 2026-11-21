@@ -138,11 +138,19 @@ _Avoid_: watch log, history entry
 A suggested library movie from the details page.
 
 **Reason**
-A caller-safe explanation attached to a recommendation.
+A caller-safe explanation attached to a recommendation. For you places the best strong seed line first in the existing `reasons` list, followed by that pair's shared-similarity evidence. The seed templates are constants in `RecommendationReasonBuilder` and mirror this table:
+
+| Seed signal | Seed reason |
+| --- | --- |
+| Liked | Because you liked {title} |
+| Watched without review | Because you watched {title} |
+| Watchlist | Because {title} is on your watchlist |
+
+_Avoid_: the superseded For you "Matches your viewing history", "Matches your {genre} interest", and "No shared features identified" lines
 
 **Taste Profile**
-An aggregate of viewing history and explicit review preferences: a recency-weighted aggregate of the user's watched movies, extended with separate liked and disliked Review aggregates over plot embedding, genres, cast, and director.
-_Avoid_: preferences snapshot, user profile, review history
+The viewing-history aggregate retained as a per-seed recency input: recency-weighted playback timestamps by movie, plus the genre preferences derived from that history. For you does not score against a profile centroid or blend; it ranks by pairwise similarity to the owner's nearest seeds and uses the profile only to decay positive seed weights where playback exists. Genre preferences remain informational and are not a ranking input.
+_Avoid_: taste centroid, profile blend, affinity score, plot centroid, taste profile recommendations
 
 **Feedback**
 Explicit Watched and Review actions about a movie.
@@ -178,7 +186,7 @@ The overlap of two movies genre sets, weighted by library rarity.
 _Avoid_: unweighted genre overlap, overall recommendation score
 
 **Ordered criterion**
-One of Collection, Director, Themes, Plot, Cast, Genre in that fixed table order, with configured weight, value in [0, 1], matched evidence, and contribution. The same six entries and reasons serve the Related rail, For You MMR redundancy, and collection block ranking; see [docs/recommendations.md](docs/recommendations.md).
+One of Collection, Director, Themes, Plot, Cast, Genre in that fixed table order, with configured weight, value in [0, 1], matched evidence, and contribution. The same six entries and reasons supply Related ranking, For you seed evidence, and collection block ranking; see [docs/recommendations.md](docs/recommendations.md).
 _Avoid_: legacy year/runtime/rating/writers terms, unordered evidence, a per-caller criterion list
 
 **Contribution**

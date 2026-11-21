@@ -32,7 +32,7 @@ public sealed class LeaveOneOutRunnerTests
         var attempt = result.Liked.Attempts.ShouldHaveSingleItem();
         attempt.Seed.ShouldBe(new MovieId(1));
         attempt.Take.ShouldBe(3);
-        attempt.Ranking.ShouldBe([new MovieId(1), new MovieId(2), new MovieId(3)]);
+        attempt.Ranking.ShouldBe([new MovieId(1), new MovieId(2)]);
         attempt.Rank.ShouldBe(1);
 
         result.Liked.Metrics.AttemptedCount.ShouldBe(1);
