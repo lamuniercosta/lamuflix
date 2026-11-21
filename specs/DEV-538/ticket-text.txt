@@ -1,0 +1,91 @@
+# DEV-538
+
+**Id:** DEV-538
+
+**Summary:** For you page grouped by reason
+
+## Description
+
+## Goal
+For you becomes a few short rows, each with a heading that says why its movies are there ("Next in a series you started", "Because you liked {title}", "Close to your watchlist", "More for you"). Every movie still clears the strong-match bar, and a row with fewer than two movies is folded into "More for you". On the home library the series row is empty today (0 unwatched movies in a collection that has a watched movie).
+
+## Problem
+
+For you is one flat list. Every card looks the same, and the owner reads the same "Because you liked" line on several cards in a row instead of seeing one row per reason.
+
+- The page renders all results in one grid with one card type (`web/src/features/for-you/ForYouPage.tsx:33-41`). There are no rows and no headings below the page heading (`:18`).
+- The page asks the API for 10 results with a fixed `take`, and has no paging (`web/src/features/for-you/forYouApi.ts:7`, `:25-26`).
+- Each card shows its own reason lines (`web/src/library/MovieCard.tsx:141-160`). With the seed and evidence from DEV-542, the seed line repeats on every card that shares a seed. On 2026-11-16, nine of the top 20 cards on the home library carried the same "Because you liked About Time" line.
+- The result DTO has no collection id, so the page cannot tell which results belong to a series (`src/LamuFlix.Api/Endpoints/RecommendedMovieDto.cs:7-20`). The collection id exists on the movie row (`src/LamuFlix.Infrastructure/Persistence/Configurations/MovieConfiguration.cs:166-173`).
+- The page has a loading state, an error state with Retry, and one empty state (`ForYouPage.tsx:21`, `:22-29`, `:30-32`). The empty text is "No recommendations yet. Mark movies as watched or liked to get some." The server returns an empty list when there is no positive signal (`src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs:45-48`).
+- The page has no rows or rails. The only horizontal rail in the web app is the carousel on the details page (`web/src/ui/MovieCarousel.tsx:52`, used at `web/src/features/movie-details/RelatedMovies.tsx:98`). It already renders a labelled region with a semantic list (`web/src/ui/MovieCarousel.test.tsx:110`) and handles arrow keys (`:172`).
+
+## Wanted
+
+The For you page shows short rows. Every row is built from the ranked list of DEV-543, so every movie in a row clears the strong-match bar. A row may be short or missing. Each row has a heading that says why its movies are there.
+
+1. Rows, in this order:
+   a. "Next in a series you started": movies whose collection has a watched movie. Show the earliest unwatched entry first, by release year. Keep at most one movie per collection.
+   b. One row per seed for the seeds with the most results, titled "Because you liked {title}" or "Because you watched {title}". The maximum number of seed rows and the maximum number of cards per row are constants or options, named in one place.
+   c. "Close to your watchlist": movies whose best seed is a watchlist seed.
+   d. "More for you": the rest.
+2. A movie appears in one row only: the row of its best seed. If that row is folded (rule 3), the movie goes to "More for you".
+3. A row with fewer than two movies is folded into "More for you".
+4. Cards inside a row do not repeat the seed line, because the row heading says it. The card shows the evidence lines from DEV-542. Add a prop to `MovieCard` that hides the seed line, so the same card works on the Related rail and in rows.
+5. Load more and swap from DEV-517 keep working. They apply to "More for you" only. Seed rows do not page.
+6. Empty states, each with its own text and a link to the library:
+   a. No seeds at all (no liked, watched or watchlist movies).
+   b. Seeds exist, but no result clears the strong-match bar from DEV-543.
+   Keep the existing text for case (a) only.
+7. Keyboard and screen reader. Each row is a labelled region. Each row heading is a real heading, one level below the page heading. Each row uses the carousel, so arrow keys and the Previous and Next buttons work the same way as on the details page.
+
+## Done when
+
+- A component test with fixed seeds shows the rows in the order of rule 1, and skips a row that has no movies.
+- A component test shows that a movie with two seeds appears once, in the row of its best seed.
+- A component test shows that a row with one movie is folded into "More for you".
+- A component test shows that no card inside a row shows a "Because you" line.
+- A component test shows that load more and swap appear on "More for you" and not on seed rows.
+- Two component tests show the two empty states, each with its own text and a link to the library.
+- A test checks that each row is a region with a name, and that its heading is an `h2`.
+- A test checks that arrow keys move through a row, using the carousel.
+- The maximum number of seed rows and cards per row are defined in one file and nowhere else.
+- Before and after screenshots at desktop width and at phone width are attached to the PR.
+- The For you request is still one request. No change to the API except what DEV-542 and DEV-541 add.
+
+## Out of scope
+
+- Scoring changes.
+- A home page redesign.
+- Paging each row from the API, unless the spec decides it.
+- Any new route. The page stays at `/for-you`.
+
+## Where it lands
+
+| File or folder | What changes | Code today |
+|---|---|---|
+| `web/src/features/for-you/ForYouPage.tsx` | Group results into rows. Render row headings. Add the two empty states. Keep loading and error states. | `:17-44` (section), `:18` (heading), `:21`, `:22-29`, `:30-32`, `:33-41` |
+| `web/src/features/for-you/ForYouPage.css` | Row layout. | `:1-7` |
+| `web/src/features/for-you/forYouApi.ts` | Fixed `take` stays. Grouping can live in a pure function next to the page. | `:7`, `:9`, `:25-26` |
+| `web/src/library/MovieCard.tsx` | Prop that hides the seed line. | `:26-35` (props), `:141-160` (reasons) |
+| `web/src/ui/MovieCarousel.tsx` | Reused for each row. | `:52` |
+| `web/src/App.tsx` | Route and nav link unchanged. | `:176` (route check), `:294-298` (nav link), `:338` (renders the page) |
+| `web/src/features/for-you/ForYouPage.test.tsx` | Row, fold, empty-state and keyboard tests. | `:26`, `:48`, `:64` |
+| `src/LamuFlix.Api/Endpoints/RecommendedMovieDto.cs` | Only if the spec adds the collection id to the result (see Needs). | `:7-20` |
+| `src/LamuFlix.Api/Endpoints/RecommendationEndpoints.cs` | Only if the spec moves grouping to the server. | `:45-59` (For you handler) |
+
+## Open points for the spec
+
+- Does the API return groups, or does the client group by the seed field from DEV-542? Default: the client groups. It is one request, and the library is small.
+- Maximum number of seed rows. Default: 4.
+- Maximum number of cards per row. Default: 6.
+- Where does a movie go when its best seed is on the watchlist? Seed rows (rule 1b) cover only liked and watched seeds. Default: the movie goes to "Close to your watchlist" (rule 1c).
+- The series row is empty today. On 2026-11-16 the home library had 0 unwatched movies in a collection that has a watched movie. Default: build the row and hide it while it is empty, because it fills as soon as the owner starts a series. The alternative is to leave row (a) out of this ticket.
+
+## Needs
+
+- DEV-542: the seed field and the evidence lines.
+- DEV-541: caps, deterministic paging and exclusions. The series rule needs the collection id on each result, which the DTO does not carry today (`src/LamuFlix.Api/Endpoints/RecommendedMovieDto.cs:7-20`).
+- DEV-517 (load more and swap). It is a YouTrack ticket and is not in the repo.
+
+Source: LamuFlix recommendations v2 design note (2026-11-16, added to the repo under docs/ by DEV-518), sections 3.4 and 3.5.
