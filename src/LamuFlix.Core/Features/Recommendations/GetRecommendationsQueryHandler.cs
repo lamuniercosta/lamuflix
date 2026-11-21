@@ -61,8 +61,6 @@ public sealed class GetRecommendationsQueryHandler(
             selectedFeatures,
             library,
             query.MovieId,
-            context.Profile,
-            context.ProfileInputs,
             strongReasonCriteria,
             context.GenreWeights,
             context.KeywordCounts,
@@ -155,16 +153,13 @@ public sealed class GetRecommendationsQueryHandler(
         var keywordCounts = await keywordWeightsCalculator.GetAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var profile = await profileSource.GetTasteProfileAsync(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
         var profileInputs = await profileSource.GetProfileInputsAsync(
             selectedInLoad ? [] : [query.MovieId],
-            [.. profile.LikedSources.Select(source => source.MovieId)],
+            [],
             cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        return new ScoringContext(genreWeights, keywordCounts, profile, profileInputs);
+        return new ScoringContext(genreWeights, keywordCounts, profileInputs);
     }
 
     private static float[]? ResolveSelectedVector(
@@ -246,8 +241,6 @@ public sealed class GetRecommendationsQueryHandler(
         MovieFeatures selectedFeatures,
         IReadOnlyList<RecommendationLibraryEntry> library,
         MovieId selectedMovieId,
-        TasteProfile profile,
-        RecommendationProfileInputs profileInputs,
         IReadOnlySet<string> strongReasonCriteria,
         GenreWeights genreWeights,
         KeywordCounts keywordCounts,
@@ -256,8 +249,7 @@ public sealed class GetRecommendationsQueryHandler(
     {
         var scored = new List<ScoredCandidate>(library.Count);
         var keywordWeights = SimilarityScorer.PrepareKeywordWeights(options, keywordCounts);
-        var likedSourceEmbeddings = RefreshLikedSourceEmbeddings(library, profileInputs.LikedSourceEmbeddings);
-        var scoring = new EntryScoring(selectedFeatures, profile, likedSourceEmbeddings, strongReasonCriteria, genreWeights, keywordWeights, options);
+        var scoring = new EntryScoring(selectedFeatures, strongReasonCriteria, genreWeights, keywordWeights, options);
 
         foreach (var entry in library)
         {
@@ -270,37 +262,6 @@ public sealed class GetRecommendationsQueryHandler(
         }
 
         return scored;
-    }
-
-    private static ImmutableDictionary<MovieId, ImmutableArray<float>> RefreshLikedSourceEmbeddings(
-        IReadOnlyList<RecommendationLibraryEntry> library,
-        ImmutableDictionary<MovieId, ImmutableArray<float>> likedSourceEmbeddings)
-    {
-        if (likedSourceEmbeddings.IsEmpty)
-        {
-            return likedSourceEmbeddings;
-        }
-
-        var builder = likedSourceEmbeddings.ToBuilder();
-        foreach (var entry in library)
-        {
-            if (builder.ContainsKey(entry.Id))
-            {
-                RefreshLikedSourceEmbedding(builder, entry);
-            }
-        }
-
-        return builder.ToImmutable();
-    }
-
-    private static void RefreshLikedSourceEmbedding(
-        IDictionary<MovieId, ImmutableArray<float>> builder,
-        RecommendationLibraryEntry entry)
-    {
-        if (IsUsable([.. entry.Features.PlotEmbedding]))
-        {
-            builder[entry.Id] = entry.Features.PlotEmbedding;
-        }
     }
 
     private static MatchTier Classify(
@@ -339,34 +300,15 @@ public sealed class GetRecommendationsQueryHandler(
         return strongReasonCriteria.Contains(contribution.Name);
     }
 
-    private static ImmutableList<Reason> BuildReasons(
-        ImmutableList<Reason> structuralReasons,
-        ProfileSimilarityEvidence profileSimilarity,
-        ReviewAffinityEvidence reviewAffinity,
-        double profileContribution,
-        RecommendationOptions options)
+    private static ImmutableList<Reason> BuildReasons(ImmutableList<Reason> structuralReasons)
     {
         var builder = structuralReasons.ToBuilder();
-
-        if (options.BlendProfileWeight > 0.0)
-        {
-            RecommendationReasonBuilder.AddProfileReasons(builder, profileSimilarity);
-            RecommendationReasonBuilder.AddLikedReviewReason(
-                builder,
-                reviewAffinity,
-                profileContribution,
-                options);
-        }
-
         RecommendationReasonBuilder.EnsureFallbackReason(builder);
-
         return builder.ToImmutable();
     }
 
     private sealed class EntryScoring(
         MovieFeatures selectedFeatures,
-        TasteProfile profile,
-        ImmutableDictionary<MovieId, ImmutableArray<float>> likedSourceEmbeddings,
         IReadOnlySet<string> strongReasonCriteria,
         GenreWeights genreWeights,
         IReadOnlyDictionary<string, double> keywordWeights,
@@ -400,49 +342,17 @@ public sealed class GetRecommendationsQueryHandler(
             SimilarityResult similarity,
             MatchTier tier)
         {
-            var features = entry.Features;
-            var embedding = features.PlotEmbedding;
-            var genres = RecommendationScoring.Genres(features);
-
-            var profileSimilarity = ProfileSimilarityCalculator.Evaluate(
-                genres,
-                embedding,
-                profile,
-                genreWeights);
-
-            var reviewAffinity = ProfileSimilarityCalculator.EvaluateReviewAffinity(
-                genres,
-                RecommendationScoring.Cast(features),
-                RecommendationScoring.Directors(features),
-                embedding,
-                profile,
-                likedSourceEmbeddings,
-                options.Weights,
-                genreWeights);
-
-            var contribution = RecommendationScoring.ProfileContribution(
-                profileSimilarity.Similarity,
-                reviewAffinity,
-                options);
-
             var score = BlendScorer.ScoreWithProfileContribution(
                 similarity.Score,
-                contribution,
+                0.0,
                 entry.IsWatched ? 1.0 : 0.0,
                 0.0,
                 options);
 
             return new ScoredCandidate(
                 entry,
-                features,
-                new SimilarityResult(
-                    score,
-                    BuildReasons(
-                        similarity.Reasons,
-                        profileSimilarity,
-                        reviewAffinity,
-                        contribution,
-                        options)),
+                entry.Features,
+                new SimilarityResult(score, BuildReasons(similarity.Reasons)),
                 tier);
         }
     }
@@ -457,7 +367,6 @@ public sealed class GetRecommendationsQueryHandler(
     private readonly record struct ScoringContext(
         GenreWeights GenreWeights,
         KeywordCounts KeywordCounts,
-        TasteProfile Profile,
         RecommendationProfileInputs ProfileInputs);
 
     private readonly record struct PartitionedLibrary(
