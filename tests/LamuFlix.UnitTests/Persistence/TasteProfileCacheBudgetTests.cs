@@ -1,7 +1,7 @@
-using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
@@ -32,21 +32,7 @@ public sealed class TasteProfileCacheBudgetTests
     }
 
     [Fact]
-    public void TicketBaselineFixture_SerializesStrictlyBelowTheWarningBudget()
-    {
-        // arrange
-        var serializer = new CachedProfileSerializer();
-        var warningThreshold = WarningThreshold();
-
-        // act
-        var bytes = SerializedBytes(serializer, 145);
-
-        // assert
-        ((double)bytes).ShouldBeLessThan(warningThreshold);
-    }
-
-    [Fact]
-    public void WarningBandFixture_SerializesInsideTheNearLimitBandBelowTheCeiling()
+    public void PlaybackHeavyProfile_SerializesInsideTheNearLimitBandBelowTheCeiling()
     {
         // arrange
         var serializer = new CachedProfileSerializer();
@@ -54,7 +40,7 @@ public sealed class TasteProfileCacheBudgetTests
         var warningThreshold = WarningThreshold();
 
         // act
-        var bytes = SerializedBytes(serializer, 300);
+        var bytes = SerializedBytes(serializer, 13500);
 
         // assert
         ((double)bytes).ShouldBeGreaterThanOrEqualTo(warningThreshold);
@@ -62,7 +48,7 @@ public sealed class TasteProfileCacheBudgetTests
     }
 
     [Fact]
-    public void SerializedBytes_GrowMonotonicallyWithLikedSourceCount()
+    public void SerializedBytes_GrowMonotonicallyWithPlaybackEntryCount()
     {
         // arrange
         var serializer = new CachedProfileSerializer();
@@ -70,26 +56,48 @@ public sealed class TasteProfileCacheBudgetTests
         // act
         var home = SerializedBytes(serializer, 4);
         var baseline = SerializedBytes(serializer, 145);
-        var warningBand = SerializedBytes(serializer, 300);
+        var heavy = SerializedBytes(serializer, 13500);
 
         // assert
         home.ShouldBeLessThan(baseline);
-        baseline.ShouldBeLessThan(warningBand);
+        baseline.ShouldBeLessThan(heavy);
     }
 
     [Fact]
-    public void CompactFixture_CarriesNoPerSourcePlotVectorInTheCachedShape()
+    public void CompactFixture_CarriesNoEmbeddingPayloadInTheCachedShape()
     {
         // arrange
-        var profile = TasteProfileCacheBudgetFixture.Profile(300);
+        var profile = TasteProfileCacheBudgetFixture.Profile(145);
+        var serializer = new CachedProfileSerializer();
+        var writer = new ArrayBufferWriter<byte>();
 
         // act
-        var members = typeof(LamuFlix.Core.Domain.LikedReviewSource).GetProperties().Select(property => property.Name).ToArray();
+        serializer.Serialize(TasteProfileCacheBudgetFixture.Envelope(145), writer);
+        var payload = Encoding.UTF8.GetString(writer.WrittenSpan);
 
         // assert
-        members.ShouldNotContain(name => name.Contains("Plot", StringComparison.OrdinalIgnoreCase));
-        members.ShouldNotContain(name => name.Contains("Embedding", StringComparison.OrdinalIgnoreCase));
-        profile.LikedSources.Length.ShouldBe(300);
+        payload.ToLowerInvariant().ShouldNotContain("embedding");
+        payload.ToLowerInvariant().ShouldNotContain("plot");
+        profile.PlaybackByMovieId.Count.ShouldBe(145);
+        profile.GenrePreferences.Count.ShouldBe(14);
+    }
+
+    [Fact]
+    public void CachedShape_ExposesNoEmbeddingPropertyAtAnyLibrarySize()
+    {
+        // arrange
+        var members = typeof(LamuFlix.Core.Domain.TasteProfile)
+            .GetProperties()
+            .Select(property => property.Name.ToLowerInvariant())
+            .ToArray();
+
+        // act
+        var hasEmbedding = members.Any(name => name.Contains("embedding") || name.Contains("plot"));
+
+        // assert
+        hasEmbedding.ShouldBeFalse();
+        members.ShouldContain("playbackbymovieid");
+        members.ShouldContain("genrepreferences");
     }
 
     [Fact]
@@ -114,7 +122,7 @@ public sealed class TasteProfileCacheBudgetTests
             new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
         var serializer = provider.GetRequiredService<CachedProfileSerializer>();
         var adapter = provider.GetRequiredService<HybridCachedRecommendationProfileSource>();
-        var envelope = TasteProfileCacheBudgetFixture.Envelope(300);
+        var envelope = TasteProfileCacheBudgetFixture.Envelope(13500);
         var writer = new ArrayBufferWriter<byte>();
         serializer.Serialize(envelope, writer);
 
@@ -137,7 +145,7 @@ public sealed class TasteProfileCacheBudgetTests
             new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
         var serializer = provider.GetRequiredService<CachedProfileSerializer>();
         var cache = provider.GetRequiredService<HybridCache>();
-        var envelope = TasteProfileCacheBudgetFixture.Envelope(300);
+        var envelope = TasteProfileCacheBudgetFixture.Envelope(13500);
         var ct = TestContext.Current.CancellationToken;
 
         // act
@@ -177,10 +185,10 @@ public sealed class TasteProfileCacheBudgetTests
         ((double)(long)threshold).ShouldBeLessThan(threshold);
     }
 
-    private static long SerializedBytes(CachedProfileSerializer serializer, int likedSourceCount)
+    private static long SerializedBytes(CachedProfileSerializer serializer, int playbackEntryCount)
     {
         var writer = new ArrayBufferWriter<byte>();
-        serializer.Serialize(TasteProfileCacheBudgetFixture.Envelope(likedSourceCount), writer);
+        serializer.Serialize(TasteProfileCacheBudgetFixture.Envelope(playbackEntryCount), writer);
         return writer.WrittenCount;
     }
 

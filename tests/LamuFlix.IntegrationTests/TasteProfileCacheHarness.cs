@@ -1,6 +1,5 @@
 using System;
 using System.Data.Common;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -298,7 +297,7 @@ internal static class TasteProfileAssertions
             actual.GenrePreferences[preference.Key].ShouldBe(preference.Value);
         }
 
-        actual.PlotEmbedding.SequenceEqual(expected.PlotEmbedding).ShouldBeTrue();
+        actual.PlaybackByMovieId.ShouldBe(expected.PlaybackByMovieId);
     }
 }
 

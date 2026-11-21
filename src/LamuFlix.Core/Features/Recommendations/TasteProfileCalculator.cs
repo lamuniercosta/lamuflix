@@ -27,16 +27,9 @@ public sealed class TasteProfileCalculator
 
         var now = decay.UtcNow;
         var signals = BuildSignals(movies, now);
-        var liked = ReviewAggregate(movies, Review.Liked, genreWeights);
-        var disliked = ReviewAggregate(movies, Review.Disliked, genreWeights);
 
-        return new TasteProfile(
-            ComputeGenrePreferences(signals, genreWeights),
-            ComputePlotCentroid(signals))
+        return new TasteProfile(ComputeGenrePreferences(signals, genreWeights))
         {
-            Liked = liked,
-            Disliked = disliked,
-            LikedSources = LikedSources(movies, Review.Liked, genreWeights),
             PlaybackByMovieId = PlaybackByMovieId(movies),
         };
     }
@@ -64,181 +57,6 @@ public sealed class TasteProfileCalculator
         return builder.ToImmutable();
     }
 
-    private static ImmutableArray<LikedReviewSource> LikedSources(
-        ImmutableArray<TasteProfileMovie> movies,
-        Review review,
-        GenreWeights genreWeights)
-    {
-        if (movies.IsDefaultOrEmpty)
-        {
-            return [];
-        }
-
-        var builder = ImmutableArray.CreateBuilder<LikedReviewSource>();
-
-        foreach (var movie in movies.Where(movie => movie.Review.Is(review)))
-        {
-            builder.Add(new LikedReviewSource(
-                movie.MovieId,
-                movie.Title,
-                GenrePreferences([movie], genreWeights),
-                PerMovieIncidence(movie.Cast),
-                PerMovieIncidence(movie.Directors)));
-        }
-
-        return builder.ToImmutable();
-    }
-
-    private static ReviewProfileChannels ReviewAggregate(
-        ImmutableArray<TasteProfileMovie> movies,
-        Review review,
-        GenreWeights genreWeights)
-    {
-        if (movies.IsDefaultOrEmpty)
-        {
-            return ReviewProfileChannels.Empty;
-        }
-
-        var reviewed = movies.Where(movie => movie.Review.Is(review)).ToImmutableArray();
-
-        if (reviewed.IsEmpty)
-        {
-            return ReviewProfileChannels.Empty;
-        }
-
-        return new ReviewProfileChannels(
-            EqualWeightCentroid(reviewed),
-            GenrePreferences(reviewed, genreWeights),
-            IncidencePreferences(reviewed, movie => movie.Cast),
-            IncidencePreferences(reviewed, movie => movie.Directors));
-    }
-
-    private static ImmutableDictionary<string, double> GenrePreferences(
-        ImmutableArray<TasteProfileMovie> movies,
-        GenreWeights genreWeights)
-    {
-        var perMovie = movies
-            .Where(movie => !movie.Genres.IsDefaultOrEmpty)
-            .Select(movie => NormalizeGenres(movie.Genres))
-            .Where(genres => !genres.IsEmpty)
-            .ToImmutableArray();
-
-        if (perMovie.IsEmpty)
-        {
-            return ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        var totalIncidence = perMovie.Length;
-        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var canonicalNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var genres in perMovie)
-        {
-            foreach (var genre in genres)
-            {
-                TrackCanonicalName(canonicalNames, genre);
-                counts[genre] = counts.GetValueOrDefault(genre) + 1;
-            }
-        }
-
-        var builder = ImmutableDictionary.CreateBuilder<string, double>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var genre in counts.Keys.OrderBy(name => canonicalNames[name], StringComparer.Ordinal))
-        {
-            var preference = genreWeights.GetWeight(genre) * counts[genre] / totalIncidence;
-            if (preference > 0.0)
-            {
-                builder[canonicalNames[genre]] = preference;
-            }
-        }
-
-        return builder.ToImmutable();
-    }
-
-    private static ImmutableDictionary<string, double> IncidencePreferences(
-        ImmutableArray<TasteProfileMovie> movies,
-        Func<TasteProfileMovie, ImmutableArray<string>> selector)
-    {
-        var perMovie = movies
-            .Select(selector)
-            .Where(values => !values.IsDefaultOrEmpty)
-            .Select(values => values.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray())
-            .Where(values => !values.IsEmpty)
-            .ToImmutableArray();
-
-        if (perMovie.IsEmpty)
-        {
-            return ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var canonicalNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var values in perMovie)
-        {
-            foreach (var value in values)
-            {
-                var trimmed = value.Trim();
-                TrackCanonicalName(canonicalNames, trimmed);
-                counts[trimmed] = counts.GetValueOrDefault(trimmed) + 1;
-            }
-        }
-
-        var builder = ImmutableDictionary.CreateBuilder<string, double>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var feature in counts.Keys.OrderBy(name => canonicalNames[name], StringComparer.Ordinal))
-        {
-            builder[canonicalNames[feature]] = counts[feature] / (double)perMovie.Length;
-        }
-
-        return builder.ToImmutable();
-    }
-
-    private static ImmutableDictionary<string, double> PerMovieIncidence(ImmutableArray<string> features)
-    {
-        if (features.IsDefaultOrEmpty)
-        {
-            return ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        var values = features
-            .Where(feature => !string.IsNullOrWhiteSpace(feature))
-            .Select(feature => feature.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToImmutableArray();
-
-        if (values.IsEmpty)
-        {
-            return ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        return values.ToImmutableDictionary(value => value, _ => 1.0, StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static ImmutableArray<float> EqualWeightCentroid(ImmutableArray<TasteProfileMovie> movies)
-    {
-        var contributors = movies
-            .Where(movie => !movie.PlotEmbedding.IsDefaultOrEmpty)
-            .ToImmutableArray();
-
-        if (contributors.IsEmpty)
-        {
-            return ImmutableArray<float>.Empty;
-        }
-
-        var sums = new double[EmbeddingDimensions.Value];
-
-        foreach (var movie in contributors)
-        {
-            for (var index = 0; index < sums.Length; index++)
-            {
-                sums[index] += movie.PlotEmbedding[index];
-            }
-        }
-
-        return BuildCentroid(sums, contributors.Length);
-    }
-
     private static void ValidateMovies(ImmutableArray<TasteProfileMovie> movies)
     {
         if (movies.IsDefaultOrEmpty)
@@ -250,6 +68,7 @@ public sealed class TasteProfileCalculator
 
         foreach (var movie in movies)
         {
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - collection expressions can carry default rows.
             if (movie is null)
             {
                 throw new ArgumentException("Movie rows cannot contain null entries.", nameof(movies));
@@ -311,15 +130,12 @@ public sealed class TasteProfileCalculator
     private static void AddMovieSignals(ImmutableArray<Signal>.Builder builder, TasteProfileMovie movie, DateTimeOffset now)
     {
         var genres = NormalizeGenres(movie.Genres);
-        var embedding = movie.PlotEmbedding.IsDefaultOrEmpty
-            ? ImmutableArray<float>.Empty
-            : movie.PlotEmbedding;
 
         if (movie.PlayedAt.IsDefaultOrEmpty)
         {
             if (movie.IsWatched)
             {
-                builder.Add(new Signal(genres, embedding, 0.0));
+                builder.Add(new Signal(genres, 0.0));
             }
 
             return;
@@ -327,7 +143,7 @@ public sealed class TasteProfileCalculator
 
         foreach (var playedAt in movie.PlayedAt)
         {
-            builder.Add(new Signal(genres, embedding, ComputeAge(now, playedAt)));
+            builder.Add(new Signal(genres, ComputeAge(now, playedAt)));
         }
     }
 
@@ -422,54 +238,6 @@ public sealed class TasteProfileCalculator
         }
     }
 
-    private ImmutableArray<float> ComputePlotCentroid(ImmutableArray<Signal> signals)
-    {
-        if (!TryFindMinimumAge(signals, static signal => !signal.PlotEmbedding.IsEmpty, out var minimumAge))
-        {
-            return ImmutableArray<float>.Empty;
-        }
-
-        var sums = new double[EmbeddingDimensions.Value];
-        var denominator = 0.0;
-
-        foreach (var signal in signals)
-        {
-            if (signal.PlotEmbedding.IsEmpty)
-            {
-                continue;
-            }
-
-            var weight = ScaledWeight(signal.Age, minimumAge);
-            denominator += weight;
-
-            for (var index = 0; index < sums.Length; index++)
-            {
-                sums[index] += weight * signal.PlotEmbedding[index];
-            }
-        }
-
-        return BuildCentroid(sums, denominator);
-    }
-
-    private static ImmutableArray<float> BuildCentroid(double[] sums, double denominator)
-    {
-        var builder = ImmutableArray.CreateBuilder<float>(EmbeddingDimensions.Value);
-        var allZero = true;
-
-        foreach (var sum in sums)
-        {
-            var coordinate = (float)(sum / denominator);
-            if (coordinate != 0.0f)
-            {
-                allZero = false;
-            }
-
-            builder.Add(coordinate);
-        }
-
-        return allZero ? ImmutableArray<float>.Empty : builder.MoveToImmutable();
-    }
-
     private double ScaledWeight(double age, double minimumAge) =>
         decay.RelativeWeight(age, minimumAge);
 
@@ -500,6 +268,5 @@ public sealed class TasteProfileCalculator
 
     private readonly record struct Signal(
         ImmutableArray<string> Genres,
-        ImmutableArray<float> PlotEmbedding,
         double Age);
 }

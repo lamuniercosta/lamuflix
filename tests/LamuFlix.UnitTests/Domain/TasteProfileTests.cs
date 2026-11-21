@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using LamuFlix.Core.Domain;
 
@@ -6,27 +7,10 @@ namespace LamuFlix.UnitTests.Domain;
 public sealed class TasteProfileTests
 {
     [Fact]
-    public void IsEmpty_BothChannelsEmpty_IsTrue()
+    public void IsEmpty_NoGenrePreferencesAndNoPlayback_IsTrue()
     {
         // arrange
-        var profile = new TasteProfile(
-            ImmutableDictionary<string, double>.Empty,
-            ImmutableArray<float>.Empty);
-
-        // act
-        var isEmpty = profile.IsEmpty;
-
-        // assert
-        isEmpty.ShouldBeTrue();
-    }
-
-    [Fact]
-    public void IsEmpty_PlotEmbeddingDefault_IsTrue()
-    {
-        // arrange
-        var profile = new TasteProfile(
-            ImmutableDictionary<string, double>.Empty,
-            default(ImmutableArray<float>));
+        var profile = new TasteProfile(ImmutableDictionary<string, double>.Empty);
 
         // act
         var isEmpty = profile.IsEmpty;
@@ -40,7 +24,7 @@ public sealed class TasteProfileTests
     {
         // arrange
         var preferences = ImmutableDictionary<string, double>.Empty.Add("Drama", 0.25);
-        var profile = new TasteProfile(preferences, ImmutableArray<float>.Empty);
+        var profile = new TasteProfile(preferences);
 
         // act
         var isEmpty = profile.IsEmpty;
@@ -50,12 +34,14 @@ public sealed class TasteProfileTests
     }
 
     [Fact]
-    public void IsEmpty_PlotEmbeddingPopulated_IsFalse()
+    public void IsEmpty_PlaybackPopulated_IsFalse()
     {
         // arrange
-        var profile = new TasteProfile(
-            ImmutableDictionary<string, double>.Empty,
-            [0.5f, 0.25f]);
+        var profile = new TasteProfile(ImmutableDictionary<string, double>.Empty)
+        {
+            PlaybackByMovieId = ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>.Empty
+                .Add(new MovieId(7), [DateTimeOffset.UnixEpoch]),
+        };
 
         // act
         var isEmpty = profile.IsEmpty;
@@ -65,31 +51,17 @@ public sealed class TasteProfileTests
     }
 
     [Fact]
-    public void IsEmpty_BothChannelsPopulated_IsFalse()
-    {
-        // arrange
-        var preferences = ImmutableDictionary<string, double>.Empty.Add("Drama", 0.25);
-        var profile = new TasteProfile(preferences, [0.5f, 0.25f]);
-
-        // act
-        var isEmpty = profile.IsEmpty;
-
-        // assert
-        isEmpty.ShouldBeFalse();
-    }
-
-    [Fact]
-    public void Construct_EmptyChannels_ExposesProvidedValues()
+    public void Construct_EmptyPreferences_ExposesProvidedValues()
     {
         // arrange
         var preferences = ImmutableDictionary<string, double>.Empty;
 
         // act
-        var profile = new TasteProfile(preferences, ImmutableArray<float>.Empty);
+        var profile = new TasteProfile(preferences);
 
         // assert
         profile.GenrePreferences.ShouldBeSameAs(preferences);
         profile.GenrePreferences.IsEmpty.ShouldBeTrue();
-        profile.PlotEmbedding.IsDefaultOrEmpty.ShouldBeTrue();
+        profile.PlaybackByMovieId.IsEmpty.ShouldBeTrue();
     }
 }

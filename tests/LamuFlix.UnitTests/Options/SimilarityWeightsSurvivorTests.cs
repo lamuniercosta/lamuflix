@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using LamuFlix.Core.Options;
 
 namespace LamuFlix.UnitTests.Options;
@@ -5,48 +8,55 @@ namespace LamuFlix.UnitTests.Options;
 public sealed class SimilarityWeightsSurvivorTests
 {
     [Fact]
-    public void HasEnabledReviewChannel_AllChannelsDisabled_IsFalse()
+    public void Defaults_CollectionWeight_IsThree()
     {
         // arrange
-        var weights = new SimilarityWeights
-        {
-            Genres = 0.0,
-            Cast = 0.0,
-            Director = 0.0,
-            ReviewPlotWeight = 0.0,
-        };
+        var weights = new SimilarityWeights();
 
         // act
-        var enabled = weights.HasEnabledReviewChannel;
+        var collection = weights.Collection;
 
         // assert
-        enabled.ShouldBeFalse();
+        collection.ShouldBe(3.0);
     }
 
     [Theory]
-    [InlineData(1.0, 0.0, 0.0, 0.0)]
-    [InlineData(0.0, 2.0, 0.0, 0.0)]
-    [InlineData(0.0, 0.0, 3.0, 0.0)]
-    [InlineData(0.0, 0.0, 0.0, 1.0)]
-    public void HasEnabledReviewChannel_SingleChannelEnabled_IsTrue(
-        double genres,
-        double cast,
-        double director,
-        double plot)
+    [InlineData(0.0)]
+    [InlineData(2.5)]
+    [InlineData(double.MaxValue)]
+    public void Validate_NonNegativeWeight_IsValid(double value)
     {
         // arrange
-        var weights = new SimilarityWeights
-        {
-            Genres = genres,
-            Cast = cast,
-            Director = director,
-            ReviewPlotWeight = plot,
-        };
+        var weights = new SimilarityWeights { Collection = value };
 
         // act
-        var enabled = weights.HasEnabledReviewChannel;
+        var results = Validate(weights);
 
         // assert
-        enabled.ShouldBeTrue();
+        results.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(-0.0001)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void Validate_InvalidWeight_ReportsCollection(double value)
+    {
+        // arrange
+        var weights = new SimilarityWeights { Collection = value };
+
+        // act
+        var results = Validate(weights);
+
+        // assert
+        results.Select(result => result.MemberNames).SelectMany(names => names)
+            .ShouldContain(nameof(SimilarityWeights.Collection));
+    }
+
+    private static IReadOnlyList<ValidationResult> Validate(SimilarityWeights options)
+    {
+        var results = new List<ValidationResult>();
+        Validator.TryValidateObject(options, new ValidationContext(options), results, validateAllProperties: true);
+        return results;
     }
 }

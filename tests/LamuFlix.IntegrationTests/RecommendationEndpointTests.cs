@@ -317,7 +317,6 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>()).Returns(EmptyProfile());
         profileSource.GetProfileInputsAsync(
                 Arg.Any<IReadOnlyCollection<MovieId>>(),
-                Arg.Any<IReadOnlyCollection<MovieId>>(),
                 Arg.Any<CancellationToken>())
             .Returns(new RecommendationProfileInputs(
                 [],
@@ -988,7 +987,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     }
 
     private static TasteProfile EmptyProfile() =>
-        new(ImmutableDictionary<string, double>.Empty, ImmutableArray<float>.Empty);
+        new(ImmutableDictionary<string, double>.Empty);
 
     private GetRecommendationsQueryHandler RelatedHandler(RecommendationOptions options) =>
         new(

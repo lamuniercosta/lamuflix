@@ -107,7 +107,7 @@ public sealed class RealLibraryReadOnlyLoaderTests : IAsyncLifetime
         // act
         var copy = HiddenSeedEvaluationCopy.Create(snapshot, hiddenId, Options, TimeProvider.System);
         var profile = await copy.ProfileSource.GetTasteProfileAsync(ct);
-        var inputs = await copy.ProfileSource.GetProfileInputsAsync([hiddenId], [], ct);
+        var inputs = await copy.ProfileSource.GetProfileInputsAsync([hiddenId], ct);
         var hidden = await copy.Repository.GetAsync(hiddenId, ct);
         var browse = await copy.Catalog.BrowseAsync(
             new MovieQuery
@@ -119,8 +119,8 @@ public sealed class RealLibraryReadOnlyLoaderTests : IAsyncLifetime
             ct);
 
         // assert
-        profile.LikedSources.ShouldBeEmpty();
-        profile.Liked.IsEmpty.ShouldBeTrue();
+        profile.PlaybackByMovieId.ShouldBeEmpty();
+        profile.IsEmpty.ShouldBeTrue();
         inputs.Movies.ShouldBeEmpty();
 
         hidden.ShouldNotBeNull();
@@ -158,10 +158,12 @@ public sealed class RealLibraryReadOnlyLoaderTests : IAsyncLifetime
         firstCopy.ShouldNotBeSameAs(secondCopy);
         firstCopy.HiddenSeed.ShouldBe(firstId);
         secondCopy.HiddenSeed.ShouldBe(secondId);
-        firstProfile.LikedSources.ShouldBeEmpty();
-        firstProfile.Disliked.IsEmpty.ShouldBeFalse();
-        secondProfile.LikedSources.Select(source => source.MovieId).ShouldBe([firstId]);
-        secondProfile.Disliked.IsEmpty.ShouldBeTrue();
+        firstProfile.ShouldNotBeSameAs(secondProfile);
+        firstProfile.GenrePreferences.ShouldBeEmpty();
+        firstProfile.PlaybackByMovieId.ShouldBeEmpty();
+        secondProfile.GenrePreferences.ShouldContainKey("Drama");
+        secondProfile.GenrePreferences.ShouldNotContainKey("Comedy");
+        secondProfile.PlaybackByMovieId.ShouldBeEmpty();
 
         firstView.ShouldNotBeNull();
         firstView.IsWatched.ShouldBeFalse();

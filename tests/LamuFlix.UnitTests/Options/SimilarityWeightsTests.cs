@@ -18,7 +18,6 @@ public sealed class SimilarityWeightsTests
             nameof(SimilarityWeights.Cast),
             nameof(SimilarityWeights.Genres),
             nameof(SimilarityWeights.Collection),
-            nameof(SimilarityWeights.ReviewPlotWeight),
         };
         var data = new TheoryData<string, double, bool>();
         foreach (var member in members)
@@ -50,7 +49,6 @@ public sealed class SimilarityWeightsTests
         defaults.Plot.ShouldBe(2.0);
         defaults.Cast.ShouldBe(2.0);
         defaults.Genres.ShouldBe(2.0);
-        options.ReviewPlotWeight.ShouldBe(1.0);
     }
 
     [Fact]
@@ -98,7 +96,6 @@ public sealed class SimilarityWeightsTests
             nameof(SimilarityWeights.Cast) => options with { Cast = value },
             nameof(SimilarityWeights.Genres) => options with { Genres = value },
             nameof(SimilarityWeights.Collection) => options with { Collection = value },
-            nameof(SimilarityWeights.ReviewPlotWeight) => options with { ReviewPlotWeight = value },
             _ => throw new ArgumentOutOfRangeException(nameof(memberName), memberName, null),
         };
 

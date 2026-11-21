@@ -33,7 +33,6 @@ public sealed class NearestSeedScorerTests
         Cast = 0.0,
         Genres = 0.0,
         Collection = 0.0,
-        ReviewPlotWeight = 1.0,
     };
 
     private static readonly SimilarityWeights GenreOnlyWeights = new()
@@ -44,7 +43,6 @@ public sealed class NearestSeedScorerTests
         Cast = 0.0,
         Genres = 3.0,
         Collection = 0.0,
-        ReviewPlotWeight = 0.0,
     };
 
     private static readonly IReadOnlyDictionary<string, double> NoKeywords =
@@ -273,7 +271,6 @@ public sealed class NearestSeedScorerTests
             Cast = 0.0,
             Genres = 12.0,
             Collection = 0.0,
-            ReviewPlotWeight = 0.0,
         };
         var seed = Entry(90, Features(["Comedy"], directors: ["Ridley Scott"]), liked: true);
         var candidate = Entry(2, Features(["Drama"], directors: ["Ridley Scott"]));
@@ -489,7 +486,6 @@ public sealed class NearestSeedScorerTests
         Cast = 0.0,
         Genres = 2.0,
         Collection = 0.0,
-        ReviewPlotWeight = 0.0,
     };
 
     private static SimilarityWeights DirectorAndGenreWeights => new()
@@ -500,7 +496,6 @@ public sealed class NearestSeedScorerTests
         Cast = 0.0,
         Genres = 12.0,
         Collection = 0.0,
-        ReviewPlotWeight = 0.0,
     };
 
     private static RecommendationOptions PlotOptions(
@@ -544,7 +539,7 @@ public sealed class NearestSeedScorerTests
 
     private static TasteProfile Profile(
         ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>? playback = null) =>
-        new(ImmutableDictionary<string, double>.Empty, [])
+        new(ImmutableDictionary<string, double>.Empty)
         {
             PlaybackByMovieId = playback
                 ?? ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>.Empty,

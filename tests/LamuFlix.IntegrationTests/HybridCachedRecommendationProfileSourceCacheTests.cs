@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Infrastructure.Persistence;
@@ -74,14 +73,14 @@ public sealed class HybridCachedRecommendationProfileSourceCacheTests(PostgresFi
         // act
         var profile = await harness.Adapter.GetTasteProfileAsync(ct);
         var readsAfterProfile = harness.Commands.ReaderCount;
-        var firstInputs = await harness.Adapter.GetProfileInputsAsync([firstCandidate, secondCandidate], [], ct);
+        var firstInputs = await harness.Adapter.GetProfileInputsAsync([firstCandidate, secondCandidate], ct);
         var readsAfterFirstInputs = harness.Commands.ReaderCount;
-        var secondInputs = await harness.Adapter.GetProfileInputsAsync([firstCandidate, secondCandidate], [], ct);
+        var secondInputs = await harness.Adapter.GetProfileInputsAsync([firstCandidate, secondCandidate], ct);
         var readsAfterSecondInputs = harness.Commands.ReaderCount;
         var repeatedProfile = await harness.Adapter.GetTasteProfileAsync(ct);
 
         // assert
-        profile.PlotEmbedding.SequenceEqual(watchedVector).ShouldBeTrue();
+        profile.GenrePreferences.Keys.ShouldBe(["Drama"]);
         firstInputs.CandidateEmbeddings.Keys.ShouldBe([firstCandidate, secondCandidate], ignoreOrder: true);
         secondInputs.CandidateEmbeddings.Keys.ShouldBe([firstCandidate, secondCandidate], ignoreOrder: true);
         readsAfterFirstInputs.ShouldBeGreaterThan(readsAfterProfile);
@@ -113,8 +112,7 @@ public sealed class HybridCachedRecommendationProfileSourceCacheTests(PostgresFi
         harness.Serializer.DeserializeCount.ShouldBeGreaterThanOrEqualTo(1);
         ReferenceEquals(harness.Adapter.Serializer, harness.Serializer).ShouldBeTrue();
         first.GenrePreferences.Keys.ShouldBe(["Drama", "Sci-Fi"], ignoreOrder: true);
-        first.PlotEmbedding.SequenceEqual(watchedVector).ShouldBeTrue();
-        observedBytes.ShouldBeGreaterThan(first.PlotEmbedding.Length * sizeof(float));
+        observedBytes.ShouldBeGreaterThan(0);
         first.ShouldMatchProfile(second);
     }
 
@@ -177,6 +175,6 @@ public sealed class HybridCachedRecommendationProfileSourceCacheTests(PostgresFi
             .Create<string, double>(StringComparer.OrdinalIgnoreCase)
             .Add("Legacy Genre", 1.0);
 
-        return new TasteProfile(genres, System.Collections.Immutable.ImmutableArray<float>.Empty);
+        return new TasteProfile(genres);
     }
 }

@@ -42,7 +42,7 @@ public sealed class ReviewTasteProfileIntegrationTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([], [liked], ct);
+        var inputs = await source.GetProfileInputsAsync([], ct);
 
         // assert
         var movie = inputs.Movies.ShouldHaveSingleItem();
@@ -55,7 +55,6 @@ public sealed class ReviewTasteProfileIntegrationTests(PostgresFixture fixture) 
         movie.PlotEmbedding.IsEmpty.ShouldBeFalse();
         movie.IsWatched.ShouldBeFalse();
         movie.PlayedAt.ShouldBeEmpty();
-        inputs.LikedSourceEmbeddings.ContainsKey(liked).ShouldBeTrue();
     }
 
     [Fact]
@@ -75,7 +74,7 @@ public sealed class ReviewTasteProfileIntegrationTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([], [], ct);
+        var inputs = await source.GetProfileInputsAsync([], ct);
 
         // assert
         var movie = inputs.Movies.ShouldHaveSingleItem();
@@ -98,8 +97,7 @@ public sealed class ReviewTasteProfileIntegrationTests(PostgresFixture fixture) 
 
         // assert
         profile.GenrePreferences.Keys.ShouldBe(["Drama"]);
-        profile.Disliked.Genres.Keys.ShouldBe(["Horror"]);
-        profile.Liked.IsEmpty.ShouldBeTrue();
+        profile.PlaybackByMovieId.ShouldBeEmpty();
     }
 
     [Fact]

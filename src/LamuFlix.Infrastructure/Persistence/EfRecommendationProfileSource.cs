@@ -41,22 +41,12 @@ public sealed class EfRecommendationProfileSource(
 
     public async Task<RecommendationProfileInputs> GetProfileInputsAsync(
         IReadOnlyCollection<MovieId> candidateMovieIds,
-        IReadOnlyCollection<MovieId> likedSourceIds,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(candidateMovieIds);
-        ArgumentNullException.ThrowIfNull(likedSourceIds);
         ct.ThrowIfCancellationRequested();
 
-        var inputs = await ReadProfileInputsCoreAsync([.. candidateMovieIds], ct);
-        ct.ThrowIfCancellationRequested();
-
-        var likedSourceEmbeddings = await ReadEmbeddingsAsync([.. likedSourceIds], ct);
-
-        return new RecommendationProfileInputs(
-            inputs.Movies,
-            inputs.CandidateEmbeddings,
-            likedSourceEmbeddings);
+        return await ReadProfileInputsCoreAsync([.. candidateMovieIds], ct);
     }
 
     private async Task<RecommendationProfileInputs> ReadProfileInputsCoreAsync(

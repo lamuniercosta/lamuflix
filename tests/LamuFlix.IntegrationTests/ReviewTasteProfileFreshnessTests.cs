@@ -20,7 +20,7 @@ public sealed class ReviewTasteProfileFreshnessTests(PostgresFixture fixture) : 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Fact]
-    public async Task SaveChangesAsync_AssignLikedReview_InvalidatesAndNextProfileReadReflectsIt()
+    public async Task SaveChangesAsync_AssignLikedReview_LeavesThePositiveProfileUnchanged()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -29,16 +29,15 @@ public sealed class ReviewTasteProfileFreshnessTests(PostgresFixture fixture) : 
         var target = await harness.SeedMovieAsync("Unplayed horror", isWatched: false, isNotInterested: false, ["Horror"], ct);
 
         var before = await harness.ReadProfileAsync(ct);
-        before.Liked.Genres.ShouldBeEmpty();
-        before.Disliked.Genres.ShouldBeEmpty();
+        before.GenrePreferences.Keys.ShouldBe(["Drama"]);
 
         // act
         await harness.UpdateMovieAsync(target, movie => movie.AssignReview(Review.Liked), ct);
         var after = await harness.ReadProfileAsync(ct);
 
         // assert
-        after.Liked.Genres.Keys.ShouldBe(["Horror"]);
         after.GenrePreferences.Keys.ShouldBe(["Drama"]);
+        after.PlaybackByMovieId.ShouldBe(before.PlaybackByMovieId);
     }
 
     [Fact]
@@ -59,7 +58,6 @@ public sealed class ReviewTasteProfileFreshnessTests(PostgresFixture fixture) : 
 
         // assert
         after.GenrePreferences.Keys.ShouldBe(["Drama"]);
-        after.Disliked.Genres.Keys.ShouldBe(["Horror"]);
     }
 
     [Fact]
@@ -68,36 +66,34 @@ public sealed class ReviewTasteProfileFreshnessTests(PostgresFixture fixture) : 
         // arrange
         var ct = TestContext.Current.CancellationToken;
         await using var harness = TasteProfileInvalidationHarness.Create(fixture);
-        var target = await harness.SeedMovieAsync("Unplayed comedy", isWatched: false, isNotInterested: false, ["Comedy"], ct);
-        await harness.UpdateMovieAsync(target, movie => movie.AssignReview(Review.Liked), ct);
-        var liked = await harness.ReadProfileAsync(ct);
-        liked.Liked.Genres.Keys.ShouldBe(["Comedy"]);
+        var target = await harness.SeedMovieAsync("Watched comedy", isWatched: true, isNotInterested: false, ["Comedy"], ct);
+        await harness.UpdateMovieAsync(target, movie => movie.AssignReview(Review.Disliked), ct);
+        var disliked = await harness.ReadProfileAsync(ct);
+        disliked.GenrePreferences.ShouldBeEmpty();
 
         // act
         await harness.UpdateMovieAsync(target, movie => movie.AssignReview(Review.None), ct);
         var cleared = await harness.ReadProfileAsync(ct);
 
         // assert
-        cleared.Liked.Genres.ShouldBeEmpty();
-        cleared.Disliked.Genres.ShouldBeEmpty();
+        cleared.GenrePreferences.Keys.ShouldBe(["Comedy"]);
     }
 
     [Fact]
-    public async Task SaveChangesAsync_SwitchLikedToDisliked_ReplacesTheSignal()
+    public async Task SaveChangesAsync_SwitchDislikedToLiked_RestoresTheSignal()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
         await using var harness = TasteProfileInvalidationHarness.Create(fixture);
-        var target = await harness.SeedMovieAsync("Unplayed comedy", isWatched: false, isNotInterested: false, ["Comedy"], ct);
-        await harness.UpdateMovieAsync(target, movie => movie.AssignReview(Review.Liked), ct);
+        var target = await harness.SeedMovieAsync("Watched comedy", isWatched: true, isNotInterested: false, ["Comedy"], ct);
+        await harness.UpdateMovieAsync(target, movie => movie.AssignReview(Review.Disliked), ct);
 
         // act
-        await harness.UpdateMovieAsync(target, movie => movie.AssignReview(Review.Disliked), ct);
+        await harness.UpdateMovieAsync(target, movie => movie.AssignReview(Review.Liked), ct);
         var switched = await harness.ReadProfileAsync(ct);
 
         // assert
-        switched.Liked.Genres.ShouldBeEmpty();
-        switched.Disliked.Genres.Keys.ShouldBe(["Comedy"]);
+        switched.GenrePreferences.Keys.ShouldBe(["Comedy"]);
     }
 
     [Fact]
@@ -106,16 +102,16 @@ public sealed class ReviewTasteProfileFreshnessTests(PostgresFixture fixture) : 
         // arrange
         var ct = TestContext.Current.CancellationToken;
         await using var harness = TasteProfileInvalidationHarness.Create(fixture);
-        var target = await harness.SeedMovieAsync("Legacy horror", isWatched: false, isNotInterested: true, ["Horror"], ct);
+        var target = await harness.SeedMovieAsync("Legacy horror", isWatched: true, isNotInterested: true, ["Horror"], ct);
         var before = await harness.ReadProfileAsync(ct);
-        before.Disliked.Genres.Keys.ShouldBe(["Horror"]);
+        before.GenrePreferences.ShouldBeEmpty();
 
         // act
         await harness.UpdateMovieAsync(target, movie => movie.UnmarkNotInterested(), ct);
         var after = await harness.ReadProfileAsync(ct);
 
         // assert
-        after.Disliked.Genres.ShouldBeEmpty();
+        after.GenrePreferences.Keys.ShouldBe(["Horror"]);
     }
 
     [Fact]
@@ -136,7 +132,6 @@ public sealed class ReviewTasteProfileFreshnessTests(PostgresFixture fixture) : 
         var after = await harness.ReadProfileAsync(ct);
 
         // assert
-        after.Liked.Genres.Keys.ShouldBe(["Comedy"]);
         after.GenrePreferences.Keys.ShouldBe(["Drama"]);
     }
 

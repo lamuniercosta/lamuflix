@@ -170,7 +170,7 @@ public sealed class TasteProfileCacheRegistrationTests
         first.Generation.ShouldBe(42);
         first.CreatedAt.ShouldBe(CreatedAt);
         first.Profile.GenrePreferences.Keys.ShouldBe(["Drama"]);
-        first.Profile.PlotEmbedding.Length.ShouldBe(EmbeddingDimensions.Value);
+        first.Profile.PlaybackByMovieId.ShouldBeEmpty();
     }
 
     [Fact]
@@ -271,13 +271,8 @@ public sealed class TasteProfileCacheRegistrationTests
 
     private static TasteProfile EnvelopeProfile()
     {
-        var plot = Enumerable.Range(0, EmbeddingDimensions.Value)
-            .Select(index => index / 384f)
-            .ToImmutableArray();
-
         return new TasteProfile(
-            ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase).Add("Drama", 0.5),
-            plot);
+            ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase).Add("Drama", 0.5));
     }
 
     private static CachedProfile Envelope() => new(EnvelopeProfile(), 42, CreatedAt);

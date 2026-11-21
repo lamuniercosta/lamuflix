@@ -22,7 +22,7 @@ public sealed class TasteProfileCacheObservabilityTests
         // arrange
         var logger = new RecordingLogger<HybridCachedRecommendationProfileSource>();
         var adapter = Adapter(logger, warningFraction: 0.95);
-        var envelope = TasteProfileCacheBudgetFixture.Envelope(300);
+        var envelope = TasteProfileCacheBudgetFixture.Envelope(13500);
 
         // act
         adapter.ObservePayload(envelope);
@@ -36,7 +36,7 @@ public sealed class TasteProfileCacheObservabilityTests
     public void EqualToWarningFraction_EmitsTheWarning()
     {
         // arrange
-        var envelope = TasteProfileCacheBudgetFixture.Envelope(300);
+        var envelope = TasteProfileCacheBudgetFixture.Envelope(13500);
         var logger = new RecordingLogger<HybridCachedRecommendationProfileSource>();
         var adapter = Adapter(logger, PayloadBytes(envelope) / (double)Ceiling());
 
@@ -56,7 +56,7 @@ public sealed class TasteProfileCacheObservabilityTests
         var adapter = Adapter(logger, warningFraction: 0.1);
 
         // act
-        adapter.ObservePayload(TasteProfileCacheBudgetFixture.Envelope(300));
+        adapter.ObservePayload(TasteProfileCacheBudgetFixture.Envelope(13500));
 
         // assert
         logger.Entries.Select(entry => entry.Level).ShouldBe([LogLevel.Information, LogLevel.Warning]);
@@ -66,7 +66,7 @@ public sealed class TasteProfileCacheObservabilityTests
     public void Observation_ReportsNumericPayloadBytesBudgetBytesAndFractionOnly()
     {
         // arrange
-        var envelope = TasteProfileCacheBudgetFixture.Envelope(300);
+        var envelope = TasteProfileCacheBudgetFixture.Envelope(13500);
         var payloadBytes = PayloadBytes(envelope);
         var ceiling = Ceiling();
         var logger = new RecordingLogger<HybridCachedRecommendationProfileSource>();
@@ -134,7 +134,7 @@ public sealed class TasteProfileCacheObservabilityTests
     {
         // arrange
         await using var harness = CacheHarness.Create();
-        var envelope = TasteProfileCacheBudgetFixture.Envelope(300);
+        var envelope = TasteProfileCacheBudgetFixture.Envelope(13500);
         var adapter = Adapter(harness.ProfileLogger, warningFraction: 0.8, harness.Cache);
         var ct = TestContext.Current.CancellationToken;
 
@@ -164,7 +164,7 @@ public sealed class TasteProfileCacheObservabilityTests
     {
         // arrange
         await using var harness = CacheHarness.Create();
-        var envelope = TasteProfileCacheBudgetFixture.Envelope(449);
+        var envelope = TasteProfileCacheBudgetFixture.Envelope(18000);
         var adapter = Adapter(harness.ProfileLogger, warningFraction: 0.8, harness.Cache);
         var factoryInvocations = 0;
         var ct = TestContext.Current.CancellationToken;
@@ -200,7 +200,7 @@ public sealed class TasteProfileCacheObservabilityTests
     {
         // arrange
         await using var harness = CacheHarness.Create(disableLocalCache: true);
-        var envelope = TasteProfileCacheBudgetFixture.Envelope(449);
+        var envelope = TasteProfileCacheBudgetFixture.Envelope(18000);
         var adapter = Adapter(harness.ProfileLogger, warningFraction: 0.8, harness.Cache);
         var factoryInvocations = 0;
         var ct = TestContext.Current.CancellationToken;

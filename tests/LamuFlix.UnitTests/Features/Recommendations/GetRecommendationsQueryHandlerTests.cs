@@ -540,7 +540,6 @@ public sealed class GetRecommendationsQueryHandlerTests
         result.Select(item => item.Summary.Id.Value).ToArray().ShouldBe(new[] { 3 });
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
-            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
             Arg.Any<CancellationToken>());
     }
 
@@ -577,7 +576,6 @@ public sealed class GetRecommendationsQueryHandlerTests
         result.ShouldBeEmpty();
         await catalog.DidNotReceive().GetGenreCountsAsync(Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
-            Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
     }
@@ -621,7 +619,6 @@ public sealed class GetRecommendationsQueryHandlerTests
         // assert
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
-            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
             Arg.Any<CancellationToken>());
     }
 
@@ -684,7 +681,6 @@ public sealed class GetRecommendationsQueryHandlerTests
         await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
-            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
             cts.Token);
         await catalog.Received(1).GetGenreCountsAsync(cts.Token);
     }
@@ -695,7 +691,6 @@ public sealed class GetRecommendationsQueryHandlerTests
         // arrange
         var handler = NewHandler(
             blendSelectedWeight: 2.0,
-            blendProfileWeight: 0.0,
             alreadyWatchedPenalty: 5.0);
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(5, genres: ["Drama"], isWatched: true);
@@ -721,7 +716,6 @@ public sealed class GetRecommendationsQueryHandlerTests
         // arrange
         var handler = NewHandler(
             blendSelectedWeight: 2.0,
-            blendProfileWeight: 0.0,
             alreadyWatchedPenalty: 5.0);
         var selected = Selected();
         var unwatched = IdenticalFeatureMovie(2);
@@ -760,7 +754,6 @@ public sealed class GetRecommendationsQueryHandlerTests
         await candidateSource.DidNotReceive().GetLibraryFeaturesAsync(Arg.Any<CancellationToken>());
         await catalog.DidNotReceive().GetGenreCountsAsync(Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
-            Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
     }
@@ -930,27 +923,6 @@ public sealed class GetRecommendationsQueryHandlerTests
 
 
     [Fact]
-    public async Task HandleAsync_RelatedConsumerWithoutLikedSourceEmbeddings_KeepsNonPlotBehaviour()
-    {
-        // arrange
-        var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
-        var selected = NewMovie(1, genres: ["Drama"]);
-        var candidate = NewMovie(21, genres: ["Mystery"]);
-        var vector = PlotVector(primary: 1.0f);
-        Arrange(selected, [Entry(candidate, vector)]);
-        ArrangeProfileWith(
-            [new TasteProfileMovie(new MovieId(90), [], [], [Now], IsWatched: true) { Review = Review.Liked }],
-            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty);
-
-        // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
-
-        // assert
-        result.ShouldHaveSingleItem();
-        PersonalTexts(result[0]).ShouldNotContain(text => text.StartsWith("Because you liked", StringComparison.Ordinal));
-    }
-
-    [Fact]
     public async Task HandleAsync_ZeroPlotSimilarity_EmitsNoViewingHistoryReason()
     {
         // arrange
@@ -974,7 +946,7 @@ public sealed class GetRecommendationsQueryHandlerTests
     public async Task HandleAsync_StoredSeedAndCandidateVectors_ContributePlotScoreAndReason()
     {
         // arrange
-        var handler = NewHandler(weights: PlotOnlyWeights, blendProfileWeight: 0.0);
+        var handler = NewHandler(weights: PlotOnlyWeights);
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(2, genres: ["Mystery"]);
         var vector = PlotVector(primary: 1.0f);
@@ -992,7 +964,6 @@ public sealed class GetRecommendationsQueryHandlerTests
         result[0].Reasons.ShouldContain(reason => reason.Text == "Similar story");
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
-            Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -1000,7 +971,7 @@ public sealed class GetRecommendationsQueryHandlerTests
     public async Task HandleAsync_SelectedMovieWithoutUsableVector_ReturnsEmptyRail()
     {
         // arrange
-        var handler = NewHandler(weights: PlotOnlyWeights, blendProfileWeight: 0.0);
+        var handler = NewHandler(weights: PlotOnlyWeights);
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(2, genres: ["Mystery"]);
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
@@ -1019,7 +990,7 @@ public sealed class GetRecommendationsQueryHandlerTests
     public async Task HandleAsync_SelectedMovieAbsentFromLoad_UsableFallbackVectorStillScores()
     {
         // arrange
-        var handler = NewHandler(weights: PlotOnlyWeights, blendProfileWeight: 0.0);
+        var handler = NewHandler(weights: PlotOnlyWeights);
         var selected = NewMovie(1, genres: ["Drama"]);
         var candidate = NewMovie(2, genres: ["Mystery"]);
         var vector = PlotVector(primary: 1.0f);
@@ -1040,7 +1011,6 @@ public sealed class GetRecommendationsQueryHandlerTests
         result[0].Reasons.ShouldContain(reason => reason.Text == "Similar story");
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 1 && ids.Single() == selected.Id),
-            Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -1560,7 +1530,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         System.Collections.Immutable.ImmutableArray<TasteProfileMovie> profileMovies,
         System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>> embeddings) =>
         profileSource
-            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(new RecommendationProfileInputs(profileMovies, embeddings)));
 
     private static SimilarityWeights PlotOnlyWeights => new()
@@ -1571,16 +1541,13 @@ public sealed class GetRecommendationsQueryHandlerTests
         Cast = 0.0,
         Genres = 0.0,
         Collection = 0.0,
-        ReviewPlotWeight = 1.0,
     };
 
     private GetRecommendationsQueryHandler NewHandler(
         int optionsTake = DefaultTake,
         SimilarityWeights? weights = null,
         double blendSelectedWeight = 1.0,
-        double blendProfileWeight = 1.0,
         double alreadyWatchedPenalty = 0.25,
-        double notInterestedPenalty = 1.0,
         double mmrLambda = 0.7,
         KeywordWeightsCache? keywordCache = null,
         double minimumSimilarity = 0.0,
@@ -1593,9 +1560,7 @@ public sealed class GetRecommendationsQueryHandlerTests
             MinimumSimilarity = minimumSimilarity,
             Weights = weights ?? Weights,
             BlendSelectedWeight = blendSelectedWeight,
-            BlendProfileWeight = blendProfileWeight,
             AlreadyWatchedPenalty = alreadyWatchedPenalty,
-            NotInterestedPenalty = notInterestedPenalty,
             MmrLambda = mmrLambda,
         };
 

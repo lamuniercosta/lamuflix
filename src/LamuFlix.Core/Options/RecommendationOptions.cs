@@ -78,15 +78,7 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public double BlendSelectedWeight { get; init; } = 1.0;
 
-    public double BlendProfileWeight { get; init; } = 1.0;
-
     public double AlreadyWatchedPenalty { get; init; } = 0.25;
-
-    public double NotInterestedPenalty { get; init; } = 1.0;
-
-    public double LikedReviewWeight { get; init; } = 1.0;
-
-    public double DislikedReviewWeight { get; init; } = 1.0;
 
     [Range(0.0, double.MaxValue)]
     public double SeedWeightLiked { get; init; } = DefaultSeedWeightLiked;
@@ -115,11 +107,6 @@ public sealed record RecommendationOptions : IValidatableObject
         }
 
         foreach (var result in ValidateBlend())
-        {
-            yield return result;
-        }
-
-        foreach (var result in ValidateReview())
         {
             yield return result;
         }
@@ -498,17 +485,7 @@ public sealed record RecommendationOptions : IValidatableObject
             yield return result;
         }
 
-        foreach (var result in ValidateBlendCoefficient(BlendProfileWeight, nameof(BlendProfileWeight)))
-        {
-            yield return result;
-        }
-
         foreach (var result in ValidateBlendCoefficient(AlreadyWatchedPenalty, nameof(AlreadyWatchedPenalty)))
-        {
-            yield return result;
-        }
-
-        foreach (var result in ValidateBlendCoefficient(NotInterestedPenalty, nameof(NotInterestedPenalty)))
         {
             yield return result;
         }
@@ -530,70 +507,15 @@ public sealed record RecommendationOptions : IValidatableObject
 
     private IEnumerable<ValidationResult> ValidateBlendSignal()
     {
-        if (BlendSelectedWeight == 0.0 && BlendProfileWeight == 0.0)
+        if (BlendSelectedWeight == 0.0)
         {
             yield return new ValidationResult(
                 string.Format(
                     CultureInfo.InvariantCulture,
-                    "{0} and {1} cannot both be 0.0.",
-                    nameof(BlendSelectedWeight),
-                    nameof(BlendProfileWeight)),
-                [nameof(BlendSelectedWeight), nameof(BlendProfileWeight)]);
+                    "{0} cannot be 0.0.",
+                    nameof(BlendSelectedWeight)),
+                [nameof(BlendSelectedWeight)]);
         }
-    }
-
-    private IEnumerable<ValidationResult> ValidateReview()
-    {
-        foreach (var result in ValidateReviewCoefficient(LikedReviewWeight, nameof(LikedReviewWeight)))
-        {
-            yield return result;
-        }
-
-        foreach (var result in ValidateReviewCoefficient(DislikedReviewWeight, nameof(DislikedReviewWeight)))
-        {
-            yield return result;
-        }
-
-        foreach (var result in ValidateReviewChannels())
-        {
-            yield return result;
-        }
-    }
-
-    private static IEnumerable<ValidationResult> ValidateReviewCoefficient(double value, string memberName)
-    {
-        if (!double.IsFinite(value) || value <= 0.0)
-        {
-            yield return new ValidationResult(
-                string.Format(
-                    CultureInfo.InvariantCulture,
-                    "{0} must be finite and greater than 0.0; got {1}.",
-                    memberName,
-                    value),
-                [memberName]);
-        }
-    }
-
-    private IEnumerable<ValidationResult> ValidateReviewChannels()
-    {
-        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - configuration binder can set Weights to null via reflection.
-        if (Weights is null)
-        {
-            yield break;
-        }
-
-        if (Weights.HasEnabledReviewChannel)
-        {
-            yield break;
-        }
-
-        yield return new ValidationResult(
-            string.Format(
-                CultureInfo.InvariantCulture,
-                "At least one review channel must be enabled; {0}.{1} must be greater than 0.0.",
-                nameof(Weights),
-                nameof(SimilarityWeights.ReviewPlotWeight)),
-            [nameof(Weights)]);
     }
 }
 // ReSharper restore UnusedAutoPropertyAccessor.Global
