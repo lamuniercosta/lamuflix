@@ -44,6 +44,7 @@ public static class NearestSeedScorer
         ArgumentNullException.ThrowIfNull(decay);
         ArgumentNullException.ThrowIfNull(genreWeights);
         ArgumentNullException.ThrowIfNull(keywordWeights);
+        SimilarityScorer.ThrowIfInvalid(options);
 
         var seeds = PositiveSeeds(library, profile, options, decay);
         if (seeds.Count == 0)
@@ -114,7 +115,7 @@ public static class NearestSeedScorer
                 continue;
             }
 
-            var similarity = SimilarityScorer.Score(
+            var similarity = SimilarityScorer.ScoreWithoutValidation(
                 candidate.Features,
                 seed.Entry.Features,
                 options,
@@ -252,7 +253,7 @@ public static class NearestSeedScorer
             return null;
         }
 
-        var similarity = SimilarityScorer.Score(
+        var similarity = SimilarityScorer.ScoreWithoutValidation(
             candidate.Features,
             seed.Features,
             options,

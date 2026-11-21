@@ -245,6 +245,21 @@ public sealed class NearestSeedScorerTests
     }
 
     [Fact]
+    public void Rank_InvalidOptions_ThrowsBeforeScoring()
+    {
+        // arrange
+        var seed = Entry(90, Features(["Drama"], vector: Vector(1.0)), liked: true);
+        var candidate = Entry(2, Features(["Drama"], vector: Vector(1.0)));
+        var options = PlotOptions(likedWeight: -1.0);
+
+        // act
+        var act = () => Rank([seed, candidate], [candidate], Profile(), options);
+
+        // assert
+        Should.Throw<ArgumentOutOfRangeException>(act);
+    }
+
+    [Fact]
     public void Rank_ConfiguredSeedWeight_ChangesTheAggregate()
     {
         // arrange

@@ -33,7 +33,23 @@ public static class SimilarityScorer
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(genreWeights);
         ArgumentNullException.ThrowIfNull(keywordWeights);
-        ValidateOptions(options);
+        ThrowIfInvalid(options);
+
+        return ScoreWithoutValidation(a, b, options, genreWeights, keywordWeights);
+    }
+
+    internal static SimilarityResult ScoreWithoutValidation(
+        MovieFeatures a,
+        MovieFeatures b,
+        RecommendationOptions options,
+        GenreWeights genreWeights,
+        IReadOnlyDictionary<string, double> keywordWeights)
+    {
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(genreWeights);
+        ArgumentNullException.ThrowIfNull(keywordWeights);
 
         var weights = options.Weights;
         var denominator = weights.Collection + weights.Director + weights.Themes + weights.Plot + weights.Cast + weights.Genres;
@@ -102,13 +118,13 @@ public static class SimilarityScorer
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(counts);
-        ValidateOptions(options);
+        ThrowIfInvalid(options);
         ValidateKeywordCounts(counts);
 
         return KeywordWeights(options, counts);
     }
 
-    private static void ValidateOptions(RecommendationOptions options)
+    internal static void ThrowIfInvalid(RecommendationOptions options)
     {
         var failures = options.Validate(new System.ComponentModel.DataAnnotations.ValidationContext(options)).ToArray();
         if (failures.Length > 0)

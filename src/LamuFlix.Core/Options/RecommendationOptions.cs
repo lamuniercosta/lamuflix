@@ -27,7 +27,11 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public const double DefaultRecencyFloor = 0.25;
 
-    private static readonly double[] DefaultSeedRankMultipliers = [1.0, 0.5, 0.25];
+    private const double DefaultFirstSeedRankMultiplier = 1.0;
+
+    private const double DefaultSecondSeedRankMultiplier = 0.5;
+
+    private const double DefaultThirdSeedRankMultiplier = 0.25;
 
     private static readonly string[] DefaultStrongReasonCriteria = ["Collection", "Director", "Themes"];
 
@@ -95,7 +99,8 @@ public sealed record RecommendationOptions : IValidatableObject
     [Range(0.0, 1.0)]
     public double RecencyFloor { get; init; } = DefaultRecencyFloor;
 
-    public IReadOnlyList<double>? SeedRankMultipliers { get; init; } = DefaultSeedRankMultipliers;
+    public IReadOnlyList<double>? SeedRankMultipliers { get; init; } =
+        [DefaultFirstSeedRankMultiplier, DefaultSecondSeedRankMultiplier, DefaultThirdSeedRankMultiplier];
 
     public SimilarityWeights Weights { get; init; } = new();
 

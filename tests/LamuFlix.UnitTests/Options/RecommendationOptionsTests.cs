@@ -514,6 +514,20 @@ public sealed class RecommendationOptionsTests
         defaults.SeedRankMultipliers.ShouldBe([1.0, 0.5, 0.25]);
     }
 
+    [Fact]
+    public void SeedRankMultipliers_DefaultsArePerInstance()
+    {
+        // arrange
+        var first = new RecommendationOptions();
+
+        // act
+        var second = new RecommendationOptions();
+
+        // assert
+        ReferenceEquals(first.SeedRankMultipliers, second.SeedRankMultipliers).ShouldBeFalse();
+        second.SeedRankMultipliers.ShouldBe([1.0, 0.5, 0.25]);
+    }
+
     [Theory]
     [InlineData(0.0, true)]
     [InlineData(0.6, true)]
