@@ -234,11 +234,11 @@ public sealed class HybridCachedRecommendationProfileSourceFreshnessTests(Postgr
         var ct = TestContext.Current.CancellationToken;
         await using var harness = TasteProfileCacheHarness.Create(fixture);
         await harness.SeedMovieAsync("First watched", isWatched: true, ct, "Drama");
-        var first = await harness.Adapter.GetProfileInputsAsync([], [], ct);
+        var first = await harness.Adapter.GetProfileInputsAsync([], ct);
         await harness.SeedMovieAsync("Second watched", isWatched: true, ct, "Horror");
 
         // act
-        var second = await harness.Adapter.GetProfileInputsAsync([], [], ct);
+        var second = await harness.Adapter.GetProfileInputsAsync([], ct);
 
         // assert
         first.Movies.Select(movie => movie.Genres[0]).ShouldBe(["Drama"]);
@@ -259,7 +259,7 @@ public sealed class HybridCachedRecommendationProfileSourceFreshnessTests(Postgr
         var cancelledToken = cancellation.Token;
 
         // act
-        var cancelledRead = harness.Adapter.GetProfileInputsAsync([], [], cancelledToken);
+        var cancelledRead = harness.Adapter.GetProfileInputsAsync([], cancelledToken);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(cancelledRead);

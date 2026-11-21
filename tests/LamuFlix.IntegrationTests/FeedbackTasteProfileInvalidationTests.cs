@@ -83,7 +83,6 @@ public sealed class FeedbackTasteProfileInvalidationTests(PostgresFixture fixtur
         // assert
         after.GenrePreferences.Keys.ShouldContain("Drama");
         after.GenrePreferences.Keys.ShouldNotContain("Horror");
-        after.Disliked.Genres.Keys.ShouldContain("Horror");
     }
 
     [Fact]
@@ -108,7 +107,6 @@ public sealed class FeedbackTasteProfileInvalidationTests(PostgresFixture fixtur
         after.GenrePreferences.Keys.ShouldContain("Drama");
         after.GenrePreferences.Keys.ShouldContain("Horror");
         after.GenrePreferences.Keys.ShouldContain("Comedy");
-        after.Disliked.Genres.ShouldBeEmpty();
     }
 
     [Fact]

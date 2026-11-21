@@ -10,7 +10,6 @@ public interface IRecommendationProfileSource
 {
     Task<RecommendationProfileInputs> GetProfileInputsAsync(
         IReadOnlyCollection<MovieId> candidateMovieIds,
-        IReadOnlyCollection<MovieId> likedSourceIds,
         CancellationToken ct);
 
     Task<TasteProfile> GetTasteProfileAsync(CancellationToken ct);

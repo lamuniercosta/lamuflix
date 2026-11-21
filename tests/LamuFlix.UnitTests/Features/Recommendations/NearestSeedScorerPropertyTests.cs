@@ -31,7 +31,6 @@ public sealed class NearestSeedScorerPropertyTests
         Cast = 0.0,
         Genres = 0.0,
         Collection = 0.0,
-        ReviewPlotWeight = 1.0,
     };
 
     [Property(MaxTest = 100, Replay = "543001,100003")]
@@ -102,7 +101,7 @@ public sealed class NearestSeedScorerPropertyTests
         return NearestSeedScorer.Rank(
             candidates,
             library,
-            new TasteProfile(ImmutableDictionary<string, double>.Empty, []),
+            new TasteProfile(ImmutableDictionary<string, double>.Empty),
             options,
             decay,
             GenreWeights.Calculate(Counts),

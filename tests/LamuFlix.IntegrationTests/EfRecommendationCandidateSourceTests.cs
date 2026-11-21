@@ -1068,11 +1068,10 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
 
         public Task<RecommendationProfileInputs> GetProfileInputsAsync(
             IReadOnlyCollection<MovieId> candidateMovieIds,
-            IReadOnlyCollection<MovieId> likedSourceIds,
             CancellationToken ct)
         {
             CandidateIdCalls.Add(candidateMovieIds);
-            return inner.GetProfileInputsAsync(candidateMovieIds, likedSourceIds, ct);
+            return inner.GetProfileInputsAsync(candidateMovieIds, ct);
         }
     }
 

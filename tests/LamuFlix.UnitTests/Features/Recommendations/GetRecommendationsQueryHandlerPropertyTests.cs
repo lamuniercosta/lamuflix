@@ -171,32 +171,6 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
                 && candidate.Id.Value == item.Summary.Id.Value));
     }
 
-    [Property(MaxTest = 100, Replay = "340111,1200043")]
-    [Trait("Category", "Property")]
-    public bool HandleAsync_PositiveNotInterestedPenalty_NeverSubstitutesForExclusion(
-        int[] ids,
-        int[] cosineSeeds,
-        bool[] notInterested,
-        int penaltySeed,
-        int takeSeed)
-    {
-        // arrange
-        var pool = BuildCandidates(ids, cosineSeeds, notInterested);
-        var take = Take(takeSeed);
-        var penalty = Math.Abs((long)penaltySeed % 1000) / 10.0;
-        var options = new RecommendationOptions { NotInterestedPenalty = penalty, MinimumSimilarity = 0.0 };
-        var expectedCount = Math.Min(take, pool.Count(candidate => !IsDisliked(candidate)));
-
-        // act
-        var result = Handle(pool, take, options);
-
-        // assert
-        return result.Count == expectedCount
-            && result.All(item => !pool.Any(candidate =>
-                IsDisliked(candidate)
-                && candidate.Id.Value == item.Summary.Id.Value));
-    }
-
     private static ImmutableList<RecommendedMovie> Handle(IReadOnlyList<Movie> pool, int take) =>
         Handle([.. pool.Select(Entry)], take);
 
@@ -280,15 +254,14 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>()).Returns(EmptyKeywordCounts);
         var profileSource = Substitute.For<IRecommendationProfileSource>();
         profileSource
-            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(new RecommendationProfileInputs(
                 ImmutableArray<TasteProfileMovie>.Empty,
                 ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty)));
         profileSource
             .GetTasteProfileAsync(Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(new TasteProfile(
-                ImmutableDictionary<string, double>.Empty,
-                ImmutableArray<float>.Empty)));
+                ImmutableDictionary<string, double>.Empty)));
         var handler = new GetRecommendationsQueryHandler(
             movies,
             source,

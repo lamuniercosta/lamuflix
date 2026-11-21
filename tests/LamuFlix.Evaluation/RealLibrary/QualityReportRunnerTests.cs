@@ -660,7 +660,6 @@ public sealed class QualityReportRunnerTests
                 Cast = 0.0,
                 Genres = 0.0,
                 Collection = 0.0,
-                ReviewPlotWeight = 1.0,
             },
         };
 

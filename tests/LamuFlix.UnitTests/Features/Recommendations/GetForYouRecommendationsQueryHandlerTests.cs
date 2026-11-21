@@ -37,7 +37,6 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         Cast = 0.0,
         Genres = 3.0,
         Collection = 0.0,
-        ReviewPlotWeight = 0.0,
     };
 
     private static readonly SimilarityWeights PlotOnlyWeights = new()
@@ -48,7 +47,6 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         Cast = 0.0,
         Genres = 0.0,
         Collection = 0.0,
-        ReviewPlotWeight = 1.0,
     };
 
     private static readonly SimilarityWeights DirectorAndGenreWeights = new()
@@ -59,7 +57,6 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         Cast = 0.0,
         Genres = 12.0,
         Collection = 0.0,
-        ReviewPlotWeight = 0.0,
     };
 
     private static readonly SimilarityWeights DirectorGenreAndPlotWeights = new()
@@ -70,7 +67,6 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         Cast = 0.0,
         Genres = 2.0,
         Collection = 0.0,
-        ReviewPlotWeight = 0.0,
     };
 
     private static readonly KeywordCounts EmptyKeywordCounts = new(0, new Dictionary<string, long>());
@@ -745,7 +741,6 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetProfileInputsAsync(
             Arg.Any<IReadOnlyCollection<MovieId>>(),
-            Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -910,7 +905,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     ];
 
     private TasteProfile Profile() =>
-        new(ImmutableDictionary<string, double>.Empty, [])
+        new(ImmutableDictionary<string, double>.Empty)
         {
             PlaybackByMovieId = playback,
         };
@@ -1027,7 +1022,6 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
         Cast = 0.0,
         Genres = 3.0,
         Collection = 0.0,
-        ReviewPlotWeight = 0.0,
     };
 
     [Property(MaxTest = 100, Replay = "357001,100003")]
@@ -1099,7 +1093,7 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
         var profileSource = Substitute.For<IRecommendationProfileSource>();
         profileSource
             .GetTasteProfileAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new TasteProfile(ImmutableDictionary<string, double>.Empty, [])));
+            .Returns(Task.FromResult(new TasteProfile(ImmutableDictionary<string, double>.Empty)));
 
         var handler = new GetForYouRecommendationsQueryHandler(
             candidates,

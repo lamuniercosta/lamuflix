@@ -155,7 +155,6 @@ public sealed class GetRecommendationsQueryHandler(
 
         var profileInputs = await profileSource.GetProfileInputsAsync(
             selectedInLoad ? [] : [query.MovieId],
-            [],
             cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -342,11 +341,9 @@ public sealed class GetRecommendationsQueryHandler(
             SimilarityResult similarity,
             MatchTier tier)
         {
-            var score = BlendScorer.ScoreWithProfileContribution(
+            var score = BlendScorer.Score(
                 similarity.Score,
-                0.0,
                 entry.IsWatched ? 1.0 : 0.0,
-                0.0,
                 options);
 
             return new ScoredCandidate(

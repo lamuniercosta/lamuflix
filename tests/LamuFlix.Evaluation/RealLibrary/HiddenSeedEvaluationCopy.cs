@@ -292,11 +292,9 @@ public sealed class HiddenSeedEvaluationCopy
     {
         public Task<RecommendationProfileInputs> GetProfileInputsAsync(
             IReadOnlyCollection<MovieId> candidateMovieIds,
-            IReadOnlyCollection<MovieId> likedSourceIds,
             CancellationToken ct)
         {
             ArgumentNullException.ThrowIfNull(candidateMovieIds);
-            ArgumentNullException.ThrowIfNull(likedSourceIds);
             ct.ThrowIfCancellationRequested();
 
             var candidateEmbeddings = ImmutableDictionary.CreateBuilder<MovieId, ImmutableArray<float>>();
@@ -309,20 +307,9 @@ public sealed class HiddenSeedEvaluationCopy
                 }
             }
 
-            var likedSourceEmbeddings = ImmutableDictionary.CreateBuilder<MovieId, ImmutableArray<float>>();
-
-            foreach (var likedSourceId in likedSourceIds)
-            {
-                if (plotEmbeddings.TryGetValue(likedSourceId, out var embedding))
-                {
-                    likedSourceEmbeddings[likedSourceId] = embedding;
-                }
-            }
-
             return Task.FromResult(new RecommendationProfileInputs(
                 profileMovies,
-                candidateEmbeddings.ToImmutable(),
-                likedSourceEmbeddings.ToImmutable()));
+                candidateEmbeddings.ToImmutable()));
         }
 
         public Task<TasteProfile> GetTasteProfileAsync(CancellationToken ct)

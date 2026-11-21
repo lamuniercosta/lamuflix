@@ -33,7 +33,6 @@ public sealed class ReviewRankingHandlerTests
         Cast = 0.0,
         Genres = 3.0,
         Collection = 0.0,
-        ReviewPlotWeight = 0.0,
     };
 
     private static readonly KeywordCounts EmptyKeywordCounts = new(0, new Dictionary<string, long>());
@@ -228,7 +227,7 @@ public sealed class ReviewRankingHandlerTests
         harness.Arrange(similar, other);
 
         var baseline = await harness.HandleAsync(Profile());
-        var liked = await harness.HandleAsync(Profile(likedGenres: ["Drama"]));
+        var liked = await harness.HandleAsync(Profile(genres: ["Drama"]));
 
         // assert
         liked.Select(item => item.Summary.Id).ShouldBe(baseline.Select(item => item.Summary.Id));
@@ -245,7 +244,7 @@ public sealed class ReviewRankingHandlerTests
         harness.Arrange(similar, other);
 
         var baseline = await harness.HandleAsync(Profile());
-        var disliked = await harness.HandleAsync(Profile(dislikedGenres: ["Drama"]));
+        var disliked = await harness.HandleAsync(Profile(genres: ["Comedy"]));
 
         // assert
         disliked.Select(item => item.Summary.Id).ShouldBe(baseline.Select(item => item.Summary.Id));
@@ -292,7 +291,7 @@ public sealed class ReviewRankingHandlerTests
         harness.Arrange(MakeMovie(2, "Similar drama", ["Drama"]));
 
         // act
-        var result = await harness.HandleAsync(Profile(likedGenres: ["Drama"], likedTitle: "Alien"));
+        var result = await harness.HandleAsync(Profile(genres: ["Drama"]));
 
         // assert
         result.Single().Reasons.ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
@@ -307,7 +306,7 @@ public sealed class ReviewRankingHandlerTests
         harness.Arrange(MakeMovie(2, "Similar drama", ["Drama"]));
 
         // act
-        var result = await harness.HandleAsync(Profile(dislikedGenres: ["Drama"]));
+        var result = await harness.HandleAsync(Profile(genres: ["Comedy"]));
 
         // assert
         result.Single().Reasons.ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
@@ -332,38 +331,8 @@ public sealed class ReviewRankingHandlerTests
             .ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
     }
 
-    private static TasteProfile Profile(
-        string[]? likedGenres = null,
-        string[]? dislikedGenres = null,
-        string? likedTitle = null)
-    {
-        var liked = Channels(likedGenres, [], []);
-        var disliked = Channels(dislikedGenres, [], []);
-
-        return new TasteProfile(
-            ImmutableDictionary<string, double>.Empty,
-            ImmutableArray<float>.Empty)
-        {
-            Liked = liked,
-            Disliked = disliked,
-            LikedSources = likedGenres is { Length: > 0 }
-                ?
-                [
-                    LikedReviewSource.From(
-                        new MovieId(90),
-                        likedTitle ?? "Liked source",
-                        Channels(likedGenres, [], [])),
-                ]
-                : [],
-        };
-    }
-
-    private static ReviewProfileChannels Channels(string[]? genres, string[] cast, string[] directors) =>
-        new(
-            ImmutableArray<float>.Empty,
-            Preferences(genres ?? [], Weights.GetWeight),
-            Preferences(cast, _ => 1.0),
-            Preferences(directors, _ => 1.0));
+    private static TasteProfile Profile(string[]? genres = null) =>
+        new(Preferences(genres ?? [], Weights.GetWeight));
 
     private static ImmutableDictionary<string, double> Preferences(string[] names, Func<string, double> scale) =>
         names.ToImmutableDictionary(name => name, scale, StringComparer.OrdinalIgnoreCase);
@@ -447,7 +416,7 @@ public sealed class ReviewRankingHandlerTests
                     PlaybackByMovieId = ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>
                         .Empty.Add(new MovieId(500), [Now]),
                 }));
-            profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new RecommendationProfileInputs(
                     [
                         new TasteProfileMovie(
@@ -525,7 +494,7 @@ public sealed class ReviewRankingHandlerTests
                     PlaybackByMovieId = ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>
                         .Empty.Add(new MovieId(500), [Now]),
                 }));
-            profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new RecommendationProfileInputs(
                     [
                         new TasteProfileMovie(

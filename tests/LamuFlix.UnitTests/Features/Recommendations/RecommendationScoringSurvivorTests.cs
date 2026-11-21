@@ -6,20 +6,6 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 public sealed class RecommendationScoringSurvivorTests
 {
     [Fact]
-    public void ProfileContribution_NullOptions_ThrowsArgumentNullException()
-    {
-        // arrange
-        var evidence = new ReviewAffinityEvidence(0.3, 0.0, true, null);
-
-        // act
-        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
-        var failure = Should.Throw<ArgumentNullException>(() => RecommendationScoring.ProfileContribution(0.2, evidence, null!));
-
-        // assert
-        failure.ParamName.ShouldBe("options");
-    }
-
-    [Fact]
     public void Genres_NullFeatures_ThrowsArgumentNullException()
     {
         // act

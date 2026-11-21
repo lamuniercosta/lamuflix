@@ -64,54 +64,17 @@ public sealed class RecommendationOptionsSurvivorTests
     }
 
     [Fact]
-    public void Validate_BothBlendWeightsZero_ReportsTheExactMessage()
+    public void Validate_SelectedWeightZero_ReportsTheExactMessage()
     {
         // arrange
-        var options = new RecommendationOptions { BlendSelectedWeight = 0.0, BlendProfileWeight = 0.0 };
+        var options = new RecommendationOptions { BlendSelectedWeight = 0.0 };
 
         // act
         var results = Validate(options);
 
         // assert
         results.Select(result => result.ErrorMessage)
-            .ShouldContain("BlendSelectedWeight and BlendProfileWeight cannot both be 0.0.");
-    }
-
-    [Fact]
-    public void Validate_ZeroLikedReviewWeight_ReportsTheExactMessage()
-    {
-        // arrange
-        var options = new RecommendationOptions { LikedReviewWeight = 0.0 };
-
-        // act
-        var results = Validate(options);
-
-        // assert
-        results.Select(result => result.ErrorMessage)
-            .ShouldContain("LikedReviewWeight must be finite and greater than 0.0; got 0.");
-    }
-
-    [Fact]
-    public void Validate_AllReviewChannelsDisabled_ReportsTheExactMessage()
-    {
-        // arrange
-        var options = new RecommendationOptions
-        {
-            Weights = new SimilarityWeights
-            {
-                Genres = 0.0,
-                Cast = 0.0,
-                Director = 0.0,
-                ReviewPlotWeight = 0.0,
-            },
-        };
-
-        // act
-        var results = Validate(options);
-
-        // assert
-        results.Select(result => result.ErrorMessage).ShouldContain(
-            "At least one review channel must be enabled; Weights.ReviewPlotWeight must be greater than 0.0.");
+            .ShouldContain("BlendSelectedWeight cannot be 0.0.");
     }
 
     private static IReadOnlyList<ValidationResult> Validate(RecommendationOptions options)

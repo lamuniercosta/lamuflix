@@ -23,11 +23,5 @@ public sealed record SimilarityWeights
 
     [Range(0.0, double.MaxValue)]
     public double Collection { get; init; } = 3.0;
-
-    [Range(0.0, double.MaxValue)]
-    public double ReviewPlotWeight { get; init; } = 1.0;
-
-    public bool HasEnabledReviewChannel =>
-        Genres > 0.0 || Cast > 0.0 || Director > 0.0 || ReviewPlotWeight > 0.0;
 }
 // ReSharper restore UnusedAutoPropertyAccessor.Global

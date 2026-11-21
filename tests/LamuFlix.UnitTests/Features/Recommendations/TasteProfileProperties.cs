@@ -12,7 +12,6 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 public sealed class TasteProfileProperties
 {
     private const double GenreTolerance = 1e-12;
-    private const float PlotTolerance = 1e-5f;
 
     private static readonly DateTimeOffset Now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
@@ -39,7 +38,7 @@ public sealed class TasteProfileProperties
                 var profile = Calculator().Calculate(history.Movies, Weights);
 
                 AssertGenreBounds(history.Movies, profile);
-                AssertPlotBounds(history.Movies, profile);
+                AssertNoEmbeddingPayload(profile);
                 return true;
             }).QuickCheckThrowOnFailure();
 
@@ -54,7 +53,7 @@ public sealed class TasteProfileProperties
                 var first = calculator.Calculate(history.Movies, Weights);
                 var second = calculator.Calculate(history.Movies, Weights);
 
-                AssertProfilesEqual(first, second, 0.0, 0.0f);
+                AssertProfilesEqual(first, second, 0.0);
                 return true;
             }).QuickCheckThrowOnFailure();
 
@@ -68,7 +67,7 @@ public sealed class TasteProfileProperties
                 var first = Calculator().Calculate(history.Movies, Weights);
                 var second = Calculator().Calculate(history.Movies, Weights);
 
-                AssertProfilesEqual(first, second, 0.0, 0.0f);
+                AssertProfilesEqual(first, second, 0.0);
                 return true;
             }).QuickCheckThrowOnFailure();
 
@@ -86,7 +85,7 @@ public sealed class TasteProfileProperties
                 var original = Calculator().Calculate(history.Movies, Weights);
                 var doubled = Calculator().Calculate(replicated, Weights);
 
-                AssertProfilesEqual(original, doubled, GenreTolerance, PlotTolerance);
+                AssertProfilesEqual(original, doubled, GenreTolerance);
                 return true;
             }).QuickCheckThrowOnFailure();
 
@@ -115,36 +114,16 @@ public sealed class TasteProfileProperties
         }
     }
 
-    private static void AssertPlotBounds(ImmutableArray<TasteProfileMovie> movies, TasteProfile profile)
-    {
-        var contributors = movies
-            .Where(HasWatchSignal)
-            .Where(movie => !movie.PlotEmbedding.IsDefaultOrEmpty)
-            .ToArray();
-
-        if (contributors.Length == 0 || profile.PlotEmbedding.IsEmpty)
-        {
-            return;
-        }
-
-        profile.PlotEmbedding.Length.ShouldBe(EmbeddingDimensions.Value);
-
-        for (var index = 0; index < EmbeddingDimensions.Value; index++)
-        {
-            var values = contributors.Select(movie => movie.PlotEmbedding[index]).ToArray();
-            var coordinate = profile.PlotEmbedding[index];
-
-            float.IsFinite(coordinate).ShouldBeTrue();
-            (coordinate >= values.Min() - PlotTolerance).ShouldBeTrue();
-            (coordinate <= values.Max() + PlotTolerance).ShouldBeTrue();
-        }
-    }
+    private static void AssertNoEmbeddingPayload(TasteProfile profile) =>
+        profile.GetType().GetProperties()
+            .Select(property => property.Name.ToLowerInvariant())
+            .Any(name => name.Contains("embedding") || name.Contains("plot"))
+            .ShouldBeFalse();
 
     private static void AssertProfilesEqual(
         TasteProfile expected,
         TasteProfile actual,
-        double genreTolerance,
-        float plotTolerance)
+        double genreTolerance)
     {
         actual.GenrePreferences.Count.ShouldBe(expected.GenrePreferences.Count);
 
@@ -154,17 +133,7 @@ public sealed class TasteProfileProperties
             actual.GenrePreferences[genre].ShouldBe(preference, genreTolerance);
         }
 
-        actual.PlotEmbedding.IsEmpty.ShouldBe(expected.PlotEmbedding.IsEmpty);
-        if (expected.PlotEmbedding.IsEmpty)
-        {
-            return;
-        }
-
-        actual.PlotEmbedding.Length.ShouldBe(expected.PlotEmbedding.Length);
-        for (var index = 0; index < expected.PlotEmbedding.Length; index++)
-        {
-            actual.PlotEmbedding[index].ShouldBe(expected.PlotEmbedding[index], plotTolerance);
-        }
+        actual.PlaybackByMovieId.Count.ShouldBe(expected.PlaybackByMovieId.Count);
     }
 
     private static bool HasWatchSignal(TasteProfileMovie movie) =>
