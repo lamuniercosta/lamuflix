@@ -181,7 +181,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
     public async Task GetForYou_PositiveHistory_ReturnsPersonalReasonsAndRetainsVectorlessCandidates()
     {
         // arrange
-        var client = await StartHostAsync();
+        var client = await StartHostAsync(additionalSettings: NeutralStrongMatchBar());
         var cancellationToken = TestContext.Current.CancellationToken;
         var data = new Fixture();
         var genre = Faker.Lorem.GetFirstWord();
@@ -230,11 +230,13 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         var enrichedItem = items.Single(item => item.GetProperty("id").GetInt32() == enrichedId);
         ShouldCarryExactly(enrichedItem, DtoFieldNames);
         ReasonKinds(enrichedItem).ShouldContain("personal");
-        ReasonTexts(enrichedItem).ShouldContain($"Matches your {genre} interest");
+        ReasonTexts(enrichedItem).ShouldContain($"Because you watched {watched.Title}");
+        ReasonTexts(enrichedItem).ShouldNotContain($"Matches your {genre} interest");
 
         var vectorlessItem = items.Single(item => item.GetProperty("id").GetInt32() == vectorlessId);
         ShouldCarryExactly(vectorlessItem, DtoFieldNames);
-        ReasonTexts(vectorlessItem).ShouldContain($"Matches your {genre} interest");
+        ReasonTexts(vectorlessItem).ShouldContain($"Because you watched {watched.Title}");
+        ReasonTexts(vectorlessItem).ShouldNotContain($"Matches your {genre} interest");
     }
 
     [Fact]
@@ -270,7 +272,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
     public async Task GetForYou_MarkWatched_RemovesMovieFromResults()
     {
         // arrange
-        var client = await StartHostAsync();
+        var client = await StartHostAsync(additionalSettings: NeutralStrongMatchBar());
         var cancellationToken = TestContext.Current.CancellationToken;
         var data = new Fixture();
         var historyGenre = $"history-{Guid.NewGuid():N}";
@@ -306,7 +308,8 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         before.StatusCode.ShouldBe(HttpStatusCode.OK);
         var cachedItem = beforeBody.GetProperty("items").EnumerateArray()
             .Single(item => item.GetProperty("id").GetInt32() == candidateId);
-        ReasonKinds(cachedItem).ShouldNotContain("personal");
+        ReasonKinds(cachedItem).ShouldContain("personal");
+        ReasonTexts(cachedItem).ShouldContain($"Because you watched {watched.Title}");
         marked.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         after.StatusCode.ShouldBe(HttpStatusCode.OK);
         afterBody.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ShouldNotContain(candidateId);

@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
-using LamuFlix.Core.Library;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using NSubstitute;
@@ -42,41 +41,40 @@ public sealed class ReviewRankingHandlerTests
     private static GenreWeights Weights => GenreWeights.Calculate(Counts);
 
     [Fact]
-    public async Task ForYou_LikedProfile_RaisesSimilarCandidateAbovePreLikeBaseline()
+    public async Task ForYou_LikedSeed_RanksSimilarCandidateAboveUnrelatedCandidate()
     {
         // arrange
         var harness = new ForYouHarness();
-        var similar = MakeMovie(2, "Similar drama", ["Drama"]);
-        var other = MakeMovie(3, "Other comedy", ["Comedy"]);
-        harness.Arrange(similar, other);
-
-        var baseline = await harness.HandleAsync(Profile());
-        var beforeOrder = baseline.Select(item => item.Summary.Id.Value).ToList();
+        harness.Arrange(
+            MakeMovie(90, "Liked drama", ["Drama"], review: Review.Liked),
+            MakeMovie(2, "Similar drama", ["Drama"]),
+            MakeMovie(3, "Drama comedy", ["Drama", "Comedy"]));
 
         // act
-        var liked = await harness.HandleAsync(Profile(likedGenres: ["Drama"]));
+        var result = await harness.HandleAsync(Profile());
 
         // assert
-        beforeOrder[0].ShouldBe(2);
-        var afterOrder = liked.Select(item => item.Summary.Id.Value).ToList();
-        afterOrder[0].ShouldBe(2);
-        liked.Single(item => item.Summary.Id.Value == 2).Score
-            .ShouldBeGreaterThan(baseline.Single(item => item.Summary.Id.Value == 2).Score);
+        result.Select(item => item.Summary.Id.Value).ShouldBe([2, 3]);
+        result.Single(item => item.Summary.Id.Value == 2).Score
+            .ShouldBeGreaterThan(result.Single(item => item.Summary.Id.Value == 3).Score);
     }
 
     [Fact]
-    public async Task ForYou_DislikedProfile_LowersSimilarCandidateScore()
+    public async Task ForYou_DislikedSeed_LowersSimilarCandidateScore()
     {
         // arrange
         var harness = new ForYouHarness();
-        var similar = MakeMovie(2, "Similar drama", ["Drama"]);
-        var other = MakeMovie(3, "Other comedy", ["Comedy"]);
-        harness.Arrange(similar, other);
-
+        harness.Arrange(
+            MakeMovie(90, "Liked drama", ["Drama"], review: Review.Liked),
+            MakeMovie(2, "Similar drama", ["Drama"]));
         var baseline = await harness.HandleAsync(Profile());
 
         // act
-        var disliked = await harness.HandleAsync(Profile(dislikedGenres: ["Drama"]));
+        harness.Arrange(
+            MakeMovie(90, "Liked drama", ["Drama"], review: Review.Liked),
+            MakeMovie(95, "Disliked drama", ["Drama"], review: Review.Disliked),
+            MakeMovie(2, "Similar drama", ["Drama"]));
+        var disliked = await harness.HandleAsync(Profile());
 
         // assert
         disliked.Single(item => item.Summary.Id.Value == 2).Score
@@ -88,9 +86,10 @@ public sealed class ReviewRankingHandlerTests
     {
         // arrange
         var harness = new ForYouHarness();
-        var disliked = MakeMovie(2, "Disliked drama", ["Drama"], review: Review.Disliked);
-        var eligible = MakeMovie(3, "Eligible comedy", ["Comedy"]);
-        harness.Arrange(disliked, eligible);
+        harness.Arrange(
+            MakeMovie(90, "Liked drama", ["Drama"], review: Review.Liked),
+            MakeMovie(2, "Disliked drama", ["Drama"], review: Review.Disliked),
+            MakeMovie(3, "Eligible drama", ["Drama"]));
 
         // act
         var result = await harness.HandleAsync(Profile());
@@ -104,9 +103,9 @@ public sealed class ReviewRankingHandlerTests
     {
         // arrange
         var harness = new ForYouHarness();
-        var liked = MakeMovie(2, "Liked drama", ["Drama"], review: Review.Liked);
-        var other = MakeMovie(3, "Other comedy", ["Comedy"]);
-        harness.Arrange(liked, other);
+        harness.Arrange(
+            MakeMovie(90, "Liked drama", ["Drama"], review: Review.Liked),
+            MakeMovie(2, "Liked drama too", ["Drama"], review: Review.Liked));
 
         // act
         var result = await harness.HandleAsync(Profile());
@@ -116,96 +115,107 @@ public sealed class ReviewRankingHandlerTests
     }
 
     [Fact]
-    public async Task ForYou_ClearedReview_RemovesThePreviousSignal()
+    public async Task ForYou_ClearedReview_RemovesThePreviousSeed()
     {
         // arrange
         var harness = new ForYouHarness();
-        var similar = MakeMovie(2, "Similar drama", ["Drama"]);
-        var other = MakeMovie(3, "Other comedy", ["Comedy"]);
-        harness.Arrange(similar, other);
-
-        var liked = await harness.HandleAsync(Profile(likedGenres: ["Drama"]));
-        var baseline = await harness.HandleAsync(Profile());
+        harness.Arrange(
+            MakeMovie(90, "Liked drama", ["Drama"], review: Review.Liked),
+            MakeMovie(2, "Similar drama", ["Drama"]));
+        var liked = await harness.HandleAsync(Profile());
 
         // act
+        harness.Arrange(MakeMovie(2, "Similar drama", ["Drama"]));
         var cleared = await harness.HandleAsync(Profile());
 
         // assert
-        cleared.Single(item => item.Summary.Id.Value == 2).Score
-            .ShouldBe(baseline.Single(item => item.Summary.Id.Value == 2).Score, 1e-12);
-        cleared.Single(item => item.Summary.Id.Value == 2).Score
+        liked.Select(item => item.Summary.Id.Value).ShouldBe([2]);
+        cleared.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task ForYou_OppositeSwitch_ReplacesTheLikedSeedWithADislikedPenalty()
+    {
+        // arrange
+        var harness = new ForYouHarness();
+        harness.Arrange(
+            MakeMovie(90, "First drama", ["Drama"], review: Review.Liked),
+            MakeMovie(91, "Second drama", ["Drama"], review: Review.Liked),
+            MakeMovie(2, "Similar drama", ["Drama"]));
+        var liked = await harness.HandleAsync(Profile());
+
+        // act
+        harness.Arrange(
+            MakeMovie(90, "First drama", ["Drama"], review: Review.Disliked),
+            MakeMovie(91, "Second drama", ["Drama"], review: Review.Liked),
+            MakeMovie(2, "Similar drama", ["Drama"]));
+        var switched = await harness.HandleAsync(Profile());
+
+        // assert
+        switched.Single(item => item.Summary.Id.Value == 2).Score
             .ShouldBeLessThan(liked.Single(item => item.Summary.Id.Value == 2).Score);
     }
 
     [Fact]
-    public async Task ForYou_OppositeSwitch_ReplacesLikeWithDislikeEffect()
+    public async Task ForYou_LikedSeed_EmitsTruthfulLikedChip()
     {
         // arrange
         var harness = new ForYouHarness();
-        var similar = MakeMovie(2, "Similar drama", ["Drama"]);
-        var other = MakeMovie(3, "Other comedy", ["Comedy"]);
-        harness.Arrange(similar, other);
-
-        var liked = await harness.HandleAsync(Profile(likedGenres: ["Drama"]));
-        var baseline = await harness.HandleAsync(Profile());
+        harness.Arrange(
+            MakeMovie(90, "Alien", ["Drama"], review: Review.Liked),
+            MakeMovie(2, "Similar drama", ["Drama"]));
 
         // act
-        var switched = await harness.HandleAsync(Profile(dislikedGenres: ["Drama"]));
+        var result = await harness.HandleAsync(Profile());
 
         // assert
-        switched.Single(item => item.Summary.Id.Value == 2).Score
-            .ShouldBeLessThan(baseline.Single(item => item.Summary.Id.Value == 2).Score);
-        switched.Single(item => item.Summary.Id.Value == 2).Score
-            .ShouldBeLessThan(liked.Single(item => item.Summary.Id.Value == 2).Score);
+        result.Single(item => item.Summary.Id.Value == 2)
+            .Reasons.ShouldContain(Reason.Personal("Because you liked Alien"));
     }
 
     [Fact]
-    public async Task ForYou_LikedProfile_EmitsTruthfulLikedChip()
+    public async Task ForYou_NegativeOnlyLibrary_EmitsNoLikedChip()
     {
         // arrange
         var harness = new ForYouHarness();
-        var similar = MakeMovie(2, "Similar drama", ["Drama"]);
-        harness.Arrange(similar);
+        harness.Arrange(
+            MakeMovie(90, "Watched drama", ["Drama"], isWatched: true),
+            MakeMovie(95, "Disliked comedy", ["Comedy"], review: Review.Disliked),
+            MakeMovie(2, "Similar drama", ["Drama"]));
 
         // act
-        var result = await harness.HandleAsync(Profile(likedGenres: ["Drama"], likedTitle: "Alien"));
+        var result = await harness.HandleAsync(Profile());
 
         // assert
-        result.Single().Reasons.ShouldContain(Reason.Personal("Because you liked Alien"));
-    }
-
-    [Fact]
-    public async Task ForYou_NegativeOnlyProfile_EmitsNoLikedChip()
-    {
-        // arrange
-        var harness = new ForYouHarness();
-        harness.Arrange(MakeMovie(2, "Similar drama", ["Drama"]));
-
-        // act
-        var result = await harness.HandleAsync(Profile(dislikedGenres: ["Drama"]));
-
-        // assert
-        result.Single().Reasons.ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
+        result.Single(item => item.Summary.Id.Value == 2).Reasons
+            .ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
     }
 
     [Fact(DisplayName = "SMOKE-003 For You after a like ranks similar candidates higher without fabricated reasons")]
-    public async Task ForYou_LikedProfile_RanksSimilarHigherWithoutFabricatedReasons()
+    public async Task ForYou_LikedSeed_RanksSimilarHigherWithoutFabricatedReasons()
     {
         // arrange
         var harness = new ForYouHarness();
-        harness.Arrange(MakeMovie(2, "Similar drama", ["Drama"]), MakeMovie(3, "Other comedy", ["Comedy"]));
-
+        harness.Arrange(
+            MakeMovie(90, "Watched drama", ["Drama"], isWatched: true),
+            MakeMovie(2, "Similar drama", ["Drama"]),
+            MakeMovie(3, "Drama comedy", ["Drama", "Comedy"]));
         var baseline = await harness.HandleAsync(Profile());
 
         // act
-        var liked = await harness.HandleAsync(Profile(likedGenres: ["Drama"], likedTitle: "Alien"));
+        harness.Arrange(
+            MakeMovie(90, "Watched drama", ["Drama"], isWatched: true),
+            MakeMovie(91, "Alien", ["Drama"], review: Review.Liked),
+            MakeMovie(2, "Similar drama", ["Drama"]),
+            MakeMovie(3, "Drama comedy", ["Drama", "Comedy"]));
+        var liked = await harness.HandleAsync(Profile());
 
         // assert
         liked.Single(item => item.Summary.Id.Value == 2).Score
             .ShouldBeGreaterThan(baseline.Single(item => item.Summary.Id.Value == 2).Score);
         liked.Select(item => item.Summary.Id.Value).First().ShouldBe(2);
         liked.Single(item => item.Summary.Id.Value == 3).Reasons
-            .ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
+            .ShouldContain(Reason.Personal("Because you liked Alien"));
     }
 
     [Fact]
@@ -303,22 +313,22 @@ public sealed class ReviewRankingHandlerTests
     }
 
     [Fact]
-    public async Task ForYou_DisabledReviewChannels_EmitsNoLikedChip()
+    public async Task ForYou_BestSeedNotLiked_EmitsNoLikedChip()
     {
         // arrange
         var harness = new ForYouHarness();
-        harness.Arrange(MakeMovie(2, "Similar drama", ["Drama"]));
+        harness.Arrange(
+            MakeMovie(90, "Watched drama", ["Drama"], isWatched: true),
+            MakeMovie(2, "Similar drama", ["Drama"]));
 
         // act
-        var result = await harness.HandleAsync(
-            Profile(likedGenres: ["Drama"], likedTitle: "Alien"),
-            options => options with
-            {
-                Weights = GenreOnlyWeights with { Genres = 0.0 },
-            });
+        var result = await harness.HandleAsync(Profile());
 
         // assert
-        result.Single().Reasons.ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
+        result.Single(item => item.Summary.Id.Value == 2).Reasons
+            .ShouldContain(Reason.Personal("Because you watched Watched drama"));
+        result.Single(item => item.Summary.Id.Value == 2).Reasons
+            .ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
     }
 
     private static TasteProfile Profile(
@@ -457,6 +467,7 @@ public sealed class ReviewRankingHandlerTests
                 profileSource,
                 new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
                 new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
+                new FixedTimeProvider(Now),
                 Microsoft.Extensions.Options.Options.Create(options));
 
             return (await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None)).Items;

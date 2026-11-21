@@ -17,6 +17,7 @@ namespace LamuFlix.Evaluation.RealLibrary;
 public sealed class HiddenSeedEvaluationCopy
 {
     private readonly RecommendationOptions options;
+    private readonly TimeProvider timeProvider;
 
     private HiddenSeedEvaluationCopy(
         RealLibrarySnapshot snapshot,
@@ -25,6 +26,7 @@ public sealed class HiddenSeedEvaluationCopy
         TimeProvider timeProvider)
     {
         this.options = options;
+        this.timeProvider = timeProvider;
         HiddenSeed = hiddenSeed;
         Catalog = new SnapshotCatalog(snapshot, hiddenSeed);
         Repository = new SnapshotRepository(snapshot, hiddenSeed);
@@ -45,7 +47,7 @@ public sealed class HiddenSeedEvaluationCopy
 
     public IMovieRepository Repository { get; }
 
-    public IRecommendationCandidateSource Candidates { get; }
+    private IRecommendationCandidateSource Candidates { get; }
 
     public IRecommendationProfileSource ProfileSource { get; }
 
@@ -87,6 +89,7 @@ public sealed class HiddenSeedEvaluationCopy
             ProfileSource,
             GenreWeights,
             KeywordWeights,
+            timeProvider,
             Options.Create(options));
 
     private static Movie HiddenView(Movie movie)

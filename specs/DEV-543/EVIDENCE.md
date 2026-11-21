@@ -91,17 +91,31 @@ Record disposition per member before deletion. Keep `AlreadyWatchedPenalty`.
 
 Ticket reference: 155 of 422 qualifying candidates on 2026-11-16 — reference data, not a hard gate.
 
+### T025 early For you probe (Phase 3, in place of T020/T021 acceptance)
+
+| Slot | Value |
+| --- | --- |
+| Identity | `feature/DEV-543` worktree at the Phase 3 commit (recorded in the `DEV-543` note) |
+| Timing protocol | T002 protocol: warm cache (5 discarded primes), 10 sequential `GET /api/recommendations/for-you?take=30`, individual/median/max, PASS only if all ten < 500 ms |
+| 450-movie / 150-liked fixture | **Could not run.** The DEV-545 harness needs a pre-provisioned credentialed home database (`ConnectionStrings__DefaultConnection`); it is absent in this Build-lane shell (same blocker recorded for T002 §2). The `:3100` home instance is not rebuilt on this identity, so its 449-movie / 4-liked numbers are not a measurement of this code. No value was invented or substituted. |
+| Evaluated positive-pair bound | Formula from `plan.md`: for C admitted-check candidates, P positive seeds and D disliked seeds, `C x (P + D)` minus positive self exclusions. On a 450/150 fixture with the home-like watched/watchlist cohort this is the number T021 must confirm. The probe that would count it could not run. |
+| Disclosed cost risk | Each positive and disliked pair calls `SimilarityScorer.Score`, which re-validates `RecommendationOptions` per call (DEV-518 contract). At 450 candidates x ~150+ seeds this is tens of thousands of pair calls per request, so the 500 ms bar is at risk until measured. Reported to Bernstein before the Related switch, as T025 requires. |
+| Early-probe outcome | **Could not run (no fixture/credential).** Not a pass and not a fail measurement. T021 remains the final acceptance run. |
+
 ## 4. Load / contract checks
 
 | Check | Result |
 | --- | --- |
-| One DEV-544 library feature load per For you request | **PASS (T005)** — `GetForYouRecommendationsQueryHandler` takes `IRecommendationCandidateSource` and calls `GetLibraryFeaturesAsync` exactly once; asserted by `HandleAsync_LibraryBeyondCandidatePoolSize_IsScoredFromOneLibraryLoad`, `HandleAsync_FullLibrary_IsReadOnceAndScored`, `HandleAsync_ForwardsActiveProfileLikedIdentities_ToProfileInputs` and `HandleAsync_LibraryLoadWithoutEligibleCandidates_NeverReadsTheProfile` in `tests/LamuFlix.UnitTests/Features/Recommendations/GetForYouRecommendationsQueryHandlerTests.cs` |
+| One DEV-544 library feature load per For you request | **PASS (T005, refreshed T006)** — `GetForYouRecommendationsQueryHandler` takes `IRecommendationCandidateSource` and calls `GetLibraryFeaturesAsync` exactly once; asserted by `HandleAsync_OneLibraryLoad_AndNoProfileInputsRead`, `HandleAsync_NoPositiveSeeds_ReturnsEmptyWithoutPadding`, `HandleAsync_CandidatePoolSize_CapsTake` and `HandleAsync_NoEligibleCandidates_ReturnsEmptyWithoutProfile` in `tests/LamuFlix.UnitTests/Features/Recommendations/GetForYouRecommendationsQueryHandlerTests.cs` |
 | No per-movie `GetAsync` | **PASS (T005)** — `IMovieCatalog`/`IMovieRepository` removed from the handler; no paged walk and no per-movie load remain in the path |
 | No second profile-inputs read on cache miss | **PASS (T005)** — the handler no longer calls `IRecommendationProfileSource.GetProfileInputsAsync`; playback is carried on `TasteProfile.PlaybackByMovieId` produced by the single `GetTasteProfileAsync` read (asserted `DidNotReceive` in the handler tests and `HandleAsync_ProfileCancelsToken_ThrowsBeforeGenreWeights`) |
-| Cache not growing with library size × embedding size | **PASS (T005)** — `CachedProfile` shape unchanged (DEV-510); the added payload field is playback timestamps keyed by movie id, independent of embedding dimension |
+| Cache not growing with library size × embedding size | **PASS (T005, serializer fix T006)** — `CachedProfile` shape unchanged (DEV-510); the added payload field is playback timestamps keyed by movie id, independent of embedding dimension. `CachedProfileSerializer` now registers a `MovieId` dictionary-key converter so `PlaybackByMovieId` round-trips; integration cache/freshness suites (`ReviewTasteProfileFreshnessTests`, `HybridCachedRecommendationProfileSource*`, feedback/playback invalidation) are green. |
 | Playback joined by seed movie ID | **PASS (T005)** — `GetTasteProfileAsync_RetainsPlaybackBySeedMovieId_SoOldAndFreshSeedsScaleDifferently` in `tests/LamuFlix.IntegrationTests/EfRecommendationProfileSourceTests.cs` (Testcontainers, real persistence path): old and fresh equal-feature seeds receive different effective weights (0.25 floor vs 1.0) and a no-playback positive stays unscaled |
 | `OpenApiContractTests` snapshot unchanged | _pending T022_ |
 | `dotnet test` UnitTests + IntegrationTests (Phase 2 scope) | `dotnet test tests/LamuFlix.UnitTests` — 4188 passed, 1 skipped, 0 failed. `dotnet test tests/LamuFlix.IntegrationTests --filter EfRecommendationProfileSourceTests` — 24 passed, 0 failed. Full T022 run still pending. |
+| `dotnet test` UnitTests (Phase 3 interim) | `dotnet test tests/LamuFlix.UnitTests` — **4208 passed, 1 skipped, 0 failed**. |
+| `dotnet test` IntegrationTests (Phase 3 interim) | `dotnet test tests/LamuFlix.IntegrationTests` — **1875 passed, 2 skipped, 0 failed**. Full T022 rerun on the delivery build still pending. |
+| Phase 3 static gates (interim) | Roslyn analyzers **pass** (0 findings), cyclomatic complexity **pass** (0 over 15), InspectCode **pass** (0 WARNING+), `dotnet format` applied (no residual diff). T022 is still the final gate run. |
 
 ## 5. Gate outcomes (honest vocabulary)
 

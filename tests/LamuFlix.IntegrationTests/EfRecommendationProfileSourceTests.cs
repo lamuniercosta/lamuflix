@@ -513,7 +513,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var profile = await source.GetTasteProfileAsync(ct);
 
         // assert
-        profile.LikedSources.Select(source => source.MovieId).ShouldBe([oldSeed, freshSeed, unplayedSeed]);
+        profile.LikedSources.Select(likedSource => likedSource.MovieId).ShouldBe([oldSeed, freshSeed, unplayedSeed]);
         profile.PlaybackByMovieId[oldSeed].ShouldBe([now.AddDays(-90)]);
         profile.PlaybackByMovieId[freshSeed].ShouldBe([now.AddDays(-1)]);
         profile.PlaybackByMovieId.ContainsKey(unplayedSeed).ShouldBeFalse();
