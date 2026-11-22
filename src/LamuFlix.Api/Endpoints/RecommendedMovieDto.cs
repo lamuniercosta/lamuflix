@@ -19,7 +19,8 @@ internal sealed record RecommendedMovieDto(
     string Review,
     double Score,
     ImmutableList<RecommendationEvidenceDto> Evidence,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RecommendationSeedDto? Seed = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RecommendationSeedDto? Seed = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? StartedCollectionId = null);
 
 internal sealed record RecommendationSeedDto(
     int MovieId,

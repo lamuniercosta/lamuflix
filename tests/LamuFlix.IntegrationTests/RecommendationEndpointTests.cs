@@ -70,6 +70,25 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         "seed",
     ];
 
+    private static readonly string[] ForYouDtoFieldNamesWithStartedCollectionId =
+    [
+        "id",
+        "title",
+        "posterUrl",
+        "releaseYear",
+        "runtime",
+        "imdbRating",
+        "enrichmentStatus",
+        "isInWatchlist",
+        "isWatched",
+        "isNotInterested",
+        "review",
+        "score",
+        "evidence",
+        "seed",
+        "startedCollectionId",
+    ];
+
     private readonly Fixture fixture = new();
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IRecommendationCandidateSource candidateSource = Substitute.For<IRecommendationCandidateSource>();
@@ -407,7 +426,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         body.GetArrayLength().ShouldBe(1);
         var item = body[0];
         PropertyNames(item).ShouldBe(RelatedDtoFieldNames);
-        ShouldNotCarryAnyCasingOf(item, "reasons", "seed");
+        ShouldNotCarryAnyCasingOf(item, "reasons", "seed", "startedCollectionId");
         item.GetProperty("id").GetInt32().ShouldBe(summary.Id.Value);
         item.GetProperty("title").GetString().ShouldBe(summary.Title);
         item.GetProperty("posterUrl").GetString().ShouldBe(summary.PosterUrl);
@@ -689,7 +708,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
             Summary(EnrichmentStatus.Enriched, id: 52),
             -1.25,
             new RecommendationSeed(91, "Heat", SeedSignal.Watchlist));
-        ForYouHandlerReturns(first, second);
+        ForYouHandlerReturns(true, first, second);
         await using var host = CreateHost();
         using var client = host.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -702,6 +721,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
         body.GetProperty("hasMore").GetBoolean().ShouldBeFalse();
+        body.GetProperty("hasSeeds").GetBoolean().ShouldBeTrue();
         var items = body.GetProperty("items");
         items.GetArrayLength().ShouldBe(2);
         items.EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ShouldBe([51, 52]);
@@ -744,6 +764,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         body.ValueKind.ShouldBe(JsonValueKind.Object);
         body.GetProperty("items").GetArrayLength().ShouldBe(itemCount);
         body.GetProperty("hasMore").GetBoolean().ShouldBeFalse();
+        body.GetProperty("hasSeeds").GetBoolean().ShouldBeFalse();
     }
 
     [Fact]
@@ -839,7 +860,82 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         body.GetProperty("items").GetArrayLength().ShouldBe(0);
         body.GetProperty("hasMore").GetBoolean().ShouldBeFalse();
+        body.GetProperty("hasSeeds").GetBoolean().ShouldBeFalse();
         DispatchedForYouQuery.ShouldNotBeNull().Offset.ShouldBe(int.MaxValue);
+    }
+
+    [Fact]
+    public async Task GetForYouRecommendations_StartedCollection_PopulatesStartedCollectionIdOnTheWire()
+    {
+        // arrange
+        ForYouHandlerReturns(
+            true,
+            ForYouCollectionRecommendation(
+                Summary(EnrichmentStatus.Enriched, id: 51),
+                4.5,
+                new RecommendationSeed(90, "Alien", SeedSignal.Liked),
+                7));
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(ForYouRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        body.GetProperty("hasSeeds").GetBoolean().ShouldBeTrue();
+        var item = body.GetProperty("items")[0];
+        PropertyNames(item).ShouldBe(ForYouDtoFieldNamesWithStartedCollectionId);
+        item.GetProperty("startedCollectionId").GetInt32().ShouldBe(7);
+    }
+
+    [Fact]
+    public async Task GetForYouRecommendations_NullStartedCollectionId_IsOmittedOnTheWire()
+    {
+        // arrange
+        ForYouHandlerReturns(
+            ForYouRecommendation(
+                Summary(EnrichmentStatus.Enriched, id: 51),
+                4.5,
+                new RecommendationSeed(90, "Alien", SeedSignal.Liked)));
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(ForYouRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var item = body.GetProperty("items")[0];
+        PropertyNames(item).ShouldBe(ForYouDtoFieldNames);
+        ShouldNotCarryAnyCasingOf(item, "startedCollectionId");
+        item.TryGetProperty("startedCollectionId", out _).ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GetForYouRecommendations_EmptyPage_MapsCoreHasSeedsOntoTheEnvelope(bool hasSeeds)
+    {
+        // arrange
+        ForYouHandlerReturns(hasSeeds);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(ForYouRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        body.GetProperty("items").GetArrayLength().ShouldBe(0);
+        body.GetProperty("hasMore").GetBoolean().ShouldBeFalse();
+        body.GetProperty("hasSeeds").GetBoolean().ShouldBe(hasSeeds);
     }
 
     [Fact]
@@ -1049,6 +1145,14 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         params RecommendationEvidence[] evidence) =>
         new(summary, score, [.. evidence], seed);
 
+    private static RecommendedMovie ForYouCollectionRecommendation(
+        MovieSummary summary,
+        double score,
+        RecommendationSeed seed,
+        int startedCollectionId,
+        params RecommendationEvidence[] evidence) =>
+        new(summary, score, [.. evidence], seed, startedCollectionId);
+
     private MovieSummary Summary(EnrichmentStatus status, int id, bool sparse = false)
     {
         fixture.Customize<MovieId>(composer => composer.FromFactory(() => new MovieId(id)));
@@ -1083,9 +1187,11 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
             .Returns(results);
     }
 
-    private void ForYouHandlerReturns(params RecommendedMovie[] items)
+    private void ForYouHandlerReturns(params RecommendedMovie[] items) => ForYouHandlerReturns(false, items);
+
+    private void ForYouHandlerReturns(bool hasSeeds, params RecommendedMovie[] items)
     {
-        var results = new ForYouRecommendationsPage([.. items], false);
+        var results = new ForYouRecommendationsPage([.. items], false, hasSeeds);
         forYouHandler.HandleAsync(
                 Arg.Do<GetForYouRecommendationsQuery>(query => DispatchedForYouQuery = query),
                 Arg.Any<CancellationToken>())

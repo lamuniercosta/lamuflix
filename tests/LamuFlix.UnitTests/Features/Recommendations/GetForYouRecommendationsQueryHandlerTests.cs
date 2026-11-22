@@ -865,6 +865,213 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_CandidateInCollectionWithWatchedMember_CarriesStartedCollectionId()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isLiked: true),
+            NewMovie(3, genres: ["Drama"], collectionId: 7, isWatched: true),
+            NewMovie(2, genres: ["Drama"], collectionId: 7));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.Items.Single(item => item.Summary.Id.Value == 2).StartedCollectionId.ShouldBe(7);
+    }
+
+    [Fact]
+    public async Task HandleAsync_CandidateInCollectionWithoutWatchedMember_OmitsStartedCollectionId()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isLiked: true),
+            NewMovie(3, genres: ["Drama"], collectionId: 7, isInWatchlist: true),
+            NewMovie(2, genres: ["Drama"], collectionId: 7));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.Items.Single(item => item.Summary.Id.Value == 2).StartedCollectionId.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task HandleAsync_CandidateWithoutCollection_OmitsStartedCollectionId()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isLiked: true),
+            NewMovie(3, genres: ["Drama"], collectionId: 7, isWatched: true),
+            NewMovie(2, genres: ["Drama"]));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.Items.Single(item => item.Summary.Id.Value == 2).StartedCollectionId.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ExcludedWatchedCollectionMember_StillQualifiesCollection()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isLiked: true),
+            NewMovie(3, genres: ["Drama"], collectionId: 7, isWatched: true),
+            NewMovie(2, genres: ["Drama"], collectionId: 7));
+
+        // act
+        var result = await handler.HandleAsync(
+            new GetForYouRecommendationsQuery(excludedMovieIds: ImmutableHashSet.Create(new MovieId(3))),
+            CancellationToken.None);
+
+        // assert
+        result.Items.Single(item => item.Summary.Id.Value == 2).StartedCollectionId.ShouldBe(7);
+    }
+
+    [Fact]
+    public async Task HandleAsync_DislikedWatchedCollectionMember_StillQualifiesCollection()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isLiked: true),
+            NewMovie(3, genres: ["Drama"], collectionId: 7, isWatched: true, isNotInterested: true),
+            NewMovie(2, genres: ["Drama"], collectionId: 7));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.Items.Single(item => item.Summary.Id.Value == 2).StartedCollectionId.ShouldBe(7);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ExclusionsEmptyEligibility_RetainsHasSeeds()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isLiked: true),
+            NewMovie(2, genres: ["Drama"]));
+
+        // act
+        var result = await handler.HandleAsync(
+            new GetForYouRecommendationsQuery(excludedMovieIds: ImmutableHashSet.Create(new MovieId(2), new MovieId(90))),
+            CancellationToken.None);
+
+        // assert
+        result.Items.ShouldBeEmpty();
+        result.HasSeeds.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task HandleAsync_RankingSignalGuard_RetainsHasSeeds()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(NewMovie(2, genres: ["Drama"], isInWatchlist: true));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.Items.ShouldBeEmpty();
+        result.HasSeeds.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task HandleAsync_OffsetPastLastRetained_RetainsHasSeeds()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isLiked: true),
+            NewMovie(2, genres: ["Drama"]));
+
+        // act
+        var result = await handler.HandleAsync(
+            new GetForYouRecommendationsQuery(10, int.MaxValue),
+            CancellationToken.None);
+
+        // assert
+        result.Items.ShouldBeEmpty();
+        result.HasSeeds.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task HandleAsync_WatchlistOnlyLibrary_ReportsHasSeeds()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(NewMovie(2, genres: ["Drama"], isInWatchlist: true));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.Items.ShouldBeEmpty();
+        result.HasSeeds.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task HandleAsync_PlaybackHistoryOnlyLibrary_ReportsNoSeeds()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(2, genres: ["Drama"]),
+            NewMovie(3, genres: ["Drama"]));
+        ArrangePlayback(
+            (new MovieId(2), Now.AddDays(-1)),
+            (new MovieId(3), Now.AddDays(-2)));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.Items.ShouldBeEmpty();
+        result.HasSeeds.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task HandleAsync_WatchedOnlyLibrary_ReportsHasSeeds()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isWatched: true),
+            NewMovie(2, genres: ["Drama"]));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.Items.ShouldHaveSingleItem();
+        result.HasSeeds.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task HandleAsync_NoSeedsAtAll_ReportsNoSeeds()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(NewMovie(2, genres: ["Drama"]), NewMovie(3, genres: ["Comedy"]));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.Items.ShouldBeEmpty();
+        result.HasSeeds.ShouldBeFalse();
+    }
+
     private GetForYouRecommendationsQueryHandler NewHandler(
         int take = DefaultTake,
         int candidatePoolSize = 50,

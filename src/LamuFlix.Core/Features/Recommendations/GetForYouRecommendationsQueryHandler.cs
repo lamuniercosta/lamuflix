@@ -30,10 +30,11 @@ public sealed class GetForYouRecommendationsQueryHandler(
         var library = await candidates.GetLibraryFeaturesAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var hasSeeds = HasSeeds(library);
         var eligible = Eligible(library, query.ExcludedMovieIds);
         if (eligible.Count == 0)
         {
-            return EmptyPage;
+            return EmptyPage(hasSeeds);
         }
 
         var profile = await profileSource.GetTasteProfileAsync(cancellationToken);
@@ -62,23 +63,45 @@ public sealed class GetForYouRecommendationsQueryHandler(
         var retained = ApplyCollectionCut(ranked, recommendationOptions.MaxPerCollection);
         if (query.Offset >= retained.Count)
         {
-            return EmptyPage;
+            return EmptyPage(hasSeeds);
         }
 
+        var watchedCollectionIds = WatchedCollectionIds(library);
         var take = Math.Min(query.Take, recommendationOptions.CandidatePoolSize);
         var items = retained
             .Skip(query.Offset)
             .Take(take)
-            .Select(match => ToRecommendedMovie(match, recommendationOptions))
+            .Select(match => ToRecommendedMovie(match, recommendationOptions, watchedCollectionIds))
             .ToImmutableList();
 
-        return new ForYouRecommendationsPage(items, retained.Count > (long)query.Offset + take);
+        return new ForYouRecommendationsPage(items, retained.Count > (long)query.Offset + take, hasSeeds);
     }
 
-    private static ForYouRecommendationsPage EmptyPage =>
-        new(ImmutableList<RecommendedMovie>.Empty, false);
+    private static ForYouRecommendationsPage EmptyPage(bool hasSeeds) =>
+        new(ImmutableList<RecommendedMovie>.Empty, false, hasSeeds);
 
-    private static RecommendedMovie ToRecommendedMovie(NearestSeedMatch match, RecommendationOptions recommendationOptions) =>
+    private static bool HasSeeds(IReadOnlyList<RecommendationLibraryEntry> library) =>
+        library.Any(entry => entry.Review.IsLiked || entry.IsWatched || entry.IsInWatchlist);
+
+    private static HashSet<int> WatchedCollectionIds(IReadOnlyList<RecommendationLibraryEntry> library)
+    {
+        var collectionIds = new HashSet<int>();
+
+        foreach (var entry in library)
+        {
+            if (entry.IsWatched && entry.Features.CollectionId is { } collectionId)
+            {
+                collectionIds.Add(collectionId);
+            }
+        }
+
+        return collectionIds;
+    }
+
+    private static RecommendedMovie ToRecommendedMovie(
+        NearestSeedMatch match,
+        RecommendationOptions recommendationOptions,
+        HashSet<int> watchedCollectionIds) =>
         new(
             match.Candidate.Summary,
             match.Score,
@@ -86,7 +109,10 @@ public sealed class GetForYouRecommendationsQueryHandler(
             new RecommendationSeed(
                 match.SeedMovieId.Value,
                 SimilarityScorer.SanitizeDisplayText(match.SeedTitle),
-                match.Signal));
+                match.Signal),
+            match.Candidate.Features.CollectionId is { } collectionId && watchedCollectionIds.Contains(collectionId)
+                ? collectionId
+                : null);
 
     private static List<RecommendationLibraryEntry> Eligible(
         IReadOnlyList<RecommendationLibraryEntry> library,
