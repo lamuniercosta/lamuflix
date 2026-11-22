@@ -313,3 +313,58 @@ Before the production edit, `npm run test:run -- src/features/movie-details/Rela
 ### 4. Phase boundary
 
 T011/T012 are complete; both generated-contract consumers (For You and Related) compile without `reasons`. T008/T010 (for-you e2e, browser/viewport, home-library, full gates) are Phase 5 and were not started.
+
+## Phase 5 (web checkpoint) Receipt — full web/e2e, both-surface viewport checks, home-library observation
+
+**Verdict.** Automated web checkpoint PASSES at Phase 4 base `cb5db1b5`; the separate home-library Hercules observation is **OPEN** and recorded below with its evidence. T008 and T010 marked `[x]`. No Phase 6 work was started.
+
+### 1. T008 — For You e2e reads the seed, with pinned distinct IDs and independent navigation
+
+`web/e2e/for-you-review.e2e.ts` (the only e2e file the plan envelope authorizes) no longer reads `movie.reasons`:
+
+- The pinned pair is `SEED_TITLE = context.seedTitles[0]` (the movie that receives the like) and `RECOMMENDED_TITLE = context.seedTitles[1]` (the different recommended movie); both are resolved through `GET /api/movies` and the test asserts their ids differ before any assertion uses them.
+- SMOKE-003 now asserts, for every For You item: a populated `seed`, `seed.title` equal to the liked title, `seed.movieId` equal to the liked movie id, `seed.signal === 'liked'`, no item is its own seed, `evidence` is an array, and the retired `reasons` key is absent.
+- Independent activation: the seed anchor (`Open {seedTitle}`) is asserted at `href="/movies/{seedId}"`, clicked, and asserted to land on the seed movie's details heading; the recommendation title anchor is separately asserted at `href="/movies/{recommendationId}"`, clicked, and asserted to land on the recommendation's details heading.
+- The like step is idempotent (`ensureSeedLiked`) so the file's second test can run on the same stack; the "For You starts empty" assertion stays in SMOKE-003 only.
+
+### 2. T010 — desktop/small-width viewport check on both surfaces (automated web verdict)
+
+Second test in the same file (`SMOKE-003 keeps visible and accessible evidence lines consistent on both surfaces`) reads the API first and requires **three** delivered evidence items on both routes, then checks For You and the Related rail of the seed movie at 1440x900 and at 375x800:
+
+| Surface | Width | DOM `li` | Visible lines | Accessible `listitem`s (`ariaSnapshot`) |
+|---|---|---|---|---|
+| For You (`Elephants Dream` card) | 1440x900 | 2 | 2 | 2 |
+| For You | 375x800 | 2 | 1 | 1 |
+| Related rail (`Elephants Dream` card) | 1440x900 | 2 | 2 | 2 |
+| Related rail | 375x800 | 2 | 1 | 1 |
+
+Related also asserts zero `.movie-card-seed` nodes (no seed line) and the API asserts the Related response omits the `seed` key. The shared rule exercised is the one recorded at T001: file `web/src/features/movie-details/RelatedMovies.css`, selector `.movie-card-evidence`, existing breakpoint `@media (max-width: 47.9375rem)`; the desktop two-item cap is the `MovieCard` `EVIDENCE_LIMIT`.
+
+### 3. T010 — automated web verdicts (applicability and actual results)
+
+| Check | Command | Verdict |
+|---|---|---|
+| Web typecheck (src) | `npx tsc --noEmit` | PASS (exit 0) |
+| E2e typecheck | `npx tsc --noEmit -p e2e/tsconfig.json` | PASS (exit 0) |
+| Contract parity | `npm run check:api` | PASS (exit 0) |
+| Affected component tests | `npx vitest run src/library/MovieCard.test.tsx src/features/for-you/ForYouPage.test.tsx src/features/movie-details/RelatedMovies.test.tsx src/features/movie-details/MovieDetailsView.test.tsx src/mocks/forYou.test.ts` | PASS (5 files, 116 tests) |
+| Full component suite | `npm run test:run` (74 files) | 1,076 tests PASS; exit 1 on one unhandled MSW rejection in `src/library/BulkImportDialog.states.test.tsx` (**pre-existing**, recorded at `5a2aaeff` and outside this ticket's files) |
+| Lint | `npm run lint` | PASS (exit 0: `check:api`, eslint `--max-warnings 0`, prettier) |
+| Build | `npm run build` | PASS (exit 0: tsc, e2e typecheck, `vite build`) |
+| Web gates | `pwsh -NoProfile -File scripts/run-web-gates.ps1 -All` | exit 1, solely the same pre-existing unhandled rejection above; its lint and tsc steps were green |
+| Full browser suite | `pwsh -NoProfile -File scripts/run-e2e-smoke.ps1` (`npm run e2e`) | PASS (exit 0): 28/28 Playwright tests in 1.8m, including both `for-you-review.e2e.ts` tests |
+
+### 4. Home-library observation (separate from the automated verdicts above)
+
+**Method** (read-only against the home data, no cluster write, no credential echoed or committed): `kubectl exec -n lamuflix-home postgres-0 -- pg_dump -U lamuflix -Fp --no-owner --no-privileges lamuflix` at 2026-11-22T09:13Z, restored into a disposable `pgvector/pgvector:0.8.7-pg17` container; the branch API image built from this worktree's HEAD by the e2e run (`lamuflix-e2e-22ea71e3-api`) served `GET /api/recommendations/for-you` and `GET /api/movies/{id}/recommendations` against it, with Ollama reached through a read-only `kubectl port-forward` to the home `all-minilm` model and TMDb disabled.
+
+- **Catalog**: 447 movies, 103 liked, 395 watched, 54 watchlist, 447 `movie_features` rows.
+- **Seed coverage**: For You `take=50` returned 47 items, `hasMore` false. Every item carried a populated `seed` with only `liked`/`watched`/`watchlist` signals, ordered `evidence`, and no `reasons` key.
+- **Named pair, evidence half — verified**: `GET /api/movies/519/recommendations` (Aladdin) lists **Hercules first** (id 644, score 0.3293) with `Same director: John Musker, Ron Clements` as its first, strongest evidence line, followed by Themes, Cast and Genre — the "Same director" line SMOKE-001 names, delivered for the named pair.
+- **Named pair, For You half — not observable on any current home-library state**: Hercules is absent from the whole 47-item For You result. Control run on the same live data with the deployed pre-change home build (release `02eb4c6c`, promote of `5bf2cb6c`, an ancestor of this branch without DEV-542) also returns no Hercules in its 50 items, so this is not a consequence of the change (the ticket does not modify scoring, ranking or selection). The 2026-11-21 postdeploy backup (`F:/Dev/lamuflix-home/backups/lamuflix-home-postdeploy-20261121-185908.dump`: 447 movies, 35 liked, 141 watched) also excludes Hercules from the For You top 30 on the branch build.
+- **Why**: `specs/DEV-543/EVIDENCE.md` recorded `Hercules → Aladdin` at rank 4 on its 2026-11-21T10:28Z dump with 11 liked / 56 watched. The live library has since moved to 35 liked / 141 watched (2026-11-21 18:59 backup) and 103 liked / 395 watched (2026-11-22T09:13Z dump), and that exact frozen state is not on disk. The For You `Because you liked Aladdin` card for Hercules is therefore a library-state fact the reviewer must observe on the state the acceptance evidence pins, not something this presentation-only change can produce or suppress.
+- **Verdict**: SMOKE-001's e2e half PASSES; its home-library reviewer half remains **OPEN** pending an owner/Patron disposition (observe on a restored frozen library state at acceptance, or accept the recorded drift). Nothing was tuned, and no value was invented.
+
+### 5. Phase boundary
+
+T008 and T010 are complete. After-screenshot capture and the mandatory size:M gate run are T013/T014 (Phase 6) and were not started.
