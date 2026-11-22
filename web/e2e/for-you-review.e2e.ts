@@ -75,9 +75,10 @@ function requireBrowsable(browse: BrowseResponse, title: string): BrowseItem {
 }
 
 function recommendationCard(scope: Page | Locator, title: string): Locator {
+  const root: Page = 'page' in scope ? scope.page() : scope;
   return scope
     .locator('article.movie-card')
-    .filter({ has: scope.getByRole('link', { name: title, exact: true }) });
+    .filter({ has: root.getByRole('link', { name: title, exact: true }) });
 }
 
 async function ensureSeedLiked(page: Page, request: APIRequestContext): Promise<void> {
@@ -594,24 +595,41 @@ test.describe('DEV-517 For You review journey', () => {
     try {
       const plan = await prepareForYouJourney(request);
       const initialIds = idsOf(plan.initial);
-      const targetId = Number(plan.target.id);
-      const replacementId = Number(plan.replacement.id);
-      const swappedIds = [replacementId, ...initialIds.slice(1)];
 
       await openForYou(page);
       await expect.poll(() => cardIds(page), { timeout: context.waitBudgetMs }).toEqual(initialIds);
       await markNoReload(page);
 
-      await page.getByRole('button', { name: `Replace ${plan.target.title}`, exact: true }).click();
+      // Grouped rows render Replace only on More for you cards, so retire a
+      // card from the More row instead of the top-ranked slot.
+      const moreIds = await moreForYouRow(page)
+        .locator('.movie-card-title a')
+        .evaluateAll((links) =>
+          links.map((link) => Number((link.getAttribute('href') ?? '').split('/').at(-1))),
+        );
+      const target = plan.initial.find((item) => moreIds.includes(Number(item.id)));
+      expect(target, 'a More for you card is available to replace').toBeDefined();
+      const targetId = Number((target as ForYouItem).id);
+      const initialIdSet = new Set(initialIds);
+      const replacement = (await readRanking(request, [targetId])).find(
+        (item) => !initialIdSet.has(Number(item.id)),
+      );
+      expect(
+        replacement,
+        `excluding ${(target as ForYouItem).title} leaves an unseen candidate outside the grid`,
+      ).toBeDefined();
+      const replacementId = Number((replacement as ForYouItem).id);
+      const swappedIds = initialIds.map((id) => (id === targetId ? replacementId : id));
+
+      await page
+        .getByRole('button', { name: `Replace ${(target as ForYouItem).title}`, exact: true })
+        .click();
       await expect.poll(() => cardIds(page), { timeout: context.waitBudgetMs }).toEqual(swappedIds);
       await expectNoReload(page, 'Replace');
 
       const titles = await cardTitles(page);
-      expect(titles[0], 'the replaced slot shows the next unseen suggestion').toBe(
-        plan.replacement.title,
-      );
-      expect(titles.slice(1, FOR_YOU_TAKE), 'the other cards keep their slots and order').toEqual(
-        titlesOf(plan.initial.slice(1)),
+      expect(titles, 'the swapped-in suggestion is rendered').toContain(
+        (replacement as ForYouItem).title,
       );
       expect(await cardIds(page), 'the retired movie leaves the grid immediately').not.toContain(
         targetId,
