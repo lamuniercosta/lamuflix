@@ -24,6 +24,7 @@ using LamuFlix.Infrastructure.Recommendations;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Api;
@@ -43,6 +44,14 @@ internal static class HandlerRegistration
         services.AddScoped<IMovieFolderImporter, ScopedMovieFolderImporter>();
         services.AddHandler<RequestEnrichmentCommandHandler, RequestEnrichmentCommand, MovieId>();
         services.AddHandler<MatchMovieImdbIdCommandHandler, MatchMovieImdbIdCommand, MovieId>();
+        services.AddHandler<BackfillTmdbRecommendationsCommandHandler, BackfillTmdbRecommendationsCommand, BackfillTmdbRecommendationsResult>();
+        // The one-off backfill operator mode talks to TMDb alone: resolve the configured TMDb provider under its
+        // existing key instead of the OMDB-first chain that AddHandler would otherwise supply.
+        services.AddScoped<BackfillTmdbRecommendationsCommandHandler>(
+            serviceProvider => new BackfillTmdbRecommendationsCommandHandler(
+                serviceProvider.GetRequiredService<IMovieRepository>(),
+                serviceProvider.GetRequiredKeyedService<IMetadataProvider>(TelemetryConstants.TmdbProviderName),
+                serviceProvider.GetRequiredService<ILogger<BackfillTmdbRecommendationsCommandHandler>>()));
         services.AddHandler<RequeueStrandedMoviesCommandHandler, RequeueStrandedMoviesCommand, int>();
         services.AddHandler<SweepStrandedMoviesCommandHandler, SweepStrandedMoviesCommand, int>();
         services.AddHandler<ImportMovieFolderCommandHandler, ImportMovieFolderCommand, MovieId>();

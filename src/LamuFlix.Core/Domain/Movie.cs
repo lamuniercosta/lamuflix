@@ -130,6 +130,36 @@ public sealed class Movie
         Status = EnrichmentStatus.Enriched;
     }
 
+    /// <summary>
+    /// Stores the TMDb identity and its first-page recommendations resolved by the one-off operator backfill.
+    /// The enrichment state is untouched: this carries catalogue identity, it is not an enrichment result.
+    /// </summary>
+    public void RecordBackfilledTmdbIdentity(int tmdbId, IReadOnlyList<int> recommendedTmdbIds)
+    {
+        if (tmdbId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tmdbId), tmdbId, "TMDb id must be positive.");
+        }
+
+        ArgumentNullException.ThrowIfNull(recommendedTmdbIds);
+        var ids = new List<int>(recommendedTmdbIds.Count);
+        foreach (var recommendedTmdbId in recommendedTmdbIds)
+        {
+            if (recommendedTmdbId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(recommendedTmdbIds),
+                    recommendedTmdbId,
+                    "Recommended TMDb id must be positive.");
+            }
+
+            ids.Add(recommendedTmdbId);
+        }
+
+        TmdbId = tmdbId;
+        RecommendedTmdbIds = ids;
+    }
+
     public void MarkNotFound(DateTimeOffset now)
     {
         BeginPendingAttempt(nameof(MarkNotFound), now);

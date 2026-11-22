@@ -161,6 +161,11 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                 typeof(ImmutableList<RecommendedMovie>)
             },
             {
+                typeof(ICommandHandler<BackfillTmdbRecommendationsCommand, BackfillTmdbRecommendationsResult>),
+                typeof(BackfillTmdbRecommendationsCommand),
+                typeof(BackfillTmdbRecommendationsResult)
+            },
+            {
                 typeof(IQueryHandler<GetForYouRecommendationsQuery, ForYouRecommendationsPage>),
                 typeof(GetForYouRecommendationsQuery),
                 typeof(ForYouRecommendationsPage)
