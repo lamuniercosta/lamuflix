@@ -39,7 +39,7 @@ export async function fetchForYouSlice({
   if (error || data === undefined) {
     throw new ForYouError(response.status);
   }
-  return { items: data.items, hasMore: data.hasMore };
+  return { items: data.items, hasMore: data.hasMore, hasSeeds: data.hasSeeds };
 }
 
 export function useForYou() {

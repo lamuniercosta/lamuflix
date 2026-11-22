@@ -63,6 +63,31 @@ describe('generated for-you recommendations handler', () => {
     expect(data?.items[3].seed).toEqual({ movieId: 2, title: 'Dune', signal: 'watched' });
   });
 
+  it('carries the page envelope required hasSeeds signal', async () => {
+    // act
+    const { data } = await client.GET('/api/recommendations/for-you', {
+      params: { query: { take: 10 } },
+    });
+
+    // assert
+    expect(data?.hasSeeds).toBe(true);
+    expect(data?.hasMore).toBe(false);
+  });
+
+  it('carries an optional startedCollectionId only on the row that has one', async () => {
+    // act
+    const { data } = await client.GET('/api/recommendations/for-you', {
+      params: { query: { take: 10 } },
+    });
+
+    // assert
+    expect(data?.items.map((movie) => movie.id)).toEqual([7, 8, 9, 10]);
+    expect(data?.items[1].startedCollectionId).toBe(1);
+    expect(data?.items[0].startedCollectionId).toBeUndefined();
+    expect(data?.items[2].startedCollectionId).toBeUndefined();
+    expect(data?.items[3].startedCollectionId).toBeUndefined();
+  });
+
   it('serializes multiple exclude IDs as repeated query keys', async () => {
     // arrange
     let excludeValues: string[] = [];

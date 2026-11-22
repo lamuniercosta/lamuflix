@@ -220,6 +220,7 @@ const forYouRecommendationsData = {
       score: 0.84,
       evidence: [],
       seed: { movieId: 1, title: 'Dune', signal: 'liked' },
+      startedCollectionId: 1,
     },
     {
       id: 9,
@@ -257,6 +258,7 @@ const forYouRecommendationsData = {
     },
   ],
   hasMore: false,
+  hasSeeds: true,
 } satisfies Schemas['ForYouRecommendationsPageDto'];
 
 const genresData = [

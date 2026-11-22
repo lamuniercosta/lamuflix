@@ -167,6 +167,7 @@ export interface components {
     ForYouRecommendationsPageDto: {
       items: components["schemas"]["RecommendedMovieDto"][];
       hasMore: boolean;
+      hasSeeds: boolean;
     };
     GenreDto: {
       /** Format: int32 */
@@ -303,6 +304,8 @@ export interface components {
       score: number | string;
       evidence: components["schemas"]["RecommendationEvidenceDto"][];
       seed?: null | components["schemas"]["RecommendationSeedDto"];
+      /** Format: int32 */
+      startedCollectionId?: null | number | string;
     };
     RescanLibraryResponse: {
       /** Format: int32 */

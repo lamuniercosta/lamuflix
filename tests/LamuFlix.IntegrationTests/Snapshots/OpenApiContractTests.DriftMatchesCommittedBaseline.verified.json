@@ -2291,7 +2291,8 @@
       "ForYouRecommendationsPageDto": {
         "required": [
           "items",
-          "hasMore"
+          "hasMore",
+          "hasSeeds"
         ],
         "type": "object",
         "properties": {
@@ -2302,6 +2303,9 @@
             }
           },
           "hasMore": {
+            "type": "boolean"
+          },
+          "hasSeeds": {
             "type": "boolean"
           }
         }
@@ -2940,6 +2944,15 @@
                 "$ref": "#/components/schemas/RecommendationSeedDto"
               }
             ]
+          },
+          "startedCollectionId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

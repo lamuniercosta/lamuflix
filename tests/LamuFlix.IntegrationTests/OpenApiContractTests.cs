@@ -753,12 +753,17 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
             "score",
             "evidence",
         };
+        string[] expectedOptionalNames = ["seed", "startedCollectionId"];
         var expectedRequiredNames = expectedPropertyNames;
         dto.GetProperty("required").EnumerateArray().Select(item => item.GetString())
             .ShouldBe(expectedRequiredNames, ignoreOrder: true);
         var properties = dto.GetProperty("properties");
         properties.EnumerateObject().Select(property => property.Name)
-            .ShouldBe([.. expectedPropertyNames, "seed"], ignoreOrder: true);
+            .ShouldBe([.. expectedPropertyNames, .. expectedOptionalNames], ignoreOrder: true);
+        var startedCollectionIdType = properties.GetProperty("startedCollectionId").GetProperty("type")
+            .EnumerateArray().Select(item => item.GetString()).ToArray();
+        startedCollectionIdType.ShouldContain("null");
+        startedCollectionIdType.ShouldContain("integer");
         properties.GetProperty("evidence").GetProperty("type").GetString().ShouldBe("array");
         properties.GetProperty("evidence").GetProperty("items").GetProperty("$ref").GetString()
             .ShouldBe("#/components/schemas/RecommendationEvidenceDto");
@@ -853,12 +858,13 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
             .GetProperty("ForYouRecommendationsPageDto");
         pageSchema.GetProperty("type").GetString().ShouldBe("object");
         pageSchema.GetProperty("required").EnumerateArray().Select(property => property.GetString())
-            .ShouldBe(["items", "hasMore"], ignoreOrder: true);
+            .ShouldBe(["items", "hasMore", "hasSeeds"], ignoreOrder: true);
         var pageProperties = pageSchema.GetProperty("properties");
         pageProperties.GetProperty("items").GetProperty("type").GetString().ShouldBe("array");
         pageProperties.GetProperty("items").GetProperty("items").GetProperty("$ref").GetString()
             .ShouldBe("#/components/schemas/RecommendedMovieDto");
         pageProperties.GetProperty("hasMore").GetProperty("type").GetString().ShouldBe("boolean");
+        pageProperties.GetProperty("hasSeeds").GetProperty("type").GetString().ShouldBe("boolean");
         foreach (var status in new[] { "400", "422" })
         {
             var problemSchema = responses.GetProperty(status).GetProperty("content")
