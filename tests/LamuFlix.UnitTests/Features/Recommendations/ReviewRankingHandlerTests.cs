@@ -401,7 +401,7 @@ public sealed class ReviewRankingHandlerTests
             ];
 
             candidates.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(entries));
+                .Returns(Task.FromResult(new RecommendationLibrarySnapshot(entries, CrowdLinks.Empty)));
         }
 
         public async Task<ImmutableList<RecommendedMovie>> HandleAsync(
@@ -462,7 +462,8 @@ public sealed class ReviewRankingHandlerTests
         {
             var library = new List<RecommendationLibraryEntry> { Entry(selected, UnitVector()) };
             library.AddRange(pool.Select(movie => Entry(movie)));
-            candidates.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(library);
+            candidates.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
+                .Returns(new RecommendationLibrarySnapshot(library, CrowdLinks.Empty));
         }
 
         private static RecommendationLibraryEntry Entry(Movie movie, ImmutableArray<float>? plotEmbedding = null) =>

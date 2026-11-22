@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
@@ -25,7 +25,9 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
 {
     private const double SimilarityTolerance = 1e-5;
 
-    private const int SplitQueryReaderCount = 9;
+    private const int SplitQueryReaderCount = 10;
+
+    private const int LibraryLoadReaderCount = 9;
 
     private static readonly string[] AssociationTables =
     [
@@ -141,7 +143,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var library = await source.GetLibraryFeaturesAsync(ct);
+        var library = (await source.GetLibraryFeaturesAsync(ct)).Entries;
 
         // assert
         var full = library.Single(entry => entry.Id == fullId);
@@ -189,7 +191,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         int[] expectedIds = [1, .. Enumerable.Range(100, 60), 200, 201];
 
         // act
-        var library = await source.GetLibraryFeaturesAsync(ct);
+        var library = (await source.GetLibraryFeaturesAsync(ct)).Entries;
 
         // assert
         library.Count.ShouldBe(63);
@@ -662,7 +664,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var library = await source.GetLibraryFeaturesAsync(ct);
+        var library = (await source.GetLibraryFeaturesAsync(ct)).Entries;
 
         // assert
         var entry = library.Single(item => item.Id == new MovieId(2));
@@ -676,6 +678,252 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         entry.Features.Keywords.Select(keyword => keyword).Order().ShouldBe([101, 202]);
         entry.Features.KeywordNames.Order(StringComparer.Ordinal).ShouldBe(["Heist", "Noir"]);
         entry.Features.PlotEmbedding.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetLibraryFeaturesAsync_OneWayStoredPair_ResolvesOneSymmetricBinaryLink()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Source", EnrichmentStatus.Enriched, tmdbId: 500),
+            Record(2, "Target", EnrichmentStatus.Enriched, tmdbId: 777));
+        await SeedRecommendationsAsync(ct, (1, 777));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+
+        // act
+        var snapshot = await source.GetLibraryFeaturesAsync(ct);
+
+        // assert
+        snapshot.CrowdLinks.IsLinked(new MovieId(1), new MovieId(2)).ShouldBeTrue();
+        snapshot.CrowdLinks.IsLinked(new MovieId(2), new MovieId(1)).ShouldBeTrue();
+        snapshot.CrowdLinks.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetLibraryFeaturesAsync_ReciprocalStoredPairs_StayBinaryAndCountedOnce()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "First", EnrichmentStatus.Enriched, tmdbId: 500),
+            Record(2, "Second", EnrichmentStatus.Enriched, tmdbId: 777));
+        await SeedRecommendationsAsync(ct, (1, 777), (2, 500));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+
+        // act
+        var snapshot = await source.GetLibraryFeaturesAsync(ct);
+
+        // assert
+        snapshot.CrowdLinks.IsLinked(new MovieId(1), new MovieId(2)).ShouldBeTrue();
+        snapshot.CrowdLinks.IsLinked(new MovieId(2), new MovieId(1)).ShouldBeTrue();
+        snapshot.CrowdLinks.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetLibraryFeaturesAsync_SelfAndEqualCatalogueIdentities_ProduceNoSelfLinks()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Identity", EnrichmentStatus.Enriched, tmdbId: 500),
+            Record(2, "Same identity", EnrichmentStatus.Enriched, tmdbId: 500));
+        await SeedRecommendationsAsync(ct, (1, 500), (2, 500));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+
+        // act
+        var snapshot = await source.GetLibraryFeaturesAsync(ct);
+
+        // assert
+        snapshot.CrowdLinks.Count.ShouldBe(0);
+        snapshot.CrowdLinks.IsLinked(new MovieId(1), new MovieId(1)).ShouldBeFalse();
+        snapshot.CrowdLinks.IsLinked(new MovieId(1), new MovieId(2)).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task GetLibraryFeaturesAsync_DuplicateCatalogueIdentities_LinkEveryMatchingRow()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Source", EnrichmentStatus.Enriched, tmdbId: 500),
+            Record(2, "Target first copy", EnrichmentStatus.Enriched, tmdbId: 777),
+            Record(3, "Target second copy", EnrichmentStatus.Enriched, tmdbId: 777),
+            Record(4, "Source second copy", EnrichmentStatus.Enriched, tmdbId: 500));
+        await SeedRecommendationsAsync(ct, (1, 777), (4, 777));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+
+        // act
+        var snapshot = await source.GetLibraryFeaturesAsync(ct);
+
+        // assert
+        snapshot.CrowdLinks.Count.ShouldBe(4);
+        snapshot.CrowdLinks.IsLinked(new MovieId(1), new MovieId(2)).ShouldBeTrue();
+        snapshot.CrowdLinks.IsLinked(new MovieId(1), new MovieId(3)).ShouldBeTrue();
+        snapshot.CrowdLinks.IsLinked(new MovieId(4), new MovieId(2)).ShouldBeTrue();
+        snapshot.CrowdLinks.IsLinked(new MovieId(4), new MovieId(3)).ShouldBeTrue();
+        snapshot.CrowdLinks.IsLinked(new MovieId(1), new MovieId(4)).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task GetLibraryFeaturesAsync_OutOfLibraryTargets_RemainStoredAndUnlinked()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Only library movie", EnrichmentStatus.Enriched, tmdbId: 500));
+        await SeedRecommendationsAsync(ct, (1, 999));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+
+        // act
+        var snapshot = await source.GetLibraryFeaturesAsync(ct);
+        var stored = await db.Set<MovieRecommendationRecord>().AsNoTracking().CountAsync(ct);
+
+        // assert
+        snapshot.Entries.Select(entry => entry.Id.Value).ShouldBe([1]);
+        snapshot.CrowdLinks.Count.ShouldBe(0);
+        stored.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetCandidatesAsync_OutOfLibraryCrowdTarget_ReturnsOnlyLibraryMovies()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Selected", EnrichmentStatus.Enriched, tmdbId: 500),
+            Record(2, "Library target", EnrichmentStatus.Enriched, tmdbId: 777));
+        await SeedVectorsAsync(ct, (1, UnitVector()), (2, CosineVector(0.5)));
+        await SeedRecommendationsAsync(ct, (1, 999));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+
+        // act
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
+
+        // assert
+        candidates.Select(candidate => candidate.Library.Id.Value).ShouldBe([2]);
+    }
+
+    [Fact]
+    public async Task GetLibraryFeaturesAsync_LaterLibraryAddition_ActivatesStoredLinkWithoutReEnrichment()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Already enriched", EnrichmentStatus.Enriched, tmdbId: 500));
+        await SeedRecommendationsAsync(ct, (1, 777));
+        await using var db = fixture.CreateMigratedContext();
+        await db.Movies
+            .Where(movie => movie.Id == new MovieId(1))
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(movie => movie.EnrichedAt, Now.AddDays(-1))
+                    .SetProperty(movie => movie.EnrichmentAttempts, 2),
+                ct);
+        var source = Source(db);
+        var beforeAddition = await source.GetLibraryFeaturesAsync(ct);
+
+        // act
+        await SeedRecordsAsync(ct, Record(2, "Added later", EnrichmentStatus.Enriched, tmdbId: 777));
+        var afterAddition = await source.GetLibraryFeaturesAsync(ct);
+
+        // assert
+        beforeAddition.Entries.Count.ShouldBe(1);
+        beforeAddition.CrowdLinks.Count.ShouldBe(0);
+        afterAddition.Entries.Count.ShouldBe(2);
+        afterAddition.CrowdLinks.IsLinked(new MovieId(1), new MovieId(2)).ShouldBeTrue();
+
+        var unchanged = await db.Movies
+            .AsNoTracking()
+            .Include(movie => movie.Recommendations)
+            .SingleAsync(movie => movie.Id == new MovieId(1), ct);
+        unchanged.TmdbId.ShouldBe(500);
+        unchanged.EnrichedAt.ShouldBe(Now.AddDays(-1));
+        unchanged.EnrichmentAttempts.ShouldBe(2);
+        unchanged.Recommendations.Select(recommendation => recommendation.RecommendedTmdbId).ShouldBe([777]);
+    }
+
+    [Fact]
+    public async Task GetLibraryFeaturesAsync_DeletedSource_CascadesOwnedPairsAndUnresolvesTargets()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Kept source", EnrichmentStatus.Enriched, tmdbId: 500),
+            Record(2, "Deleted source", EnrichmentStatus.Enriched, tmdbId: 777));
+        await SeedRecommendationsAsync(ct, (1, 777), (2, 500));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+        (await source.GetLibraryFeaturesAsync(ct)).CrowdLinks.Count.ShouldBe(1);
+
+        // act
+        await db.Movies.Where(movie => movie.Id == new MovieId(2)).ExecuteDeleteAsync(ct);
+
+        // assert
+        var removedPairs = await db.Set<MovieRecommendationRecord>().AsNoTracking().ToListAsync(ct);
+        removedPairs.Count.ShouldBe(1);
+        removedPairs[0].SourceMovieId.ShouldBe(new MovieId(1));
+        removedPairs[0].RecommendedTmdbId.ShouldBe(777);
+
+        var afterDeletion = await source.GetLibraryFeaturesAsync(ct);
+        afterDeletion.CrowdLinks.Count.ShouldBe(0);
+
+        // act
+        await db.Movies.Where(movie => movie.Id == new MovieId(1)).ExecuteDeleteAsync(ct);
+
+        // assert
+        (await db.Set<MovieRecommendationRecord>().AsNoTracking().CountAsync(ct)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task GetLibraryFeaturesAsync_PairRead_IsOneBatchedQueryWithNoPerMovieReads()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Source", EnrichmentStatus.Enriched, tmdbId: 500),
+            Record(2, "Target", EnrichmentStatus.Enriched, tmdbId: 777));
+        await SeedRecommendationsAsync(ct, (1, 777));
+        var interceptor = new RecordingCommandInterceptor();
+        await using var db = OpenInstrumentedContext(interceptor);
+        var source = Source(db);
+
+        // act
+        var small = await source.GetLibraryFeaturesAsync(ct);
+        var smallReaders = interceptor.ReaderCount;
+
+        await SeedRecordsAsync(
+            ct,
+            [.. Enumerable.Range(10, 20)
+                .Select(id => Record(id, $"Movie {id}", EnrichmentStatus.Enriched, tmdbId: 1000 + id))]);
+        await SeedRecommendationsAsync(
+            ct,
+            [.. Enumerable.Range(10, 20).Select(id => (id, 1000 + id + 1))]);
+        interceptor.Reset();
+        var large = await source.GetLibraryFeaturesAsync(ct);
+
+        // assert
+        small.Entries.Count.ShouldBe(2);
+        large.Entries.Count.ShouldBe(22);
+        smallReaders.ShouldBe(LibraryLoadReaderCount);
+        interceptor.ReaderCount.ShouldBe(LibraryLoadReaderCount);
+        interceptor.ReaderCommands.Count(command =>
+            command.Contains("movie_recommendations", StringComparison.Ordinal)).ShouldBe(1);
     }
 
     [Fact]
@@ -714,7 +962,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var options = new RecommendationOptions();
         await using var db = fixture.CreateMigratedContext();
         var catalog = new EfMovieCatalog(db);
-        var library = await Source(db).GetLibraryFeaturesAsync(ct);
+        var library = (await Source(db).GetLibraryFeaturesAsync(ct)).Entries;
         var selected = library.Single(entry => entry.Id == new MovieId(1));
         var candidate = library.Single(entry => entry.Id == new MovieId(2));
         candidate.Features.PlotEmbedding.IsDefaultOrEmpty.ShouldBeTrue();
@@ -936,6 +1184,23 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         await db.SaveChangesAsync(ct);
     }
 
+    private async Task SeedRecommendationsAsync(
+        CancellationToken ct,
+        params (int SourceMovieId, int RecommendedTmdbId)[] pairs)
+    {
+        await using var db = fixture.CreateMigratedContext();
+        foreach (var (sourceMovieId, recommendedTmdbId) in pairs)
+        {
+            db.Set<MovieRecommendationRecord>().Add(new MovieRecommendationRecord
+            {
+                SourceMovieId = new MovieId(sourceMovieId),
+                RecommendedTmdbId = recommendedTmdbId
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
+
     private async Task SeedVectorsAsync(
         CancellationToken ct,
         params (int MovieId, float[] Vector)[] vectors)
@@ -1012,7 +1277,12 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
             new RecordingEnrichmentStatusNotifier(),
             NullLogger<EfMovieRepository>.Instance);
 
-    private static MovieRecord Record(int id, string title, EnrichmentStatus status, int? collectionId = null) =>
+    private static MovieRecord Record(
+        int id,
+        string title,
+        EnrichmentStatus status,
+        int? collectionId = null,
+        int? tmdbId = null) =>
         new()
         {
             Id = new MovieId(id),
@@ -1020,7 +1290,8 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
             LibraryPath = new LibraryPath($"C:/library/candidate-{id}.mkv"),
             Format = new MediaFormat("mkv"),
             Status = status,
-            CollectionId = collectionId
+            CollectionId = collectionId,
+            TmdbId = tmdbId
         };
 
     private static MovieRecord SignalRecord(int id)
@@ -1085,6 +1356,12 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         public IReadOnlyList<string> ReaderCommands => readerCommands;
 
         public int ReaderCount => readerTokens.Count;
+
+        public void Reset()
+        {
+            readerTokens.Clear();
+            readerCommands.Clear();
+        }
 
         public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
             DbCommand command,

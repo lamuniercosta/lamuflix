@@ -13,5 +13,5 @@ public interface IRecommendationCandidateSource
         int? collectionId,
         CancellationToken ct);
 
-    Task<IReadOnlyList<RecommendationLibraryEntry>> GetLibraryFeaturesAsync(CancellationToken ct);
+    Task<RecommendationLibrarySnapshot> GetLibraryFeaturesAsync(CancellationToken ct);
 }

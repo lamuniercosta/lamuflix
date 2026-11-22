@@ -230,7 +230,8 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         var source = Substitute.For<IRecommendationCandidateSource>();
         var library = new List<RecommendationLibraryEntry>(pool.Count + 1) { Entry(selected, UnitVector()) };
         library.AddRange(pool);
-        source.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(library);
+        source.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
+            .Returns(new RecommendationLibrarySnapshot(library, CrowdLinks.Empty));
         var catalog = Substitute.For<IMovieCatalog>();
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Counts);
         catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>()).Returns(EmptyKeywordCounts);

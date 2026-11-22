@@ -39,8 +39,8 @@ Work inside the file boundaries in `plan.md` and `brief.md`. Follow phase order.
 
 ## Phase 5: Library feature-load resolution (US3)
 
-- [ ] T012 [US3] After T003/T004 and DEV-544 readiness, batch-load pairs at `EfRecommendationCandidateSource` library feature load. Map each TMDb ID to all corresponding library movie IDs. Build an immutable symmetric binary lookup across distinct catalogue identities with no self-links or reciprocal bonus. Pass it through the existing library feature snapshot to pure scoring. If DEV-544 is absent, report a phase-local dependency blocker to Bernstein.
-- [ ] T013 [US3] After T012, use real Postgres to prove late-add links without source re-enrichment, library-only candidates, symmetric one-way links, binary reciprocity, no self-links and duplicate source/target identity behavior. Delete a source and prove source-owned pairs cascade while incoming catalogue IDs remain; verify the targets become unresolved when no matching library row remains. Assert pair reads are bounded to at most one added batch query per library feature load with no per-movie queries.
+- [X] T012 [US3] After T003/T004 and DEV-544 readiness, batch-load pairs at `EfRecommendationCandidateSource` library feature load. Map each TMDb ID to all corresponding library movie IDs. Build an immutable symmetric binary lookup across distinct catalogue identities with no self-links or reciprocal bonus. Pass it through the existing library feature snapshot to pure scoring. If DEV-544 is absent, report a phase-local dependency blocker to Bernstein.
+- [X] T013 [US3] After T012, use real Postgres to prove late-add links without source re-enrichment, library-only candidates, symmetric one-way links, binary reciprocity, no self-links and duplicate source/target identity behavior. Delete a source and prove source-owned pairs cascade while incoming catalogue IDs remain; verify the targets become unresolved when no matching library row remains. Assert pair reads are bounded to at most one added batch query per library feature load with no per-movie queries.
 
 ## Phase 6: Crowd scoring and parity (US4)
 

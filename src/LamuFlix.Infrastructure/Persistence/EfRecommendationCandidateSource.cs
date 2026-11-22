@@ -18,7 +18,7 @@ public sealed class EfRecommendationCandidateSource(
 {
     private readonly LamuFlixDbContext db = db ?? throw new ArgumentNullException(nameof(db));
 
-    public async Task<IReadOnlyList<RecommendationLibraryEntry>> GetLibraryFeaturesAsync(CancellationToken ct)
+    public async Task<RecommendationLibrarySnapshot> GetLibraryFeaturesAsync(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -37,6 +37,10 @@ public sealed class EfRecommendationCandidateSource(
 
         ct.ThrowIfCancellationRequested();
 
+        var pairs = await db.Set<MovieRecommendationRecord>().AsNoTracking().ToListAsync(ct);
+
+        ct.ThrowIfCancellationRequested();
+
         var entries = new List<RecommendationLibraryEntry>(rows.Count);
         foreach (var row in rows)
         {
@@ -46,7 +50,7 @@ public sealed class EfRecommendationCandidateSource(
             entries.Add(ToLibraryEntry(ToDomain(row), vectors.GetValueOrDefault(movieId.Value)));
         }
 
-        return entries;
+        return new RecommendationLibrarySnapshot(entries, ResolveCrowdLinks(rows, pairs));
     }
 
     public async Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(
@@ -72,7 +76,7 @@ public sealed class EfRecommendationCandidateSource(
         var selected = selectedVector.ToArray();
         var candidates = new List<RecommendationCandidate>(library.Count);
 
-        foreach (var entry in library)
+        foreach (var entry in library.Entries)
         {
             ct.ThrowIfCancellationRequested();
 
@@ -99,6 +103,60 @@ public sealed class EfRecommendationCandidateSource(
             .Include(movie => movie.FullCast)
             .Include(movie => movie.Collection)
             .AsSplitQuery();
+
+    /// <summary>
+    /// Resolves the stored first-page recommendation pairs into the symmetric binary Crowd lookup.
+    /// Each recommended TMDb id maps to every library row carrying it, distinct catalogue identities
+    /// only, with no self links and no extra weight for reciprocal rows.
+    /// </summary>
+    private static CrowdLinks ResolveCrowdLinks(
+        IReadOnlyList<MovieRecord> rows,
+        IReadOnlyList<MovieRecommendationRecord> pairs)
+    {
+        var tmdbIdByMovieId = new Dictionary<MovieId, int>();
+        var movieIdsByTmdbId = new Dictionary<int, List<MovieId>>();
+
+        foreach (var row in rows)
+        {
+            if (row.Id is not { } movieId || row.TmdbId is not { } tmdbId)
+            {
+                continue;
+            }
+
+            tmdbIdByMovieId[movieId] = tmdbId;
+            if (!movieIdsByTmdbId.TryGetValue(tmdbId, out var libraryIds))
+            {
+                libraryIds = [];
+                movieIdsByTmdbId[tmdbId] = libraryIds;
+            }
+
+            libraryIds.Add(movieId);
+        }
+
+        var links = new List<(MovieId First, MovieId Second)>();
+        foreach (var pair in pairs)
+        {
+            if (pair.SourceMovieId is not { } sourceId
+                || !tmdbIdByMovieId.TryGetValue(sourceId, out var sourceTmdbId)
+                || !movieIdsByTmdbId.TryGetValue(pair.RecommendedTmdbId, out var targets))
+            {
+                continue;
+            }
+
+            // A target that shares the source catalogue identity is the same title, not a crowd link.
+            if (sourceTmdbId == pair.RecommendedTmdbId)
+            {
+                continue;
+            }
+
+            foreach (var target in targets)
+            {
+                links.Add((sourceId, target));
+            }
+        }
+
+        return CrowdLinks.Create(links);
+    }
 
     private static RecommendationLibraryEntry ToLibraryEntry(Movie movie, Vector? vector)
     {

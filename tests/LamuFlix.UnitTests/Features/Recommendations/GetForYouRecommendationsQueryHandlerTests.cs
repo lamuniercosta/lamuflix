@@ -85,7 +85,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(Counts));
         catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(EmptyKeywordCounts));
         candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult<IReadOnlyList<RecommendationLibraryEntry>>(LibraryEntries()));
+            .Returns(_ => Task.FromResult(Snapshot(LibraryEntries())));
         profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(Profile()));
     }
@@ -810,7 +810,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             {
                 // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
                 cts.Cancel();
-                return Task.FromResult<IReadOnlyList<RecommendationLibraryEntry>>([]);
+                return Task.FromResult(Snapshot([]));
             });
 
         // act / assert
@@ -1219,6 +1219,9 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             MovieSummaryMapper.From(movie))),
     ];
 
+    private static RecommendationLibrarySnapshot Snapshot(IReadOnlyList<RecommendationLibraryEntry> entries) =>
+        new(entries, CrowdLinks.Empty);
+
     private TasteProfile Profile() =>
         new(ImmutableDictionary<string, double>.Empty)
         {
@@ -1398,12 +1401,13 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
 
         var candidates = Substitute.For<IRecommendationCandidateSource>();
         candidates.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult<IReadOnlyList<RecommendationLibraryEntry>>(
-            [
-                .. library.Select(movie => new RecommendationLibraryEntry(
-                    MovieFeaturesMapper.From(movie, includeSignals: true),
-                    MovieSummaryMapper.From(movie))),
-            ]));
+            .Returns(_ => Task.FromResult(new RecommendationLibrarySnapshot(
+                [
+                    .. library.Select(movie => new RecommendationLibraryEntry(
+                        MovieFeaturesMapper.From(movie, includeSignals: true),
+                        MovieSummaryMapper.From(movie))),
+                ],
+                CrowdLinks.Empty)));
 
         var profileSource = Substitute.For<IRecommendationProfileSource>();
         profileSource
