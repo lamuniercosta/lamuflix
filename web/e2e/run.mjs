@@ -377,11 +377,34 @@ function prepare() {
   writeContext(fixture);
 }
 
+function resolveOpenSsl() {
+  const candidates = [];
+  if (process.env.OPENSSL) {
+    candidates.push(process.env.OPENSSL);
+  }
+  candidates.push('openssl');
+  if (process.platform === 'win32') {
+    candidates.push(
+      'C:/Program Files/Git/usr/bin/openssl.exe',
+      'C:/Program Files/Git/mingw64/bin/openssl.exe',
+    );
+  }
+  for (const candidate of candidates) {
+    try {
+      execFileSync(candidate, ['version'], { stdio: 'ignore', windowsHide: true });
+      return candidate;
+    } catch {
+      // Candidate unavailable here; try the next one.
+    }
+  }
+  return 'openssl';
+}
+
 function generateCertificates() {
   mkdirSync(TLS_DIR, { recursive: true });
   try {
     execFileSync(
-      'openssl',
+      resolveOpenSsl(),
       [
         'req',
         '-x509',

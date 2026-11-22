@@ -43,6 +43,12 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir 'run-e2e-smoke.log'
 "$(Get-Date -Format o) run-e2e-smoke starting" | Tee-Object -FilePath $logFile -Append
 
+foreach ($dir in @('C:\Program Files\Git\usr\bin', 'C:\Program Files\Git\mingw64\bin')) {
+    if ((Test-Path (Join-Path $dir 'openssl.exe')) -and -not (Get-Command openssl -ErrorAction SilentlyContinue)) {
+        $env:PATH = "$dir$([System.IO.Path]::PathSeparator)$env:PATH"
+    }
+}
+
 Push-Location (Join-Path $repoRoot 'web')
 try {
     npm run e2e 2>&1 | Tee-Object -FilePath $logFile -Append
