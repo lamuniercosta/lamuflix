@@ -495,6 +495,30 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_EveryItem_EmitsPopulatedSeedWithNonblankTitle()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(90, title: "Alien", genres: ["Drama"], isLiked: true),
+            NewMovie(91, title: "Arrival", genres: ["Drama"], isInWatchlist: true),
+            NewMovie(2, genres: ["Drama"]),
+            NewMovie(3, genres: ["Drama"]),
+            NewMovie(4, genres: ["Drama"]));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(5), CancellationToken.None);
+
+        // assert
+        result.Items.Count.ShouldBeGreaterThan(1);
+        foreach (var item in result.Items)
+        {
+            item.Seed.ShouldNotBeNull();
+            item.Seed.Title.Any(character => !char.IsWhiteSpace(character) && !char.IsControl(character)).ShouldBeTrue();
+        }
+    }
+
+    [Fact]
     public async Task HandleAsync_MmrLambda_DoesNotChangePublishedOrder()
     {
         // arrange
