@@ -190,8 +190,9 @@ test.describe('for-you review ranking', () => {
 
     const card = recommendationCard(page, RECOMMENDED_TITLE);
     await expect(card).toBeVisible({ timeout: context.waitBudgetMs });
-    await expect(card.getByText(`Because you liked ${SEED_TITLE}`, { exact: true })).toBeVisible();
+    await expect(card.locator('.movie-card-seed')).toHaveText(`Because you liked ${SEED_TITLE}`);
     const seedLink = card.getByRole('link', { name: `Open ${SEED_TITLE}`, exact: true });
+    await expect(seedLink).toHaveText(SEED_TITLE);
     await expect(seedLink).toHaveAttribute('href', `/movies/${String(seedId)}`);
     await seedLink.click();
     await expect(page).toHaveURL(new RegExp(`/movies/${String(seedId)}$`));

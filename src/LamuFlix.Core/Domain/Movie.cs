@@ -225,10 +225,23 @@ public sealed class Movie
 
     private static void RequireTitle(string title)
     {
-        if (string.IsNullOrWhiteSpace(title))
+        if (string.IsNullOrWhiteSpace(title) || IsEffectivelyBlank(title))
         {
             throw new ArgumentException("Title is required.", nameof(title));
         }
+    }
+
+    private static bool IsEffectivelyBlank(string title)
+    {
+        foreach (var character in title)
+        {
+            if (!char.IsWhiteSpace(character) && !char.IsControl(character))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void BeginPendingAttempt(string action, DateTimeOffset now)
