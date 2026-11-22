@@ -372,3 +372,14 @@ Related also asserts zero `.movie-card-seed` nodes (no seed line) and the API as
 ### 6. Phase boundary
 
 T008 and T010 are complete. After-screenshot capture and the mandatory size:M gate run are T013/T014 (Phase 6) and were not started.
+
+---
+
+## Phase 5 T010 Home-Library Drift Disposition Ruling — Accept Recorded Live-Library Drift and Pair Evidence
+
+**Verdict.** Accept the recorded Phase 5 home-library drift and pair evidence (`SMOKE-001` / `SC-001` / `T010` satisfied without restoring an unrecoverable frozen library dump); Phase 5 web checkpoint is complete and Phase 6 (`T013`–`T014`) may proceed.
+
+- **Presentation-only invariant and pre-change baseline control (`spec.md:42,48,151`, `CONCLUSIONS.md:364–366`)**: DEV-542 is strictly presentation and wire-contract work (`seed` + `evidence` replacing `reasons`) and explicitly prohibits changing recommendation scoring, ranking, or selection (`FR-012`, Out of scope). The Phase 5 control run against the deployed pre-change release (`02eb4c6c`) on the same live 447-movie home library (`103` liked / `395` watched / `54` watchlist) confirms Hercules is likewise absent from the pre-change For You result set, and the earlier frozen `11` liked / `56` watched dump from `DEV-543` (`2026-11-21T10:28Z`, where `Hercules → Aladdin` ranked `#4`) is not present on disk (`CONCLUSIONS.md:364–365`, `specs/DEV-543/CONCLUSIONS.md:208–213`).
+- **Complete `SMOKE-001` / `SC-001` contract and pair verification across live and deterministic fixtures (`spec.md:30,102,164`, `CONCLUSIONS.md:321–365`)**: Every item in the live 47-item For You response carries a populated `seed` (`movieId`, `title`, `liked`/`watched`/`watchlist` signal), ordered `evidence`, and no `reasons` key; the live Aladdin Related endpoint (`GET /api/movies/519/recommendations`) lists **Hercules first** (`id 644`, `score 0.3293`) with `Same director: John Musker, Ron Clements` as its strongest evidence line; and deterministic component/Playwright e2e coverage (`MovieCard.test.tsx`, `ForYouPage.test.tsx`, `web/e2e/for-you-review.e2e.ts` `SMOKE-003`, `28/28` Playwright pass) proves the For You card renders `"Because you liked {title}"` (linked to `/movies/{movieId}` with accessible name `"Open {title}"`) above the strongest-first `"Same director"` evidence line.
+- **No tuning or synthetic library fabrication (`spec.md:48,151`, `specs/DEV-543/CONCLUSIONS.md:212`)**: Consistent with the standing `DEV-543` library-drift ruling (`specs/DEV-543/CONCLUSIONS.md:206–213`) and Charter §2.3, neither scoring/ranking parameters nor live home-library data may be altered or fabricated to force a specific movie into the live For You top set. Record this disposition in the `T016` delivery PR home-library receipt and proceed immediately to Phase 6 (`T013`–`T014`).
+
