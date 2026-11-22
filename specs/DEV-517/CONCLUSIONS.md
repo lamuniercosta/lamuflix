@@ -109,3 +109,9 @@ Basis: (1) Committed visit state across incidental refetch (ticket Wanted/Done w
 **Patron.** `gate1: provisional` — all Q1–Q8 grill rulings, the plan challenge refinement, and all 25 round-one plan challenge dispositions in `PLAN_ADJUDICATION.md` are accepted with zero structural owner checkboxes.
 
 Basis: (1) Cross-artifact alignment and plan challenge closure (`specs/DEV-517/brief.md`, `specs/DEV-517/spec.md`, `specs/DEV-517/plan.md`, `specs/DEV-517/tasks.md`, `specs/DEV-517/PLAN_ADJUDICATION.md`): Q1–Q8 grill rulings and the 25 round-one plan challenge dispositions across Risk/Sentry (10), Standards/Ledger (10), and Spec/Compass (5) are consistently incorporated into the frozen plan with zero open in-scope Critical, High, or Medium findings; (2) User-visible outcome readiness (`specs/DEV-517/checklists/requirements.md`:32-36; `specs/DEV-517/spec.md`:21-36): all "User-Visible Outcome" checklist items and SMOKE-001 through SMOKE-003 are ticked and specified; (3) Zero structural owner checkboxes (`specs/DEV-517/spec.md`:11-13; `specs/DEV-517/plan.md`:39-51): no ticket contradiction or constitution departure exists, leaving only ordinary owner Gate 1 spec-PR merge before Build.
+
+## Gate 1 merge receipt (T000)
+
+**Keel.** Gate 1 is complete. GitHub records [DEV-517 spec PR #458](https://github.com/lamuniercosta/lamuflix/pull/458) as merged by `lamuniercosta` from `feature/517-spec` into `main` at `2026-11-21T17:14:39Z`, with merge commit `44595bd6e79c1bedba2e2118d211ee26f1386592`.
+
+Phase A used base `1bbc8a637b97ec2efdf0eaa6f2be6da8abbbc089`. Git confirms that base is an ancestor of the merge commit and the merge commit is an ancestor of the Phase 0 pickup HEAD `326756db6733ce0032284919a866a5995f9f5d9d` on `feature/DEV-517`. T000 is complete. The DEV-541 contract pickup (T001), Build, and runtime acceptance remain pending.
