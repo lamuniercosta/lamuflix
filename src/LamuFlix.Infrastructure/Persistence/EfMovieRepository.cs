@@ -142,6 +142,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             EnrichmentDeferredUntil = movie.EnrichmentDeferredUntil,
             ParsedReleaseYear = movie.ParsedReleaseYear,
             ManualImdbId = movie.ManualImdbId,
+            TmdbId = movie.TmdbId,
         };
         CopyMetadata(record, movie.Metadata);
         return record;
@@ -1151,6 +1152,11 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         {
             record.ManualImdbId = movie.ManualImdbId;
         }
+
+        if (baseline.TmdbId != movie.TmdbId)
+        {
+            record.TmdbId = movie.TmdbId;
+        }
     }
 
     private static void ApplyAttempts(Movie movie, MovieRecord record, Baseline baseline)
@@ -1227,7 +1233,8 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             manualImdbId: record.ManualImdbId,
             isWatched: record.IsWatched,
             review: record.Review,
-            enrichmentDeferredUntil: record.EnrichmentDeferredUntil);
+            enrichmentDeferredUntil: record.EnrichmentDeferredUntil,
+            tmdbId: record.TmdbId);
     }
 
     private static MovieSignalSnapshot? Signals(MovieRecord record) =>
@@ -1259,7 +1266,8 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         DateTimeOffset? LastAttemptAt,
         DateTimeOffset? EnrichmentDeferredUntil,
         MovieMetadata? Metadata,
-        ImdbId? ManualImdbId)
+        ImdbId? ManualImdbId,
+        int? TmdbId)
     {
         public static Baseline From(Movie movie) => new(
             movie.Format,
@@ -1272,6 +1280,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             movie.LastAttemptAt,
             movie.EnrichmentDeferredUntil,
             movie.Metadata,
-            movie.ManualImdbId);
+            movie.ManualImdbId,
+            movie.TmdbId);
     }
 }

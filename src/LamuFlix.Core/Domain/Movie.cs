@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace LamuFlix.Core.Domain;
 
@@ -58,6 +59,15 @@ public sealed class Movie
     /// <summary>An IMDb id supplied by the user when automatic matching cannot find the movie; used instead of title search.</summary>
     public ImdbId? ManualImdbId { get; private set; }
 
+    /// <summary>The TMDb catalogue identity stored for this movie when enrichment or backfill resolved one.</summary>
+    public int? TmdbId { get; private set; }
+
+    /// <summary>
+    /// The first-page recommended TMDb ids carried by the last successful fetch, or null when that fetch did not succeed.
+    /// An empty list is a successful fetch that returned no recommendations.
+    /// </summary>
+    public IReadOnlyList<int>? RecommendedTmdbIds { get; private set; }
+
     public static Movie Create(
         MovieId id,
         string title,
@@ -85,7 +95,9 @@ public sealed class Movie
         ImdbId? manualImdbId = null,
         bool isWatched = false,
         Review? review = null,
-        DateTimeOffset? enrichmentDeferredUntil = null)
+        DateTimeOffset? enrichmentDeferredUntil = null,
+        int? tmdbId = null,
+        IReadOnlyList<int>? recommendedTmdbIds = null)
     {
         RequireTitle(title);
         return new Movie(id, title, path, format, parsedReleaseYear)
@@ -101,14 +113,19 @@ public sealed class Movie
             LastAttemptAt = lastAttemptAt,
             ManualImdbId = manualImdbId,
             EnrichmentDeferredUntil = enrichmentDeferredUntil,
+            TmdbId = tmdbId,
+            RecommendedTmdbIds = recommendedTmdbIds,
         };
     }
 
     public void MarkEnriched(MovieMetadata metadata, DateTimeOffset now)
     {
+        ArgumentNullException.ThrowIfNull(metadata);
         BeginPendingAttempt(nameof(MarkEnriched), now);
         EnrichedAt = now;
         Metadata = metadata;
+        TmdbId = metadata.TmdbId;
+        RecommendedTmdbIds = metadata.RecommendedTmdbIds;
         LastFailureCategory = null;
         Status = EnrichmentStatus.Enriched;
     }

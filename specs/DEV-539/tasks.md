@@ -20,9 +20,9 @@ Work inside the file boundaries in `plan.md` and `brief.md`. Follow phase order.
 
 ## Phase 2: Schema and domain carry (US1 foundation)
 
-- [ ] T002 [US1] After T001, map nullable, non-unique `movies.tmdb_id` and unique recommendation pairs in `MovieConfiguration.cs`. Cascade source-owned rows on movie deletion, retain incoming catalogue IDs and index `recommended_tmdb_id`.
-- [ ] T004 [P] [US1] After T001, extend `src/LamuFlix.Core/Domain/MovieMetadata.cs` and `src/LamuFlix.Core/Domain/Movie.cs` so `MarkEnriched` carries TMDb id and recommendation-fetch outcome through the existing persistence flow without changing `ProcessEnrichmentCommandHandler` behaviour beyond apply-and-save.
-- [ ] T003 [US1] After T002 and T004, add the EF migration under `src/LamuFlix.Infrastructure/Persistence/Migrations/` for `movies.tmdb_id` and the pair table; prove it applies against a real Postgres database fixture that already holds movie rows (model changes from T002/T004 required before migration generation or verification).
+- [x] T002 [US1] After T001, map nullable, non-unique `movies.tmdb_id` and unique recommendation pairs in `MovieConfiguration.cs`. Cascade source-owned rows on movie deletion, retain incoming catalogue IDs and index `recommended_tmdb_id`.
+- [x] T004 [P] [US1] After T001, extend `src/LamuFlix.Core/Domain/MovieMetadata.cs` and `src/LamuFlix.Core/Domain/Movie.cs` so `MarkEnriched` carries TMDb id and recommendation-fetch outcome through the existing persistence flow without changing `ProcessEnrichmentCommandHandler` behaviour beyond apply-and-save.
+- [x] T003 [US1] After T002 and T004, add the EF migration under `src/LamuFlix.Infrastructure/Persistence/Migrations/` for `movies.tmdb_id` and the pair table; prove it applies against a real Postgres database fixture that already holds movie rows (model changes from T002/T004 required before migration generation or verification).
 
 ## Phase 3: TMDb enrichment signals (US1)
 
