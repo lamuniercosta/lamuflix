@@ -2787,6 +2787,59 @@
           }
         }
       },
+      "RecommendationEvidenceDto": {
+        "required": [
+          "criterion",
+          "text",
+          "matchedNames"
+        ],
+        "type": "object",
+        "properties": {
+          "criterion": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "matchedNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "RecommendationSeedDto": {
+        "required": [
+          "movieId",
+          "title",
+          "signal"
+        ],
+        "type": "object",
+        "properties": {
+          "movieId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "title": {
+            "type": "string"
+          },
+          "signal": {
+            "$ref": "#/components/schemas/RecommendationSeedSignal"
+          }
+        }
+      },
+      "RecommendationSeedSignal": {
+        "enum": [
+          "liked",
+          "watched",
+          "watchlist"
+        ]
+      },
       "RecommendedMovieDto": {
         "required": [
           "id",
@@ -2801,7 +2854,7 @@
           "isNotInterested",
           "review",
           "score",
-          "reasons"
+          "evidence"
         ],
         "type": "object",
         "properties": {
@@ -2872,26 +2925,21 @@
             ],
             "format": "double"
           },
-          "reasons": {
+          "evidence": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RecommendedMovieReasonDto"
+              "$ref": "#/components/schemas/RecommendationEvidenceDto"
             }
-          }
-        }
-      },
-      "RecommendedMovieReasonDto": {
-        "required": [
-          "kind",
-          "text"
-        ],
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string"
           },
-          "text": {
-            "type": "string"
+          "seed": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecommendationSeedDto"
+              }
+            ]
           }
         }
       },

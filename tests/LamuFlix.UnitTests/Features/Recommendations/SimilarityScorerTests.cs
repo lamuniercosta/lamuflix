@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using FsCheck.Xunit;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
@@ -984,6 +986,184 @@ public sealed class SimilarityScorerTests
         forward.Score.ShouldBe(reverse.Score, Tolerance);
         forward.Breakdown.Select(entry => entry.Name).ShouldBe(reverse.Breakdown.Select(entry => entry.Name));
     }
+
+    [Fact]
+    public void BuildEvidence_FiveMatchedCastNames_FormatsFirstThreeWithOmittedCountAndKeepsEveryName()
+    {
+        // arrange
+        var similarity = Breakdown(("Cast", ["Name One", "Name Two", "Name Three", "Name Four", "Name Five"]));
+
+        // act
+        var evidence = SimilarityScorer.BuildEvidence(similarity, Options());
+
+        // assert
+        var item = evidence.ShouldHaveSingleItem();
+        item.Criterion.ShouldBe("Cast");
+        item.Text.ShouldBe("Shared cast: Name One, Name Two, Name Three +2");
+        item.MatchedNames.ShouldBe(["Name One", "Name Two", "Name Three", "Name Four", "Name Five"]);
+    }
+
+    [Fact]
+    public void BuildEvidence_PlotWithoutNames_EmitsLabelOnlyEvidenceWithNoMatchedNames()
+    {
+        // arrange
+        var similarity = Breakdown(("Plot", []));
+
+        // act
+        var item = SimilarityScorer.BuildEvidence(similarity, Options()).ShouldHaveSingleItem();
+
+        // assert
+        item.Criterion.ShouldBe("Plot");
+        item.Text.ShouldBe("Similar story");
+        item.MatchedNames.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void BuildEvidence_CriterionWithNoNamesOtherThanPlot_IsOmitted()
+    {
+        // arrange
+        var similarity = Breakdown(("Cast", []), ("Director", ["Ada"]), ("Themes", []));
+
+        // act
+        var evidence = SimilarityScorer.BuildEvidence(similarity, Options());
+
+        // assert
+        evidence.Select(item => item.Criterion).ShouldBe(["Director"]);
+    }
+
+    [Fact]
+    public void BuildEvidence_ThreeNames_DisplaysEveryNameWithoutOmittedCountSuffix()
+    {
+        // arrange
+        var similarity = Breakdown(("Cast", ["First", "Second", "Third"]));
+
+        // act
+        var item = SimilarityScorer.BuildEvidence(similarity, Options()).ShouldHaveSingleItem();
+
+        // assert
+        item.Text.ShouldBe("Shared cast: First, Second, Third");
+        item.MatchedNames.ShouldBe(["First", "Second", "Third"]);
+    }
+
+    [Fact]
+    public void BuildEvidence_TenNames_CapsDisplayAtThreeAndCountsOmittedNames()
+    {
+        // arrange
+        string[] names = ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10"];
+        var similarity = Breakdown(("Cast", names));
+
+        // act
+        var item = SimilarityScorer.BuildEvidence(similarity, Options()).ShouldHaveSingleItem();
+
+        // assert
+        item.Text.ShouldBe("Shared cast: N1, N2, N3 +7");
+        item.MatchedNames.ShouldBe(names);
+    }
+
+    [Fact]
+    public void BuildEvidence_ControlCharacters_AreRemovedFromDisplayTextAtTheDisplayBoundary()
+    {
+        // arrange
+        var similarity = Breakdown(("Director", ["Ada\u0000Lovelace\u001f", "  Grace\tHopper "]));
+
+        // act
+        var item = SimilarityScorer.BuildEvidence(similarity, Options()).ShouldHaveSingleItem();
+
+        // assert
+        item.Text.ShouldBe("Same director: Ada Lovelace, Grace Hopper");
+        item.MatchedNames.ShouldBe(["Ada Lovelace", "Grace Hopper"]);
+    }
+
+    [Fact]
+    public void BuildEvidence_MixedCriteria_OrdersStrongestFirstWithTableOrderTieBreak()
+    {
+        // arrange
+        var similarity = new SimilarityResult(0.5, ImmutableList<Reason>.Empty)
+        {
+            Breakdown =
+            [
+                Contribution("Collection", ["Franchise"], 0.2),
+                Contribution("Director", ["Ada"], 0.2),
+                Contribution("Themes", ["space"], 0.05),
+                Contribution("Plot", [], 0.5),
+                Contribution("Cast", ["Ada"], 0.1),
+                Contribution("Genre", ["Drama"], 0.2),
+            ],
+        };
+
+        // act
+        var evidence = SimilarityScorer.BuildEvidence(similarity, Options());
+
+        // assert
+        evidence.Select(item => item.Criterion)
+            .ShouldBe(["Plot", "Collection", "Director", "Genre", "Cast", "Themes"]);
+    }
+
+    [Property(MaxTest = 200)]
+    [Trait("Category", "Property")]
+    public bool BuildEvidence_MatchedNames_PreserveEveryNameInOrder(int[] seeds)
+    {
+        // arrange
+        var names = Names([.. seeds.Select(seed => (long)seed)]);
+        var similarity = Breakdown(("Cast", names));
+
+        // act
+        var evidence = SimilarityScorer.BuildEvidence(similarity, Options());
+
+        // assert
+        return names.Length == 0
+            ? evidence.Count == 0
+            : evidence.Single().MatchedNames.SequenceEqual(names, StringComparer.Ordinal);
+    }
+
+    [Property(MaxTest = 200)]
+    [Trait("Category", "Property")]
+    public bool BuildEvidence_MoreThanThreeNames_CapsDisplayAtThreeAndCountsTheOmittedNames(int seed, int countSeed)
+    {
+        // arrange
+        var omitted = Math.Abs((long)countSeed % 20) + 1;
+        var names = Names(Range(seed, (int)omitted + 3));
+        var similarity = Breakdown(("Cast", names));
+
+        // act
+        var item = SimilarityScorer.BuildEvidence(similarity, Options()).Single();
+
+        // assert
+        return item.Text == $"Shared cast: {names[0]}, {names[1]}, {names[2]} +{omitted}"
+            && item.MatchedNames.Count == names.Length;
+    }
+
+    [Property(MaxTest = 200)]
+    [Trait("Category", "Property")]
+    public bool BuildEvidence_UpToThreeNames_DisplaysEveryNameWithoutOmittedCount(int seed, int countSeed)
+    {
+        // arrange
+        var count = (int)Math.Abs((long)countSeed % 3) + 1;
+        var names = Names(Range(seed, count));
+        var similarity = Breakdown(("Cast", names));
+
+        // act
+        var item = SimilarityScorer.BuildEvidence(similarity, Options()).Single();
+
+        // assert
+        return item.Text == $"Shared cast: {string.Join(", ", names)}"
+            && item.MatchedNames.SequenceEqual(names, StringComparer.Ordinal);
+    }
+
+    private static long[] Range(int seed, int count) =>
+        [.. Enumerable.Range(0, count).Select(index => (long)seed + index)];
+
+    private static string[] Names(IEnumerable<long> seeds) =>
+        [.. seeds.Select(seed => $"Name {Math.Abs(seed)}")];
+
+    private static SimilarityResult Breakdown(params (string Name, string[] Evidence)[] entries) =>
+        new(0.5, ImmutableList<Reason>.Empty)
+        {
+            Breakdown = [.. entries.Select(entry => Contribution(entry.Name, entry.Evidence, 0.1))],
+        };
+
+    private static CriterionContribution Contribution(string name, string[] evidence, double contribution) =>
+        new(name, 1.0, 1.0, contribution) { Evidence = [.. evidence] };
 
     private static string[] Text(SimilarityResult result) =>
         [.. result.Reasons.Select(reason => reason.Text)];

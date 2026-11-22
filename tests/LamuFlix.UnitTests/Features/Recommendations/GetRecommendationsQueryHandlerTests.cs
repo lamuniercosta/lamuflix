@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -312,7 +312,7 @@ public sealed class GetRecommendationsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_DiversifiedResult_PreservesOriginalMovieScoreAndReasons()
+    public async Task HandleAsync_DiversifiedResult_PreservesOriginalMovieScoreAndEvidence()
     {
         // arrange
         var selected = NewMovie(1, genres: ["Drama", "Action", "Comedy", "Horror"]);
@@ -332,7 +332,7 @@ public sealed class GetRecommendationsQueryHandlerTests
             var expected = original[item.Summary.Id];
             item.Summary.ShouldBe(expected.Summary);
             item.Score.ShouldBe(expected.Score, 1e-12);
-            item.Reasons.ShouldBe(expected.Reasons);
+            item.Evidence.ShouldBe(expected.Evidence);
         }
     }
 
@@ -429,11 +429,8 @@ public sealed class GetRecommendationsQueryHandlerTests
         // assert
         expected.Reasons.ShouldNotBeEmpty();
         result[0].Score.ShouldBe(expected.Score);
-        result[0].Reasons.Count.ShouldBe(expected.Reasons.Count);
-        for (var index = 0; index < expected.Reasons.Count; index++)
-        {
-            result[0].Reasons[index].ShouldBe(expected.Reasons[index]);
-        }
+        result[0].Evidence.ShouldNotBeEmpty();
+        result[0].Evidence.ShouldBe(SimilarityScorer.BuildEvidence(expected, new RecommendationOptions { Weights = Weights }));
 
         HasStoryReason(result[0]).ShouldBeFalse();
     }
@@ -887,7 +884,7 @@ public sealed class GetRecommendationsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_NoStructuralOrPersonalExplanation_EmitsStructuralFallback()
+    public async Task HandleAsync_NoStructuralOrPersonalExplanation_EmitsEmptyEvidence()
     {
         // arrange
         var handler = NewHandler();
@@ -899,7 +896,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
 
         // assert
-        result[0].Reasons.ShouldBe([Reason.Structural("No shared features identified")]);
+        result[0].Evidence.ShouldBeEmpty();
     }
 
     [Fact]
@@ -917,8 +914,7 @@ public sealed class GetRecommendationsQueryHandlerTests
 
         // assert
         PersonalTexts(result[0]).ShouldBeEmpty();
-        result[0].Reasons.ShouldAllBe(reason => reason.Kind == ReasonKind.Structural);
-        result[0].Reasons.ShouldAllBe(reason => !reason.Text.StartsWith("Matches your", StringComparison.Ordinal));
+        result[0].Evidence.ShouldAllBe(evidence => !evidence.Text.StartsWith("Matches your", StringComparison.Ordinal));
     }
 
 
@@ -938,8 +934,8 @@ public sealed class GetRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
 
         // assert
-        result[0].Reasons.ShouldNotContain(reason => reason.Text == "Matches your viewing history");
-        result[0].Reasons.ShouldBe([Reason.Structural("No shared features identified")]);
+        result[0].Evidence.ShouldNotContain(evidence => evidence.Text == "Matches your viewing history");
+        result[0].Evidence.ShouldBeEmpty();
     }
 
     [Fact]
@@ -961,7 +957,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         // assert
         result.ShouldHaveSingleItem();
         result[0].Score.ShouldBe(1.0, 1e-12);
-        result[0].Reasons.ShouldContain(reason => reason.Text == "Similar story");
+        result[0].Evidence.ShouldContain(evidence => evidence.Text == "Similar story");
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 0),
             Arg.Any<CancellationToken>());
@@ -1008,7 +1004,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         // assert
         result.ShouldHaveSingleItem();
         result[0].Score.ShouldBe(1.0, 1e-12);
-        result[0].Reasons.ShouldContain(reason => reason.Text == "Similar story");
+        result[0].Evidence.ShouldContain(evidence => evidence.Text == "Similar story");
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 1 && ids.Single() == selected.Id),
             Arg.Any<CancellationToken>());
@@ -1508,7 +1504,7 @@ public sealed class GetRecommendationsQueryHandlerTests
     }
 
     private static string[] PersonalTexts(RecommendedMovie movie) =>
-        [.. movie.Reasons.Where(reason => reason.Kind == ReasonKind.Personal).Select(reason => reason.Text)];
+        [.. movie.Evidence.Select(evidence => evidence.Text).Where(text => text.StartsWith("Matches your", StringComparison.Ordinal))];
 
     private static System.Collections.Immutable.ImmutableArray<float> PlotVector(float primary, float secondary = 0.0f)
     {
@@ -1727,14 +1723,15 @@ public sealed class GetRecommendationsQueryHandlerTests
         isWatched: isWatched);
 
     private static bool HasStoryReason(RecommendedMovie movie) =>
-        movie.Reasons.Any(reason => reason.Text == "Similar story");
+        movie.Evidence.Any(evidence => evidence.Text == "Similar story");
 
     private static void AssertFeaturePrefix(RecommendedMovie actual, SimilarityResult expected)
     {
-        actual.Reasons.Count.ShouldBeGreaterThanOrEqualTo(expected.Reasons.Count);
-        for (var index = 0; index < expected.Reasons.Count; index++)
+        var expectedEvidence = SimilarityScorer.BuildEvidence(expected, new RecommendationOptions { Weights = Weights });
+        actual.Evidence.Count.ShouldBeGreaterThanOrEqualTo(expectedEvidence.Count);
+        for (var index = 0; index < expectedEvidence.Count; index++)
         {
-            actual.Reasons[index].ShouldBe(expected.Reasons[index]);
+            actual.Evidence[index].ShouldBe(expectedEvidence[index]);
         }
     }
 

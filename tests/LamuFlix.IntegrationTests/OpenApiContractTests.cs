@@ -81,7 +81,9 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "BrowseMoviesResponse",
         "MovieDetailsResponse",
         "RecommendedMovieDto",
-        "RecommendedMovieReasonDto",
+        "RecommendationSeedDto",
+        "RecommendationSeedSignal",
+        "RecommendationEvidenceDto",
         "GenreDto",
         "CollectionDto",
         "PersonDto",
@@ -749,25 +751,39 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
             "isNotInterested",
             "review",
             "score",
-            "reasons",
+            "evidence",
         };
+        var expectedRequiredNames = expectedPropertyNames;
         dto.GetProperty("required").EnumerateArray().Select(item => item.GetString())
-            .ShouldBe(expectedPropertyNames, ignoreOrder: true);
+            .ShouldBe(expectedRequiredNames, ignoreOrder: true);
         var properties = dto.GetProperty("properties");
         properties.EnumerateObject().Select(property => property.Name)
-            .ShouldBe(expectedPropertyNames, ignoreOrder: true);
-        properties.GetProperty("reasons").GetProperty("type").GetString().ShouldBe("array");
-        properties.GetProperty("reasons").GetProperty("items").GetProperty("$ref").GetString()
-            .ShouldBe("#/components/schemas/RecommendedMovieReasonDto");
-        var reasonDto = parsed.RootElement.GetProperty("components").GetProperty("schemas")
-            .GetProperty("RecommendedMovieReasonDto");
-        reasonDto.GetProperty("type").GetString().ShouldBe("object");
-        reasonDto.GetProperty("required").EnumerateArray().Select(item => item.GetString())
-            .ShouldBe(["kind", "text"], ignoreOrder: true);
-        reasonDto.GetProperty("properties").EnumerateObject().Select(property => property.Name)
-            .ShouldBe(["kind", "text"], ignoreOrder: true);
-        reasonDto.GetProperty("properties").GetProperty("kind").GetProperty("type").GetString().ShouldBe("string");
-        reasonDto.GetProperty("properties").GetProperty("text").GetProperty("type").GetString().ShouldBe("string");
+            .ShouldBe([.. expectedPropertyNames, "seed"], ignoreOrder: true);
+        properties.GetProperty("evidence").GetProperty("type").GetString().ShouldBe("array");
+        properties.GetProperty("evidence").GetProperty("items").GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/RecommendationEvidenceDto");
+        properties.GetProperty("seed").GetProperty("oneOf").EnumerateArray()
+            .Select(item => item.TryGetProperty("$ref", out var reference) ? reference.GetString() : item.GetProperty("type").GetString())
+            .ShouldBe(["null", "#/components/schemas/RecommendationSeedDto"]);
+        var evidenceDto = parsed.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("RecommendationEvidenceDto");
+        evidenceDto.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["criterion", "text", "matchedNames"], ignoreOrder: true);
+        evidenceDto.GetProperty("properties").GetProperty("criterion").GetProperty("type").GetString().ShouldBe("string");
+        evidenceDto.GetProperty("properties").GetProperty("text").GetProperty("type").GetString().ShouldBe("string");
+        evidenceDto.GetProperty("properties").GetProperty("matchedNames").GetProperty("type").GetString().ShouldBe("array");
+        evidenceDto.GetProperty("properties").GetProperty("matchedNames").GetProperty("items")
+            .GetProperty("type").GetString().ShouldBe("string");
+        var seedDto = parsed.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("RecommendationSeedDto");
+        seedDto.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["movieId", "title", "signal"], ignoreOrder: true);
+        seedDto.GetProperty("properties").GetProperty("signal").GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/RecommendationSeedSignal");
+        var seedSignal = parsed.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("RecommendationSeedSignal");
+        seedSignal.GetProperty("enum").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["liked", "watched", "watchlist"]);
         properties.GetProperty("enrichmentStatus").GetProperty("$ref").GetString()
             .ShouldBe("#/components/schemas/EnrichmentStatus");
         properties.GetProperty("score").GetProperty("type").EnumerateArray().Select(item => item.GetString())

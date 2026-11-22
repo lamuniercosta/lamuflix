@@ -214,3 +214,41 @@ A cited Patron ruling that either (a) extends the authorized envelope to the pat
 - Ordering: DEV-542 lands first; DEV-541 then rebases onto the landed DEV-542 result before regenerating `web/src/api/openapi.json`, `web/src/api/types.ts`, `web/src/mocks/handlers.ts` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json`. DEV-542 blocks DEV-538.
 
 **Status.** done. T001 marked `[x]`; Phase 1 checkpoint unlocked. T002+ not started in this task.
+
+## T006 API-only Checkpoint Receipt — Phase 2 (User Story 1: recommendation response carries seed and evidence)
+
+**Verdict.** API-only checkpoint PASSES inside the still-open T002–T010 working unit. T002–T006 are complete; no web consumer, fixture or e2e path was edited in this phase.
+
+### 1. Contract implementation (T004)
+
+- `src/LamuFlix.Core/Features/Recommendations/RecommendedMovie.cs` now carries ordered `Evidence` (`RecommendationEvidence(Criterion, Text, MatchedNames)`, sequence-value equality over `MatchedNames`) and an optional For You `Seed` (`RecommendationSeed(MovieId, Title, Signal)`). `Reasons` is gone from the shared result; `SimilarityResult.Reasons` and `Reason` remain untouched so the offline evaluation artifact schema is preserved.
+- `GetForYouRecommendationsQueryHandler.ToRecommendedMovie` maps `NearestSeedMatch.SeedMovieId/SeedTitle/Signal` into `Seed` and builds evidence through the shared formatter; the seed title passes the same display-boundary control-character sanitization.
+- `GetRecommendationsQueryHandler.FinishScore` no longer discards `Breakdown` into `BuildReasons`; it preserves `similarity.Breakdown` on the blended result and `HandleAsync` projects evidence from it. The legacy "No shared features identified" fallback is retired: an empty evidence list is the contract's valid representation.
+- `SimilarityScorer.BuildEvidence(similarity, options)` is the single pure Core formatter used by both routes: table-threshold displayability (`ThemesDisplayThreshold`/`PlotDisplayThreshold`/`GenreDisplayThreshold`, value > 0, `Plot` allowed with no names), strongest-first by `Contribution` with table-order tie-break, label per criterion (`Same collection`/`Same director`/`Shared themes`/`Similar story`/`Shared cast`/`Same genres`), first three sanitized names plus ` +N`, and full ordered `MatchedNames`.
+- `RecommendedMovieDto` exposes `evidence` (required, `RecommendationEvidenceDto{Criterion,Text,MatchedNames}`) and `seed` (`RecommendationSeedDto? Seed = null`, property-level `JsonIgnoreCondition.WhenWritingNull`, declared after `evidence` so the optional parameter can sit last). Related omits the key; For You always populates it.
+- Closed signal mapping: `RecommendationSeedSignal { Liked, Watched, Watchlist }` in `RecommendedMovieDto.cs`, each annotated `JsonStringEnumMemberName("liked"/"watched"/"watchlist")`. The app's existing `JsonStringEnumConverter` plus the OpenAPI schema exporter therefore emit exactly `liked`/`watched`/`watchlist` with no new transformer, no `Program.cs` registration and no file outside the plan envelope; `RecommendationEndpoints.Signal` still throws on any unmapped `SeedSignal`.
+- Retired inside the ruled envelope: `RecommendationReasonBuilder.cs` and its surviving-caller test file (zero remaining callers), `RecommendationEndpoints.ToReasonDto`/`Kind`, `RecommendedMovieReasonDto`. `Reason.cs` is retained because `SimilarityResult.Reasons` still has live evaluation consumers.
+
+### 2. Tests (T002, T003)
+
+- T002 — `ApiEndToEndRecommendationTests` and `RecommendationEndpointTests` parse real serialized JSON: exact field-name inventories (Related 13 names without `seed`, For You 14 with it), any-casing rejection of `reasons` on both routes and of `seed` on Related (including the null case), populated For You `seed.movieId/title/signal`, exact per-route criterion sequences, server text and complete matched-name order, empty-evidence array shape, evidence triple key set, preserved ids/scores/handler order, existing pending-enrichment empty Related 200, and absence of the retired "Matches your viewing history" copy in both fixture bodies.
+- T003 — `SimilarityScorerTests` pins `Shared cast: Name One, Name Two, Name Three +2` with all five ordered names, the zero-name `Plot` case, no-name non-Plot omission, three-name display without a suffix, a ten-name `+7` case, control-character removal at the display boundary, and strongest-first/table-tie-break ordering; three FsCheck properties cover ordered-name preservation, the three-name cap with the omitted count, and the up-to-three-name display.
+- Compile-forced mechanical updates to existing `RecommendedMovie` consumers/tests: `GetRecommendationsQueryHandlerTests`, `GetRecommendationsQueryHandlerPropertyTests`, `GetForYouRecommendationsQueryHandlerTests`, `ReviewRankingHandlerTests`, `ForYouRecommendationsPageTests`, `EfRecommendationCandidateSourceTests`, and the `RecommendedMovieDto` assertions plus schema inventory in `OpenApiContractTests` (`RecommendedMovieReasonDto` replaced by `RecommendationSeedDto`, `RecommendationSignal` values, `RecommendationEvidenceDto`). Fallback-reason assertions became empty-evidence assertions.
+
+### 3. Regeneration (T005)
+
+- `LAMUFLIX_REGENERATE_OPENAPI=true` on `OpenApiRegeneration` wrote `web/src/api/openapi.json` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` together (exit 0).
+- `npm run generate:api` in `web/` regenerated `web/src/api/types.ts` (`seed?: null | RecommendationSeedDto`, `evidence: RecommendationEvidenceDto[]`, `RecommendationSeedSignal: "liked" | "watched" | "watchlist"`, no `reasons`) and rewrote `web/src/mocks/handlers.ts` byte-identically.
+- `npm run check:api` exits 0 on the committed artifacts.
+
+### 4. Checkpoint evidence (T006)
+
+- `RecommendationSeedSignal` schema: `{"enum": ["liked", "watched", "watchlist"]}`; `RecommendedMovieDto.required` = the 13 fields including `evidence` and excluding `seed`; `seed` = `oneOf [null, RecommendationSeedDto]`; `RecommendedMovieReasonDto` absent from the document.
+- Suites: `LamuFlix.UnitTests` 4198 total, 0 failed, 1 skipped; `LamuFlix.IntegrationTests` 1870 total, 0 failed, 2 skipped; `LamuFlix.ArchitectureTests` 16/16; `LamuFlix.Evaluation.IntegrationTests` 68/68; `OpenApiContractTests` 23 passed + 1 opt-in-skip; `dotnet format --verify-no-changes` exit 0.
+- Not in this checkpoint: `web` typecheck/lint/component tests and the For You e2e still read `movie.reasons` (`web/src/library/MovieCard.tsx`, `web/src/features/for-you/ForYouPage.tsx`, `web/src/features/movie-details/RelatedMovies.tsx`, `web/src/mocks/fixtures.ts`, `RelatedMovies.test.tsx`, `MovieDetailsView.test.tsx`, `web/e2e/dev518-related-reasons.e2e.ts`, `web/e2e/for-you-review.e2e.ts`). Migrating them is T007/T009/T011/T012, and the web checkpoint that proves them is T010; the generated types are intentionally ahead of those consumers while the transition stays in this one working unit.
+
+### 5. Integration base and handoff
+
+- Integration base remains `origin/main` `326756db6733ce0032284919a866a5995f9f5d9d` plus DEV-542 commits.
+- DEV-542 lands first; DEV-541 rebases onto that landed result before regenerating the baseline, drift snapshot, `types.ts` and `handlers.ts`. DEV-542 blocks DEV-538.
+- Observed, not edited (evaluation tooling): `scripts/run-recommendation-snapshot.ps1` and `RecommendationSnapshotCommandTests` still read the retired `reasons` wire key, so the home-library snapshot capture would record empty reason lists against the new API. That artifact schema is deliberately preserved by the T001 Pickup Attempt 2 ruling; the script-to-wire mismatch is a follow-up, not a Phase 2 finding.

@@ -99,7 +99,7 @@ public sealed class GetRecommendationsQueryHandler(
                 .Select(item => new RecommendedMovie(
                     item.Library.Summary,
                     item.Result.Score,
-                    item.Result.Reasons)),
+                    SimilarityScorer.BuildEvidence(item.Result, recommendationOptions))),
         ];
     }
 
@@ -299,13 +299,6 @@ public sealed class GetRecommendationsQueryHandler(
         return strongReasonCriteria.Contains(contribution.Name);
     }
 
-    private static ImmutableList<Reason> BuildReasons(ImmutableList<Reason> structuralReasons)
-    {
-        var builder = structuralReasons.ToBuilder();
-        RecommendationReasonBuilder.EnsureFallbackReason(builder);
-        return builder.ToImmutable();
-    }
-
     private sealed class EntryScoring(
         MovieFeatures selectedFeatures,
         IReadOnlySet<string> strongReasonCriteria,
@@ -349,7 +342,7 @@ public sealed class GetRecommendationsQueryHandler(
             return new ScoredCandidate(
                 entry,
                 entry.Features,
-                new SimilarityResult(score, BuildReasons(similarity.Reasons)),
+                new SimilarityResult(score, similarity.Reasons) { Breakdown = similarity.Breakdown },
                 tier);
         }
     }

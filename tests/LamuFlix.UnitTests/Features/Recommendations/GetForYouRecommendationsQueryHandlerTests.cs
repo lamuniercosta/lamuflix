@@ -105,10 +105,10 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // assert
         var item = result.Items.ShouldHaveSingleItem();
         item.Score.ShouldBe(1.0, Tolerance);
-        item.Reasons.ShouldBe(
+        item.Seed.ShouldBe(new RecommendationSeed(90, "Alien", SeedSignal.Liked));
+        item.Evidence.ShouldBe(
         [
-            Reason.Personal("Because you liked Alien"),
-            Reason.Structural("Same genres: Drama"),
+            new RecommendationEvidence("Genre", "Same genres: Drama", ["Drama"]),
         ]);
     }
 
@@ -127,7 +127,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // assert
         var item = result.Items.ShouldHaveSingleItem();
         item.Score.ShouldBe(0.6, Tolerance);
-        item.Reasons[0].ShouldBe(Reason.Personal("Because you watched Alien"));
+        item.Seed.ShouldBe(new RecommendationSeed(90, "Alien", SeedSignal.WatchedWithoutReview));
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // assert
         var item = result.Items.ShouldHaveSingleItem();
         item.Score.ShouldBe(0.4, Tolerance);
-        item.Reasons[0].ShouldBe(Reason.Personal("Because Alien is on your watchlist"));
+        item.Seed.ShouldBe(new RecommendationSeed(90, "Alien", SeedSignal.Watchlist));
     }
 
     [Fact]
@@ -163,8 +163,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // assert
         var item = result.Items.ShouldHaveSingleItem();
         item.Score.ShouldBe(1.0, Tolerance);
-        item.Reasons.Count(reason => reason.Kind == ReasonKind.Personal).ShouldBe(1);
-        item.Reasons[0].ShouldBe(Reason.Personal("Because you liked Alien"));
+        item.Seed.ShouldBe(new RecommendationSeed(90, "Alien", SeedSignal.Liked));
     }
 
     [Fact]
@@ -274,8 +273,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // assert
         var item = result.Items.ShouldHaveSingleItem();
         item.Score.ShouldBe(0.2, Tolerance);
-        item.Reasons[0].ShouldBe(Reason.Personal("Because you liked Alien"));
-        item.Reasons.ShouldContain(Reason.Structural("Same director: Ridley Scott"));
+        item.Seed.ShouldBe(new RecommendationSeed(90, "Alien", SeedSignal.Liked));
+        item.Evidence.ShouldContain(new RecommendationEvidence("Director", "Same director: Ridley Scott", ["Ridley Scott"]));
     }
 
     [Fact]
@@ -324,7 +323,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var item = result.Items.ShouldHaveSingleItem();
         item.Summary.Id.ShouldBe(new MovieId(3));
         item.Score.ShouldBe(0.0, Tolerance);
-        item.Reasons[0].ShouldBe(Reason.Personal("Because you liked Alien"));
+        item.Seed.ShouldBe(new RecommendationSeed(90, "Alien", SeedSignal.Liked));
     }
 
     [Fact]
@@ -438,7 +437,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
         // assert
         var item = result.Items.Single(movie => movie.Summary.Id.Value == 2);
-        item.Reasons[0].ShouldBe(Reason.Personal("Because you liked Director Seed"));
+        item.Seed.ShouldBe(new RecommendationSeed(13, "Director Seed", SeedSignal.Liked));
         item.Score.ShouldBe(0.23333333333333334, Tolerance);
     }
 
@@ -472,8 +471,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        result.Items.ShouldHaveSingleItem().Reasons[0]
-            .ShouldBe(Reason.Personal("Because you liked Alien {Director's} <b>Cut</b>"));
+        result.Items.ShouldHaveSingleItem().Seed.ShouldBe(
+            new RecommendationSeed(90, "Alien {Director's} <b>Cut</b>", SeedSignal.Liked));
     }
 
     [Fact]
@@ -489,7 +488,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
-        var texts = result.Items.SelectMany(item => item.Reasons).Select(reason => reason.Text).ToArray();
+        var texts = result.Items.SelectMany(item => item.Evidence).Select(evidence => evidence.Text).ToArray();
         texts.ShouldNotContain("Matches your viewing history");
         texts.ShouldNotContain("Matches your Drama interest");
         texts.ShouldNotContain("No shared features identified");
@@ -1118,7 +1117,8 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
         && first.Zip(second).All(pair =>
             pair.First.Summary.Id == pair.Second.Summary.Id
             && Math.Abs(pair.First.Score - pair.Second.Score) < 1e-12
-            && pair.First.Reasons.SequenceEqual(pair.Second.Reasons));
+            && pair.First.Seed == pair.Second.Seed
+            && pair.First.Evidence.SequenceEqual(pair.Second.Evidence));
 
     private static int Take(int takeSeed) => (Math.Abs(takeSeed % 20)) + 1;
 

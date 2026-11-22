@@ -69,7 +69,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
         var items = retained
             .Skip(query.Offset)
             .Take(take)
-            .Select(ToRecommendedMovie)
+            .Select(match => ToRecommendedMovie(match, recommendationOptions))
             .ToImmutableList();
 
         return new ForYouRecommendationsPage(items, retained.Count > (long)query.Offset + take);
@@ -78,14 +78,15 @@ public sealed class GetForYouRecommendationsQueryHandler(
     private static ForYouRecommendationsPage EmptyPage =>
         new(ImmutableList<RecommendedMovie>.Empty, false);
 
-    private static RecommendedMovie ToRecommendedMovie(NearestSeedMatch match) =>
+    private static RecommendedMovie ToRecommendedMovie(NearestSeedMatch match, RecommendationOptions recommendationOptions) =>
         new(
             match.Candidate.Summary,
             match.Score,
-            RecommendationReasonBuilder.BuildSeedReasons(
-                match.Signal,
-                match.SeedTitle,
-                match.Pair.Reasons));
+            SimilarityScorer.BuildEvidence(match.Pair, recommendationOptions),
+            new RecommendationSeed(
+                match.SeedMovieId.Value,
+                SimilarityScorer.SanitizeDisplayText(match.SeedTitle),
+                match.Signal));
 
     private static List<RecommendationLibraryEntry> Eligible(
         IReadOnlyList<RecommendationLibraryEntry> library,

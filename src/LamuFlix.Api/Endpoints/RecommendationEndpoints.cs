@@ -167,17 +167,6 @@ internal static class RecommendationEndpoints
         return ids.ToImmutable();
     }
 
-    private static RecommendedMovieReasonDto ToReasonDto(Reason reason) =>
-        new(Kind(reason.Kind), reason.Text);
-
-    private static string Kind(ReasonKind kind) =>
-        kind switch
-        {
-            ReasonKind.Structural => "structural",
-            ReasonKind.Personal => "personal",
-            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown reason kind."),
-        };
-
     private static RecommendedMovieDto ToDto(RecommendedMovie recommendedMovie)
     {
         var summary = recommendedMovie.Summary;
@@ -195,6 +184,22 @@ internal static class RecommendationEndpoints
             summary.IsNotInterested,
             summary.Review.Name,
             recommendedMovie.Score,
-            [.. recommendedMovie.Reasons.Select(ToReasonDto)]);
+            [.. recommendedMovie.Evidence.Select(ToEvidenceDto)],
+            ToSeedDto(recommendedMovie.Seed));
     }
+
+    private static RecommendationSeedDto? ToSeedDto(RecommendationSeed? seed) =>
+        seed is null ? null : new RecommendationSeedDto(seed.MovieId, seed.Title, Signal(seed.Signal));
+
+    private static RecommendationSeedSignal Signal(SeedSignal signal) =>
+        signal switch
+        {
+            SeedSignal.Liked => RecommendationSeedSignal.Liked,
+            SeedSignal.WatchedWithoutReview => RecommendationSeedSignal.Watched,
+            SeedSignal.Watchlist => RecommendationSeedSignal.Watchlist,
+            _ => throw new ArgumentOutOfRangeException(nameof(signal), signal, "Unknown seed signal."),
+        };
+
+    private static RecommendationEvidenceDto ToEvidenceDto(RecommendationEvidence evidence) =>
+        new(evidence.Criterion, evidence.Text, evidence.MatchedNames);
 }
