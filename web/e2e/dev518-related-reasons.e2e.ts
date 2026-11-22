@@ -23,7 +23,7 @@ const context = loadContext();
 
 const seedTitle = 'A Fistful of Dollars';
 const relatedTitle = 'The Good, the Bad and the Ugly';
-const forbiddenReasonPatterns = [
+const forbiddenEvidencePatterns = [
   /runtime/i,
   /IMDb rating/i,
   /\bwriter/i,
@@ -45,21 +45,21 @@ async function readRelated(movieId: string): Promise<RecommendedMovie[]> {
   return (await response.json()) as RecommendedMovie[];
 }
 
-function reasonTexts(movie: RecommendedMovie): string[] {
-  return (movie.reasons ?? []).map((reason) => reason.text);
+function evidenceTexts(movie: RecommendedMovie): string[] {
+  return movie.evidence.map((item) => item.text);
 }
 
-function expectReasonsContract(texts: string[], owner: string): void {
+function expectEvidenceContract(texts: string[], owner: string): void {
   for (const text of texts) {
-    for (const pattern of forbiddenReasonPatterns) {
-      expect(text, `${owner} reason must not carry removed criteria (${pattern})`).not.toMatch(
+    for (const pattern of forbiddenEvidencePatterns) {
+      expect(text, `${owner} evidence must not carry removed criteria (${pattern})`).not.toMatch(
         pattern,
       );
     }
   }
 }
 
-test.describe('DEV-518 related reasons', () => {
+test.describe('DEV-518 related evidence', () => {
   test('SMOKE-001 (DEV-518) Related lists The Good, the Bad and the Ugly with Same director and Shared themes', async ({
     page,
   }) => {
@@ -74,24 +74,24 @@ test.describe('DEV-518 related reasons', () => {
       for (const candidate of candidates) {
         const related = await readRelated(String(candidate.id));
         for (const item of related) {
-          expectReasonsContract(reasonTexts(item), item.title);
+          expectEvidenceContract(evidenceTexts(item), item.title);
           contractChecked = true;
         }
         if (contractChecked) {
           break;
         }
       }
-      expect(contractChecked, 'at least one Related rail carries reasons to check').toBe(true);
+      expect(contractChecked, 'at least one Related rail carries evidence to check').toBe(true);
       return;
     }
 
     const related = await readRelated(String(seed.id));
     const match = related.find((movie) => movie.title === relatedTitle);
     expect(match, `${relatedTitle} is related to ${seedTitle}`).toBeDefined();
-    const texts = reasonTexts(match as RecommendedMovie);
+    const texts = evidenceTexts(match as RecommendedMovie);
     expect(texts.some((text) => text.startsWith('Same director'))).toBe(true);
     expect(texts.some((text) => text.startsWith('Shared themes'))).toBe(true);
-    expectReasonsContract(texts, relatedTitle);
+    expectEvidenceContract(texts, relatedTitle);
 
     await page.goto(new URL(`/movies/${String(seed.id)}`, context.baseURL).href);
     await expect(page.getByRole('heading', { name: 'Related movies' })).toBeVisible({

@@ -125,9 +125,17 @@ const relatedMoviesData = [
     isNotInterested: false,
     review: 'liked',
     score: 0.82,
-    reasons: [
-      { kind: 'structural', text: 'Same director' },
-      { kind: 'personal', text: 'Matches your Drama interest' },
+    evidence: [
+      {
+        criterion: 'Director',
+        text: 'Same director: Denis Villeneuve',
+        matchedNames: ['Denis Villeneuve'],
+      },
+      {
+        criterion: 'Themes',
+        text: 'Shared themes: first contact, language',
+        matchedNames: ['first contact', 'language'],
+      },
     ],
   },
   {
@@ -143,7 +151,7 @@ const relatedMoviesData = [
     isNotInterested: false,
     review: 'none',
     score: 0.77,
-    reasons: [],
+    evidence: [],
   },
   {
     id: 4,
@@ -158,7 +166,13 @@ const relatedMoviesData = [
     isNotInterested: false,
     review: 'none',
     score: 0.64,
-    reasons: [{ kind: 'structural', text: 'Same director' }],
+    evidence: [
+      {
+        criterion: 'Director',
+        text: 'Same director: Denis Villeneuve',
+        matchedNames: ['Denis Villeneuve'],
+      },
+    ],
   },
 ] satisfies Schemas['RecommendedMovieDto'][];
 

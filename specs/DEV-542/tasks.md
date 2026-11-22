@@ -109,11 +109,11 @@ Ordering per brief Task ordering: **Gate 1 → dependency checkpoint/before scre
 
 ### Tests for User Story 3
 
-- [ ] T011 [US3] **Build lane**. After T009: Rewrite the four tests at `web/src/features/movie-details/RelatedMovies.test.tsx` lines 125, 148, 548 and 580 using the generated evidence shape. Assert ordered evidence, evidence-only cards and no invented copy for empty evidence. Cover the shared desktop cap locally. T010 owns the both-surface small-width/viewport clause (FR-007–FR-008, FR-011; SC-004; SMOKE-002).
+- [x] T011 [US3] **Build lane**. After T009: Rewrite the four tests at `web/src/features/movie-details/RelatedMovies.test.tsx` lines 125, 148, 548 and 580 using the generated evidence shape. Assert ordered evidence, evidence-only cards and no invented copy for empty evidence. Cover the shared desktop cap locally. T010 owns the both-surface small-width/viewport clause (FR-007–FR-008, FR-011; SC-004; SMOKE-002).
 
 ### Implementation for User Story 3
 
-- [ ] T012 [US3] **Build lane**. After T011 authored: Update `web/src/features/movie-details/RelatedMovies.tsx` and `web/src/features/movie-details/RelatedMovies.css` to pass/render evidence without a seed line and remove legacy reasons presentation — do not retain `reasons` to bridge the transition (FR-007–FR-008). Make the locally runnable T011 suite green; do not gate T012 on browser/viewport execution (that is T010).
+- [x] T012 [US3] **Build lane**. After T011 authored: Update `web/src/features/movie-details/RelatedMovies.tsx` and `web/src/features/movie-details/RelatedMovies.css` to pass/render evidence without a seed line and remove legacy reasons presentation — do not retain `reasons` to bridge the transition (FR-007–FR-008). Make the locally runnable T011 suite green; do not gate T012 on browser/viewport execution (that is T010).
 
 **Checkpoint**: Both generated-contract consumers (For You and Related) compile without `reasons`. Unlocks Phase 5 full web/e2e and browser/viewport checks.
 

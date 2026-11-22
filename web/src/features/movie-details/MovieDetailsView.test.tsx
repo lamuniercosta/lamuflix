@@ -688,7 +688,9 @@ describe('MovieDetailsView related movies integration', () => {
 
     const arrival = within(region).getByRole('link', { name: /Arrival/ });
     expect(
-      within(arrival.closest('article') as HTMLElement).getByText('Same director'),
+      within(arrival.closest('article') as HTMLElement).getByText(
+        'Same director: Denis Villeneuve',
+      ),
     ).toBeInTheDocument();
     expect(within(region).getByRole('link', { name: /Prisoners/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'File' })).toBeInTheDocument();
@@ -979,7 +981,7 @@ describe('MovieDetailsView feedback actions', () => {
     expect(fetches).toBe(3);
   });
 
-  it('renders no fabricated reasons on ordinary Details data', async () => {
+  it('renders no fabricated recommendation evidence on ordinary Details data', async () => {
     // arrange
     server.use(
       http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
@@ -992,7 +994,7 @@ describe('MovieDetailsView feedback actions', () => {
     // assert
     await screen.findByRole('heading', { name: 'Dune' });
     await screen.findByText('No close match in your library.');
-    expect(container.querySelector('.related-movie-reason')).toBeNull();
+    expect(container.querySelector('.movie-card-evidence')).toBeNull();
   });
 });
 

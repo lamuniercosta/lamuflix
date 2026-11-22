@@ -70,22 +70,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.related-movie-reasons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--lamu-space-1);
-  margin-top: var(--lamu-space-1);
-}
-
-.related-movie-reason {
-  padding: 0.125rem 0.5rem;
-  border-radius: var(--lamu-radius-control);
-  background: color-mix(in srgb, var(--color-boundary) 16%, transparent);
-  color: var(--color-dim);
-  font-size: 0.8125rem;
-  line-height: 1.4;
-}
-
 .movie-card-evidence {
   display: grid;
   gap: 0.125rem;

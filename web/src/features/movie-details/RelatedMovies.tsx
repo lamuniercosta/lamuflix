@@ -100,7 +100,7 @@ export default function RelatedMovies({ movieId, libraryClient }: RelatedMoviesP
             <MovieCard
               key={String(movie.id)}
               movie={{ ...movie, failureCategory: null, failureMessage: null }}
-              reasons={movie.reasons}
+              evidence={movie.evidence}
               feedbackClients={feedbackClients}
               onOpenMovie={openRecommendedMovie}
               className="related-movie-card"
