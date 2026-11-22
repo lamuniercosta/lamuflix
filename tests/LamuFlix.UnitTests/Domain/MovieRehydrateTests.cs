@@ -54,10 +54,17 @@ public sealed class MovieRehydrateTests
     [Theory]
     [InlineData("")]
     [InlineData(" ")]
+    [InlineData("")]
+    [InlineData(" ")]
     public void Rehydrate_RejectsBlankTitle(string title)
     {
-        Should.Throw<ArgumentException>(() => Movie.Rehydrate(
+        // act
+        var thrown = Should.Throw<ArgumentException>(() => Movie.Rehydrate(
             new MovieId(1), title, new LibraryPath("C:/movie.mkv"), new MediaFormat("mkv"), false,
             null, EnrichmentStatus.Pending, null, 0, null, null));
+
+        // assert
+        thrown.ParamName.ShouldBe("title");
+        thrown.Message.ShouldContain("Title is required");
     }
 }
