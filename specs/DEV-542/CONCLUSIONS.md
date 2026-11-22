@@ -252,3 +252,31 @@ A cited Patron ruling that either (a) extends the authorized envelope to the pat
 - Integration base remains `origin/main` `326756db6733ce0032284919a866a5995f9f5d9d` plus DEV-542 commits.
 - DEV-542 lands first; DEV-541 rebases onto that landed result before regenerating the baseline, drift snapshot, `types.ts` and `handlers.ts`. DEV-542 blocks DEV-538.
 - Observed, not edited (evaluation tooling): `scripts/run-recommendation-snapshot.ps1` and `RecommendationSnapshotCommandTests` still read the retired `reasons` wire key, so the home-library snapshot capture would record empty reason lists against the new API. That artifact schema is deliberately preserved by the T001 Pickup Attempt 2 ruling; the script-to-wire mismatch is a follow-up, not a Phase 2 finding.
+
+## Phase 3 (US2) Receipt — For You cards show seed then evidence
+
+**Verdict.** Phase 3 checkpoint PASSES for the For You surface: the For You consumer and the shared `MovieCard` compile and present seed-then-evidence against the generated contract, and locally runnable component coverage is green. Phase 2 base `f268d224`; T007 and T009 marked `[x]`. No Related-surface edit was made (Phase 4).
+
+### 1. Tests authored first (T007, red then green)
+
+- `web/src/library/MovieCard.test.tsx`: seed line for all three signals (`Because you liked/watched {title}`, `Because {title} is on your watchlist`) with `href="/movies/{seedId}"` and accessible name `Open {title}`; no seed line and no evidence list when the optional seed/evidence are absent; delivered evidence text rendered verbatim in a semantic list capped at two entries (five-name fixture text `Shared cast: Name One, Name Two, Name Three +2`, and `Name Four` never rendered from `matchedNames`); zero evidence produces no list and no invented copy; seed line precedes the evidence list in document order; seed and recommendation anchors have distinct hrefs and are independently focusable, keyboard-activatable and clickable, calling `onOpenMovie` with 42 vs 1 respectively.
+- `web/src/features/for-you/ForYouPage.test.tsx`: a For You card shows `Because you watched Dune` (seed `Open Dune`, `href="/movies/2"`) before the two capped evidence lines, with seed click routing to the seed id (2) and title click routing to the recommendation id (7). Card enumeration is scoped with `recommendationCards(list)` (`:scope > [role="listitem"]`) because the evidence `ul` now nests list items inside the grid `role="list"`.
+- `web/src/mocks/forYou.test.ts` updated to assert the migrated fixture (`seed`/`evidence`, empty-evidence row, nullable poster) instead of `reasons`.
+
+### 2. Implementation (T009)
+
+- `web/src/library/MovieCard.tsx`: `reasons`/`MovieCardReason` removed; new `seed?: RecommendationSeed | null` and `evidence?: ReadonlyArray<RecommendationEvidence>` props typed from `components['schemas']`. `SEED_LINES` is an exhaustive `Record<RecommendationSeed['signal'], (title) => string>` so the three ticket templates live in one place. The seed anchor is a sibling of the recommendation anchor (outside it), so it is its own navigation target, and the shared `handleOpen(event, targetId)` keeps click routing identical for both. Evidence renders as `ul.movie-card-evidence > li` as plain text, sliced at `EVIDENCE_LIMIT = 2`.
+- `web/src/features/for-you/ForYouPage.tsx`: passes `seed={movie.seed}` and `evidence={movie.evidence}` (no `reasons` bridge).
+- `web/src/library/library.css`: `.movie-card-seed` at `position: relative; z-index: 2` so it sits above the title's stretched-link overlay (`library.css` `.movie-card-title a::after`, `z-index: 1`) and stays pointer-operable, plus hover/focus underline.
+- `web/src/features/movie-details/RelatedMovies.css`: the T001-recorded shared responsive rule — file `RelatedMovies.css`, selector `.movie-card-evidence`, existing `@media (max-width: 47.9375rem)` — hides `li:nth-child(n + 2)` at small widths so the visible and accessible lists agree (two desktop / one small). Legacy `.related-movie-reasons`/`.related-movie-reason` rules are left for T012 to remove with the Related consumer.
+
+### 3. Verification
+
+- Focused suites: `npx vitest run src/library/MovieCard.test.tsx src/features/for-you/ForYouPage.test.tsx src/mocks/forYou.test.ts src/features/for-you/forYouApi.test.ts` — 4 files, 41 tests passed.
+- Full web suite (run for an honest phase delta): 72 files passed, 2 failed, 4 tests failed — all four are Related-surface tests owned by Phase 4 (`RelatedMovies.test.tsx` three cases and `MovieDetailsView.test.tsx` "renders Related movies after More with and before File when populated"), which still build `reasons` fixtures. No For You, MovieCard, mock or API-consumer test fails.
+- `npx tsc --noEmit`: the For You consumer, `MovieCard` and the migrated fixtures are clean. The 19 remaining errors are confined to the Phase 4 Related surface: `RelatedMovies.tsx` (2), `RelatedMovies.test.tsx` (14) and the `relatedMoviesData` fixture block in `web/src/mocks/fixtures.ts` (3). Full typecheck and `npm run check:api` remain T010 work, as the task states.
+- `npx eslint` on all six changed TS files: exit 0. `npx prettier --check` on all eight changed files: clean.
+
+### 4. Phase boundary
+
+T007/T009 are complete. T008/T010 (e2e, browser/viewport, home-library, full gates) stay blocked until the Related consumer migrates in T011/T012, which is Phase 4 and was not started.

@@ -36,7 +36,8 @@ export default function ForYouPage({ onOpenMovie }: ForYouPageProps) {
             <div key={String(movie.id)} role="listitem">
               <MovieCard
                 movie={{ ...movie, failureCategory: null, failureMessage: null }}
-                reasons={movie.reasons}
+                seed={movie.seed}
+                evidence={movie.evidence}
                 onOpenMovie={onOpenMovie}
               />
             </div>
