@@ -377,7 +377,7 @@ public static class SimilarityScorer
         var themes = ThemesPreparedValue(a, b, context);
         var plot = PlotPreparedValue(a, b, context);
         var cast = Math.Min(1.0, SharedCount(a.Cast, b.Cast) / 2.0);
-        var genre = context.GenreWeights.SimilaritySorted(
+        var genre = GenreWeights.SimilaritySorted(
             a.GenresSorted,
             a.GenreWeightValues,
             b.GenresSorted,
@@ -401,14 +401,16 @@ public static class SimilarityScorer
             return true;
         }
 
-        var weights = context.Options.Weights;
-        return IsStrongTerm("Collection", similarity.Collection, weights.Collection, criteria)
+        return HasStrongTerm(similarity, context.Options.Weights, criteria);
+    }
+
+    private static bool HasStrongTerm(FastSimilarity similarity, SimilarityWeights weights, IReadOnlySet<string> criteria) =>
+        IsStrongTerm("Collection", similarity.Collection, weights.Collection, criteria)
             || IsStrongTerm("Director", similarity.Director, weights.Director, criteria)
             || IsStrongTerm("Themes", similarity.Themes, weights.Themes, criteria)
             || IsStrongTerm("Plot", similarity.Plot, weights.Plot, criteria)
             || IsStrongTerm("Cast", similarity.Cast, weights.Cast, criteria)
             || IsStrongTerm("Genre", similarity.Genre, weights.Genres, criteria);
-    }
 
     private static bool IsStrongTerm(string name, double value, double weight, IReadOnlySet<string> criteria) =>
         weight > 0.0 && value >= 1.0 && criteria.Contains(name);
@@ -454,28 +456,39 @@ public static class SimilarityScorer
 
     private static double PlotPreparedValue(PreparedMovie a, PreparedMovie b, ScoringContext context)
     {
-        if (a.PlotEmbedding.IsDefaultOrEmpty
+        if (HasUnusablePlotEmbedding(a, b))
+        {
+            return 0.0;
+        }
+
+        if (HasZeroPlotNorm(a, b))
+        {
+            return 0.0;
+        }
+
+        var cosine = PlotCosine(a, b);
+        return Math.Clamp((cosine - context.Options.PlotFloor) / (context.Options.PlotCeiling - context.Options.PlotFloor), 0.0, 1.0);
+    }
+
+    private static bool HasUnusablePlotEmbedding(PreparedMovie a, PreparedMovie b) =>
+        a.PlotEmbedding.IsDefaultOrEmpty
             || b.PlotEmbedding.IsDefaultOrEmpty
             || a.PlotEmbedding.Length != b.PlotEmbedding.Length
             || a.PlotHasNonFinite
-            || b.PlotHasNonFinite)
-        {
-            return 0.0;
-        }
+            || b.PlotHasNonFinite;
 
-        if (a.PlotNormSquares == 0.0 || b.PlotNormSquares == 0.0)
-        {
-            return 0.0;
-        }
+    private static bool HasZeroPlotNorm(PreparedMovie a, PreparedMovie b) =>
+        a.PlotNormSquares == 0.0 || b.PlotNormSquares == 0.0;
 
+    private static double PlotCosine(PreparedMovie a, PreparedMovie b)
+    {
         var dot = 0.0;
         for (var index = 0; index < a.PlotEmbedding.Length; index++)
         {
             dot += a.PlotEmbedding[index] * b.PlotEmbedding[index];
         }
 
-        var cosine = Math.Clamp(dot / (Math.Sqrt(a.PlotNormSquares) * Math.Sqrt(b.PlotNormSquares)), -1.0, 1.0);
-        return Math.Clamp((cosine - context.Options.PlotFloor) / (context.Options.PlotCeiling - context.Options.PlotFloor), 0.0, 1.0);
+        return Math.Clamp(dot / (Math.Sqrt(a.PlotNormSquares) * Math.Sqrt(b.PlotNormSquares)), -1.0, 1.0);
     }
 }
 

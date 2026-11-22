@@ -82,18 +82,39 @@ public sealed class GenreWeights
         return sorted;
     }
 
-    internal double SimilaritySorted(string[] left, double[] leftWeights, string[] right, double[] rightWeights)
+    internal static double SimilaritySorted(string[] left, double[] leftWeights, string[] right, double[] rightWeights)
     {
-        Span<bool> rightMissing = stackalloc bool[right.Length];
-        for (var index = 0; index < right.Length; index++)
-        {
-            rightMissing[index] = !ContainsGenre(left, right[index]);
-        }
-
+        var rightMissing = MissingFlags(left, right);
         var weights = new GenreMergeWeights(0.0, 0.0);
         var leftIndex = 0;
         var rightIndex = 0;
+        MergeOverlap(left, leftWeights, right, rightWeights, rightMissing, ref weights, ref leftIndex, ref rightIndex);
+        DrainLeft(left, leftWeights, right, ref weights, ref leftIndex);
+        DrainRight(right, rightWeights, rightMissing, ref weights, ref rightIndex);
+        return NormalizeMerge(weights);
+    }
 
+    private static bool[] MissingFlags(string[] left, string[] right)
+    {
+        var missing = new bool[right.Length];
+        for (var index = 0; index < right.Length; index++)
+        {
+            missing[index] = !ContainsGenre(left, right[index]);
+        }
+
+        return missing;
+    }
+
+    private static void MergeOverlap(
+        string[] left,
+        double[] leftWeights,
+        string[] right,
+        double[] rightWeights,
+        bool[] rightMissing,
+        ref GenreMergeWeights weights,
+        ref int leftIndex,
+        ref int rightIndex)
+    {
         while (leftIndex < left.Length && rightIndex < right.Length)
         {
             if (!rightMissing[rightIndex])
@@ -111,13 +132,19 @@ public sealed class GenreWeights
                 rightIndex++;
             }
         }
+    }
 
+    private static void DrainLeft(string[] left, double[] leftWeights, string[] right, ref GenreMergeWeights weights, ref int leftIndex)
+    {
         while (leftIndex < left.Length)
         {
             weights = AddLeftMember(weights, leftWeights[leftIndex], left[leftIndex], right);
             leftIndex++;
         }
+    }
 
+    private static void DrainRight(string[] right, double[] rightWeights, bool[] rightMissing, ref GenreMergeWeights weights, ref int rightIndex)
+    {
         while (rightIndex < right.Length)
         {
             if (rightMissing[rightIndex])
@@ -127,14 +154,10 @@ public sealed class GenreWeights
 
             rightIndex++;
         }
-
-        if (weights.Union == 0.0)
-        {
-            return 0.0;
-        }
-
-        return Math.Clamp(weights.Intersection / weights.Union, 0.0, 1.0);
     }
+
+    private static double NormalizeMerge(GenreMergeWeights weights) =>
+        weights.Union == 0.0 ? 0.0 : Math.Clamp(weights.Intersection / weights.Union, 0.0, 1.0);
 
     private static GenreMergeWeights AddLeftMember(GenreMergeWeights weights, double weight, string genre, string[] right) =>
         new(

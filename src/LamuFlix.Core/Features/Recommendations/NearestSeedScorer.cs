@@ -296,26 +296,37 @@ public static class NearestSeedScorer
 
         foreach (var (entry, prepared) in disliked)
         {
-            if (entry.Id == candidateId)
-            {
-                continue;
-            }
-
-            var similarity = SimilarityScorer.ScorePreparedValues(candidate, prepared, context);
-
-            if (!double.IsFinite(similarity.Score))
-            {
-                continue;
-            }
-
-            if (!found || similarity.Score > maximum)
-            {
-                maximum = similarity.Score;
-                found = true;
-            }
+            var score = TryDislikedScore(candidateId, candidate, entry, prepared, context);
+            (maximum, found) = TrackMaximum(maximum, found, score);
         }
 
         return found ? maximum * context.Options.DislikedSeedWeight : 0.0;
+    }
+
+    private static double? TryDislikedScore(
+        MovieId candidateId,
+        PreparedMovie candidate,
+        RecommendationLibraryEntry entry,
+        PreparedMovie prepared,
+        ScoringContext context)
+    {
+        if (entry.Id == candidateId)
+        {
+            return null;
+        }
+
+        var similarity = SimilarityScorer.ScorePreparedValues(candidate, prepared, context);
+        return double.IsFinite(similarity.Score) ? similarity.Score : null;
+    }
+
+    private static (double Maximum, bool Found) TrackMaximum(double maximum, bool found, double? score)
+    {
+        if (score is null)
+        {
+            return (maximum, found);
+        }
+
+        return !found || score.Value > maximum ? (score.Value, true) : (maximum, found);
     }
 
     private static ImmutableList<PositiveSeed> PositiveSeeds(
