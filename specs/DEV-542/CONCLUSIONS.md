@@ -84,3 +84,66 @@ The DEV-542 note in LamuFlix notes records Phase A base `1ac83297c1ba8ffc936987e
 - **Non-blocking queue disposition (`task-chain` §2)**: Under `task-chain` §2 ("Next row = the first `queued` row that does not need code from an unmerged PR. A row that does gets status `awaiting-merge: DEV-### (#n)` (the PR it needs) and is skipped"), mark DEV-542 `awaiting-merge: DEV-518 (#455); depends on DEV-543` (which does not count toward the 2-in-flight limit) and re-run `DEV-542` Phase 1 rebase/pickup once both `DEV-518` (#455) and `DEV-543` have merged to `main`.
 - **Chain continuation (`task-chain` §2)**: Advance the build chain immediately to the next eligible `queued` row (`DEV-543`, and `DEV-544` if eligible within the 2-in-flight limit).
 
+
+## T001 Pickup Restart Checkpoint — 2026-11-22 (HEAD `2ada49f8`, origin/main `326756db`)
+
+**Verdict.** `blocked` — the dependency checkpoint does not pass as written. No production edit was started, `tasks.md` T001 stays `[ ]`, and T002+ remain locked pending a cited Patron ruling on the paths below. Before screenshots were captured against the clean baseline first, as T001 requires.
+
+**Restart context.** `git log`/`git merge-base` confirm `origin/main` = `326756db` and HEAD `2ada49f8`; DEV-543 (`326756db`, PR #461) and DEV-518 (`2f1647b2`, PR #455) are ancestors, so the previous `awaiting-merge` reason is resolved. This capture is the first before-screenshot baseline for the ticket: the earlier pickup stopped before capture.
+
+### 1. DEV-543 seed contract — PASS
+
+- `src/LamuFlix.Core/Features/Recommendations/NearestSeedScorer.cs:11-15` defines the closed `SeedSignal` vocabulary `Liked`, `WatchedWithoutReview`, `Watchlist`.
+- `NearestSeedScorer.cs:19-25` carries `Signal`, `SeedMovieId`, `SeedTitle`; `:117-145` constructs `NearestSeedMatch` only from the strongest positive seed pair, so every emitted match has a real seed movie id, its title and one supported signal.
+- `src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs:98-106` maps every emitted For You item from a `NearestSeedMatch` via `ToRecommendedMovie`; no item is emitted without a match. Only retained (selected) results are mapped.
+- Nonblank title invariant: `src/LamuFlix.Core/Domain/Movie.cs:226-231` (`RequireTitle` rejects null/whitespace on `Create` and `Rehydrate`); `src/LamuFlix.Core/Features/Recommendations/MovieSummaryMapper.cs:12-24` carries `movie.Title` into `MovieSummary`, which `NearestSeedMatch.SeedTitle` reads.
+- Wire mapping for T004: `Liked` to `liked`, `WatchedWithoutReview` to `watched`, `Watchlist` to `watchlist`.
+
+### 2. DEV-518 evidence contract — FAIL for the checkpoint as written
+
+- **Supplied in Core, both scoring paths:** `src/LamuFlix.Core/Features/Recommendations/SimilarityResult.cs:8` `Breakdown` and `:12-15` `CriterionContribution(Name, Value, Weight, Contribution){ Evidence }`. `SimilarityScorer.Score` (`SimilarityScorer.cs:55-66`, used by the Related handler) and `ScorePreparedFull` (`:70-84`, used by `NearestSeedScorer.Evaluate`) both populate six criterion entries.
+- **Public criterion vocabulary source:** the `CriterionContribution.Name` values produced by those two methods — `Collection`, `Director`, `Themes`, `Plot`, `Cast`, `Genre` (`SimilarityScorer.cs:58-63`, `:76-81`). There is no shared constants type; the record's `Name` is the public identity. `Director`, `Cast` and `Genre` names come from `Evidence`; `Plot` is value-only.
+- **Not strongest-first:** `Breakdown` is fixed table order (Collection to Genre). `Contribution` is present, so sorting strongest-first is derivable by DEV-542 as presentation-only work, but DEV-518 does not itself supply the ordering the checkpoint claims.
+- **Legitimate empty lists:** a criterion with no match carries an empty `Evidence` array, and the pending-enrichment Related path returns an empty list (`src/LamuFlix.Api/Endpoints/RecommendationEndpoints.cs:47-64`). Both are valid inputs.
+- **Not exposed on the Related route, and not carried by the shared result:** `GetRecommendationsQueryHandler.FinishScore` (`src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs:352`) rebuilds the result as `new SimilarityResult(score, BuildReasons(similarity.Reasons))`, discarding `Breakdown`; `src/LamuFlix.Core/Features/Recommendations/RecommendedMovie.cs:7` carries only `Reasons`. Therefore `RecommendationEndpoints.ToDto` (`src/LamuFlix.Api/Endpoints/RecommendationEndpoints.cs:181-199`) cannot map `evidence` on **either** route without changing the Core result record.
+- **No shared pure Core formatter in the ruled shape:** `SimilarityScorer.ReasonText` (`SimilarityScorer.cs:338-360`) is private, returns `Reason` display text only, exposes no criterion identity or `matchedNames`, has no three-name-plus-`N` cap, and emits `Shares cast: ...` where the ticket/Q3 text is `Shared cast: Name One, Name Two, Name Three +2`. Its concrete test files are `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerTests.cs` (Cast/Director assertions at `:276`, `:310`, `:328`, `:344`), `SimilarityScorerReasonThresholdTests.cs` and `SimilarityCriteriaTableTests.cs:31-38`. Reuse means extending this seam, which changes reason text and format behavior.
+
+### 3. Additional tracked paths outside the plan envelope — Patron ruling requested before edits
+
+Charter §2.3 item 6 and `plan.md` ("Any other tracked file ... needs a cited Patron ruling") require a ruling for each:
+
+- `src/LamuFlix.Core/Features/Recommendations/RecommendedMovie.cs` — must carry evidence (required by T004; not named by the ticket, spec or plan envelope).
+- `src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs` — Related assembly; named only by T001's bounded-recon line.
+- `src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs` and its tests (`SimilarityScorerTests.cs`, `SimilarityScorerReasonThresholdTests.cs`, `SimilarityCriteriaTableTests.cs`) — formatter seam; named only by T001's bounded-recon line.
+- Evaluation consumers of the retired `reasons` wire key (the ticket assumes only "the web app, one integration test and one e2e check" read reasons): `tests/LamuFlix.Evaluation/RealLibrary/CompareRunner.cs:215,241-249`, `RecommendationArtifactEnvelope.cs:39,45-57`, `RecommendationArtifactSerializer.cs:154,326-348,475-510`, `RecommendationArtifactEnvelopeTests.cs`, `CompareRunnerTests.cs`, `tests/LamuFlix.Evaluation.IntegrationTests/Entry/RecommendationSnapshotCommandTests.cs:94-99`, and golden fixtures `tests/LamuFlix.Evaluation/RealLibrary/Fixtures/capture-envelope.golden.json`.
+- Other C# tests asserting `RecommendedMovie.Reasons` or reason text: `tests/LamuFlix.IntegrationTests/EfRecommendationCandidateSourceTests.cs:739-740,789`, `tests/LamuFlix.IntegrationTests/RecommendationEndpointTests.cs:484,660-667`, `tests/LamuFlix.UnitTests/Features/Recommendations/GetForYouRecommendationsQueryHandlerTests.cs:94-167`, `RecommendationReasonBuilderSurvivorTests.cs`.
+- Web fixtures/tests outside the envelope: `web/src/mocks/fixtures.ts`, `web/src/mocks/forYou.test.ts`, `web/src/features/movie-details/MovieDetailsView.test.tsx`, `web/e2e/dev518-related-reasons.e2e.ts` (reads `reasons`; would become stale), `web/src/features/for-you/ForYouPage.test.tsx` and the evidence style anchor (named through T007/T009 only).
+
+### 4. Verified path anchors for T002+ (once ruled)
+
+- For You component test: `web/src/features/for-you/ForYouPage.test.tsx` (tests at `:26`, `:48`, `:68`). For You component style: `web/src/features/for-you/ForYouPage.css`; shared card style: `web/src/library/library.css`.
+- Evidence style anchor (ticket-named `web/src/features/movie-details/RelatedMovies.css:73-80`): replace `.related-movie-reasons`/`.related-movie-reason` with the semantic evidence list. Shared responsive rule: **file** `web/src/features/movie-details/RelatedMovies.css`, **selector** `.movie-card-evidence` (new list class used by both `MovieCard` consumers), **breakpoint** the existing `@media (max-width: 47.9375rem)` (`RelatedMovies.css:89`; same breakpoint already used at `web/src/library/library.css:559`). Desktop shows two entries, small widths one; no new breakpoint number.
+- Related assembly: `GetRecommendationsQueryHandler.HandleAsync` to `FinishScore` (`:352`) to `RecommendedMovie`.
+- Consumer fixture inventory: `web/src/mocks/fixtures.ts:129,161,182`, `web/src/mocks/forYou.test.ts:45`, `web/src/features/movie-details/RelatedMovies.test.tsx` (four named cases at `:125`, `:148`, `:548`, `:580`), `web/src/library/MovieCard.test.tsx:361`, `web/e2e/for-you-review.e2e.ts:39-40,94-98`, `web/e2e/dev518-related-reasons.e2e.ts:63-92`.
+
+### 5. Presentation bound — PASS
+
+Mapping is over each already-selected result: For You maps every retained `NearestSeedMatch` (`GetForYouRecommendationsQueryHandler.cs:98-106`), Related maps the already-selected `RecommendedMovie`. Evidence formatting is a pure function over one result's six-entry `Breakdown`. No new candidate-loop read and no per-result seed/evidence lookup is required.
+
+### 6. Before screenshots (clean baseline `2ada49f8`)
+
+- Build/ref: `git rev-parse HEAD` = `2ada49f883e581de2ea9748081ebba3da8c3d2cb`; stack from `docker-compose.yml` plus `web/e2e/compose.e2e.yml`, served through nginx at `http://localhost:3000`; Chromium 1254; harness `npm run e2e` in `web/` exited 0 with the temporary baseline spec passing; the temporary spec was then deleted and the worktree returned to clean.
+- Library fixture/state: `web/e2e/fixtures.mjs` sample library generated per run — two enriched movies, `Big Buck Bunny` (id 1, 2008) and `Elephants Dream` (id 2, 2006); action state = "Like" on `Big Buck Bunny`, so For You returns `Elephants Dream` and the Related rail for movie 1 returns the same card set.
+- Viewport: 1440x900 (desktop) for both captures.
+- Cards captured: For You card `Elephants Dream` with the legacy chip stack ("Because you liked Big Buck Bunny", "Same director: Smoke Fixture", "Similar story", "Shares cast: Smoke Fixture"); Related rail card set under `Related movies` with the same legacy chips.
+- Paths (worktree-relative, git-ignored): `artifacts/DEV-542/before/for-you-desktop-1440x900.png`, `artifacts/DEV-542/before/related-rail-desktop-1440x900.png`; supporting raw responses `for-you-desktop-1440x900.json`, `related-rail-desktop-1440x900.json`, and `baseline.json` (HEAD, viewport, fixture state, seed movie) in the same folder.
+- The home-library Hercules/Aladdin observation remains a separate T010 reviewer check, not this screenshot pair.
+
+### 7. Regeneration and integration handoff
+
+- Expected integration base at pickup: `origin/main` `326756db6733ce0032284919a866a5995f9f5d9d`; this branch is ahead only by the DEV-542 spec/record commits.
+- Ordering: DEV-542 lands first; DEV-541 rebases onto the landed DEV-542 result before it regenerates `web/src/api/openapi.json`, `web/src/api/types.ts`, `web/src/mocks/handlers.ts` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json`. DEV-542 blocks DEV-538.
+
+### 8. What unblocks T001
+
+A cited Patron ruling that either (a) extends the authorized envelope to the paths in §3, or (b) disposes of the evidence-wiring and formatter gap some other way that does not invent provenance or change scoring/ranking. With that ruling recorded here, the checkpoint's seed half already passes and the evidence half can be re-assessed against the ruled seam.
