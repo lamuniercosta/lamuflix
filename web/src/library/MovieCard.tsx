@@ -14,10 +14,16 @@ const STATUS_LABELS: Record<string, string> = {
   Failed: 'Failed',
 };
 
-export interface MovieCardReason {
-  kind: string;
-  text: string;
-}
+export type RecommendationSeed = components['schemas']['RecommendationSeedDto'];
+export type RecommendationEvidence = components['schemas']['RecommendationEvidenceDto'];
+
+const SEED_LINES: Record<RecommendationSeed['signal'], (title: string) => string> = {
+  liked: (title) => `Because you liked ${title}`,
+  watched: (title) => `Because you watched ${title}`,
+  watchlist: (title) => `Because ${title} is on your watchlist`,
+};
+
+const EVIDENCE_LIMIT = 2;
 
 export interface OpenMovieOptions {
   playerIntent?: boolean;
@@ -29,7 +35,8 @@ export interface MovieCardProps {
   onRetry?: (id: number | string) => void;
   retryError?: string | null;
   retryErrorId?: string;
-  reasons?: ReadonlyArray<string | MovieCardReason>;
+  seed?: RecommendationSeed | null;
+  evidence?: ReadonlyArray<RecommendationEvidence>;
   feedbackClients?: MovieFeedbackClients;
   className?: string;
 }
@@ -40,7 +47,8 @@ export default function MovieCard({
   onRetry,
   retryError,
   retryErrorId,
-  reasons,
+  seed,
+  evidence,
   feedbackClients,
   className,
 }: MovieCardProps) {
@@ -63,15 +71,18 @@ export default function MovieCard({
     openMoviePlayer(id);
   };
 
-  const handleOpen = (event: MouseEvent<HTMLAnchorElement>) => {
+  const handleOpen = (event: MouseEvent<HTMLAnchorElement>, targetId: number | string) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
     if (onOpenMovie) {
       event.preventDefault();
-      onOpenMovie(id);
+      onOpenMovie(targetId);
     }
   };
+
+  const seedLine = seed ? SEED_LINES[seed.signal](seed.title) : null;
+  const visibleEvidence = evidence?.slice(0, EVIDENCE_LIMIT) ?? [];
 
   return (
     <article className={`movie-card${className ? ` ${className}` : ''}`} data-status={status}>
@@ -122,7 +133,7 @@ export default function MovieCard({
       </div>
 
       <h3 className="movie-card-title">
-        <a href={`/movies/${id}`} onClick={handleOpen}>
+        <a href={`/movies/${id}`} onClick={(event) => handleOpen(event, id)}>
           {title}
         </a>
       </h3>
@@ -141,25 +152,24 @@ export default function MovieCard({
 
       {failureMessage ? <p className="movie-card-failure">{failureMessage}</p> : null}
 
-      {reasons?.length ? (
-        <div className="related-movie-reasons">
-          {reasons.map((reason, index) => {
-            const text = typeof reason === 'string' ? reason : reason.text;
-            const kind = typeof reason === 'string' ? null : reason.kind;
-            return (
-              <span
-                className={
-                  kind === null
-                    ? 'related-movie-reason'
-                    : `related-movie-reason related-movie-reason-${kind}`
-                }
-                key={`${kind ?? 'text'}-${text}-${String(index)}`}
-              >
-                {text}
-              </span>
-            );
-          })}
-        </div>
+      {seed && seedLine ? (
+        <p className="movie-card-seed">
+          <a
+            href={`/movies/${seed.movieId}`}
+            aria-label={`Open ${seed.title}`}
+            onClick={(event) => handleOpen(event, seed.movieId)}
+          >
+            {seedLine}
+          </a>
+        </p>
+      ) : null}
+
+      {visibleEvidence.length > 0 ? (
+        <ul className="movie-card-evidence">
+          {visibleEvidence.map((item, index) => (
+            <li key={`${item.criterion}-${String(index)}`}>{item.text}</li>
+          ))}
+        </ul>
       ) : null}
 
       {canRetryEnrichment(status) ? (

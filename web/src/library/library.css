@@ -203,6 +203,26 @@
   background: var(--color-boundary);
 }
 
+.movie-card-seed {
+  position: relative;
+  z-index: 2;
+  margin: 0.5rem 0 0;
+  color: var(--color-dim);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.movie-card-seed a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+.movie-card-seed a:hover,
+.movie-card-seed a:focus-visible {
+  color: var(--color-ink);
+  text-decoration: underline;
+}
+
 .movie-card-status {
   position: relative;
   z-index: 2;

@@ -8,8 +8,12 @@ import {
 import { http, HttpResponse } from 'msw';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { components } from '../api/types';
 import { server } from '../test/server';
 import MovieCard from './MovieCard';
+
+type RecommendationEvidence = components['schemas']['RecommendationEvidenceDto'];
+type RecommendationSeed = components['schemas']['RecommendationSeedDto'];
 import { __resetMovieFeedbackStore, MOVIE_FEEDBACK_REFRESH_ERROR } from './movieFeedbackStore';
 import { __resetWatchlistStore } from './watchlistStore';
 
@@ -418,12 +422,137 @@ describe('MovieCard feedback actions', () => {
     expect(posts).toBe(1);
   });
 
-  it('renders no fabricated reasons on ordinary Library data', () => {
+  it('renders no seed line or evidence list when neither is supplied', () => {
     // arrange / act
     const { container } = renderCard(<MovieCard movie={movie} />);
 
     // assert
-    expect(container.querySelector('.related-movie-reason')).toBeNull();
+    expect(container.querySelector('.movie-card-seed')).toBeNull();
+    expect(container.querySelector('.movie-card-evidence')).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Open / })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['liked', 'Because you liked Aladdin'],
+    ['watched', 'Because you watched Aladdin'],
+    ['watchlist', 'Because Aladdin is on your watchlist'],
+  ] as const)('renders the %s seed line as its own Open {title} link', (signal, expected) => {
+    // arrange
+    const seed: RecommendationSeed = { movieId: 42, title: 'Aladdin', signal };
+
+    // act
+    renderCard(<MovieCard movie={movie} seed={seed} />);
+
+    // assert
+    const link = screen.getByRole('link', { name: 'Open Aladdin' });
+    expect(link).toHaveAttribute('href', '/movies/42');
+    expect(link.textContent).toBe(expected);
+  });
+
+  it('renders delivered evidence text verbatim in a semantic list capped at two entries', () => {
+    // arrange
+    const evidence: RecommendationEvidence[] = [
+      {
+        criterion: 'Cast',
+        text: 'Shared cast: Name One, Name Two, Name Three +2',
+        matchedNames: ['Name One', 'Name Two', 'Name Three', 'Name Four', 'Name Five'],
+      },
+      {
+        criterion: 'Director',
+        text: 'Same director: Denis Villeneuve',
+        matchedNames: ['Denis Villeneuve'],
+      },
+      {
+        criterion: 'Themes',
+        text: 'Shared themes: revenge, memory',
+        matchedNames: ['revenge', 'memory'],
+      },
+    ];
+
+    // act
+    const { container } = renderCard(<MovieCard movie={movie} evidence={evidence} />);
+
+    // assert
+    const items = Array.from(container.querySelectorAll('.movie-card-evidence > li'));
+    expect(items).toHaveLength(2);
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Shared cast: Name One, Name Two, Name Three +2',
+      'Same director: Denis Villeneuve',
+    ]);
+    expect(container.textContent).not.toContain('Name Four');
+  });
+
+  it('renders zero evidence entries with no list and no invented copy', () => {
+    // arrange / act
+    const { container } = renderCard(<MovieCard movie={movie} evidence={[]} />);
+
+    // assert
+    expect(container.querySelector('.movie-card-evidence')).toBeNull();
+    expect(container.textContent).not.toContain('Same director');
+    expect(container.textContent).not.toContain('Matches your viewing history');
+  });
+
+  it('shows the seed line before the evidence list', () => {
+    // arrange / act
+    const { container } = renderCard(
+      <MovieCard
+        movie={movie}
+        seed={{ movieId: 42, title: 'Aladdin', signal: 'liked' }}
+        evidence={[
+          {
+            criterion: 'Director',
+            text: 'Same director: Guy Ritchie',
+            matchedNames: ['Guy Ritchie'],
+          },
+        ]}
+      />,
+    );
+
+    // assert
+    const seedLink = screen.getByRole('link', { name: 'Open Aladdin' });
+    const evidenceList = container.querySelector('.movie-card-evidence');
+    expect(evidenceList).not.toBeNull();
+    expect(
+      seedLink.compareDocumentPosition(evidenceList as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('keeps the seed link and the recommendation link independently operable', () => {
+    // arrange
+    const onOpenMovie = vi.fn();
+    renderCard(
+      <MovieCard
+        movie={movie}
+        seed={{ movieId: 42, title: 'Aladdin', signal: 'watched' }}
+        onOpenMovie={onOpenMovie}
+      />,
+    );
+    const seedLink = screen.getByRole('link', { name: 'Open Aladdin' });
+    const titleLink = screen.getByRole('link', { name: 'Heat' });
+
+    // assert
+    expect(seedLink).toHaveAttribute('href', '/movies/42');
+    expect(titleLink).toHaveAttribute('href', '/movies/1');
+    expect(fireEvent.keyDown(seedLink, { key: 'Enter' })).toBe(true);
+    expect(fireEvent.keyDown(titleLink, { key: 'Enter' })).toBe(true);
+
+    // act
+    seedLink.focus();
+    fireEvent.click(seedLink);
+
+    // assert
+    expect(document.activeElement).toBe(seedLink);
+    expect(onOpenMovie).toHaveBeenCalledTimes(1);
+    expect(onOpenMovie).toHaveBeenLastCalledWith(42);
+
+    // act
+    titleLink.focus();
+    fireEvent.click(titleLink);
+
+    // assert
+    expect(document.activeElement).toBe(titleLink);
+    expect(onOpenMovie).toHaveBeenCalledTimes(2);
+    expect(onOpenMovie).toHaveBeenLastCalledWith(1);
   });
 
   it('keeps feedback activation isolated from parent-card navigation', async () => {

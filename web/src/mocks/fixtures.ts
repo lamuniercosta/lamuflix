@@ -177,10 +177,19 @@ const forYouRecommendationsData = {
       isNotInterested: false,
       review: 'none',
       score: 0.91,
-      reasons: [
-        { kind: 'personal', text: 'Because you watched Dune' },
-        { kind: 'structural', text: 'Same director' },
+      evidence: [
+        {
+          criterion: 'Director',
+          text: 'Same director: Denis Villeneuve',
+          matchedNames: ['Denis Villeneuve'],
+        },
+        {
+          criterion: 'Cast',
+          text: 'Shared cast: Name One, Name Two, Name Three +2',
+          matchedNames: ['Name One', 'Name Two', 'Name Three', 'Name Four', 'Name Five'],
+        },
       ],
+      seed: { movieId: 2, title: 'Dune', signal: 'watched' },
     },
     {
       id: 8,
@@ -195,7 +204,8 @@ const forYouRecommendationsData = {
       isNotInterested: false,
       review: 'none',
       score: 0.84,
-      reasons: [],
+      evidence: [],
+      seed: { movieId: 1, title: 'Dune', signal: 'liked' },
     },
     {
       id: 9,
@@ -210,7 +220,8 @@ const forYouRecommendationsData = {
       isNotInterested: false,
       review: 'none',
       score: 0.72,
-      reasons: [{ kind: 'structural', text: 'Same genre' }],
+      evidence: [{ criterion: 'Genre', text: 'Same genres: Drama', matchedNames: ['Drama'] }],
+      seed: { movieId: 1, title: 'Dune', signal: 'watchlist' },
     },
     {
       id: 10,
@@ -225,7 +236,10 @@ const forYouRecommendationsData = {
       isNotInterested: false,
       review: 'none',
       score: 0.61,
-      reasons: [{ kind: 'personal', text: 'Matches your Thriller interest' }],
+      evidence: [
+        { criterion: 'Themes', text: 'Shared themes: identity', matchedNames: ['identity'] },
+      ],
+      seed: { movieId: 2, title: 'Dune', signal: 'watched' },
     },
   ],
   hasMore: false,
