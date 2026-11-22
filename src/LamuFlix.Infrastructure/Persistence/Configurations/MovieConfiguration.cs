@@ -143,6 +143,10 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
                 .HasColumnType("text")
                 .IsRequired(false),
             new ImdbIdConverter());
+        builder.Property(movie => movie.TmdbId)
+            .HasColumnName("tmdb_id")
+            .HasColumnType("integer")
+            .IsRequired(false);
         builder.Property(movie => movie.RottenTomatoesRating)
             .HasColumnName("rotten_tomatoes_rating")
             .HasColumnType("smallint")
@@ -233,4 +237,40 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
 
     private static void ConvertUsing(PropertyBuilder property, ValueConverter converter) =>
         property.HasConversion(converter);
+}
+
+/// <summary>
+/// Source-owned first-page TMDb recommendations. Rows belong to the library movie that fetched them:
+/// deleting that movie cascades them away, while recommended ids that name other library movies stay
+/// with their own sources.
+/// </summary>
+public sealed class MovieRecommendationConfiguration : IEntityTypeConfiguration<MovieRecommendationRecord>
+{
+    public void Configure(EntityTypeBuilder<MovieRecommendationRecord> builder)
+    {
+        builder.ToTable("movie_recommendations");
+        builder.HasKey(recommendation => new { recommendation.SourceMovieId, recommendation.RecommendedTmdbId });
+        ConfigureColumns(builder);
+        ConfigureSourceOwner(builder);
+        builder.HasIndex(recommendation => recommendation.RecommendedTmdbId);
+    }
+
+    private static void ConfigureColumns(EntityTypeBuilder<MovieRecommendationRecord> builder)
+    {
+        builder.Property(recommendation => recommendation.SourceMovieId)
+            .HasColumnName("source_movie_id")
+            .HasColumnType("integer")
+            .IsRequired()
+            .HasConversion(new MovieIdConverter());
+        builder.Property(recommendation => recommendation.RecommendedTmdbId)
+            .HasColumnName("recommended_tmdb_id")
+            .HasColumnType("integer")
+            .IsRequired();
+    }
+
+    private static void ConfigureSourceOwner(EntityTypeBuilder<MovieRecommendationRecord> builder) =>
+        builder.HasOne(recommendation => recommendation.SourceMovie)
+            .WithMany(movie => movie.Recommendations)
+            .HasForeignKey(recommendation => recommendation.SourceMovieId)
+            .OnDelete(DeleteBehavior.Cascade);
 }

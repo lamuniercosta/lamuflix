@@ -50,6 +50,8 @@ public sealed class MovieRecord
 
     public ImdbId? ManualImdbId { get; set; }
 
+    public int? TmdbId { get; set; }
+
     public short? RottenTomatoesRating { get; set; }
 
     public short? MetaScore { get; set; }
@@ -75,4 +77,6 @@ public sealed class MovieRecord
     public ICollection<KeywordRecord> Keywords { get; } = new HashSet<KeywordRecord>();
 
     public ICollection<ActorRecord> FullCast { get; } = new HashSet<ActorRecord>();
+
+    public ICollection<MovieRecommendationRecord> Recommendations { get; } = new HashSet<MovieRecommendationRecord>();
 }

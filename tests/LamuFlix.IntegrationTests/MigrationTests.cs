@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -13,6 +13,7 @@ using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql;
 using Shouldly;
 using Xunit;
 
@@ -38,7 +39,8 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         "keywords",
         "movie_keywords",
         "movie_tmdb_cast",
-        "omdb_daily_usage"
+        "omdb_daily_usage",
+        "movie_recommendations"
     ];
 
     private static readonly string[] NullableMoviesColumns =
@@ -60,7 +62,8 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         "collection_id",
         "enrichment_deferred_until",
         "trailer_key",
-        "library_path_key"
+        "library_path_key",
+        "tmdb_id"
     ];
 
     private static readonly Regex SnakeCase = new(
@@ -89,7 +92,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(18);
+        migrations.Length.ShouldBe(19);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -108,6 +111,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         migrations[15].ShouldEndWith("_AddLibraryPathKey");
         migrations[16].ShouldEndWith("_AddMovieAddedAt");
         migrations[17].ShouldEndWith("_AddManualImdbIdUniqueIndex");
+        migrations[18].ShouldEndWith("_AddCrowdRecommendations");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -142,7 +146,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddManualImdbIdUniqueIndex");
+        applied[^1].ShouldEndWith("_AddCrowdRecommendations");
         var rows = await catalog.ListLegacyMoviesAsync(cancellationToken);
         rows.Count.ShouldBe(priorCount);
         foreach (var movie in seeded)
@@ -207,7 +211,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         applied[1].ShouldEndWith("_AddMovieWriters");
         var priorColumns = await catalog.ListColumnsAsync("movies", cancellationToken);
         priorColumns.ShouldBe(
-            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id" and not "collection_id" and not "enrichment_deferred_until" and not "trailer_key" and not "review" and not "library_path_key" and not "added_at"),
+            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id" and not "collection_id" and not "enrichment_deferred_until" and not "trailer_key" and not "review" and not "library_path_key" and not "added_at" and not "tmdb_id"),
             ignoreOrder: true);
         priorColumns.ShouldNotContain("is_watched");
         priorColumns.ShouldNotContain("is_not_interested");
@@ -311,7 +315,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         await migrator.MigrateAsync(null, cancellationToken);
 
         (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last()
-            .ShouldEndWith("_AddManualImdbIdUniqueIndex");
+            .ShouldEndWith("_AddCrowdRecommendations");
     }
 
     [Fact]
@@ -534,6 +538,65 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
     }
 
     [Fact]
+    public async Task MigrateAsync_AddCrowdRecommendations_AppliesToPopulatedLibraryAndKeepsSourceOwnedPairs()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var catalog = new PostgresCatalog(context);
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261114155940_AddManualImdbIdUniqueIndex", cancellationToken);
+        await InsertLibraryMovieAsync(context, "Crowd Source", "C:/library/crowd-source.mkv", cancellationToken);
+        await InsertLibraryMovieAsync(context, "Crowd Target", "C:/library/crowd-target.mkv", cancellationToken);
+        await InsertLibraryMovieAsync(context, "Crowd Other", "C:/library/crowd-other.mkv", cancellationToken);
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldNotContain("movie_recommendations");
+        (await catalog.ListColumnsAsync("movies", cancellationToken)).ShouldNotContain("tmdb_id");
+
+        // act
+        await migrator.MigrateAsync(null, cancellationToken);
+        context.ChangeTracker.Clear();
+
+        // assert
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last()
+            .ShouldEndWith("_AddCrowdRecommendations");
+        await AssertCrowdRecommendationSchemaAsync(catalog, cancellationToken);
+        (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(3);
+
+        var source = await ReadMovieIdAsync(context, "Crowd Source", cancellationToken);
+        var other = await ReadMovieIdAsync(context, "Crowd Other", cancellationToken);
+        await InsertRecommendationAsync(context, source, 603, cancellationToken);
+        await InsertRecommendationAsync(context, source, 9999, cancellationToken);
+        await InsertRecommendationAsync(context, other, 603, cancellationToken);
+        (await ReadRecommendationCountAsync(context, cancellationToken)).ShouldBe(3);
+        (await ReadRecommendedTmdbIdsAsync(context, source, cancellationToken)).ShouldBe([603, 9999]);
+        var duplicate = await Should.ThrowAsync<PostgresException>(
+            () => InsertRecommendationAsync(context, source, 603, cancellationToken));
+        duplicate.SqlState.ShouldBe("23505");
+
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"DELETE FROM movies WHERE id = {source}",
+            cancellationToken);
+
+        (await ReadRecommendationCountAsync(context, cancellationToken)).ShouldBe(1);
+        (await ReadRecommendedTmdbIdsAsync(context, other, cancellationToken)).ShouldBe([603]);
+
+        await migrator.MigrateAsync("20261114155940_AddManualImdbIdUniqueIndex", cancellationToken);
+        context.ChangeTracker.Clear();
+
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldNotContain("movie_recommendations");
+        (await catalog.ListColumnsAsync("movies", cancellationToken)).ShouldNotContain("tmdb_id");
+        (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(2);
+
+        await migrator.MigrateAsync(null, cancellationToken);
+        context.ChangeTracker.Clear();
+
+        await AssertCrowdRecommendationSchemaAsync(catalog, cancellationToken);
+        (await ReadRecommendationCountAsync(context, cancellationToken)).ShouldBe(0);
+        (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(2);
+        context.Database.HasPendingModelChanges().ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task MigrateAsync_EmptyDatabase_MatchesPostgresCatalogContract()
     {
         await using var context = await fixture.CreateEmptyDatabaseContextAsync(TestContext.Current.CancellationToken);
@@ -606,6 +669,73 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
             .SqlQueryRaw<int>("SELECT id AS \"Value\" FROM movies ORDER BY id")
             .ToListAsync(cancellationToken);
         return ids.Count == 1 ? new MovieId(ids[0]) : null;
+    }
+
+    private static Task<int> InsertLibraryMovieAsync(
+        LamuFlixDbContext context,
+        string title,
+        string libraryPath,
+        CancellationToken cancellationToken) =>
+        context.Database.ExecuteSqlRawAsync(
+            "INSERT INTO movies (title, library_path, format, is_in_watchlist, status, enrichment_attempts, added_at) VALUES ({0}, {1}, 'mkv', false, {2}, 0, now())",
+            [title, libraryPath, (int)EnrichmentStatus.Pending],
+            cancellationToken);
+
+    private static Task<int> ReadMovieIdAsync(
+        LamuFlixDbContext context,
+        string title,
+        CancellationToken cancellationToken) =>
+        context.Database
+            .SqlQueryRaw<int>("SELECT id AS \"Value\" FROM movies WHERE title = {0}", title)
+            .SingleAsync(cancellationToken);
+
+    private static Task<int> InsertRecommendationAsync(
+        LamuFlixDbContext context,
+        int sourceMovieId,
+        int recommendedTmdbId,
+        CancellationToken cancellationToken) =>
+        context.Database.ExecuteSqlRawAsync(
+            "INSERT INTO movie_recommendations (source_movie_id, recommended_tmdb_id) VALUES ({0}, {1})",
+            [sourceMovieId, recommendedTmdbId],
+            cancellationToken);
+
+    private static Task<int> ReadRecommendationCountAsync(
+        LamuFlixDbContext context,
+        CancellationToken cancellationToken) =>
+        context.Database
+            .SqlQueryRaw<int>("SELECT COUNT(*)::int AS \"Value\" FROM movie_recommendations")
+            .SingleAsync(cancellationToken);
+
+    private static Task<List<int>> ReadRecommendedTmdbIdsAsync(
+        LamuFlixDbContext context,
+        int sourceMovieId,
+        CancellationToken cancellationToken) =>
+        context.Database
+            .SqlQueryRaw<int>(
+                "SELECT recommended_tmdb_id AS \"Value\" FROM movie_recommendations WHERE source_movie_id = {0} ORDER BY recommended_tmdb_id",
+                sourceMovieId)
+            .ToListAsync(cancellationToken);
+
+    private static async Task AssertCrowdRecommendationSchemaAsync(
+        PostgresCatalog catalog,
+        CancellationToken cancellationToken)
+    {
+        (await catalog.ListColumnDetailsAsync("movies", cancellationToken))
+            .ShouldContain(("tmdb_id", "integer", true, false));
+        (await catalog.ListColumnDetailsAsync("movie_recommendations", cancellationToken)).ShouldBe(
+        [
+            ("source_movie_id", "integer", false, false),
+            ("recommended_tmdb_id", "integer", false, false)
+        ],
+            ignoreOrder: true);
+        (await catalog.ListPrimaryKeyColumnsAsync("movie_recommendations", cancellationToken))
+            .ShouldBe(["source_movie_id", "recommended_tmdb_id"]);
+        (await catalog.ListForeignKeysAsync("movie_recommendations", cancellationToken))
+            .ShouldContain(("source_movie_id", "movies", "id", "CASCADE"));
+        (await catalog.ListTableIndexesAsync("movie_recommendations", cancellationToken))
+            .ShouldContain(def =>
+                def.Contains("recommended_tmdb_id", StringComparison.Ordinal)
+                && !def.Contains("UNIQUE", StringComparison.Ordinal));
     }
 
     private static async Task AssertFeedbackColumnsAsync(

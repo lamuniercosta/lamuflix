@@ -26,7 +26,9 @@ public sealed record MovieMetadata
         int? collectionId = null,
         string? collectionName = null,
         MovieSignalSnapshot? signals = null,
-        string? trailerKey = null)
+        string? trailerKey = null,
+        int? tmdbId = null,
+        IEnumerable<int>? recommendedTmdbIds = null)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -34,6 +36,7 @@ public sealed record MovieMetadata
         }
 
         ValidateCollection(collectionId, collectionName);
+        RequirePositiveTmdbId(tmdbId, nameof(tmdbId));
 
         Title = title;
         Synopsis = synopsis;
@@ -52,6 +55,8 @@ public sealed record MovieMetadata
         CollectionName = collectionName;
         Signals = signals;
         TrailerKey = trailerKey;
+        TmdbId = tmdbId;
+        RecommendedTmdbIds = CopyRecommendedTmdbIds(recommendedTmdbIds);
     }
 
     public static bool IsValidTrailerKey(string? candidate)
@@ -111,6 +116,43 @@ public sealed record MovieMetadata
         }
     }
 
+    private static void RequirePositiveTmdbId(int? tmdbId, string parameterName)
+    {
+        if (tmdbId is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(parameterName, tmdbId, "TMDb id must be positive.");
+        }
+    }
+
+    /// <summary>
+    /// Copies the first-page recommended TMDb ids, dropping repeats so each stored pair stays unique.
+    /// A null source means the fetch did not succeed and carries no replace set.
+    /// </summary>
+    private static IReadOnlyList<int>? CopyRecommendedTmdbIds(IEnumerable<int>? source)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        var ids = new List<int>();
+        var seen = new HashSet<int>();
+        foreach (var id in source)
+        {
+            if (id <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(source), id, "Recommended TMDb id must be positive.");
+            }
+
+            if (seen.Add(id))
+            {
+                ids.Add(id);
+            }
+        }
+
+        return ids;
+    }
+
     private static IReadOnlyList<string> CopyStrings(IEnumerable<string>? source) =>
         source?.ToArray() ?? [];
 
@@ -151,6 +193,15 @@ public sealed record MovieMetadata
 
     public string? TrailerKey { get; }
 
+    /// <summary>The TMDb catalogue identity when enrichment resolved one.</summary>
+    public int? TmdbId { get; }
+
+    /// <summary>
+    /// The first-page recommended TMDb ids, or null when the recommendation fetch did not succeed.
+    /// An empty list is a successful fetch that returned no recommendations.
+    /// </summary>
+    public IReadOnlyList<int>? RecommendedTmdbIds { get; }
+
     public MovieMetadata WithSignals(MovieSignalSnapshot? signals) =>
         new(
             Title,
@@ -169,7 +220,9 @@ public sealed record MovieMetadata
             CollectionId,
             CollectionName,
             signals,
-            TrailerKey);
+            TrailerKey,
+            TmdbId,
+            RecommendedTmdbIds);
 
     public MovieMetadata WithTrailerKey(string? trailerKey) =>
         new(
@@ -189,7 +242,9 @@ public sealed record MovieMetadata
             CollectionId,
             CollectionName,
             Signals,
-            trailerKey);
+            trailerKey,
+            TmdbId,
+            RecommendedTmdbIds);
 
     public MovieMetadata WithCollection(int? collectionId, string? collectionName) =>
         new(
@@ -209,14 +264,17 @@ public sealed record MovieMetadata
             collectionId,
             collectionName,
             Signals,
-            TrailerKey);
+            TrailerKey,
+            TmdbId,
+            RecommendedTmdbIds);
 
     public bool Equals(MovieMetadata? other) =>
         other is not null
         && SameScalars(this, other)
         && SameOptionals(this, other)
         && SameCollections(this, other)
-        && SameCollectionIdentity(this, other);
+        && SameCollectionIdentity(this, other)
+        && SameTmdbIdentity(this, other);
 
     private static bool SameScalars(MovieMetadata left, MovieMetadata right) =>
         left.Title == right.Title
@@ -243,6 +301,13 @@ public sealed record MovieMetadata
         left.CollectionId == right.CollectionId
         && left.CollectionName == right.CollectionName;
 
+    private static bool SameTmdbIdentity(MovieMetadata left, MovieMetadata right) =>
+        left.TmdbId == right.TmdbId
+        && SameRecommendedTmdbIds(left.RecommendedTmdbIds, right.RecommendedTmdbIds);
+
+    private static bool SameRecommendedTmdbIds(IReadOnlyList<int>? left, IReadOnlyList<int>? right) =>
+        left is null ? right is null : right is not null && left.SequenceEqual(right);
+
     public override int GetHashCode()
     {
         var hash = new HashCode();
@@ -259,6 +324,15 @@ public sealed record MovieMetadata
         hash.Add(CollectionName);
         hash.Add(Signals);
         hash.Add(TrailerKey);
+        hash.Add(TmdbId);
+        if (RecommendedTmdbIds is not null)
+        {
+            foreach (var recommendedTmdbId in RecommendedTmdbIds)
+            {
+                hash.Add(recommendedTmdbId);
+            }
+        }
+
         foreach (var director in Directors)
         {
             hash.Add(director);
