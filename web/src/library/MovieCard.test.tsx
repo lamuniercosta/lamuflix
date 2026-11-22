@@ -450,6 +450,39 @@ describe('MovieCard feedback actions', () => {
     expect(link.closest('p')?.textContent).toBe(expected);
   });
 
+  it('omits the seed line on request while keeping the evidence list', () => {
+    // arrange
+    const seed: RecommendationSeed = { movieId: 42, title: 'Aladdin', signal: 'liked' };
+    const evidence: RecommendationEvidence[] = [
+      { criterion: 'Genre', text: 'Same genres: Drama', matchedNames: ['Drama'] },
+    ];
+
+    // act
+    const { container } = renderCard(
+      <MovieCard movie={movie} hideSeed seed={seed} evidence={evidence} />,
+    );
+
+    // assert
+    expect(container.querySelector('.movie-card-seed')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Open Aladdin' })).not.toBeInTheDocument();
+    expect(
+      Array.from(container.querySelectorAll('.movie-card-evidence > li')).map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(['Same genres: Drama']);
+  });
+
+  it('keeps the seed line when the opt-out is explicitly disabled', () => {
+    // arrange
+    const seed: RecommendationSeed = { movieId: 42, title: 'Aladdin', signal: 'watched' };
+
+    // act
+    renderCard(<MovieCard movie={movie} hideSeed={false} seed={seed} />);
+
+    // assert
+    expect(screen.getByRole('link', { name: 'Open Aladdin' })).toBeInTheDocument();
+  });
+
   it('renders delivered evidence text verbatim in a semantic list capped at two entries', () => {
     // arrange
     const evidence: RecommendationEvidence[] = [

@@ -8,3 +8,32 @@
   margin: 0;
   color: var(--color-dim);
 }
+
+.for-you-row {
+  display: grid;
+  gap: var(--lamu-space-3);
+  min-width: 0;
+}
+
+.for-you-row-heading {
+  margin: 0;
+  font-family: var(--font-wordmark);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+  text-wrap: balance;
+}
+
+.for-you-empty {
+  display: grid;
+  gap: var(--lamu-space-3);
+  justify-items: start;
+}
+
+.for-you-empty > p {
+  margin: 0;
+  color: var(--color-dim);
+}

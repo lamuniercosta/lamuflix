@@ -36,6 +36,7 @@ export interface MovieCardProps {
   retryError?: string | null;
   retryErrorId?: string;
   seed?: RecommendationSeed | null;
+  hideSeed?: boolean;
   evidence?: ReadonlyArray<RecommendationEvidence>;
   feedbackClients?: MovieFeedbackClients;
   className?: string;
@@ -49,6 +50,7 @@ export default function MovieCard({
   retryError,
   retryErrorId,
   seed,
+  hideSeed = false,
   evidence,
   feedbackClients,
   className,
@@ -156,7 +158,7 @@ export default function MovieCard({
 
       {failureMessage ? <p className="movie-card-failure">{failureMessage}</p> : null}
 
-      {seed && seedParts ? (
+      {seed && seedParts && !hideSeed ? (
         <p className="movie-card-seed">
           {seedParts.prefix}
           <a

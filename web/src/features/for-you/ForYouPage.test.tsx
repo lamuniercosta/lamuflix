@@ -10,6 +10,7 @@ import { __resetMovieFeedbackStore } from '../../library/movieFeedbackStore';
 import { __resetWatchlistStore } from '../../library/watchlistStore';
 import ForYouPage, { type ForYouPageProps } from './ForYouPage';
 import { FOR_YOU_TAKE, forYouQueryKey, type ForYouRecommendation } from './forYouApi';
+import { MAX_SEED_ROWS, MAX_THEMED_ROW_CARDS } from './forYouGrouping';
 
 function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -76,6 +77,7 @@ function stubRanking(ranked: ReadonlyArray<ForYouRecommendation>, options: StubO
       return HttpResponse.json({
         items: pool.slice(observed.offset, observed.offset + observed.take),
         hasMore: observed.offset + observed.take < pool.length,
+        hasSeeds: ranked.length > 0,
       });
     }),
   );
@@ -108,14 +110,55 @@ function titles(ids: number[]): string[] {
   return ids.map((id) => `Movie ${id}`);
 }
 
+type SeedSignal = 'liked' | 'watched' | 'watchlist';
+
+function seeded(
+  id: number,
+  seed: { movieId: number; title: string; signal: SeedSignal },
+  extra: Partial<ForYouRecommendation> = {},
+  title?: string,
+): ForYouRecommendation {
+  return { ...makeMovie(id, title), seed, ...extra };
+}
+
+function pageSection(): HTMLElement | null {
+  const heading = screen.queryByRole('heading', { level: 1, name: 'For You' });
+  return heading?.closest('section') ?? null;
+}
+
 function renderedTitles(): string[] {
-  const list = screen.queryByRole('list', { name: 'Recommended movies' });
-  if (!list) {
+  const page = pageSection();
+  if (!page) {
     return [];
   }
-  return within(list)
-    .getAllByRole('listitem')
-    .map((item) => item.querySelector('.movie-card-title')?.textContent ?? '');
+  return Array.from(page.querySelectorAll('.for-you-row .movie-card-title')).map(
+    (node) => node.textContent ?? '',
+  );
+}
+
+function rowLabels(): string[] {
+  const page = pageSection();
+  if (!page) {
+    return [];
+  }
+  return Array.from(page.querySelectorAll('.for-you-row-heading')).map(
+    (node) => node.textContent ?? '',
+  );
+}
+
+function rowFor(label: string): HTMLElement {
+  const heading = screen.getByRole('heading', { level: 2, name: label });
+  const row = heading.closest('.for-you-row');
+  if (!(row instanceof HTMLElement)) {
+    throw new Error(`For You row not found for ${label}`);
+  }
+  return row;
+}
+
+function cardTitles(row: HTMLElement): string[] {
+  return Array.from(row.querySelectorAll('.movie-card-title')).map(
+    (node) => node.textContent ?? '',
+  );
 }
 
 async function findGrid(count: number): Promise<void> {
@@ -142,17 +185,13 @@ function flush(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function recommendationCards(list: HTMLElement): HTMLElement[] {
-  return Array.from(list.querySelectorAll<HTMLElement>(':scope > [role="listitem"]'));
-}
-
 describe('ForYouPage', () => {
   beforeEach(() => {
     __resetMovieFeedbackStore();
     __resetWatchlistStore();
   });
 
-  it('renders the recommendations as a grid of cards under the For You heading', async () => {
+  it('renders the recommendations grouped into reason rows under the For You heading', async () => {
     // arrange
     server.use(
       http.get('*/api/recommendations/for-you', () => HttpResponse.json(forYouRecommendations)),
@@ -163,77 +202,8 @@ describe('ForYouPage', () => {
 
     // assert
     expect(screen.getByRole('heading', { level: 1, name: 'For You' })).toBeInTheDocument();
-    const list = await screen.findByRole('list', { name: 'Recommended movies' });
-    const items = recommendationCards(list);
-    expect(items).toHaveLength(4);
-    expect(items.map((item) => item.querySelector('.movie-card-title')?.textContent)).toEqual([
-      'The Batman',
-      'Sicario',
-      'Nightcrawler',
-      'Enemy',
-    ]);
-  });
-
-  it('shows the seed line first and then the capped evidence list on a For You card', async () => {
-    // arrange
-    server.use(
-      http.get('*/api/recommendations/for-you', () => HttpResponse.json(forYouRecommendations)),
-    );
-    const onOpenMovie = vi.fn();
-
-    // act
-    renderPage({ onOpenMovie });
-    const list = await screen.findByRole('list', { name: 'Recommended movies' });
-    const [first] = recommendationCards(list);
-
-    // assert
-    const seedLink = within(first).getByRole('link', { name: 'Open Dune' });
-    expect(seedLink).toHaveTextContent('Dune');
-    expect(seedLink.closest('p')).toHaveTextContent('Because you watched Dune');
-    expect(seedLink).toHaveAttribute('href', '/movies/2');
-    const evidenceList = first.querySelector('.movie-card-evidence');
-    expect(evidenceList).not.toBeNull();
-    expect(
-      seedLink.compareDocumentPosition(evidenceList as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      Array.from(evidenceList!.querySelectorAll('li')).map((item) => item.textContent),
-    ).toEqual([
-      'Same director: Denis Villeneuve',
-      'Shared cast: Name One, Name Two, Name Three +2',
-    ]);
-
-    // act
-    fireEvent.click(seedLink);
-
-    // assert
-    expect(onOpenMovie).toHaveBeenLastCalledWith(2);
-
-    // act
-    fireEvent.click(within(first).getByRole('link', { name: 'The Batman' }));
-
-    // assert
-    expect(onOpenMovie).toHaveBeenLastCalledWith(7);
-  });
-
-  it('shows the empty-state text for a successful empty response', async () => {
-    // arrange
-    server.use(
-      http.get('*/api/recommendations/for-you', () =>
-        HttpResponse.json({ items: [], hasMore: false }),
-      ),
-    );
-
-    // act
-    renderPage();
-
-    // assert
-    expect(
-      await screen.findByText(
-        'No recommendations yet. Mark movies as watched or liked to get some.',
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('list', { name: 'Recommended movies' })).not.toBeInTheDocument();
+    await waitFor(() => expect(rowLabels()).toEqual(['Because you watched Dune', 'More for you']));
+    expect(renderedTitles()).toEqual(['The Batman', 'Enemy', 'Sicario', 'Nightcrawler']);
   });
 
   it('shows an error alert with a Retry button that refetches', async () => {
@@ -256,7 +226,7 @@ describe('ForYouPage', () => {
     // assert
     expect(screen.getByRole('alert')).toHaveTextContent('Could not load recommendations.');
     fireEvent.click(retry);
-    expect(await screen.findByRole('list', { name: 'Recommended movies' })).toBeInTheDocument();
+    await waitFor(() => expect(rowLabels().length).toBeGreaterThan(0));
     expect(calls).toBe(2);
   });
 });
@@ -733,5 +703,490 @@ describe('ForYouPage replacement', () => {
     expect(screen.getByRole('link', { name: 'Heat' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Play Heat' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Replace / })).not.toBeInTheDocument();
+  });
+});
+
+describe('ForYouPage grouping', () => {
+  it('builds the wanted row order with series priority, seed rows, watchlist and More for you', async () => {
+    // arrange
+    const requests = stubRanking([
+      seeded(
+        101,
+        { movieId: 900, title: 'Seed X', signal: 'liked' },
+        { releaseYear: 2020, startedCollectionId: 1 },
+      ),
+      seeded(
+        102,
+        { movieId: 901, title: 'Seed Y', signal: 'watched' },
+        { releaseYear: 1999, startedCollectionId: 1 },
+      ),
+      seeded(
+        103,
+        { movieId: 900, title: 'Seed X', signal: 'liked' },
+        { releaseYear: 2005, startedCollectionId: 2 },
+      ),
+      seeded(104, { movieId: 900, title: 'Seed X', signal: 'liked' }),
+      seeded(105, { movieId: 900, title: 'Seed X', signal: 'liked' }),
+      seeded(106, { movieId: 901, title: 'Seed Y', signal: 'watched' }),
+      seeded(107, { movieId: 901, title: 'Seed Y', signal: 'watched' }),
+      seeded(108, { movieId: 902, title: 'Seed Z', signal: 'watchlist' }),
+      seeded(109, { movieId: 903, title: 'Seed W', signal: 'watchlist' }),
+      makeMovie(110),
+    ]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toHaveLength(5));
+    expect(rowLabels()).toEqual([
+      'Next in a series you started',
+      'Because you liked Seed X',
+      'Because you watched Seed Y',
+      'Close to your watchlist',
+      'More for you',
+    ]);
+    expect(cardTitles(rowFor('Next in a series you started'))).toEqual(['Movie 102', 'Movie 103']);
+    expect(cardTitles(rowFor('Because you liked Seed X'))).toEqual([
+      'Movie 101',
+      'Movie 104',
+      'Movie 105',
+    ]);
+    expect(cardTitles(rowFor('Because you watched Seed Y'))).toEqual(['Movie 106', 'Movie 107']);
+    expect(cardTitles(rowFor('Close to your watchlist'))).toEqual(['Movie 108', 'Movie 109']);
+    expect(cardTitles(rowFor('More for you'))).toEqual(['Movie 110']);
+    const shown = renderedTitles();
+    expect(shown).toHaveLength(new Set(shown).size);
+    expect(requests).toHaveLength(1);
+  });
+
+  it('omits themed rows that have no candidates', async () => {
+    // arrange
+    stubRanking([makeMovie(201), makeMovie(202)]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toEqual(['More for you']));
+    expect(cardTitles(rowFor('More for you'))).toEqual(['Movie 201', 'Movie 202']);
+  });
+
+  it('picks one series candidate per collection by known year, unknown years last, then API rank', async () => {
+    // arrange
+    stubRanking([
+      seeded(
+        301,
+        { movieId: 910, title: 'Seed A', signal: 'liked' },
+        { releaseYear: 2015, startedCollectionId: 7 },
+      ),
+      seeded(
+        302,
+        { movieId: 911, title: 'Seed B', signal: 'liked' },
+        { releaseYear: 1999, startedCollectionId: 7 },
+      ),
+      seeded(
+        303,
+        { movieId: 912, title: 'Seed C', signal: 'liked' },
+        { releaseYear: null, startedCollectionId: 7 },
+      ),
+      seeded(
+        320,
+        { movieId: 913, title: 'Seed D', signal: 'liked' },
+        { releaseYear: 2000, startedCollectionId: 8 },
+      ),
+      seeded(
+        310,
+        { movieId: 914, title: 'Seed E', signal: 'liked' },
+        { releaseYear: 2000, startedCollectionId: 8 },
+      ),
+      seeded(
+        340,
+        { movieId: 915, title: 'Seed F', signal: 'liked' },
+        { releaseYear: null, startedCollectionId: 9 },
+      ),
+      seeded(
+        330,
+        { movieId: 916, title: 'Seed G', signal: 'liked' },
+        { releaseYear: null, startedCollectionId: 9 },
+      ),
+    ]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()[0]).toBe('Next in a series you started'));
+    expect(cardTitles(rowFor('Next in a series you started'))).toEqual([
+      'Movie 302',
+      'Movie 320',
+      'Movie 340',
+    ]);
+    expect(cardTitles(rowFor('More for you'))).toEqual([
+      'Movie 301',
+      'Movie 303',
+      'Movie 310',
+      'Movie 330',
+    ]);
+  });
+
+  it('assigns a duplicate initial movie ID once using its first API occurrence', async () => {
+    // arrange
+    stubRanking([
+      seeded(401, { movieId: 900, title: 'Seed X', signal: 'liked' }, {}, 'First Copy'),
+      seeded(401, { movieId: 901, title: 'Seed Y', signal: 'liked' }, {}, 'Second Copy'),
+      seeded(402, { movieId: 900, title: 'Seed X', signal: 'liked' }),
+    ]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toEqual(['Because you liked Seed X']));
+    expect(cardTitles(rowFor('Because you liked Seed X'))).toEqual(['First Copy', 'Movie 402']);
+    expect(renderedTitles()).not.toContain('Second Copy');
+  });
+
+  it('splits seed groups by seed movie ID and reported signal', async () => {
+    // arrange
+    stubRanking([
+      seeded(501, { movieId: 900, title: 'Shared', signal: 'liked' }),
+      seeded(502, { movieId: 900, title: 'Shared', signal: 'liked' }),
+      seeded(503, { movieId: 900, title: 'Shared', signal: 'watched' }),
+      seeded(504, { movieId: 900, title: 'Shared', signal: 'watched' }),
+    ]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toHaveLength(2));
+    expect(rowLabels()).toEqual(['Because you liked Shared', 'Because you watched Shared']);
+    expect(cardTitles(rowFor('Because you liked Shared'))).toEqual(['Movie 501', 'Movie 502']);
+    expect(cardTitles(rowFor('Because you watched Shared'))).toEqual(['Movie 503', 'Movie 504']);
+  });
+
+  it('ranks seed groups by candidate count then first API appearance', async () => {
+    // arrange
+    stubRanking([
+      seeded(601, { movieId: 931, title: 'Seed A', signal: 'liked' }),
+      seeded(602, { movieId: 931, title: 'Seed A', signal: 'liked' }),
+      seeded(603, { movieId: 932, title: 'Seed B', signal: 'liked' }),
+      seeded(604, { movieId: 932, title: 'Seed B', signal: 'liked' }),
+      seeded(605, { movieId: 930, title: 'Seed C', signal: 'liked' }),
+      seeded(606, { movieId: 930, title: 'Seed C', signal: 'liked' }),
+      seeded(607, { movieId: 930, title: 'Seed C', signal: 'liked' }),
+    ]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toHaveLength(3));
+    expect(rowLabels()).toEqual([
+      'Because you liked Seed C',
+      'Because you liked Seed A',
+      'Because you liked Seed B',
+    ]);
+  });
+
+  it('keeps API order within seed and watchlist rows and folds singletons into More for you', async () => {
+    // arrange
+    stubRanking([
+      seeded(701, { movieId: 940, title: 'Seed X', signal: 'liked' }),
+      seeded(702, { movieId: 940, title: 'Seed X', signal: 'liked' }),
+      seeded(703, { movieId: 941, title: 'Lonely', signal: 'liked' }),
+      makeMovie(704),
+      seeded(
+        705,
+        { movieId: 942, title: 'Solo Series', signal: 'watched' },
+        { startedCollectionId: 3 },
+      ),
+      seeded(706, { movieId: 943, title: 'Watch One', signal: 'watchlist' }),
+      seeded(707, { movieId: 944, title: 'Watch Two', signal: 'watchlist' }),
+      makeMovie(708),
+    ]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toHaveLength(3));
+    expect(rowLabels()).toEqual([
+      'Because you liked Seed X',
+      'Close to your watchlist',
+      'More for you',
+    ]);
+    expect(cardTitles(rowFor('Because you liked Seed X'))).toEqual(['Movie 701', 'Movie 702']);
+    expect(cardTitles(rowFor('Close to your watchlist'))).toEqual(['Movie 706', 'Movie 707']);
+    expect(cardTitles(rowFor('More for you'))).toEqual([
+      'Movie 703',
+      'Movie 704',
+      'Movie 705',
+      'Movie 708',
+    ]);
+  });
+
+  it('moves seed groups beyond four rows into More for you', async () => {
+    // arrange
+    const ranked: ForYouRecommendation[] = [];
+    for (let group = 0; group < 5; group += 1) {
+      const movieId = 950 + group;
+      ranked.push(
+        seeded(800 + group * 2, { movieId, title: `Seed ${movieId}`, signal: 'liked' }),
+        seeded(801 + group * 2, { movieId, title: `Seed ${movieId}`, signal: 'liked' }),
+      );
+    }
+    stubRanking(ranked);
+    expect(MAX_SEED_ROWS).toBe(4);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toHaveLength(5));
+    expect(rowLabels().filter((label) => label.startsWith('Because you liked'))).toEqual([
+      'Because you liked Seed 950',
+      'Because you liked Seed 951',
+      'Because you liked Seed 952',
+      'Because you liked Seed 953',
+    ]);
+    expect(rowLabels()[4]).toBe('More for you');
+    expect(cardTitles(rowFor('More for you'))).toEqual(['Movie 808', 'Movie 809']);
+  });
+
+  it('sends cards beyond the six-card themed cap into More for you', async () => {
+    // arrange
+    const ranked: ForYouRecommendation[] = [];
+    for (let index = 0; index < 8; index += 1) {
+      ranked.push(seeded(801 + index, { movieId: 960, title: 'Seed X', signal: 'liked' }));
+    }
+    stubRanking(ranked);
+    expect(MAX_THEMED_ROW_CARDS).toBe(6);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toHaveLength(2));
+    expect(cardTitles(rowFor('Because you liked Seed X'))).toEqual([
+      'Movie 801',
+      'Movie 802',
+      'Movie 803',
+      'Movie 804',
+      'Movie 805',
+      'Movie 806',
+    ]);
+    expect(cardTitles(rowFor('More for you'))).toEqual(['Movie 807', 'Movie 808']);
+  });
+
+  it('caps the watchlist row at six cards and folds its overflow into More for you', async () => {
+    // arrange
+    const ranked: ForYouRecommendation[] = [
+      seeded(830, { movieId: 980, title: 'Seed L', signal: 'liked' }),
+    ];
+    ranked.push(seeded(831, { movieId: 980, title: 'Seed L', signal: 'liked' }));
+    for (let index = 0; index < 7; index += 1) {
+      ranked.push(seeded(811 + index, { movieId: 970, title: 'Seed W', signal: 'watchlist' }));
+    }
+    stubRanking(ranked);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toHaveLength(3));
+    expect(cardTitles(rowFor('Close to your watchlist'))).toHaveLength(6);
+    expect(cardTitles(rowFor('More for you'))).toEqual(['Movie 817']);
+  });
+});
+
+describe('ForYouPage row chrome', () => {
+  it('labels each populated row as a region with a level-two heading and carousel controls', async () => {
+    // arrange
+    stubRanking([
+      seeded(1001, { movieId: 900, title: 'Seed X', signal: 'liked' }),
+      seeded(1002, { movieId: 900, title: 'Seed X', signal: 'liked' }),
+      makeMovie(1003),
+    ]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toHaveLength(2));
+    for (const label of rowLabels()) {
+      const row = rowFor(label);
+      expect(row.tagName).toBe('SECTION');
+      expect(screen.getAllByRole('region', { name: label })).toContain(row);
+      expect(within(row).getByRole('heading', { level: 2, name: label })).toBeInTheDocument();
+      expect(within(row).getByRole('group', { name: label })).toBeInTheDocument();
+      expect(within(row).getByRole('button', { name: 'Previous' })).toBeInTheDocument();
+      expect(within(row).getByRole('button', { name: 'Next' })).toBeInTheDocument();
+    }
+  });
+
+  it('moves a row carousel with the arrow keys the same way as the details rail', async () => {
+    // arrange
+    const layout = { scrollWidth: 1000, clientWidth: 300, scrollLeft: 0 };
+    const scrollDeltas: number[] = [];
+    const replaceProperty = (property: string, descriptor: PropertyDescriptor) => {
+      const saved = Object.getOwnPropertyDescriptor(Element.prototype, property);
+      Object.defineProperty(Element.prototype, property, { configurable: true, ...descriptor });
+      return () => {
+        if (saved) {
+          Object.defineProperty(Element.prototype, property, saved);
+        } else {
+          Reflect.deleteProperty(Element.prototype, property);
+        }
+      };
+    };
+    const restores = [
+      replaceProperty('scrollWidth', { get: () => layout.scrollWidth }),
+      replaceProperty('clientWidth', { get: () => layout.clientWidth }),
+      replaceProperty('scrollLeft', {
+        get: () => layout.scrollLeft,
+        set: (value: number) => {
+          layout.scrollLeft = value;
+        },
+      }),
+      replaceProperty('scrollBy', {
+        value(this: Element, options: ScrollToOptions = {}) {
+          scrollDeltas.push(options.left ?? 0);
+        },
+      }),
+    ];
+
+    try {
+      stubRanking([
+        seeded(1101, { movieId: 900, title: 'Seed X', signal: 'liked' }),
+        seeded(1102, { movieId: 900, title: 'Seed X', signal: 'liked' }),
+      ]);
+      renderPage();
+      await waitFor(() => expect(rowLabels()).toHaveLength(1));
+      const carousel = within(rowFor('Because you liked Seed X')).getByRole('group', {
+        name: 'Because you liked Seed X',
+      });
+
+      // act
+      fireEvent.keyDown(carousel, { key: 'ArrowRight' });
+
+      // assert
+      expect(scrollDeltas).toEqual([270]);
+    } finally {
+      for (const restore of restores) {
+        restore();
+      }
+    }
+  });
+
+  it('hides the reason line on For You row cards while retaining delivered evidence', async () => {
+    // arrange
+    const evidence = [{ criterion: 'Genre', text: 'Same genres: Drama', matchedNames: ['Drama'] }];
+    stubRanking([
+      seeded(1201, { movieId: 900, title: 'Seed X', signal: 'liked' }, { evidence }),
+      seeded(1202, { movieId: 900, title: 'Seed X', signal: 'liked' }),
+      seeded(1203, { movieId: 901, title: 'Seed Y', signal: 'watchlist' }, { evidence }),
+    ]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toEqual(['Because you liked Seed X', 'More for you']));
+    expect(pageSection()?.querySelectorAll('.movie-card-seed')).toHaveLength(0);
+    expect(screen.queryByRole('link', { name: 'Open Seed X' })).not.toBeInTheDocument();
+    const likedCard = rowFor('Because you liked Seed X').querySelector(
+      '.movie-card',
+    ) as HTMLElement;
+    expect(within(likedCard).queryByText(/Because you/)).not.toBeInTheDocument();
+    expect(
+      Array.from(likedCard.querySelectorAll('.movie-card-evidence > li')).map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(['Same genres: Drama']);
+  });
+});
+
+describe('ForYouPage empty states', () => {
+  it('shows the no-seed state with a library link after a successful empty load', async () => {
+    // arrange
+    server.use(
+      http.get('*/api/recommendations/for-you', () =>
+        HttpResponse.json({ items: [], hasMore: false, hasSeeds: false }),
+      ),
+    );
+
+    // act
+    renderPage();
+
+    // assert
+    expect(
+      await screen.findByText(
+        'No recommendations yet. Mark movies as watched or liked to get some.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Browse the library' })).toHaveAttribute('href', '/');
+    expect(rowLabels()).toEqual([]);
+  });
+
+  it('shows the no-strong-match state with a library link when the empty load has seeds', async () => {
+    // arrange
+    server.use(
+      http.get('*/api/recommendations/for-you', () =>
+        HttpResponse.json({ items: [], hasMore: false, hasSeeds: true }),
+      ),
+    );
+
+    // act
+    renderPage();
+
+    // assert
+    expect(
+      await screen.findByText(
+        'No recommendations closely match the movies you have liked, watched, or added to your watchlist yet.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Browse the library' })).toHaveAttribute('href', '/');
+    expect(screen.queryByText(/^No recommendations yet\./)).not.toBeInTheDocument();
+  });
+
+  it('keeps the seeded empty state for a zero-item response that still reports more pages', async () => {
+    // arrange
+    server.use(
+      http.get('*/api/recommendations/for-you', () =>
+        HttpResponse.json({ items: [], hasMore: true, hasSeeds: true }),
+      ),
+    );
+
+    // act
+    renderPage();
+
+    // assert
+    expect(
+      await screen.findByText(
+        'No recommendations closely match the movies you have liked, watched, or added to your watchlist yet.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Browse the library' })).toBeInTheDocument();
+  });
+
+  it('keeps the loading state until the initial response settles', async () => {
+    // arrange
+    const gate = deferred();
+    stubRanking(range(1, 3), { waitWhen: () => gate.promise });
+
+    // act
+    renderPage();
+
+    // assert
+    expect(screen.getByRole('status')).toHaveTextContent('Loading recommendations');
+    expect(screen.queryByRole('link', { name: 'Browse the library' })).not.toBeInTheDocument();
+
+    // act
+    gate.resolve();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toEqual(['More for you']));
   });
 });
