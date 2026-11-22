@@ -256,7 +256,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Available);
         metadata.Signals.FullCastAvailability.ShouldBe(SignalAvailability.Available);
         metadata.Signals.CollectionAvailability.ShouldBe(SignalAvailability.Available);
-        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits", "/3/movie/603/videos", "/3/movie/603/videos"]);
+        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits", "/3/movie/603/recommendations", "/3/movie/603/videos", "/3/movie/603/videos"]);
         probe.QueryValues("external_source").ShouldBe(["imdb_id"]);
     }
 
@@ -488,7 +488,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         // assert
         Metadata(result).Title.ShouldBe("Solaris");
         PrimaryRequests().ShouldBe(1);
-        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits", "/3/movie/603/videos", "/3/movie/603/videos"]);
+        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits", "/3/movie/603/recommendations", "/3/movie/603/videos", "/3/movie/603/videos"]);
     }
 
     [Fact]

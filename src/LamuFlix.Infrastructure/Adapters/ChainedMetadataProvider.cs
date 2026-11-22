@@ -81,7 +81,8 @@ public sealed class ChainedMetadataProvider : IMetadataProvider
         primary
             .WithSignals(supplement.Signals)
             .WithCollection(supplement.CollectionId, supplement.CollectionName)
-            .WithTrailerKey(supplement.TrailerKey ?? primary.TrailerKey);
+            .WithTrailerKey(supplement.TrailerKey ?? primary.TrailerKey)
+            .WithTmdbIdentity(supplement.TmdbId, supplement.RecommendedTmdbIds);
 
     private static MetadataLookupResult? ResolveImmediate(MetadataLookupResult result, ref MetadataLookupResult? rememberedFailure)
     {

@@ -145,7 +145,31 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             TmdbId = movie.TmdbId,
         };
         CopyMetadata(record, movie.Metadata);
+        CopyRecommendations(record, movie.RecommendedTmdbIds);
         return record;
+    }
+
+    /// <summary>
+    /// Mirrors the source-owned first-page recommendation set onto the record. An empty list is a
+    /// successful empty page and leaves no rows; a null set carries no replace instruction.
+    /// </summary>
+    private static void CopyRecommendations(MovieRecord record, IReadOnlyList<int>? recommendedTmdbIds)
+    {
+        record.Recommendations.Clear();
+        if (recommendedTmdbIds is null)
+        {
+            return;
+        }
+
+        foreach (var recommendedTmdbId in recommendedTmdbIds)
+        {
+            record.Recommendations.Add(
+                new MovieRecommendationRecord
+                {
+                    SourceMovieId = record.Id,
+                    RecommendedTmdbId = recommendedTmdbId,
+                });
+        }
     }
 
     private static void CopyMetadata(MovieRecord record, MovieMetadata? metadata)
@@ -607,6 +631,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             .Include(movie => movie.Keywords)
             .Include(movie => movie.FullCast)
             .Include(movie => movie.Collection)
+            .Include(movie => movie.Recommendations)
             .AsSplitQuery()
             .SingleOrDefaultAsync(movie => movie.Id == id, ct);
 
@@ -1035,6 +1060,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             .Include(movie => movie.Keywords)
             .Include(movie => movie.FullCast)
             .Include(movie => movie.Collection)
+            .Include(movie => movie.Recommendations)
             .AsSplitQuery()
             .Where(movie => movie.Status == EnrichmentStatus.Failed)
             .OrderBy(movie => movie.Id)
@@ -1102,6 +1128,51 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         ApplyState(movie, record, baseline);
         ApplyAttempts(movie, record, baseline);
         ApplyMetadata(movie, record, baseline);
+        ApplyRecommendations(movie, record, baseline);
+    }
+
+    /// <summary>
+    /// Replaces the source-owned recommendation rows on a successful fetch (including an empty page) and
+    /// preserves them when a fetch fails for an unchanged TMDb identity. A changed TMDb identity drops the
+    /// rows that belonged to the previous identity so stale links never survive a re-identification.
+    /// </summary>
+    private static void ApplyRecommendations(Movie movie, MovieRecord record, Baseline baseline)
+    {
+        if (movie.RecommendedTmdbIds is { } recommended)
+        {
+            ReplaceRecommendations(record, recommended);
+            return;
+        }
+
+        if (baseline.TmdbId != movie.TmdbId)
+        {
+            record.Recommendations.Clear();
+        }
+    }
+
+    private static void ReplaceRecommendations(MovieRecord record, IReadOnlyList<int> recommendedTmdbIds)
+    {
+        var wanted = new HashSet<int>(recommendedTmdbIds);
+        foreach (var current in record.Recommendations
+            .Where(recommendation => !wanted.Contains(recommendation.RecommendedTmdbId))
+            .ToList())
+        {
+            record.Recommendations.Remove(current);
+        }
+
+        var present = new HashSet<int>(record.Recommendations.Select(recommendation => recommendation.RecommendedTmdbId));
+        foreach (var recommendedTmdbId in recommendedTmdbIds)
+        {
+            if (present.Add(recommendedTmdbId))
+            {
+                record.Recommendations.Add(
+                    new MovieRecommendationRecord
+                    {
+                        SourceMovieId = record.Id,
+                        RecommendedTmdbId = recommendedTmdbId,
+                    });
+            }
+        }
     }
 
     private static void ApplyFormat(Movie movie, MovieRecord record, Baseline baseline)
@@ -1196,6 +1267,10 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             ? availableId
             : (int?)null;
         var collectionName = record.Collection?.Name;
+        var recommendedTmdbIds = record.Recommendations
+            .OrderBy(recommendation => recommendation.RecommendedTmdbId)
+            .Select(recommendation => recommendation.RecommendedTmdbId)
+            .ToArray();
         MovieMetadata? metadata = record.MetadataTitle is null
             ? null
             : new MovieMetadata(
@@ -1215,7 +1290,9 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
                 collectionId,
                 collectionName,
                 Signals(record),
-                record.TrailerKey);
+                record.TrailerKey,
+                record.TmdbId,
+                recommendedTmdbIds.Length == 0 ? null : recommendedTmdbIds);
 
         return Movie.Rehydrate(
             id: record.Id,
@@ -1234,7 +1311,8 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             isWatched: record.IsWatched,
             review: record.Review,
             enrichmentDeferredUntil: record.EnrichmentDeferredUntil,
-            tmdbId: record.TmdbId);
+            tmdbId: record.TmdbId,
+            recommendedTmdbIds: recommendedTmdbIds.Length == 0 ? null : recommendedTmdbIds);
     }
 
     private static MovieSignalSnapshot? Signals(MovieRecord record) =>

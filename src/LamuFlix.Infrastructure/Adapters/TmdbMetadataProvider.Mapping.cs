@@ -46,8 +46,12 @@ public sealed partial class TmdbMetadataProvider
                 imdbId: MapImdbId(response.ImdbId),
                 posterUrl: MapPosterUrl(response.PosterPath),
                 collectionId: collection.Id,
-                collectionName: collection.Name);
+                collectionName: collection.Name,
+                tmdbId: MapTmdbId(response.Id));
         }
+
+        public static int? MapTmdbId(int? movieId) =>
+            movieId is { } id && id > 0 ? id : null;
 
         private static (int? Id, string? Name) MapCollection(CollectionPayload? collection) =>
             collection is null ? (null, null) : (collection.Id, collection.Name);
@@ -242,6 +246,14 @@ public sealed partial class TmdbMetadataProvider
         // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("results")]
         public List<SearchHit>? Results { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("page")]
+        public int? Page { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("total_pages")]
+        public int? TotalPages { get; init; }
 
         // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("movie_results")]
