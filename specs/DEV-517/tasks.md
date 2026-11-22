@@ -7,7 +7,7 @@ description: "Task list for DEV-517 For You load more and suggestion replacement
 
 **Input**: Design documents from `specs/DEV-517/` — `spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q8), `CONCLUSIONS.md`, `ASSUMPTIONS.md`; Maestri notes `DEV-517`, `recon-DEV-517`; `specs/PRODUCT.md`.
 
-**Status**: PLAN FROZEN under [PLAN_ADJUDICATION.md](PLAN_ADJUDICATION.md). Gate 1, Build and runtime acceptance remain pending.
+**Status**: PLAN FROZEN under [PLAN_ADJUDICATION.md](PLAN_ADJUDICATION.md). Gate 1 is complete (T000). Build and runtime acceptance remain pending.
 
 **Tests**: Required (`brief.md` Test and task order; FR-001–FR-015; SC-001–SC-007; SMOKE-001–SMOKE-003; Done when). TDD: author failing component tests for both stories before production feature wiring. No new test framework/dependency.
 
@@ -43,7 +43,7 @@ Ordering per `brief.md` Test and task order: **plan challenge + Q8 adjudication 
 **Prerequisite before Rigger opens the Spec PR**: Plan challenge and Q8 adjudication complete; **Keel** declares PLAN FROZEN; **Patron** sets `gate1: provisional` (`spec.md` Precedence; task-pipeline Phase 2 steps 6–7).
 **Checkpoint**: Spec PR opened by Rigger under Bernstein coordination only after that prerequisite; verified user-merge receipt in `CONCLUSIONS.md`, or stop. Owner merge remains the Build blocker. No Build tasks before that receipt.
 
-- [ ] T000 **Bernstein** coordinates plan challenge / Q8 adjudication through Keel PLAN FROZEN and Patron `gate1: provisional`, then **Rigger** prepares/opens the DEV-517 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-517 in `specs/DEV-517/CONCLUSIONS.md`. Receipt only. T001–T010 MUST NOT proceed without verified merge (`brief.md` Closing bar; Q8; `spec.md` Precedence; no structural owner checkbox invented by Quill).
+- [x] T000 **Bernstein** coordinates plan challenge / Q8 adjudication through Keel PLAN FROZEN and Patron `gate1: provisional`, then **Rigger** prepares/opens the DEV-517 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-517 in `specs/DEV-517/CONCLUSIONS.md`. Receipt only. T001–T010 MUST NOT proceed without verified merge (`brief.md` Closing bar; Q8; `spec.md` Precedence; no structural owner checkbox invented by Quill).
 
 ---
 
