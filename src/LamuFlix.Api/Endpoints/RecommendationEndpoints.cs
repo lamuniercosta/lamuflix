@@ -60,7 +60,10 @@ internal static class RecommendationEndpoints
             new GetForYouRecommendationsQuery(take, offset, excludedMovieIds), cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        return TypedResults.Ok(new ForYouRecommendationsPageDto([.. page.Items.Select(ToDto)], page.HasMore));
+        return TypedResults.Ok(new ForYouRecommendationsPageDto(
+            [.. page.Items.Select(item => ToDto(item, item.StartedCollectionId))],
+            page.HasMore,
+            page.HasSeeds));
     }
 
     private static async Task<Results<Ok<List<RecommendedMovieDto>>, BadRequest, NotFound>> GetRecommendationsAsync(
@@ -96,7 +99,7 @@ internal static class RecommendationEndpoints
         var recommended = await handler.HandleAsync(new GetRecommendationsQuery(movieId, take), cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        return TypedResults.Ok<List<RecommendedMovieDto>>([.. recommended.Select(ToDto)]);
+        return TypedResults.Ok<List<RecommendedMovieDto>>([.. recommended.Select(item => ToDto(item))]);
     }
 
     private static int ParseTake(IQueryCollection query, int candidatePoolSize)
@@ -167,7 +170,7 @@ internal static class RecommendationEndpoints
         return ids.ToImmutable();
     }
 
-    private static RecommendedMovieDto ToDto(RecommendedMovie recommendedMovie)
+    private static RecommendedMovieDto ToDto(RecommendedMovie recommendedMovie, int? startedCollectionId = null)
     {
         var summary = recommendedMovie.Summary;
 
@@ -185,7 +188,8 @@ internal static class RecommendationEndpoints
             summary.Review.Name,
             recommendedMovie.Score,
             [.. recommendedMovie.Evidence.Select(ToEvidenceDto)],
-            ToSeedDto(recommendedMovie.Seed));
+            ToSeedDto(recommendedMovie.Seed),
+            startedCollectionId);
     }
 
     private static RecommendationSeedDto? ToSeedDto(RecommendationSeed? seed) =>

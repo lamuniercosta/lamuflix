@@ -23,5 +23,6 @@ public sealed record RecommendedMovie(
     MovieSummary Summary,
     double Score,
     ImmutableList<RecommendationEvidence> Evidence,
-    RecommendationSeed? Seed = null);
+    RecommendationSeed? Seed = null,
+    int? StartedCollectionId = null);
 // ReSharper restore NotAccessedPositionalProperty.Global
