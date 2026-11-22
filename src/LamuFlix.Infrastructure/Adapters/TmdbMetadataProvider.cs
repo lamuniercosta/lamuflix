@@ -213,7 +213,11 @@ public sealed partial class TmdbMetadataProvider(
 
         var signals = await FetchSignalsAsync(movieId, metadata.CollectionId is not null, ct);
         var trailerKey = await FetchTrailerKeyAsync(movieId, body.OriginalLanguage, ct);
-        return new MetadataLookupResult.Found(metadata.WithSignals(signals).WithTrailerKey(trailerKey));
+        return new MetadataLookupResult.Found(
+            metadata
+                .WithSignals(signals.Snapshot)
+                .WithTrailerKey(trailerKey)
+                .WithTmdbIdentity(metadata.TmdbId, signals.Recommendations.Values));
     }
 
     private async Task<string?> FetchTrailerKeyAsync(int movieId, string? originalLanguage, CancellationToken ct)
@@ -469,6 +473,15 @@ public sealed partial class TmdbMetadataProvider(
     private Uri BuildCreditsUri(int movieId) =>
         ComposeUri(string.Concat("movie/", movieId.ToString(CultureInfo.InvariantCulture), "/credits", QueryKey()));
 
+    private Uri BuildRecommendationsUri(int movieId) =>
+        ComposeUri(
+            string.Concat(
+                "movie/",
+                movieId.ToString(CultureInfo.InvariantCulture),
+                "/recommendations",
+                QueryKey(),
+                "&page=1"));
+
     private Uri BuildVideosUri(int movieId, string language) =>
         ComposeUri(
             string.Concat(
@@ -501,6 +514,7 @@ public sealed partial class TmdbMetadataProvider(
         Find,
         Keywords,
         Credits,
+        Recommendations,
     }
 
     private abstract record Fetch

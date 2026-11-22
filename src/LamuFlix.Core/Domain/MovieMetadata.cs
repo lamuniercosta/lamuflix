@@ -246,6 +246,32 @@ public sealed record MovieMetadata
             TmdbId,
             RecommendedTmdbIds);
 
+    /// <summary>
+    /// Carries the TMDb identity and the first-page recommendation outcome resolved by the TMDb adapter.
+    /// A null recommendation set records a failed fetch; an empty list records a successful empty page.
+    /// </summary>
+    public MovieMetadata WithTmdbIdentity(int? tmdbId, IReadOnlyList<int>? recommendedTmdbIds) =>
+        new(
+            Title,
+            Synopsis,
+            ReleaseYear,
+            Runtime,
+            ImdbRating,
+            ImdbId,
+            PosterUrl,
+            RottenTomatoesRating,
+            MetaScore,
+            Directors,
+            Actors,
+            Genres,
+            Writers,
+            CollectionId,
+            CollectionName,
+            Signals,
+            TrailerKey,
+            tmdbId,
+            recommendedTmdbIds);
+
     public MovieMetadata WithCollection(int? collectionId, string? collectionName) =>
         new(
             Title,

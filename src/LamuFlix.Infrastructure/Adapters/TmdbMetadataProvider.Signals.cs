@@ -12,22 +12,85 @@ public sealed partial class TmdbMetadataProvider
 {
     private const string MalformedKeywords = "malformed keywords payload";
     private const string MalformedCredits = "malformed credits payload";
+    private const string MalformedRecommendations = "malformed recommendations page";
+    private const string RecommendationsRequestFailed = "recommendations request failed";
 
-    private async Task<MovieSignalSnapshot> FetchSignalsAsync(int movieId, bool hasCollection, CancellationToken ct)
+    private async Task<SignalBundle> FetchSignalsAsync(int movieId, bool hasCollection, CancellationToken ct)
     {
         var keywords = await ReadKeywordsAsync(movieId, ct);
         var credits = await ReadCreditsAsync(movieId, ct);
+        var recommendations = await ReadRecommendationsAsync(movieId, ct);
         if (!keywords.Failed && !credits.Failed)
         {
             healthState.Record(category: null, wasUnauthorized: false);
         }
 
-        return new MovieSignalSnapshot(
-            keywords.Availability,
-            keywords.Values,
-            credits.Availability,
-            credits.Values,
-            hasCollection ? SignalAvailability.Available : SignalAvailability.KnownEmpty);
+        return new SignalBundle(
+            new MovieSignalSnapshot(
+                keywords.Availability,
+                keywords.Values,
+                credits.Availability,
+                credits.Values,
+                hasCollection ? SignalAvailability.Available : SignalAvailability.KnownEmpty),
+            recommendations);
+    }
+
+    private async Task<RecommendationSignal> ReadRecommendationsAsync(int movieId, CancellationToken ct)
+    {
+        var fetch = await FetchAsync(BuildRecommendationsUri(movieId), RequestKind.Recommendations, ct);
+        if (fetch is not Fetch.Succeeded succeeded)
+        {
+            Log.RecommendationsUnavailable(logger, RecommendationsRequestFailed);
+            return UnavailableRecommendations();
+        }
+
+        return MapRecommendations(succeeded.Body, movieId);
+    }
+
+    private RecommendationSignal MapRecommendations(Response body, int movieId)
+    {
+        if (!TryMapRecommendations(body, movieId, out var ids))
+        {
+            Log.RecommendationsUnavailable(logger, MalformedRecommendations);
+            return UnavailableRecommendations();
+        }
+
+        return new RecommendationSignal(ids);
+    }
+
+    /// <summary>
+    /// Reads the first recommendations page only. A rejected page (error body, wrong page number, or an
+    /// unusable result entry) is a failed fetch, never an empty one; a valid empty page is a successful
+    /// empty set that replaces the source's stored rows.
+    /// </summary>
+    private static bool TryMapRecommendations(Response body, int movieId, out IReadOnlyList<int> ids)
+    {
+        ids = [];
+        if (body.Success == false
+            || (body.Id is { } echoedSourceId && echoedSourceId != movieId)
+            || body.Results is not { } results
+            || body.Page is not null and not 1)
+        {
+            return false;
+        }
+
+        var mapped = new List<int>(results.Count);
+        var seen = new HashSet<int>();
+        foreach (var hit in results)
+        {
+            if (hit.Id is not { } id || id <= 0)
+            {
+                return false;
+            }
+
+            if (seen.Add(id))
+            {
+                mapped.Add(id);
+            }
+        }
+
+        ids = mapped;
+        return true;
     }
 
     private async Task<KeywordSignal> ReadKeywordsAsync(int movieId, CancellationToken ct)
@@ -152,8 +215,20 @@ public sealed partial class TmdbMetadataProvider
     private static CastSignal UnavailableCredits() =>
         new(SignalAvailability.Unavailable, EmptyCast(), Failed: true);
 
+    private static RecommendationSignal UnavailableRecommendations() => new(null);
+
     private static ImmutableHashSet<string> EmptyCast() =>
         ImmutableHashSet.Create<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The first-page recommendation ids, or null when the fetch failed. An empty list is a successful
+    /// empty first page.
+    /// </summary>
+    private readonly record struct RecommendationSignal(IReadOnlyList<int>? Values);
+
+    private readonly record struct SignalBundle(
+        MovieSignalSnapshot Snapshot,
+        RecommendationSignal Recommendations);
 
     private readonly record struct KeywordSignal(
         SignalAvailability Availability,
