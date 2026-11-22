@@ -143,3 +143,11 @@
 - `PLAN_ADJUDICATION.md` (`PLAN FROZEN`, 25/25 findings adjudicated across Sentry, Ledger, and Compass), `brief.md`, `spec.md`, `plan.md`, `tasks.md`, and Accepted `docs/adr/0048-tmdb-crowd-similarity.md` align with `specs/DEV-539/ticket-text.txt` and `CONCLUSIONS.md` Q1–Q8, C1, and the plan challenge ruling.
 - `specs/DEV-539/checklists/requirements.md` lines 32–37 have all `User-Visible Outcome` items ticked (`SMOKE-001`–`SMOKE-003`).
 - Structural owner checkboxes: `0` (no ticket contradiction or constitution departure under charter §2.3; ordinary owner Gate 1 spec PR merge remains pending per `T000`).
+
+---
+
+## Gate 1 spec PR merge receipt
+
+- The owner merged [spec PR #460](https://github.com/lamuniercosta/lamuflix/pull/460) into `main` on 2026-11-21 at 17:15:51 UTC. GitHub records merge commit `04e31d45d93aa5a87f0a3d5202b60f5ae434b077`.
+- Phase A base `1bbc8a637b97ec2efdf0eaa6f2be6da8abbbc089` is an ancestor of the merge commit, which is included in the DEV-539 worktree history.
+- This receipt completes T000 and satisfies the Gate 1 prerequisite for T001 read-only pickup.
