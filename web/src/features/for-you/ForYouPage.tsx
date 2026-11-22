@@ -60,7 +60,9 @@ function resolveRows(visit: ForYouVisit): ForYouRow[] {
     .filter((row) => row.movies.length > 0);
   const themedIds = new Set(themed.flatMap((row) => row.movies.map((movie) => Number(movie.id))));
   const more = unique.filter((movie) => !themedIds.has(Number(movie.id)));
-  return more.length > 0
+  const showMore =
+    visit.items.length > 0 && (more.length > 0 || visit.hasMore || visit.buffer.length > 0);
+  return showMore
     ? [...themed, { key: 'more', kind: 'more', label: MORE_FOR_YOU_LABEL, movies: more }]
     : themed;
 }
@@ -129,6 +131,9 @@ export default function ForYouPage({ onOpenMovie }: ForYouPageProps) {
   }, [loadVisit]);
 
   const retryInitialLoad = useCallback(() => {
+    identityRef.current += 1;
+    busyRef.current = false;
+    setPending(null);
     setVisit(null);
     setError(null);
     setNotice(null);
@@ -313,48 +318,53 @@ export default function ForYouPage({ onOpenMovie }: ForYouPageProps) {
       ) : null}
       {rows.map((row) => {
         const rowHeadingId = `${pageHeadingId}-${row.key}`;
+        const isMore = row.kind === 'more';
         return (
           <section key={row.key} className="for-you-row" aria-labelledby={rowHeadingId}>
             <h2 id={rowHeadingId} className="for-you-row-heading">
               {row.label}
             </h2>
-            <MovieCarousel label={row.label}>
-              {row.movies.map((movie) => (
-                <MovieCard
-                  key={String(movie.id)}
-                  movie={{ ...movie, failureCategory: null, failureMessage: null }}
-                  seed={movie.seed}
-                  evidence={movie.evidence}
-                  hideSeed
-                  onOpenMovie={onOpenMovie}
-                  action={
-                    <button
-                      type="button"
-                      className="movie-card-retry"
-                      aria-label={`Replace ${movie.title}`}
-                      disabled={busy}
-                      onClick={() => void replaceCard(movie.id)}
-                    >
-                      <RetryIcon size={14} />
-                      <span>Replace</span>
-                    </button>
-                  }
-                />
-              ))}
-            </MovieCarousel>
+            {row.movies.length > 0 ? (
+              <MovieCarousel label={row.label}>
+                {row.movies.map((movie) => (
+                  <MovieCard
+                    key={String(movie.id)}
+                    movie={{ ...movie, failureCategory: null, failureMessage: null }}
+                    seed={movie.seed}
+                    evidence={movie.evidence}
+                    hideSeed
+                    onOpenMovie={onOpenMovie}
+                    action={
+                      isMore ? (
+                        <button
+                          type="button"
+                          className="movie-card-retry"
+                          aria-label={`Replace ${movie.title}`}
+                          disabled={busy}
+                          onClick={() => void replaceCard(movie.id)}
+                        >
+                          <RetryIcon size={14} />
+                          <span>Replace</span>
+                        </button>
+                      ) : undefined
+                    }
+                  />
+                ))}
+              </MovieCarousel>
+            ) : null}
+            {isMore && canLoadMore ? (
+              <button
+                type="button"
+                className="lamu-action-quiet"
+                disabled={busy}
+                onClick={() => void loadMore()}
+              >
+                Load more
+              </button>
+            ) : null}
           </section>
         );
       })}
-      {canLoadMore ? (
-        <button
-          type="button"
-          className="lamu-action-quiet"
-          disabled={busy}
-          onClick={() => void loadMore()}
-        >
-          Load more
-        </button>
-      ) : null}
     </section>
   );
 }
