@@ -434,3 +434,14 @@ Scope for every changed-file gate: `git diff --name-only --diff-filter=d 326756d
 ### 3. Phase boundary
 
 T013/T014 complete. T015 (three-axis technical review, two-round cap) and T016 (publication, screenshot attach/read-back, merge-bar claim) were not started.
+
+---
+
+## T015 Review Adjudication Ruling — Ledger-F3 Empty Sanitized Seed Title Disposition
+
+**Verdict.** Do not map an empty sanitized seed title to `Seed = null` (which would omit the `seed` key on For You and violate `FR-002`) and do not invent a synthetic fallback title string (prohibited by `T004` / Plan Challenge Ruling); enforce the nonblank-display-title invariant in `Movie.RequireTitle` by rejecting titles that contain no non-whitespace, non-control character (`!title.Any(c => !char.IsWhiteSpace(c) && !char.IsControl(c))`), so every stored catalog movie and every `NearestSeedMatch.SeedTitle` remains non-empty after `SimilarityScorer.SanitizeDisplayText` and every For You item always emits a populated `Seed` with a nonblank `title`.
+
+- **For You populated-seed contract and no-fallback guardrail (`specs/DEV-542/spec.md:37,141`, `contracts/recommended-movie-seed-evidence.md:33`, `CONCLUSIONS.md:17,59`, `tasks.md` T001 & T004)**: Every For You recommendation MUST include a populated `seed` (`movieId`, nonblank `title`, `signal`), whereas omitting `seed` (`Seed = null`) is the Related-only wire contract (`FR-002`, `FR-003`, `Q2`), and `T004` explicitly forbids inventing fallback seed values, dropping recommended items, or altering API status codes.
+- **Root domain invariant repair (`src/LamuFlix.Core/Domain/Movie.cs:226–232`, `CONCLUSIONS.md:99,172`)**: The T001 checkpoint cited `Movie.RequireTitle` (`Movie.cs:226–231`) as the source of the nonblank title invariant (`MovieSummaryMapper` → `NearestSeedMatch.SeedTitle`), while `SimilarityScorer.SanitizeDisplayText` (`SimilarityScorer.cs:386–401`) strips `char.IsControl(c)` to spaces and trims; strengthening `Movie.RequireTitle` so `Create` and `Rehydrate` reject control-only/whitespace-only strings closes the gap at its domain boundary without changing scoring, ranking, selection, or For You seed attribution (`Charter §2.3 item 6`, forced by `FR-002` and `T001`/`T004`).
+- **Verification scope (`tests/LamuFlix.UnitTests/**`)**: Pin control-only title rejection on `Movie.Create`/`Movie.Rehydrate` (and verify via the affected recommendation contract test) alongside `Compass-F1` remediation inside `T015` round 1.
+
