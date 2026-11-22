@@ -365,6 +365,10 @@ Related also asserts zero `.movie-card-seed` nodes (no seed line) and the API as
 - **Why**: `specs/DEV-543/EVIDENCE.md` recorded `Hercules → Aladdin` at rank 4 on its 2026-11-21T10:28Z dump with 11 liked / 56 watched. The live library has since moved to 35 liked / 141 watched (2026-11-21 18:59 backup) and 103 liked / 395 watched (2026-11-22T09:13Z dump), and that exact frozen state is not on disk. The For You `Because you liked Aladdin` card for Hercules is therefore a library-state fact the reviewer must observe on the state the acceptance evidence pins, not something this presentation-only change can produce or suppress.
 - **Verdict**: SMOKE-001's e2e half PASSES; its home-library reviewer half remains **OPEN** pending an owner/Patron disposition (observe on a restored frozen library state at acceptance, or accept the recorded drift). Nothing was tuned, and no value was invented.
 
-### 5. Phase boundary
+### 5. Implementation commit
+
+`42b39ec6` — `DEV-542 - Phase 5: full web e2e and home library web checkpoint` (T008/T010 code + this receipt).
+
+### 6. Phase boundary
 
 T008 and T010 are complete. After-screenshot capture and the mandatory size:M gate run are T013/T014 (Phase 6) and were not started.
