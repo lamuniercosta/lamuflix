@@ -3,9 +3,12 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { createElement, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createApiClient } from '../../api/client';
 import { forYouRecommendations } from '../../mocks/fixtures';
 import { server } from '../../test/server';
 import { forYouQueryKey, useForYou } from './forYouApi';
+
+const client = createApiClient('https://test.local');
 
 function renderForYou(existingClient?: QueryClient) {
   const queryClient =
@@ -113,6 +116,21 @@ describe('useForYou', () => {
     expect(seeded.getQueryData(['relatedMovies', 7])).toEqual([browseRow]);
     expect(seeded.getQueryData(['forYou', 10])).toEqual(forYouRecommendations.items);
     expect(seeded.getQueryData(['forYou', 10])).not.toEqual([browseRow]);
+  });
+
+  it('exposes the required hasSeeds envelope field and optional item field on the wire', async () => {
+    // arrange
+    server.use(forYouHandler(forYouRecommendations));
+
+    // act
+    const { data } = await client.GET('/api/recommendations/for-you', {
+      params: { query: { take: 10 } },
+    });
+
+    // assert
+    expect(data?.hasSeeds).toBe(true);
+    expect(data?.items[1].startedCollectionId).toBe(1);
+    expect(data?.items[0].startedCollectionId).toBeUndefined();
   });
 
   it('does not retry a failed for-you request', async () => {
