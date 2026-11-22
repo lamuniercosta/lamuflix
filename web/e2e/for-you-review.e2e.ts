@@ -38,12 +38,9 @@ const EVIDENCE_INPUT_ITEMS = 3;
 const DESKTOP_EVIDENCE_LINES = 2;
 const SMALL_EVIDENCE_LINES = 1;
 
-/** The app's For You page take; the journey must exercise this exact live window. */
 const FOR_YOU_TAKE = 10;
-/** Two full live pages plus two spare ranked candidates for the preflight. */
 const REQUIRED_BASELINE_CANDIDATES = 2 * FOR_YOU_TAKE + 2;
 const REQUIRED_UNSEEN_AFTER_EXCLUSION = 2;
-/** Consecutive identical live rankings required before the journey trusts its plan. */
 const REQUIRED_STABLE_READS = 3;
 const STABILITY_INTERVAL_MS = 750;
 const RELOAD_MARKER = '__dev517NoReload';
@@ -323,10 +320,6 @@ async function readSlice(
   return (await response.json()) as ForYouPage;
 }
 
-/**
- * Walks the live DEV-541 ranking in `take` slices under one exclusion set and returns the distinct
- * ranked candidates in received order, mirroring the visit scan the page performs.
- */
 async function readRanking(
   request: APIRequestContext,
   exclude: ReadonlyArray<number> = [],
@@ -362,10 +355,6 @@ async function ignoreStatuses(promise: Promise<{ status(): number }>): Promise<v
   await (await promise).status();
 }
 
-/**
- * Clears every DEV-517-visible feedback signal so the journey never depends on the DEV-541 like
- * test and leaves the stack without a For You taste profile for later specs.
- */
 async function resetFeedbackState(request: APIRequestContext): Promise<void> {
   const browse = await readBrowse(request);
   await Promise.all(
@@ -397,7 +386,6 @@ function catalogMovies(): CatalogMovie[] {
   return catalog;
 }
 
-/** Imports the runner-staged catalog folders; already-imported folders are tolerated. */
 async function importForYouCatalog(request: APIRequestContext): Promise<void> {
   for (const movie of catalogMovies()) {
     const imported = await request.post(`${context.baseURL}/api/movies/import`, {
@@ -410,7 +398,6 @@ async function importForYouCatalog(request: APIRequestContext): Promise<void> {
   }
 }
 
-/** Deletes the journey catalog rows so other running-app specs keep the default library. */
 async function removeForYouCatalog(request: APIRequestContext): Promise<void> {
   const catalogTitles = new Set(catalogMovies().map((movie) => movie.title));
   const browse = await readBrowse(request);
@@ -430,12 +417,6 @@ interface JourneyPlan {
   replacement: ForYouItem;
 }
 
-/**
- * Seeds the opt-in catalog and proves the live ranking can serve this journey: at least
- * `2 x take + 2` distinct ranked candidates, and at least two unseen candidates beyond the
- * initial plus appended grid after the replacement target is excluded. The replacement itself is
- * the first candidate the page can swap in for a visit that has only rendered the initial page.
- */
 async function prepareForYouJourney(request: APIRequestContext): Promise<JourneyPlan> {
   await resetFeedbackState(request);
   await importForYouCatalog(request);
@@ -472,11 +453,6 @@ async function prepareForYouJourney(request: APIRequestContext): Promise<Journey
   return { initial, appended, target, replacement };
 }
 
-/**
- * Waits for the opt-in catalog to finish enriching and for the live ranking to settle, so the plan
- * is computed against the same order the browser will receive. Without this the ranking shifts
- * while late catalog movies acquire features and the replacement expectation goes stale.
- */
 async function waitForSettledRanking(request: APIRequestContext): Promise<ForYouItem[]> {
   const catalogTitles = new Set(catalogMovies().map((movie) => movie.title));
   const deadline = Date.now() + context.waitBudgetMs * 2;
@@ -559,20 +535,6 @@ async function expectNoReload(page: Page, action: string): Promise<void> {
   expect(marker, `${action} must not reload the page`).toBe('kept');
 }
 
-/**
- * Seed/reset procedure for the DEV-517 running-app journey (T007):
- * 1. `web/e2e/fixtures.mjs` stages 26 opt-in `for-you-catalog` folders in the isolated runtime
- *    library and `web/e2e/run.mjs` publishes their stub provider responses; the runner never
- *    imports them, so the default DEV-541 fresh two-movie fixture scenario is untouched.
- * 2. Each journey clears every feedback signal, imports the staged catalog through
- *    `POST /api/movies/import`, and records one like so the live ranking returns candidates.
- * 3. The preflight waits for every catalog movie to be enriched and for three consecutive
- *    identical live rankings, then asserts `2 x take + 2` distinct ranked candidates and two
- *    unseen candidates outside the initial plus appended grid once the replacement target is
- *    excluded. Failure reports observed and required counts.
- * 4. `finally` clears the feedback signals again and deletes the catalog rows, leaving the stack
- *    as it found it for later specs.
- */
 test.describe('DEV-517 For You review journey', () => {
   test('DEV-517 SMOKE-001 Load more appends the next ranked page without reload or reordering', async ({
     page,

@@ -129,3 +129,9 @@ Basis:
 - Preservation of frozen T007 live contract and DEV-541 isolation (`recon-DEV-517`:35-40; `specs/DEV-517/CONCLUSIONS.md` Q7, Q8; `specs/DEV-517/PLAN_ADJUDICATION.md` L4, L-3): opting into the 22+ candidate catalog via existing stub/enrichment and isolated Compose context keeps the default fresh 2-seed context intact for the DEV-541 like scenario and exercises live `take=10`, `offset`, `exclude`, in-place swap, and a follow-on action proving the retired ID stays absent without stubbing `/api/recommendations/for-you`.
 - Zero structural escalation (`specs/PRODUCT.md` §5 items 1–6; `recon-DEV-517`:23-28): the extension is strictly test-only in `web/e2e/fixtures.mjs` and `web/e2e/run.mjs`, introduces no production code, dependency, schema, or public API change, does not alter ticket deliverables or the constitution, and must fail setup explicitly with observed/required counts and stop if those two files cannot satisfy the preflight.
 
+### T007 seed/reset procedure (relocated from `web/e2e/for-you-review.e2e.ts` per Ledger S1)
+
+1. `web/e2e/fixtures.mjs` stages 26 opt-in `for-you-catalog` folders in the isolated runtime library and `web/e2e/run.mjs` publishes their stub provider responses; the runner never imports them, so the default DEV-541 fresh two-movie fixture scenario is untouched.
+2. Each journey clears every feedback signal, imports the staged catalog through `POST /api/movies/import`, and records one like so the live ranking returns candidates.
+3. The preflight waits for every catalog movie to be enriched and for three consecutive identical live rankings, then asserts `2 x take + 2` distinct ranked candidates and two unseen candidates outside the initial plus appended grid once the replacement target is excluded. Failure reports observed and required counts.
+4. `finally` clears the feedback signals again and deletes the catalog rows, leaving the stack as it found it for later specs.
