@@ -24,13 +24,6 @@ export const SEED_MOVIES = [
   },
 ];
 
-/**
- * Opt-in DEV-517 For You catalog. The folders are staged in the isolated runtime library but never
- * imported by the runner, so the default DEV-541 fresh-fixture scenario keeps its two-movie stack.
- * The DEV-517 e2e journeys import them on demand and delete them afterwards (see
- * `specs/DEV-517/CONCLUSIONS.md` T007 ruling). They share the seeded movie's genre so the live
- * ranking returns them as ranked candidates once the journey records a positive signal.
- */
 export const FOR_YOU_CATALOG_MOVIES = Array.from({ length: 26 }, (_, index) => {
   const ordinal = String(index + 1).padStart(2, '0');
   const title = `For You Catalog ${ordinal}`;

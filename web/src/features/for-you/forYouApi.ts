@@ -26,10 +26,6 @@ export class ForYouError extends Error {
   }
 }
 
-/**
- * Fetches one DEV-541 For You slice for an explicit `take`/`offset`/`exclude` window.
- * The For You visit owns its own paging state, so these slices bypass the React Query cache.
- */
 export async function fetchForYouSlice({
   take,
   offset,

@@ -52,11 +52,6 @@ interface StubOptions {
   waitWhen?: (request: ForYouRequest, index: number) => Promise<void> | null;
 }
 
-/**
- * Serves the DEV-541 shape for a ranked candidate list: the endpoint strips the
- * wire `exclude` set first, then cuts `take` items at `offset`, and reports
- * `hasMore` for the remaining pool. Requests are recorded in call order.
- */
 function stubRanking(ranked: ReadonlyArray<ForYouRecommendation>, options: StubOptions = {}) {
   const requests: ForYouRequest[] = [];
   server.use(

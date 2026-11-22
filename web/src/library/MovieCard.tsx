@@ -39,7 +39,6 @@ export interface MovieCardProps {
   evidence?: ReadonlyArray<RecommendationEvidence>;
   feedbackClients?: MovieFeedbackClients;
   className?: string;
-  /** Optional stateless card action supplied by a feature; omitted for shared card callers. */
   action?: ReactNode;
 }
 

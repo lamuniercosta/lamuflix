@@ -9,19 +9,12 @@ export interface ForYouPageProps {
   onOpenMovie?: (id: number | string) => void;
 }
 
-/** Ordered visit grid plus the committed paging state for its active exclusion set. */
 interface ForYouVisit {
-  /** Cards in rank order as committed to the visit; replacement edits in place. */
   items: ForYouRecommendation[];
-  /** Every ID already rendered or retired during this visit; used to skip duplicates. */
   seen: ReadonlySet<number>;
-  /** Replaced IDs committed to the wire `exclude` set. */
   committed: number[];
-  /** Offset for the next append fetch. */
   cursor: number;
-  /** Eligible unconsumed rows kept from the last fetched slice. */
   buffer: ForYouRecommendation[];
-  /** Whether the endpoint reported more candidates for the committed exclusion set. */
   hasMore: boolean;
 }
 
@@ -45,7 +38,6 @@ export default function ForYouPage({ onOpenMovie }: ForYouPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  /** Strict-Mode safe visit identity: late results from an older visit are discarded. */
   const identityRef = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
   const busyRef = useRef(false);
@@ -90,7 +82,6 @@ export default function ForYouPage({ onOpenMovie }: ForYouPageProps) {
 
   useEffect(() => {
     identityRef.current += 1;
-    // The visit seeds once from its own uncached slice; later results only land after `await`.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-only visit seeding (plan: visit state survives query invalidation)
     void loadVisit();
     return () => {
