@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from 'react';
+import { useState, type MouseEvent, type ReactNode } from 'react';
 import type { components } from '../api/types';
 import { FilmIcon, PlayFilledIcon, RetryIcon, StarFilledIcon } from '../ui/icons';
 import { openMoviePlayer } from '../features/app-navigation/useAppNavigation';
@@ -39,6 +39,8 @@ export interface MovieCardProps {
   evidence?: ReadonlyArray<RecommendationEvidence>;
   feedbackClients?: MovieFeedbackClients;
   className?: string;
+  /** Optional stateless card action supplied by a feature; omitted for shared card callers. */
+  action?: ReactNode;
 }
 
 export default function MovieCard({
@@ -51,6 +53,7 @@ export default function MovieCard({
   evidence,
   feedbackClients,
   className,
+  action,
 }: MovieCardProps) {
   const [posterFailed, setPosterFailed] = useState(false);
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
@@ -149,6 +152,8 @@ export default function MovieCard({
         <span className="movie-card-sep" aria-hidden="true" />
         <span>{displayValue(movie.releaseYear)}</span>
       </p>
+
+      {action ? <div className="movie-card-status">{action}</div> : null}
 
       {failureMessage ? <p className="movie-card-failure">{failureMessage}</p> : null}
 
