@@ -25,7 +25,7 @@ function recommendation(
     isNotInterested: false,
     review: 'none',
     score: 0.5,
-    reasons: [],
+    evidence: [],
     ...overrides,
   };
 }
@@ -44,10 +44,10 @@ function recommendationsHandler(body: RecommendedMovie[] | object, status = 200)
   return http.get('*/api/movies/:id/recommendations', () => HttpResponse.json(body, { status }));
 }
 
-function reasonTexts(scope: HTMLElement): string[] {
+function evidenceTexts(scope: HTMLElement): string[] {
   const card = scope.closest('article') ?? scope;
-  return Array.from(card.querySelectorAll('.related-movie-reason')).map(
-    (chip) => chip.textContent ?? '',
+  return Array.from(card.querySelectorAll('.movie-card-evidence > li')).map(
+    (item) => item.textContent ?? '',
   );
 }
 
@@ -112,7 +112,7 @@ describe('RelatedMovies', () => {
     // assert
     expect(screen.getByRole('heading', { name: 'Related movies' })).toBeInTheDocument();
     const region = await screen.findByRole('region', { name: 'Related movies' });
-    const items = within(region).getAllByRole('listitem');
+    const items = Array.from(region.querySelectorAll<HTMLElement>('article.movie-card'));
     expect(items).toHaveLength(3);
     expect(items.map((item) => item.querySelector('.movie-card-title')?.textContent)).toEqual([
       'Arrival',
@@ -123,7 +123,7 @@ describe('RelatedMovies', () => {
     expect(screen.queryByText('No close match in your library.')).not.toBeInTheDocument();
   });
 
-  it('renders every Reason verbatim and in order as inert text', async () => {
+  it('renders delivered evidence verbatim and in order as inert text without a seed line', async () => {
     // arrange
     server.use(recommendationsHandler(relatedMovies as RecommendedMovie[]));
 
@@ -132,21 +132,24 @@ describe('RelatedMovies', () => {
 
     // assert
     const arrival = await screen.findByRole('link', { name: /Arrival/ });
-    expect(reasonTexts(arrival)).toEqual(['Same director', 'Matches your Drama interest']);
     const arrivalCard = arrival.closest('article') as HTMLElement;
-    expect(
-      Array.from(arrivalCard.querySelectorAll('.related-movie-reason')).map(
-        (chip) => chip.className,
-      ),
-    ).toEqual([
-      'related-movie-reason related-movie-reason-structural',
-      'related-movie-reason related-movie-reason-personal',
+    expect(evidenceTexts(arrivalCard)).toEqual([
+      'Same director: Denis Villeneuve',
+      'Shared themes: first contact, language',
     ]);
-    expect(screen.queryByRole('button', { name: 'Same director' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Same director' })).not.toBeInTheDocument();
+    expect(arrivalCard.querySelector('.movie-card-evidence')?.tagName).toBe('UL');
+    expect(screen.queryByText(/Because you /)).not.toBeInTheDocument();
+    expect(screen.queryByText(/is on your watchlist/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^Open / })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Same director: Denis Villeneuve' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Same director: Denis Villeneuve' }),
+    ).not.toBeInTheDocument();
   });
 
-  it('renders no chips and no invented explanation for empty Reasons', async () => {
+  it('renders evidence-only cards with no invented copy for empty evidence', async () => {
     // arrange
     server.use(recommendationsHandler(relatedMovies as RecommendedMovie[]));
 
@@ -154,11 +157,13 @@ describe('RelatedMovies', () => {
     renderRelated(1);
 
     // assert
-    const noReasons = await screen.findByRole('link', { name: /Blade Runner 2049/ });
-    const card = noReasons.closest('article') as HTMLElement;
-    expect(reasonTexts(card)).toEqual([]);
+    const bladeRunner = await screen.findByRole('link', { name: /Blade Runner 2049/ });
+    const card = bladeRunner.closest('article') as HTMLElement;
+    expect(evidenceTexts(card)).toEqual([]);
+    expect(card.querySelector('.movie-card-evidence')).toBeNull();
     expect(within(card).getByText('Blade Runner 2049')).toBeInTheDocument();
     expect(within(card).getByText('2017')).toBeInTheDocument();
+    expect(card.textContent).not.toMatch(/director|themes|cast|genre/i);
   });
 
   it('renders the neutral fallback for missing and broken posters', async () => {
@@ -441,7 +446,7 @@ describe('RelatedMovies shared-card feedback integration', () => {
     }
   });
 
-  it('refreshes membership, flags and reasons after a successful action', async () => {
+  it('refreshes membership, flags and evidence after a successful action', async () => {
     // arrange
     let calls = 0;
     server.use(
@@ -452,7 +457,13 @@ describe('RelatedMovies shared-card feedback integration', () => {
             recommendation({
               id: 2,
               title: 'Arrival',
-              reasons: [{ kind: 'structural', text: 'Same director' }],
+              evidence: [
+                {
+                  criterion: 'Director',
+                  text: 'Same director: Denis Villeneuve',
+                  matchedNames: ['Denis Villeneuve'],
+                },
+              ],
             }),
             recommendation({ id: 3, title: 'Prisoners' }),
           ]);
@@ -462,9 +473,17 @@ describe('RelatedMovies shared-card feedback integration', () => {
             id: 2,
             title: 'Arrival',
             isWatched: true,
-            reasons: [
-              { kind: 'personal', text: 'Now watched' },
-              { kind: 'structural', text: 'Same director' },
+            evidence: [
+              {
+                criterion: 'Themes',
+                text: 'Shared themes: now watched',
+                matchedNames: ['now watched'],
+              },
+              {
+                criterion: 'Director',
+                text: 'Same director: Denis Villeneuve',
+                matchedNames: ['Denis Villeneuve'],
+              },
             ],
           }),
           recommendation({ id: 4, title: 'Newcomer' }),
@@ -486,7 +505,10 @@ describe('RelatedMovies shared-card feedback integration', () => {
     const arrivalCard = screen
       .getByRole('link', { name: /Arrival/ })
       .closest('article') as HTMLElement;
-    expect(reasonTexts(arrivalCard)).toEqual(['Now watched', 'Same director']);
+    expect(evidenceTexts(arrivalCard)).toEqual([
+      'Shared themes: now watched',
+      'Same director: Denis Villeneuve',
+    ]);
     expect(calls).toBe(2);
   });
 
@@ -546,17 +568,22 @@ describe('RelatedMovies shared-card feedback integration', () => {
     expect(fetches).toBe(3);
   });
 
-  it('renders every reason verbatim in API order including duplicates and HTML-looking text', async () => {
+  it('renders duplicate and HTML-looking evidence verbatim as inert text capped at two', async () => {
     // arrange
+    const hostile = '<b>Bold</b> & <script>alert(1)</script>';
     server.use(
       recommendationsHandler([
         recommendation({
           id: 2,
           title: 'Arrival',
-          reasons: [
-            { kind: 'structural', text: 'Same director' },
-            { kind: 'structural', text: 'Same director' },
-            { kind: 'structural', text: '<b>Bold</b> & <script>alert(1)</script>' },
+          evidence: [
+            { criterion: 'Themes', text: hostile, matchedNames: ['Bold'] },
+            { criterion: 'Themes', text: hostile, matchedNames: ['Bold'] },
+            {
+              criterion: 'Director',
+              text: 'Same director: Denis Villeneuve',
+              matchedNames: ['Denis Villeneuve'],
+            },
           ],
         }),
       ]),
@@ -569,20 +596,17 @@ describe('RelatedMovies shared-card feedback integration', () => {
     const card = (await screen.findByRole('link', { name: /Arrival/ })).closest(
       'article',
     ) as HTMLElement;
-    expect(reasonTexts(card)).toEqual([
-      'Same director',
-      'Same director',
-      '<b>Bold</b> & <script>alert(1)</script>',
-    ]);
+    expect(evidenceTexts(card)).toEqual([hostile, hostile]);
     expect(card.querySelector('b')).toBeNull();
     expect(card.querySelector('script')).toBeNull();
+    expect(card.textContent).not.toContain('Same director: Denis Villeneuve');
   });
 
-  it('renders no chips when reasons are absent', async () => {
+  it('renders no evidence list and no invented copy when evidence is absent', async () => {
     // arrange
-    const noReasons = recommendation({ id: 2, title: 'Arrival' });
-    delete (noReasons as { reasons?: RecommendedMovie['reasons'] }).reasons;
-    server.use(recommendationsHandler([noReasons]));
+    const noEvidence = recommendation({ id: 2, title: 'Arrival' });
+    delete (noEvidence as { evidence?: RecommendedMovie['evidence'] }).evidence;
+    server.use(recommendationsHandler([noEvidence]));
 
     // act
     renderRelated(1);
@@ -591,8 +615,9 @@ describe('RelatedMovies shared-card feedback integration', () => {
     const card = (await screen.findByRole('link', { name: /Arrival/ })).closest(
       'article',
     ) as HTMLElement;
-    expect(reasonTexts(card)).toEqual([]);
-    expect(card.querySelector('.related-movie-reasons')).toBeNull();
+    expect(evidenceTexts(card)).toEqual([]);
+    expect(card.querySelector('.movie-card-evidence')).toBeNull();
+    expect(card.textContent).not.toMatch(/Because|director|themes/i);
   });
 
   it('moves focus to the section heading when refresh removes the focused card', async () => {

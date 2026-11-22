@@ -280,3 +280,36 @@ A cited Patron ruling that either (a) extends the authorized envelope to the pat
 ### 4. Phase boundary
 
 T007/T009 are complete. T008/T010 (e2e, browser/viewport, home-library, full gates) stay blocked until the Related consumer migrates in T011/T012, which is Phase 4 and was not started.
+
+## Phase 4 (US3) Receipt — Related cards show evidence without a seed line
+
+**Verdict.** Phase 4 checkpoint PASSES for the Related surface: the Related consumer compiles and presents ordered evidence only (no seed line, no reasons bridge), and locally runnable component coverage is green. Phase 3 base `5a2aaeff`; T011 and T012 marked `[x]`. No For You, MovieCard or generated-artifact edit was made.
+
+### 1. Tests authored first (T011, red then green)
+
+Before the production edit, `npm run test:run -- src/features/movie-details/RelatedMovies.test.tsx` produced 3 failed / 25 passed, failing only on the four legacy-reason cases. The four named cases (`RelatedMovies.test.tsx` 126, 149, 549, 581 pre-edit) were rewritten:
+
+- `renders delivered evidence verbatim and in order as inert text without a seed line` — Arrival's ordered `evidence` text is `Same director: Denis Villeneuve`, `Shared themes: first contact, language` inside a semantic `ul.movie-card-evidence`; no evidence text is exposed as a button or link; no `Because you …` / `… is on your watchlist` seed copy and no `Open {title}` link on any Related card.
+- `renders evidence-only cards with no invented copy for empty evidence` — Blade Runner 2049 (fixture `evidence: []`) renders no `.movie-card-evidence` list and no director/themes/cast/genre copy while keeping its title and year.
+- `renders duplicate and HTML-looking evidence verbatim as inert text capped at two` — duplicated `<b>Bold</b> & <script>alert(1)</script>` entries render as their exact delivered text with no `b`/`script` nodes, and the third entry is hidden by the shared desktop cap (visible two, matching the T001 rule).
+- `renders no evidence list and no invented copy when evidence is absent` — an item with the `evidence` key removed renders no list and no seed/evidence copy.
+- `RelatedMovies.test.tsx` helper `reasonTexts`/`.related-movie-reason` became `evidenceTexts`/`.movie-card-evidence > li`; `recommendation()` now defaults `evidence: []`; the feedback-refresh case became `refreshes membership, flags and evidence after a successful action` asserting the refreshed ordered evidence text; the SMOKE-002 API-order case now enumerates `article.movie-card` so nested evidence `li` elements are not counted as rail entries.
+
+### 2. Implementation (T012)
+
+- `web/src/features/movie-details/RelatedMovies.tsx`: passes `evidence={movie.evidence}` instead of `reasons={movie.reasons}`. No seed prop is passed, so `MovieCard`'s `seed` line stays absent on Related by construction.
+- `web/src/features/movie-details/RelatedMovies.css`: removed the legacy `.related-movie-reasons` / `.related-movie-reason` chip rules. The T001 shared responsive rule (`.movie-card-evidence` under `@media (max-width: 47.9375rem)`) is unchanged.
+- `web/src/mocks/fixtures.ts`: `relatedMoviesData` migrated to the generated evidence shape (Arrival: `Director` + `Themes`; Blade Runner 2049: empty; Prisoners: `Director`). No `reasons` key remains in `web/src`.
+- Ruling-authorized fixture/consumer follow-ons: `web/src/features/movie-details/MovieDetailsView.test.tsx` (stale `.related-movie-reason` selector → `.movie-card-evidence`, and the populated-rail assertion now expects the migrated text `Same director: Denis Villeneuve`), and `web/e2e/dev518-related-reasons.e2e.ts` (`movie.reasons` reads migrated to `movie.evidence`, DEV-518 smoke assertions preserved).
+
+### 3. Verification
+
+- Focused: `RelatedMovies.test.tsx` + `MovieDetailsView.test.tsx` — 2 files, 80 tests passed.
+- Full web suite: 74 files, 1076 tests passed. Vitest still exits 1 on one unhandled MSW rejection in `src/library/BulkImportDialog.states.test.tsx`; reproduced identically on a clean stash of this work (`git stash -u`, same file, same error), so it is pre-existing at `5a2aaeff` and outside this ticket's files.
+- `npx tsc --noEmit` (src, includes both consumers): exit 0. `npx vite build`: exit 0. `npm run check:api`: exit 0. `npx eslint . --max-warnings 0`: exit 0. `npx prettier --check .`: clean.
+- `npm run typecheck:e2e` still fails on exactly one remaining `reasons` read, `web/e2e/for-you-review.e2e.ts:95`, which T008 owns in Phase 5; it was already failing at `5a2aaeff` and no Related e2e read remains.
+- `pwsh -NoProfile -File scripts/run-web-gates.ps1 -All`: FAIL, solely because `test:run` exits 1 on the pre-existing `BulkImportDialog.states.test.tsx` unhandled rejection recorded above; lint, typecheck and build steps of the same run are green.
+
+### 4. Phase boundary
+
+T011/T012 are complete; both generated-contract consumers (For You and Related) compile without `reasons`. T008/T010 (for-you e2e, browser/viewport, home-library, full gates) are Phase 5 and were not started.
