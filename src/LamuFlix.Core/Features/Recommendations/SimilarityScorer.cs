@@ -14,6 +14,8 @@ public static class SimilarityScorer
 {
     private const int DisplayNameLimit = 3;
 
+    private const string CrowdReason = "Often liked together";
+
     public static SimilarityResult Score(
         MovieFeatures a,
         MovieFeatures b,
@@ -42,6 +44,49 @@ public static class SimilarityScorer
         return ScoreWithoutValidation(a, b, options, genreWeights, keywordWeights);
     }
 
+    public static SimilarityResult Score(
+        MovieFeatures a,
+        MovieFeatures b,
+        RecommendationOptions options,
+        GenreWeights genreWeights,
+        KeywordCounts keywordCounts,
+        CrowdScoring crowdScoring,
+        MovieId first,
+        MovieId second)
+    {
+        ArgumentNullException.ThrowIfNull(keywordCounts);
+        return Score(
+            a,
+            b,
+            options,
+            genreWeights,
+            PrepareKeywordWeights(options, keywordCounts),
+            crowdScoring,
+            first,
+            second);
+    }
+
+    public static SimilarityResult Score(
+        MovieFeatures a,
+        MovieFeatures b,
+        RecommendationOptions options,
+        GenreWeights genreWeights,
+        IReadOnlyDictionary<string, double> keywordWeights,
+        CrowdScoring crowdScoring,
+        MovieId first,
+        MovieId second)
+    {
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(genreWeights);
+        ArgumentNullException.ThrowIfNull(keywordWeights);
+        ArgumentNullException.ThrowIfNull(crowdScoring);
+        ThrowIfInvalid(options);
+
+        return ScoreWithoutValidation(a, b, options, genreWeights, keywordWeights, crowdScoring, first, second);
+    }
+
     internal static SimilarityResult ScoreWithoutValidation(
         MovieFeatures a,
         MovieFeatures b,
@@ -55,20 +100,53 @@ public static class SimilarityScorer
         ArgumentNullException.ThrowIfNull(genreWeights);
         ArgumentNullException.ThrowIfNull(keywordWeights);
 
+        return ScoreWithoutValidation(a, b, options, genreWeights, keywordWeights, CrowdScoring.Disabled, null, null);
+    }
+
+    internal static SimilarityResult ScoreWithoutValidation(
+        MovieFeatures a,
+        MovieFeatures b,
+        RecommendationOptions options,
+        GenreWeights genreWeights,
+        IReadOnlyDictionary<string, double> keywordWeights,
+        CrowdScoring crowdScoring,
+        MovieId? first,
+        MovieId? second)
+    {
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(genreWeights);
+        ArgumentNullException.ThrowIfNull(keywordWeights);
+        ArgumentNullException.ThrowIfNull(crowdScoring);
+
         var weights = options.Weights;
-        var denominator = weights.Collection + weights.Director + weights.Themes + weights.Plot + weights.Cast + weights.Genres;
+        var denominator = Denominator(weights, crowdScoring);
         var terms = new[]
         {
             Create("Collection", weights.Collection, CollectionValue(a, b), CollectionEvidence(a, b)),
             Create("Director", weights.Director, SetValue(a.Directors, b.Directors), SharedNames(a.Directors, b.Directors)),
             Create("Themes", weights.Themes, ThemesValue(a, b, options, keywordWeights), ThemeEvidence(a, b, keywordWeights)),
+            Create("Crowd", weights.Crowd, CrowdValue(crowdScoring, first, second), Array.Empty<string>()),
             Create("Plot", weights.Plot, PlotValue(a, b, options), Array.Empty<string>()),
             Create("Cast", weights.Cast, Math.Min(1.0, SharedNames(a.Cast, b.Cast).Count / 2.0), SharedNames(a.Cast, b.Cast)),
             Create("Genre", weights.Genres, genreWeights.Similarity(a.Genres, b.Genres), SharedNames(a.Genres, b.Genres)),
         };
 
-        return BuildResult(terms, denominator, options);
+        return BuildResult(CrowdAware(terms, crowdScoring), denominator, options);
     }
+
+    private static double Denominator(SimilarityWeights weights, CrowdScoring crowdScoring)
+    {
+        var total = weights.Collection + weights.Director + weights.Themes + weights.Plot + weights.Cast + weights.Genres;
+        return crowdScoring.Active ? total + weights.Crowd : total;
+    }
+
+    private static double CrowdValue(CrowdScoring crowdScoring, MovieId? first, MovieId? second) =>
+        crowdScoring.IsLinked(first, second) ? 1.0 : 0.0;
+
+    private static ScoringTerm[] CrowdAware(ScoringTerm[] terms, CrowdScoring crowdScoring) =>
+        crowdScoring.Active ? terms : [.. terms.Where(term => term.Name != "Crowd")];
 
     internal static SimilarityResult ScorePreparedFull(PreparedMovie a, PreparedMovie b, ScoringContext context)
     {
@@ -80,12 +158,13 @@ public static class SimilarityScorer
             Create("Collection", weights.Collection, fast.Collection, CollectionEvidence(a.CollectionId, a.CollectionName, b.CollectionId, b.CollectionName)),
             Create("Director", weights.Director, fast.Director, SharedEvidence(a.Directors, b.Directors)),
             Create("Themes", weights.Themes, fast.Themes, ThemesEvidence(a, b, context)),
+            Create("Crowd", weights.Crowd, CrowdValue(context.Crowd, a.Id, b.Id), Array.Empty<string>()),
             Create("Plot", weights.Plot, fast.Plot, Array.Empty<string>()),
             Create("Cast", weights.Cast, fast.Cast, SharedEvidence(a.Cast, b.Cast)),
             Create("Genre", weights.Genres, fast.Genre, SharedEvidence(a.CleanedGenres, b.CleanedGenres)),
         };
 
-        return BuildResult(terms, context.Denominator, options);
+        return BuildResult(CrowdAware(terms, context.Crowd), context.Denominator, options);
     }
 
     private static SimilarityResult BuildResult(ScoringTerm[] terms, double denominator, RecommendationOptions options)
@@ -346,6 +425,11 @@ public static class SimilarityScorer
             return null;
         }
 
+        if (term.Name == "Crowd")
+        {
+            return CrowdReason;
+        }
+
         if (term.Evidence.Count == 0)
         {
             return term.Name == "Plot" ? "Similar story" : null;
@@ -364,7 +448,8 @@ public static class SimilarityScorer
 
     public static ImmutableList<RecommendationEvidence> BuildEvidence(
         SimilarityResult similarity,
-        RecommendationOptions options)
+        RecommendationOptions options,
+        string? crowdSeedTitle = null)
     {
         ArgumentNullException.ThrowIfNull(similarity);
         ArgumentNullException.ThrowIfNull(options);
@@ -378,7 +463,7 @@ public static class SimilarityScorer
                 .ThenBy(entry => entry.Index)
                 .Select(entry => new RecommendationEvidence(
                     entry.Contribution.Name,
-                    EvidenceText(entry.Contribution.Name, entry.Contribution.Evidence),
+                    EvidenceText(entry.Contribution.Name, entry.Contribution.Evidence, crowdSeedTitle),
                     [.. entry.Contribution.Evidence.Select(SanitizeDisplayText)])),
         ];
     }
@@ -407,11 +492,16 @@ public static class SimilarityScorer
             return false;
         }
 
-        return contribution.Evidence.Count > 0 || contribution.Name == "Plot";
+        return contribution.Evidence.Count > 0 || contribution.Name is "Plot" or "Crowd";
     }
 
-    private static string EvidenceText(string name, ImmutableList<string> evidence)
+    private static string EvidenceText(string name, ImmutableList<string> evidence, string? crowdSeedTitle)
     {
+        if (name == "Crowd")
+        {
+            return CrowdEvidenceText(crowdSeedTitle);
+        }
+
         var label = EvidenceLabel(name);
         if (evidence.Count == 0)
         {
@@ -442,6 +532,16 @@ public static class SimilarityScorer
             _ => name,
         };
 
+    /// <summary>
+    /// Returns the For you reason copy, quoting the winning seed title as literal data, or the Related
+    /// copy when no seed title is in context.
+    /// </summary>
+    private static string CrowdEvidenceText(string? seedTitle)
+    {
+        var title = SanitizeDisplayText(seedTitle);
+        return title.Length == 0 ? CrowdReason : string.Concat(CrowdReason, " with ", title);
+    }
+
     private static double DisplayThreshold(string name, RecommendationOptions options) =>
         name switch
         {
@@ -471,6 +571,7 @@ public static class SimilarityScorer
         var score = weights.Collection * collection / denominator
             + weights.Director * director / denominator
             + weights.Themes * themes / denominator
+            + weights.Crowd * CrowdValue(context.Crowd, a.Id, b.Id) / denominator
             + weights.Plot * plot / denominator
             + weights.Cast * cast / denominator
             + weights.Genres * genre / denominator;
@@ -478,9 +579,22 @@ public static class SimilarityScorer
         return new FastSimilarity(collection, director, themes, plot, cast, genre, score);
     }
 
+    /// <summary>
+    /// Returns the strong-match bar for the current Crowd state: the Crowd-active bar only while
+    /// Crowd is active and the optional value is set, otherwise the existing similarity bar.
+    /// </summary>
+    public static double StrongMatchThreshold(RecommendationOptions options, bool crowdActive)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        return crowdActive && options.CrowdActiveStrongMatchThreshold is { } threshold
+            ? threshold
+            : options.MinimumSimilarity;
+    }
+
     internal static bool IsStrongPrepared(FastSimilarity similarity, ScoringContext context, IReadOnlySet<string> criteria)
     {
-        if (similarity.Score >= context.Options.MinimumSimilarity)
+        if (similarity.Score >= StrongMatchThreshold(context.Options, context.Crowd.Active))
         {
             return true;
         }
@@ -581,7 +695,8 @@ internal sealed class ScoringContext
     public ScoringContext(
         RecommendationOptions options,
         GenreWeights genreWeights,
-        IReadOnlyDictionary<string, double> keywordWeights)
+        IReadOnlyDictionary<string, double> keywordWeights,
+        CrowdScoring? crowd = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(genreWeights);
@@ -590,8 +705,10 @@ internal sealed class ScoringContext
         Options = options;
         GenreWeights = genreWeights;
         KeywordWeights = keywordWeights;
+        Crowd = crowd ?? CrowdScoring.Disabled;
         var weights = options.Weights;
-        Denominator = weights.Collection + weights.Director + weights.Themes + weights.Plot + weights.Cast + weights.Genres;
+        var total = weights.Collection + weights.Director + weights.Themes + weights.Plot + weights.Cast + weights.Genres;
+        Denominator = Crowd.Active ? total + weights.Crowd : total;
 
         var canonical = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var key in keywordWeights.Keys)
@@ -611,6 +728,8 @@ internal sealed class ScoringContext
 
     public IReadOnlyDictionary<string, double> KeywordWeights { get; }
 
+    public CrowdScoring Crowd { get; }
+
     public double Denominator { get; }
 
     public IReadOnlyDictionary<string, string> CanonicalKeywords { get; }
@@ -618,11 +737,12 @@ internal sealed class ScoringContext
 
 internal sealed class PreparedMovie
 {
-    public PreparedMovie(MovieFeatures features, ScoringContext context)
+    public PreparedMovie(MovieFeatures features, ScoringContext context, MovieId? id = null)
     {
         ArgumentNullException.ThrowIfNull(features);
         ArgumentNullException.ThrowIfNull(context);
 
+        Id = id;
         CollectionId = features.CollectionId;
         CollectionName = features.CollectionName;
         CleanedGenres = SimilarityScorer.CleanNamesForRequest(features.Genres);
@@ -645,6 +765,8 @@ internal sealed class PreparedMovie
         PlotHasNonFinite = nonFinite;
         KeywordNormSquares = KeywordSquares.Sum();
     }
+
+    public MovieId? Id { get; }
 
     public int? CollectionId { get; }
 

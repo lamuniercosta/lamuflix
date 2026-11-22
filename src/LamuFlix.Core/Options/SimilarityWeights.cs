@@ -13,6 +13,9 @@ public sealed record SimilarityWeights
     public double Themes { get; init; } = 3.0;
 
     [Range(0.0, double.MaxValue)]
+    public double Crowd { get; init; } = 2.0;
+
+    [Range(0.0, double.MaxValue)]
     public double Plot { get; init; } = 2.0;
 
     [Range(0.0, double.MaxValue)]

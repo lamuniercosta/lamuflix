@@ -18,7 +18,8 @@ public sealed class GetForYouRecommendationsQueryHandler(
     GenreWeightsCalculator genreWeightsCalculator,
     KeywordWeightsCalculator keywordWeightsCalculator,
     TimeProvider timeProvider,
-    IOptions<RecommendationOptions> options)
+    IOptions<RecommendationOptions> options,
+    IOptions<TmdbOptions> tmdbOptions)
     : IQueryHandler<GetForYouRecommendationsQuery, ForYouRecommendationsPage>
 {
     public async Task<ForYouRecommendationsPage> HandleAsync(
@@ -42,6 +43,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
         cancellationToken.ThrowIfCancellationRequested();
 
         var recommendationOptions = options.Value;
+        var crowdScoring = CrowdScoring.Resolve(recommendationOptions, tmdbOptions.Value, library.CrowdLinks);
 
         var genreWeights = await genreWeightsCalculator.GetAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
@@ -59,7 +61,8 @@ public sealed class GetForYouRecommendationsQueryHandler(
             decay,
             genreWeights,
             keywordWeights,
-            cancellationToken);
+            cancellationToken,
+            crowdScoring);
 
         var retained = ApplyCollectionCut(ranked, recommendationOptions.MaxPerCollection);
         if (query.Offset >= retained.Count)
@@ -106,7 +109,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
         new(
             match.Candidate.Summary,
             match.Score,
-            SimilarityScorer.BuildEvidence(match.Pair, recommendationOptions),
+            SimilarityScorer.BuildEvidence(match.Pair, recommendationOptions, match.SeedTitle),
             new RecommendationSeed(
                 match.SeedMovieId.Value,
                 SimilarityScorer.SanitizeDisplayText(match.SeedTitle),

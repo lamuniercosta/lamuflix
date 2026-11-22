@@ -17,16 +17,19 @@ namespace LamuFlix.Evaluation.RealLibrary;
 public sealed class HiddenSeedEvaluationCopy
 {
     private readonly RecommendationOptions options;
+    private readonly TmdbOptions tmdbOptions;
     private readonly TimeProvider timeProvider;
 
     private HiddenSeedEvaluationCopy(
         RealLibrarySnapshot snapshot,
         MovieId hiddenSeed,
         RecommendationOptions options,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        TmdbOptions? tmdbOptions)
     {
         this.options = options;
         this.timeProvider = timeProvider;
+        this.tmdbOptions = tmdbOptions ?? new TmdbOptions();
         HiddenSeed = hiddenSeed;
         Catalog = new SnapshotCatalog(snapshot, hiddenSeed);
         Repository = new SnapshotRepository(snapshot, hiddenSeed);
@@ -59,7 +62,8 @@ public sealed class HiddenSeedEvaluationCopy
         RealLibrarySnapshot snapshot,
         MovieId hiddenSeed,
         RecommendationOptions options,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        TmdbOptions? tmdbOptions = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(hiddenSeed);
@@ -73,7 +77,7 @@ public sealed class HiddenSeedEvaluationCopy
                 nameof(hiddenSeed));
         }
 
-        return new HiddenSeedEvaluationCopy(snapshot, hiddenSeed, options, timeProvider);
+        return new HiddenSeedEvaluationCopy(snapshot, hiddenSeed, options, timeProvider, tmdbOptions);
     }
 
     public async Task<ImmutableList<RecommendedMovie>> RankAsync(int take, CancellationToken ct)
@@ -90,7 +94,8 @@ public sealed class HiddenSeedEvaluationCopy
             GenreWeights,
             KeywordWeights,
             timeProvider,
-            Options.Create(options));
+            Options.Create(options),
+            Options.Create(tmdbOptions));
 
     private static Movie HiddenView(Movie movie)
     {

@@ -1061,7 +1061,8 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
             profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
             new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
-            Microsoft.Extensions.Options.Options.Create(options));
+            Microsoft.Extensions.Options.Options.Create(options),
+            Microsoft.Extensions.Options.Options.Create(new TmdbOptions()));
     }
 
     private static IRecommendationProfileSource RealProfileSource(

@@ -251,7 +251,8 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
             profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
             new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
-            Microsoft.Extensions.Options.Options.Create(options));
+            Microsoft.Extensions.Options.Options.Create(options),
+            Microsoft.Extensions.Options.Options.Create(new TmdbOptions()));
 
         return handler
             .HandleAsync(new GetRecommendationsQuery(new MovieId(SelectedMovieId), take), CancellationToken.None)

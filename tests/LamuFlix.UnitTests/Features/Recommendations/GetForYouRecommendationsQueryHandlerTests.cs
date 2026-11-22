@@ -16,6 +16,8 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 public sealed class GetForYouRecommendationsQueryHandlerTests
 {
     private const int DefaultTake = 10;
+
+    private static readonly TmdbOptions ConfiguredTmdb = new() { Enabled = true, ApiKey = "test-key" };
     private const double Tolerance = 1e-9;
 
     private static readonly DateTimeOffset Now = new(2026, 10, 24, 12, 0, 0, TimeSpan.Zero);
@@ -79,13 +81,14 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty;
     private ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>> playback =
         ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>.Empty;
+    private CrowdLinks crowdLinks = CrowdLinks.Empty;
 
     public GetForYouRecommendationsQueryHandlerTests()
     {
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(Counts));
         catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(EmptyKeywordCounts));
         candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult(Snapshot(LibraryEntries())));
+            .Returns(_ => Task.FromResult(Snapshot(LibraryEntries(), crowdLinks)));
         profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(Profile()));
     }
@@ -883,6 +886,33 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_CrowdActiveAndLinked_EmitsSeedQualifiedCrowdCopyAndActiveDenominator()
+    {
+        // arrange
+        var handler = NewHandler(
+            minimumSimilarity: 0.0,
+            weights: new SimilarityWeights(),
+            crowdEnabled: true,
+            tmdbOptions: ConfiguredTmdb);
+        Arrange(
+            NewMovie(90, title: "Seed {Title}: (Part 1)", genres: ["Drama"], isLiked: true),
+            NewMovie(2, title: "Candidate", genres: ["Comedy"]));
+        ArrangeCrowdLinks((new MovieId(90), new MovieId(2)));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        var item = result.Items.ShouldHaveSingleItem();
+        item.Score.ShouldBe(2.0 / 17.0, 1e-12);
+        item.Seed.ShouldBe(new RecommendationSeed(90, "Seed {Title}: (Part 1)", SeedSignal.Liked));
+        item.Evidence.ShouldBe(
+        [
+            new RecommendationEvidence("Crowd", "Often liked together with Seed {Title}: (Part 1)", []),
+        ]);
+    }
+
+    [Fact]
     public async Task HandleAsync_CandidateInCollectionWithoutWatchedMember_OmitsStartedCollectionId()
     {
         // arrange
@@ -897,6 +927,29 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
         // assert
         result.Items.Single(item => item.Summary.Id.Value == 2).StartedCollectionId.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task HandleAsync_CrowdEnabledButTmdbDisabled_OmitsCrowdFromTheForYouPath()
+    {
+        // arrange
+        var handler = NewHandler(
+            minimumSimilarity: 0.0,
+            weights: new SimilarityWeights(),
+            crowdEnabled: true,
+            tmdbOptions: new TmdbOptions { Enabled = false, ApiKey = "test-key" });
+        Arrange(
+            NewMovie(90, title: "Seed", genres: ["Drama"], isLiked: true),
+            NewMovie(2, title: "Candidate", genres: ["Comedy"]));
+        ArrangeCrowdLinks((new MovieId(90), new MovieId(2)));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        var crowdDisabledItem = result.Items.ShouldHaveSingleItem();
+        crowdDisabledItem.Score.ShouldBe(0.0);
+        crowdDisabledItem.Evidence.ShouldBeEmpty();
     }
 
     [Fact]
@@ -979,11 +1032,33 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         Arrange(NewMovie(2, genres: ["Drama"], isInWatchlist: true));
 
         // act
+        var rankingGuardResult = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        rankingGuardResult.Items.ShouldBeEmpty();
+        rankingGuardResult.HasSeeds.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task HandleAsync_CrowdActiveWithThreshold_AppliesTheCrowdActiveBarToForYou()
+    {
+        // arrange
+        var handler = NewHandler(
+            minimumSimilarity: 0.0,
+            weights: new SimilarityWeights(),
+            crowdEnabled: true,
+            crowdActiveStrongMatchThreshold: 0.5,
+            tmdbOptions: ConfiguredTmdb);
+        Arrange(
+            NewMovie(90, title: "Seed", genres: ["Drama"], isLiked: true),
+            NewMovie(2, title: "Candidate", genres: ["Comedy"]));
+        ArrangeCrowdLinks((new MovieId(90), new MovieId(2)));
+
+        // act
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
 
         // assert
         result.Items.ShouldBeEmpty();
-        result.HasSeeds.ShouldBeTrue();
     }
 
     [Fact]
@@ -1169,7 +1244,10 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         double recencyFloor = RecommendationOptions.DefaultRecencyFloor,
         double minimumSimilarity = 0.225,
         double mmrLambda = 0.7,
-        SimilarityWeights? weights = null) =>
+        SimilarityWeights? weights = null,
+        TmdbOptions? tmdbOptions = null,
+        bool crowdEnabled = false,
+        double? crowdActiveStrongMatchThreshold = null) =>
         new(
             candidateSource,
             profileSource,
@@ -1190,10 +1268,17 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
                 MinimumSimilarity = minimumSimilarity,
                 MmrLambda = mmrLambda,
                 Weights = weights ?? GenreOnlyWeights,
-            }));
+                CrowdEnabled = crowdEnabled,
+                CrowdActiveStrongMatchThreshold = crowdActiveStrongMatchThreshold,
+            }),
+            Microsoft.Extensions.Options.Options.Create(tmdbOptions ?? new TmdbOptions()));
+
+    private void ArrangeCrowdLinks(params (MovieId First, MovieId Second)[] links) =>
+        crowdLinks = CrowdLinks.Create(links);
 
     private void Arrange(params Movie[] library)
     {
+        crowdLinks = CrowdLinks.Empty;
         libraryMovies = library;
         plotVectors = ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty;
         playback = ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>.Empty;
@@ -1219,8 +1304,10 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             MovieSummaryMapper.From(movie))),
     ];
 
-    private static RecommendationLibrarySnapshot Snapshot(IReadOnlyList<RecommendationLibraryEntry> entries) =>
-        new(entries, CrowdLinks.Empty);
+    private static RecommendationLibrarySnapshot Snapshot(
+        IReadOnlyList<RecommendationLibraryEntry> entries,
+        CrowdLinks? crowdLinks = null) =>
+        new(entries, crowdLinks ?? CrowdLinks.Empty);
 
     private TasteProfile Profile() =>
         new(ImmutableDictionary<string, double>.Empty)
@@ -1423,7 +1510,8 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
             Microsoft.Extensions.Options.Options.Create(new RecommendationOptions
             {
                 Weights = GenreOnlyWeights,
-            }));
+            }),
+            Microsoft.Extensions.Options.Options.Create(new TmdbOptions()));
 
         return handler
             .HandleAsync(new GetForYouRecommendationsQuery(take), CancellationToken.None)

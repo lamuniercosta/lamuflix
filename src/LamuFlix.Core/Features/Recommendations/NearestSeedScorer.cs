@@ -35,7 +35,8 @@ public static class NearestSeedScorer
         RecommendationRecencyDecay decay,
         GenreWeights genreWeights,
         IReadOnlyDictionary<string, double> keywordWeights,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        CrowdScoring? crowdScoring = null)
     {
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(library);
@@ -55,7 +56,7 @@ public static class NearestSeedScorer
         var disliked = DislikedSeeds(library);
         var multipliers = options.SeedRankMultipliers ?? [];
         var criteria = StrongReasonCriteria(options);
-        var context = new ScoringContext(options, genreWeights, keywordWeights);
+        var context = new ScoringContext(options, genreWeights, keywordWeights, crowdScoring);
         var preparedByEntry = PrepareLibrary(library, context);
         var seedsPrepared = PrepareSeeds(seeds, preparedByEntry);
         var dislikedPrepared = PrepareDisliked(disliked, preparedByEntry);
@@ -82,7 +83,7 @@ public static class NearestSeedScorer
         var prepared = new Dictionary<RecommendationLibraryEntry, PreparedMovie>(ReferenceEqualityComparer.Instance);
         foreach (var entry in library)
         {
-            prepared[entry] = new PreparedMovie(entry.Features, context);
+            prepared[entry] = new PreparedMovie(entry.Features, context, entry.Id);
         }
 
         return prepared;

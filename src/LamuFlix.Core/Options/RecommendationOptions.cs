@@ -104,6 +104,19 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public SimilarityWeights Weights { get; init; } = new();
 
+    /// <summary>
+    /// Gets whether the Crowd similarity criterion participates in scoring. It is independent of
+    /// TMDb enrichment so enrichment can stay on while Crowd scoring is off; the criterion is also
+    /// omitted whenever TMDb is unconfigured.
+    /// </summary>
+    public bool CrowdEnabled { get; init; }
+
+    /// <summary>
+    /// Gets the optional strong-match bar used only while Crowd is active. When unset, or when Crowd
+    /// is inactive, <see cref="MinimumSimilarity"/> keeps its existing role.
+    /// </summary>
+    public double? CrowdActiveStrongMatchThreshold { get; init; }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         foreach (var result in ValidateCore())
@@ -276,6 +289,28 @@ public sealed record RecommendationOptions : IValidatableObject
         {
             yield return result;
         }
+
+        foreach (var result in ValidateCrowd())
+        {
+            yield return result;
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateCrowd()
+    {
+        if (CrowdActiveStrongMatchThreshold is not { } threshold
+            || (double.IsFinite(threshold) && threshold is >= 0.0 and <= 1.0))
+        {
+            yield break;
+        }
+
+        yield return new ValidationResult(
+            string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} must be finite and between 0.0 and 1.0; got {1}.",
+                nameof(CrowdActiveStrongMatchThreshold),
+                threshold),
+            [nameof(CrowdActiveStrongMatchThreshold)]);
     }
 
     private IEnumerable<ValidationResult> ValidateStrongMatch()
@@ -425,14 +460,17 @@ public sealed record RecommendationOptions : IValidatableObject
             yield break;
         }
 
-        var total = Weights.Collection + Weights.Director + Weights.Themes + Weights.Plot + Weights.Cast + Weights.Genres;
-        if (!double.IsFinite(total) || total <= 0.0)
+        var inactive = Weights.Collection + Weights.Director + Weights.Themes + Weights.Plot + Weights.Cast + Weights.Genres;
+        var active = inactive + Weights.Crowd;
+        if (!IsUsableTotal(inactive) || !IsUsableTotal(active))
         {
             yield return new ValidationResult(
-                "The sum of the six similarity weights must be finite and greater than 0.0.",
+                "The effective sum of the similarity weights must be finite and greater than 0.0 in both the Crowd inactive and Crowd active modes.",
                 [nameof(Weights)]);
         }
     }
+
+    private static bool IsUsableTotal(double total) => double.IsFinite(total) && total > 0.0;
 
     private IEnumerable<ValidationResult> ValidateThemesCeiling()
     {
