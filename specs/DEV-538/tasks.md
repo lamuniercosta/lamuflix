@@ -7,7 +7,7 @@ description: "Task list for DEV-538 For You page grouped by reason"
 
 **Input**: Design documents from `specs/DEV-538/` — `spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q8), `CONCLUSIONS.md`, `ASSUMPTIONS.md`, `contracts/for-you-grouping-fields.md`; Maestri notes `DEV-538`, `recon-DEV-538`; `specs/PRODUCT.md`.
 
-**Status**: PLAN FROZEN — Keel Phase 2 step 6. See [plan adjudication](PLAN_ADJUDICATION.md). Gate 1 closed pending owner structural checkbox + user Spec Kit PR merge. Build and runtime acceptance remain open.
+**Status**: PLAN FROZEN — Keel Phase 2 step 6. See [plan adjudication](PLAN_ADJUDICATION.md). Gate 1 verified in [the merge receipt](CONCLUSIONS.md#gate-1-spec-kit-pr-merge-receipt-t000). Build pickup and runtime acceptance remain pending.
 
 **Tests**: Required (`brief.md` Plan steps 4–5; ticket Done when; FR-001–FR-010; SC-001–SC-006; SMOKE-001–003). TDD optional. Use existing unit/integration/OpenAPI/web test homes. No new test framework/dependency. Never mock the data-access driver for behaviour that depends on real translation.
 
@@ -44,7 +44,7 @@ Ordering per brief Q7: **Gate 1 → Wisp/Keel pickup → backend response fields
 **Purpose**: After plan challenge and provisional clearance, produce/open the Spec Kit PR, obtain owner checkbox decision, then confirm Gate 1 merge before Build work.
 **Checkpoint**: Plan challenge cleared; Patron `gate1: provisional` set; Spec PR opened by Rigger under Bernstein coordination; owner checkbox resolved; verified user-merge receipt in `CONCLUSIONS.md`, or stop. No Build tasks before that receipt.
 
-- [ ] T000 After plan challenge clearance and Patron `gate1: provisional`: **Bernstein** coordinates and **Rigger** prepares/opens the DEV-538 Spec Kit PR carrying the owner structural checkbox from `spec.md`; only the user merges. After merge, **Keel** records the verified Gate 1 Spec Kit PR merge receipt for DEV-538 in `specs/DEV-538/CONCLUSIONS.md`. Receipt only. T001–T016 MUST NOT proceed without verified merge (`brief.md` Owner decision; Q8; `task-pipeline` Phase 2 steps 6–7).
+- [x] T000 After plan challenge clearance and Patron `gate1: provisional`: **Bernstein** coordinates and **Rigger** prepares/opens the DEV-538 Spec Kit PR carrying the owner structural checkbox from `spec.md`; only the user merges. After merge, **Keel** records the verified Gate 1 Spec Kit PR merge receipt for DEV-538 in `specs/DEV-538/CONCLUSIONS.md`. Receipt only. T001–T016 MUST NOT proceed without verified merge (`brief.md` Owner decision; Q8; `task-pipeline` Phase 2 steps 6–7).
 
 ---
 

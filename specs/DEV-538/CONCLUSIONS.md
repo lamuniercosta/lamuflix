@@ -169,3 +169,11 @@ Ratified: Adopt Keel's contract-first implementation, file-scope, and verificati
 ## Gate 1 provisional ruling (Phase 2 step 7)
 
 `gate1: provisional` — Plan challenge adjudication (`specs/DEV-538/PLAN_ADJUDICATION.md`, `PLAN FROZEN`, 19 findings: 0 High, 9 Medium, 10 Low — 17 accepted with repairs in `brief.md`, `spec.md`, `plan.md`, `tasks.md`, and `docs/adr/0047-for-you-grouping.md`; 2 Low recorded), `checklists/requirements.md` User-Visible Outcome items ticked, and 1 structural owner checkbox confirmed in `specs/DEV-538/spec.md:15` (consolidated Q1+Q2 amendment to Done when line 54 for `startedCollectionId` and `hasSeeds`). Gate 1 remains closed until the user checks the owner checkbox and merges the Spec Kit PR.
+
+---
+
+## Gate 1 Spec Kit PR merge receipt (T000)
+
+**Gate 1 verified.** [Spec Kit PR #459](https://github.com/lamuniercosta/lamuflix/pull/459) shows the owner checkbox checked for the Done when line 54 amendment, approving additive `startedCollectionId` and `hasSeeds` fields on the single For You GET request. GitHub records that `lamuniercosta` merged the PR into `main` on 2026-11-21 at 17:15:32 UTC as `d9be8d2f34b861072e721156f0397b8270c028f7`.
+
+The DEV-538 task note records Phase A base `1bbc8a637b97ec2efdf0eaa6f2be6da8abbbc089`. Git confirms that base is an ancestor of the merge commit and that the merge commit is present on the Build branch `feature/DEV-538`. T000 is complete. T001 pickup and runtime acceptance remain pending.
