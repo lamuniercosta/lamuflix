@@ -1,6 +1,60 @@
-@import 'tailwindcss';
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
-@theme {
+html {
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+  line-height: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+button,
+input,
+select,
+textarea {
+  margin: 0;
+  padding: 0;
+  font: inherit;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+:root {
   --color-booth: #120e14;
   --color-reel: #1b151f;
   --color-panel: #2b2231;
