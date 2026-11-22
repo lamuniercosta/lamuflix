@@ -12,7 +12,7 @@ Work inside the file boundaries in `plan.md` and `brief.md`. Follow phase order.
 
 ## Phase 0: Gate 1
 
-- [ ] T000 **Bernstein** coordinates and **Rigger** prepares and opens the DEV-539 spec PR (includes Accepted ADR 0048 in review). Only the user merges. **Keel** records the verified owner merge receipt in `specs/DEV-539/CONCLUSIONS.md`. All Build tasks depend on this receipt.
+- [x] T000 **Bernstein** coordinates and **Rigger** prepares and opens the DEV-539 spec PR (includes Accepted ADR 0048 in review). Only the user merges. **Keel** records the verified owner merge receipt in `specs/DEV-539/CONCLUSIONS.md`. All Build tasks depend on this receipt.
 
 ## Phase 1: Read-only pickup
 
