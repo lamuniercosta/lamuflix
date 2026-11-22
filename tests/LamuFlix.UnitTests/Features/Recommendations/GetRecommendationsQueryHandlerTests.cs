@@ -1539,6 +1539,63 @@ public sealed class GetRecommendationsQueryHandlerTests
         Collection = 0.0,
     };
 
+    private static readonly TmdbOptions ConfiguredTmdb = new() { Enabled = true, ApiKey = "test-key" };
+
+    [Fact]
+    public async Task HandleAsync_CrowdActiveAndLinked_EmitsRelatedCrowdCopyAndActiveDenominator()
+    {
+        // arrange
+        var handler = NewHandler(
+            weights: new SimilarityWeights(),
+            crowdEnabled: true,
+            tmdbOptions: ConfiguredTmdb,
+            mmrLambda: 1.0);
+        var selected = NewMovie(1, genres: ["Drama"]);
+        var pool = Candidates(NewMovie(2, title: "Candidate", genres: ["Comedy"]));
+        Arrange(selected, pool, CrowdLinks.Create([(selected.Id, new MovieId(2))]));
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        var item = result.ShouldHaveSingleItem();
+        item.Score.ShouldBe(2.0 / 17.0, 1e-12);
+        item.Evidence.ShouldBe(
+        [
+            new RecommendationEvidence("Crowd", "Often liked together", []),
+        ]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_CrowdActiveWithThreshold_AppliesTheCrowdActiveBarOnlyWhileActive()
+    {
+        // arrange
+        var selected = NewMovie(1, genres: ["Drama"]);
+        var pool = Candidates(NewMovie(2, title: "Candidate", genres: ["Comedy"]));
+        var links = CrowdLinks.Create([(selected.Id, new MovieId(2))]);
+        Arrange(selected, pool, links);
+        var active = NewHandler(
+            weights: new SimilarityWeights(),
+            crowdEnabled: true,
+            crowdActiveStrongMatchThreshold: 0.5,
+            tmdbOptions: ConfiguredTmdb,
+            mmrLambda: 1.0);
+        var inactive = NewHandler(
+            weights: new SimilarityWeights(),
+            crowdEnabled: false,
+            crowdActiveStrongMatchThreshold: 0.5,
+            tmdbOptions: ConfiguredTmdb,
+            mmrLambda: 1.0);
+
+        // act
+        var activeResult = await active.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+        var inactiveResult = await inactive.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        activeResult.ShouldBeEmpty();
+        inactiveResult.ShouldHaveSingleItem();
+    }
+
     private GetRecommendationsQueryHandler NewHandler(
         int optionsTake = DefaultTake,
         SimilarityWeights? weights = null,
@@ -1548,7 +1605,10 @@ public sealed class GetRecommendationsQueryHandlerTests
         KeywordWeightsCache? keywordCache = null,
         double minimumSimilarity = 0.0,
         IReadOnlyList<string>? strongReasonCriteria = null,
-        double? themesCeiling = null)
+        double? themesCeiling = null,
+        bool crowdEnabled = false,
+        double? crowdActiveStrongMatchThreshold = null,
+        TmdbOptions? tmdbOptions = null)
     {
         var options = new RecommendationOptions
         {
@@ -1558,6 +1618,8 @@ public sealed class GetRecommendationsQueryHandlerTests
             BlendSelectedWeight = blendSelectedWeight,
             AlreadyWatchedPenalty = alreadyWatchedPenalty,
             MmrLambda = mmrLambda,
+            CrowdEnabled = crowdEnabled,
+            CrowdActiveStrongMatchThreshold = crowdActiveStrongMatchThreshold,
         };
 
         if (strongReasonCriteria is not null)
@@ -1576,7 +1638,8 @@ public sealed class GetRecommendationsQueryHandlerTests
             profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
             new KeywordWeightsCalculator(catalog, keywordCache ?? new KeywordWeightsCache()),
-            Microsoft.Extensions.Options.Options.Create(options));
+            Microsoft.Extensions.Options.Options.Create(options),
+            Microsoft.Extensions.Options.Options.Create(tmdbOptions ?? new TmdbOptions()));
     }
 
     [Fact]
@@ -1684,7 +1747,10 @@ public sealed class GetRecommendationsQueryHandlerTests
         result.Select(item => item.Summary.Id.Value).ShouldBe([2, 3]);
     }
 
-    private void Arrange(Movie selected, IReadOnlyList<RecommendationLibraryEntry> pool)
+    private void Arrange(Movie selected, IReadOnlyList<RecommendationLibraryEntry> pool) =>
+        Arrange(selected, pool, CrowdLinks.Empty);
+
+    private void Arrange(Movie selected, IReadOnlyList<RecommendationLibraryEntry> pool, CrowdLinks crowdLinks)
     {
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
         var library = new List<RecommendationLibraryEntry>(pool.Count + 1)
@@ -1692,7 +1758,7 @@ public sealed class GetRecommendationsQueryHandlerTests
             Entry(selected, PlotVector(primary: 1.0f)),
         };
         library.AddRange(pool);
-        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(Snapshot(library));
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(Snapshot(library, crowdLinks));
     }
 
     private static RecommendationLibraryEntry Entry(Movie movie, System.Collections.Immutable.ImmutableArray<float> plotEmbedding = default) =>
@@ -1703,8 +1769,10 @@ public sealed class GetRecommendationsQueryHandlerTests
                 plotEmbedding: plotEmbedding.IsDefault ? null : plotEmbedding),
             MovieSummaryMapper.From(movie));
 
-    private static RecommendationLibrarySnapshot Snapshot(IReadOnlyList<RecommendationLibraryEntry> entries) =>
-        new(entries, CrowdLinks.Empty);
+    private static RecommendationLibrarySnapshot Snapshot(
+        IReadOnlyList<RecommendationLibraryEntry> entries,
+        CrowdLinks? crowdLinks = null) =>
+        new(entries, crowdLinks ?? CrowdLinks.Empty);
 
     private void ArrangeProfile(params TasteProfileMovie[] profileMovies) =>
         ArrangeProfileWith(

@@ -1125,14 +1125,15 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     private static TasteProfile EmptyProfile() =>
         new(ImmutableDictionary<string, double>.Empty);
 
-    private GetRecommendationsQueryHandler RelatedHandler(RecommendationOptions options) =>
+    private GetRecommendationsQueryHandler RelatedHandler(RecommendationOptions options, TmdbOptions? tmdbOptions = null) =>
         new(
             movies,
             candidateSource,
             profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
             new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
-            Microsoft.Extensions.Options.Options.Create(options));
+            Microsoft.Extensions.Options.Options.Create(options),
+            Microsoft.Extensions.Options.Options.Create(tmdbOptions ?? new TmdbOptions()));
 
     private static RecommendationEvidence Evidence(string criterion, string text, params string[] matchedNames) =>
         new(criterion, text, [.. matchedNames]);

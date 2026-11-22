@@ -17,7 +17,8 @@ public sealed class GetRecommendationsQueryHandler(
     IRecommendationProfileSource profileSource,
     GenreWeightsCalculator genreWeightsCalculator,
     KeywordWeightsCalculator keywordWeightsCalculator,
-    IOptions<RecommendationOptions> options)
+    IOptions<RecommendationOptions> options,
+    IOptions<TmdbOptions> tmdbOptions)
     : IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>
 {
     public async Task<ImmutableList<RecommendedMovie>> HandleAsync(
@@ -35,6 +36,7 @@ public sealed class GetRecommendationsQueryHandler(
 
         var entries = library.Entries;
         var recommendationOptions = options.Value;
+        var crowdScoring = CrowdScoring.Resolve(recommendationOptions, tmdbOptions.Value, library.CrowdLinks);
         var partitioned = Partition(entries, query.MovieId, cancellationToken);
         if (IsEmptySelection(partitioned))
         {
@@ -66,6 +68,7 @@ public sealed class GetRecommendationsQueryHandler(
             context.GenreWeights,
             context.KeywordCounts,
             recommendationOptions,
+            crowdScoring,
             cancellationToken);
 
         var relevanceOffset = BlendScorer.NonNegativeOffset(scored.Select(item => item.Result.Score));
@@ -245,11 +248,12 @@ public sealed class GetRecommendationsQueryHandler(
         GenreWeights genreWeights,
         KeywordCounts keywordCounts,
         RecommendationOptions options,
+        CrowdScoring crowdScoring,
         CancellationToken cancellationToken)
     {
         var scored = new List<ScoredCandidate>(library.Count);
         var keywordWeights = SimilarityScorer.PrepareKeywordWeights(options, keywordCounts);
-        var scoring = new EntryScoring(selectedFeatures, strongReasonCriteria, genreWeights, keywordWeights, options);
+        var scoring = new EntryScoring(selectedFeatures, strongReasonCriteria, genreWeights, keywordWeights, options, crowdScoring);
 
         foreach (var entry in library)
         {
@@ -305,7 +309,8 @@ public sealed class GetRecommendationsQueryHandler(
         IReadOnlySet<string> strongReasonCriteria,
         GenreWeights genreWeights,
         IReadOnlyDictionary<string, double> keywordWeights,
-        RecommendationOptions options)
+        RecommendationOptions options,
+        CrowdScoring crowdScoring)
     {
         public ScoredCandidate? TryScore(RecommendationLibraryEntry entry, MovieId selectedMovieId)
         {
@@ -319,9 +324,15 @@ public sealed class GetRecommendationsQueryHandler(
                 entry.Features,
                 options,
                 genreWeights,
-                keywordWeights);
+                keywordWeights,
+                crowdScoring,
+                selectedMovieId,
+                entry.Id);
 
-            var tier = Classify(similarity, options.MinimumSimilarity, strongReasonCriteria);
+            var tier = Classify(
+                similarity,
+                SimilarityScorer.StrongMatchThreshold(options, crowdScoring.Active),
+                strongReasonCriteria);
             if (tier == MatchTier.None)
             {
                 return null;

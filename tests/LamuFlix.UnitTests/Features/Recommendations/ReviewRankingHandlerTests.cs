@@ -436,7 +436,8 @@ public sealed class ReviewRankingHandlerTests
                 new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
                 new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
                 new FixedTimeProvider(Now),
-                Microsoft.Extensions.Options.Options.Create(options));
+                Microsoft.Extensions.Options.Options.Create(options),
+                Microsoft.Extensions.Options.Options.Create(new TmdbOptions()));
 
             return (await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None)).Items;
         }
@@ -517,7 +518,8 @@ public sealed class ReviewRankingHandlerTests
                     MinimumSimilarity = 0.0,
                     Weights = GenreOnlyWeights,
                     MmrLambda = 1.0,
-                }));
+                }),
+                Microsoft.Extensions.Options.Options.Create(new TmdbOptions()));
 
             return await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
         }

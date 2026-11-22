@@ -32,6 +32,7 @@
   },
   "Recommendations": {
     "MinimumSimilarity": 0.225,
+    "CrowdEnabled": false,
     "StrongReasonCriteria": ["Collection", "Director", "Themes"]
   }
 }

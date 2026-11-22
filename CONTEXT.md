@@ -186,12 +186,32 @@ The overlap of two movies genre sets, weighted by library rarity.
 _Avoid_: unweighted genre overlap, overall recommendation score
 
 **Ordered criterion**
-One of Collection, Director, Themes, Plot, Cast, Genre in that fixed table order, with configured weight, value in [0, 1], matched evidence, and contribution. The same six entries and reasons supply Related ranking, For you seed evidence, and collection block ranking; see [docs/recommendations.md](docs/recommendations.md).
-_Avoid_: legacy year/runtime/rating/writers terms, unordered evidence, a per-caller criterion list
+One of Collection, Director, Themes, Plot, Cast, Genre in that fixed table order, with configured weight, value in [0, 1], matched evidence, and contribution. When Crowd is active, Crowd sits immediately after Themes and the table carries seven entries; when it is inactive or TMDb is unconfigured it is omitted and the table keeps the six. The same entries and reasons supply Related ranking, For you seed evidence, and collection block ranking; see [docs/recommendations.md](docs/recommendations.md).
+_Avoid_: legacy year/runtime/rating/writers terms, unordered evidence, a per-caller criterion list, adding a criterion without updating both consumers
 
 **Contribution**
-`weight × value / denominator`, where the denominator is the sum of all six configured weights (15 at defaults). The six contributions always sum to Score, including when a criterion has no data.
-_Avoid_: normalizing only over present criteria, a denominator that skips missing inputs
+`weight × value / denominator`, where the denominator is the sum of the configured weights in the current table: 15 at defaults while Crowd is inactive, 17 at defaults while Crowd is active even for unlinked pairs. The contributions always sum to Score, including when a criterion has no data.
+_Avoid_: normalizing only over present criteria, a denominator that skips missing inputs, dropping the Crowd weight for unlinked pairs
+
+**Crowd**
+The TMDb-sourced, binary item-to-item similarity criterion placed immediately after Themes, weight 2 by default, value 1 for a Crowd link and 0 otherwise. It is present only while TMDb is configured and Crowd activation is on; it is never sourced from local peer history.
+_Avoid_: TMDb similar lists, user ratings, a second external source, local collaborative filtering, a weighted or reciprocal link value
+
+**Crowd link**
+A relationship between two distinct library movies that exists when either movie's stored recommended TMDb IDs include the other movie's TMDb ID. Either direction yields one binary link; a movie never links to itself and a reciprocal pair earns no extra weight. Links are resolved in memory at the library feature load from persisted recommendation pairs, never during scoring.
+_Avoid_: self-links, reciprocal bonus, remote lookups at scoring time, links to movies outside the library
+
+**Recommended TMDb ID**
+A TMDb movie ID from the first page of a source movie's recommendations, persisted with that source movie. It may refer to a catalogue movie outside the library and is retained so a later library addition can resolve a Crowd link without re-enriching the source.
+_Avoid_: library movie ID, IMDb ID, a recommendation list that only retains in-library targets
+
+**Crowd criterion**
+The ordered-table entry that carries the Crowd value, the configured Crowd weight, an empty matched-name list, and the ticket copy as its reason: `Often liked together with {seed title}` for For you and `Often liked together` for Related. The seed title is quoted as literal data.
+_Avoid_: Criterion-specific reason plumbing outside the shared scorer, formats that interpret the seed title
+
+**Crowd activation**
+The `Recommendations:CrowdEnabled` switch that turns Crowd scoring on independently of TMDb enrichment, so enrichment can stay on while Crowd stays off. The checked-in default is off until DEV-545 evidence supports enabling it, and an active-only `CrowdActiveStrongMatchThreshold` can replace the strong-match bar only while Crowd is active and the value is set.
+_Avoid_: tying Crowd scoring solely to `Tmdb:Enabled`, enabling by default without measured evidence, applying the Crowd-active bar while Crowd is inactive
 
 **Themes**
 Rarity-weighted keyword cosine over counted library keywords, divided by ThemesCeiling and capped at 1. Stoplisted names and keywords below MinimumKeywordMovies are excluded, and evidence lists up to three shared counted names by descending rarity.
