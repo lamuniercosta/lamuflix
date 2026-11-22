@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 using LamuFlix.Core.Domain;
 
 namespace LamuFlix.Api.Endpoints;
@@ -17,8 +18,23 @@ internal sealed record RecommendedMovieDto(
     bool IsNotInterested,
     string Review,
     double Score,
-    ImmutableList<RecommendedMovieReasonDto> Reasons);
+    ImmutableList<RecommendationEvidenceDto> Evidence,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RecommendationSeedDto? Seed = null);
 
-// ReSharper disable NotAccessedPositionalProperty.Global // Serialized by System.Text.Json as the frozen wire shape, never read in code
-internal sealed record RecommendedMovieReasonDto(string Kind, string Text);
+internal sealed record RecommendationSeedDto(
+    int MovieId,
+    string Title,
+    RecommendationSeedSignal Signal);
+
+internal sealed record RecommendationEvidenceDto(
+    string Criterion,
+    string Text,
+    ImmutableList<string> MatchedNames);
+
+internal enum RecommendationSeedSignal
+{
+    [JsonStringEnumMemberName("liked")] Liked,
+    [JsonStringEnumMemberName("watched")] Watched,
+    [JsonStringEnumMemberName("watchlist")] Watchlist,
+}
 // ReSharper restore NotAccessedPositionalProperty.Global

@@ -736,8 +736,8 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         similarity.Breakdown.Single(term => term.Name == "Director").Value.ShouldBe(1.0);
         result.Select(item => item.Summary.Id).ShouldBe([new MovieId(2)]);
         double.IsFinite(result[0].Score).ShouldBeTrue();
-        result[0].Reasons.Select(reason => reason.Text).ShouldContain("Same director: Shared Director");
-        result[0].Reasons.Select(reason => reason.Text).ShouldNotContain("Similar story");
+        result[0].Evidence.Select(evidence => evidence.Text).ShouldContain("Same director: Shared Director");
+        result[0].Evidence.Select(evidence => evidence.Text).ShouldNotContain("Similar story");
     }
 
     [Fact]
@@ -786,7 +786,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         large.Profile.CandidateIdCalls.ShouldAllBe(ids => ids.Count == 0);
         large.ReaderCount.ShouldBe(small.ReaderCount);
         small.Result.ShouldContain(item => item.Summary.Id == new MovieId(100)
-            && item.Reasons.Any(reason => reason.Text == "Similar story"));
+            && item.Evidence.Any(evidence => evidence.Text == "Similar story"));
     }
 
     private async Task<(IReadOnlyList<RecommendedMovie> Result, int ReaderCount, RecordingProfileSource Profile)>

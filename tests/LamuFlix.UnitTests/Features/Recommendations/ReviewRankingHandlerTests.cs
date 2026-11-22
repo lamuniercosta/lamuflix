@@ -168,8 +168,8 @@ public sealed class ReviewRankingHandlerTests
         var result = await harness.HandleAsync(Profile());
 
         // assert
-        result.Single(item => item.Summary.Id.Value == 2)
-            .Reasons.ShouldContain(Reason.Personal("Because you liked Alien"));
+        result.Single(item => item.Summary.Id.Value == 2).Seed
+            .ShouldBe(new RecommendationSeed(90, "Alien", SeedSignal.Liked));
     }
 
     [Fact]
@@ -186,8 +186,8 @@ public sealed class ReviewRankingHandlerTests
         var result = await harness.HandleAsync(Profile());
 
         // assert
-        result.Single(item => item.Summary.Id.Value == 2).Reasons
-            .ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
+        result.Single(item => item.Summary.Id.Value == 2).Seed
+            .ShouldBe(new RecommendationSeed(90, "Watched drama", SeedSignal.WatchedWithoutReview));
     }
 
     [Fact(DisplayName = "SMOKE-003 For You after a like ranks similar candidates higher without fabricated reasons")]
@@ -213,8 +213,8 @@ public sealed class ReviewRankingHandlerTests
         liked.Single(item => item.Summary.Id.Value == 2).Score
             .ShouldBeGreaterThan(baseline.Single(item => item.Summary.Id.Value == 2).Score);
         liked.Select(item => item.Summary.Id.Value).First().ShouldBe(2);
-        liked.Single(item => item.Summary.Id.Value == 3).Reasons
-            .ShouldContain(Reason.Personal("Because you liked Alien"));
+        liked.Single(item => item.Summary.Id.Value == 3).Seed
+            .ShouldBe(new RecommendationSeed(91, "Alien", SeedSignal.Liked));
     }
 
     [Fact]
@@ -294,8 +294,8 @@ public sealed class ReviewRankingHandlerTests
         var result = await harness.HandleAsync(Profile(genres: ["Drama"]));
 
         // assert
-        result.Single().Reasons.ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
-        result.Single().Reasons.ShouldAllBe(reason => !reason.Text.StartsWith("Matches your", StringComparison.Ordinal));
+        result.Single().Seed.ShouldBeNull();
+        result.Single().Evidence.ShouldAllBe(evidence => !evidence.Text.StartsWith("Matches your", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -309,7 +309,7 @@ public sealed class ReviewRankingHandlerTests
         var result = await harness.HandleAsync(Profile(genres: ["Comedy"]));
 
         // assert
-        result.Single().Reasons.ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
+        result.Single().Seed.ShouldBeNull();
     }
 
     [Fact]
@@ -325,10 +325,8 @@ public sealed class ReviewRankingHandlerTests
         var result = await harness.HandleAsync(Profile());
 
         // assert
-        result.Single(item => item.Summary.Id.Value == 2).Reasons
-            .ShouldContain(Reason.Personal("Because you watched Watched drama"));
-        result.Single(item => item.Summary.Id.Value == 2).Reasons
-            .ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
+        result.Single(item => item.Summary.Id.Value == 2).Seed
+            .ShouldBe(new RecommendationSeed(90, "Watched drama", SeedSignal.WatchedWithoutReview));
     }
 
     private static TasteProfile Profile(string[]? genres = null) =>

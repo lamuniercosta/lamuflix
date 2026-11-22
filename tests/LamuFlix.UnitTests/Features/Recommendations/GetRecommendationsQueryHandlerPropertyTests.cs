@@ -77,7 +77,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
 
     [Property(MaxTest = 100, Replay = "340105,500021")]
     [Trait("Category", "Property")]
-    public bool HandleAsync_ReasonsAreScorerReasons(int[] ids, int[] cosineSeeds, int takeSeed)
+    public bool HandleAsync_EvidenceIsScorerEvidence(int[] ids, int[] cosineSeeds, int takeSeed)
     {
         // arrange
         var pool = BuildCandidates(ids, cosineSeeds);
@@ -90,7 +90,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         // assert
         foreach (var item in result)
         {
-            if (!ReasonsMatch(item, byId, genreWeights))
+            if (!EvidenceMatch(item, byId, genreWeights))
             {
                 return false;
             }
@@ -113,39 +113,21 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         return !result.Any(HasStoryReason);
     }
 
-    private static bool ReasonsMatch(
+    private static bool EvidenceMatch(
         RecommendedMovie item,
         IReadOnlyDictionary<int, RecommendationLibraryEntry> byId,
         GenreWeights genreWeights)
     {
         var candidate = byId[item.Summary.Id.Value];
+        var options = new RecommendationOptions();
         var expected = SimilarityScorer.Score(
             MovieFeaturesMapper.From(SelectedMovie()),
             candidate.Features,
-            new RecommendationOptions(),
+            options,
             genreWeights,
             EmptyKeywordCounts);
 
-        if (expected.Reasons.Count == 0)
-        {
-            return item.Reasons.Count == 1
-                && item.Reasons[0] == Reason.Structural(FallbackReasonText);
-        }
-
-        return item.Reasons.Count == expected.Reasons.Count && PrefixMatches(item, expected);
-    }
-
-    private static bool PrefixMatches(RecommendedMovie item, SimilarityResult expected)
-    {
-        for (var index = 0; index < expected.Reasons.Count; index++)
-        {
-            if (item.Reasons[index].Text != expected.Reasons[index].Text)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return item.Evidence.SequenceEqual(SimilarityScorer.BuildEvidence(expected, options));
     }
 
     [Property(MaxTest = 100, Replay = "340110,1100041")]
@@ -279,7 +261,6 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
     private static int Take(int takeSeed) => Math.Abs(takeSeed % 20) + 1;
 
     private const string StoryReasonText = "Similar story";
-    private const string FallbackReasonText = "No shared features identified";
 
     private static bool IsDisliked(RecommendationLibraryEntry candidate) => candidate.Review == Review.Disliked;
 
@@ -327,7 +308,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
     }
 
     private static bool HasStoryReason(RecommendedMovie movie) =>
-        movie.Reasons.Any(reason => reason.Text == StoryReasonText);
+        movie.Evidence.Any(evidence => evidence.Text == StoryReasonText);
 
     private static Movie[] BuildPool(int[] ids, int[] seeds)
     {
@@ -480,6 +461,5 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
     private static bool SameRecommendation(RecommendedMovie first, RecommendedMovie second) =>
         first.Summary == second.Summary
         && first.Score.Equals(second.Score)
-        && first.Reasons.Select(reason => reason.Text)
-            .SequenceEqual(second.Reasons.Select(reason => reason.Text), StringComparer.Ordinal);
+        && first.Evidence.SequenceEqual(second.Evidence);
 }

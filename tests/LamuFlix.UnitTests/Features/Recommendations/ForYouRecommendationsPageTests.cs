@@ -46,5 +46,5 @@ public sealed class ForYouRecommendationsPageTests
                 false,
                 Review.None),
             0.5,
-            ImmutableList<Reason>.Empty);
+            ImmutableList<RecommendationEvidence>.Empty);
 }

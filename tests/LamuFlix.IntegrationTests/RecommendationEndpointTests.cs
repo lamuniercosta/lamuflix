@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
@@ -35,7 +35,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     private const string ProblemDetailsJson = "application/problem+json";
     private const string ForYouRoute = "/api/recommendations/for-you";
 
-    private static readonly string[] DtoFieldNames =
+    private static readonly string[] RelatedDtoFieldNames =
     [
         "id",
         "title",
@@ -49,7 +49,25 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         "isNotInterested",
         "review",
         "score",
-        "reasons",
+        "evidence",
+    ];
+
+    private static readonly string[] ForYouDtoFieldNames =
+    [
+        "id",
+        "title",
+        "posterUrl",
+        "releaseYear",
+        "runtime",
+        "imdbRating",
+        "enrichmentStatus",
+        "isInWatchlist",
+        "isWatched",
+        "isNotInterested",
+        "review",
+        "score",
+        "evidence",
+        "seed",
     ];
 
     private readonly Fixture fixture = new();
@@ -366,12 +384,16 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     }
 
     [Fact]
-    public async Task GetRecommendations_RankedResult_MapsExactlyTheTwelveCamelCaseFields()
+    public async Task GetRecommendations_RankedResult_MapsExactlyTheThirteenCamelCaseFields()
     {
         // arrange
         var summary = Summary(EnrichmentStatus.Enriched, id: 11);
         GivenSelectedMovie(EnrichmentStatus.Enriched);
-        HandlerReturns(Recommendation(summary, 9.75, "Shares the director.", "Shares two genres."));
+        HandlerReturns(Recommendation(
+            summary,
+            9.75,
+            Evidence("Director", "Same director: Ada", "Ada"),
+            Evidence("Genre", "Same genres: Drama", "Drama")));
         await using var host = CreateHost();
         using var client = host.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -384,7 +406,8 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.GetArrayLength().ShouldBe(1);
         var item = body[0];
-        PropertyNames(item).ShouldBe(DtoFieldNames);
+        PropertyNames(item).ShouldBe(RelatedDtoFieldNames);
+        ShouldNotCarryAnyCasingOf(item, "reasons", "seed");
         item.GetProperty("id").GetInt32().ShouldBe(summary.Id.Value);
         item.GetProperty("title").GetString().ShouldBe(summary.Title);
         item.GetProperty("posterUrl").GetString().ShouldBe(summary.PosterUrl);
@@ -396,8 +419,9 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         item.GetProperty("isWatched").GetBoolean().ShouldBe(summary.IsWatched);
         item.GetProperty("isNotInterested").GetBoolean().ShouldBe(summary.IsNotInterested);
         item.GetProperty("score").GetDouble().ShouldBe(9.75);
-        ReasonTexts(item).ShouldBe(["Shares the director.", "Shares two genres."]);
-        ReasonKinds(item).ShouldBe(["structural", "structural"]);
+        EvidenceCriteria(item).ShouldBe(["Director", "Genre"]);
+        EvidenceTexts(item).ShouldBe(["Same director: Ada", "Same genres: Drama"]);
+        MatchedNames(item).ShouldBe(["Ada", "Drama"]);
     }
 
     [Fact]
@@ -406,7 +430,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         // arrange
         var summary = Summary(EnrichmentStatus.Enriched, id: 12, sparse: true);
         GivenSelectedMovie(EnrichmentStatus.Enriched);
-        HandlerReturns(Recommendation(summary, 0, "Shares a genre."));
+        HandlerReturns(Recommendation(summary, 0, Evidence("Genre", "Same genres: Drama", "Drama")));
         await using var host = CreateHost();
         using var client = host.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -422,6 +446,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         item.GetProperty("releaseYear").ValueKind.ShouldBe(JsonValueKind.Null);
         item.GetProperty("runtime").ValueKind.ShouldBe(JsonValueKind.Null);
         item.GetProperty("imdbRating").ValueKind.ShouldBe(JsonValueKind.Null);
+        ShouldNotCarryAnyCasingOf(item, "seed");
     }
 
     [Fact]
@@ -430,9 +455,9 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         // arrange
         GivenSelectedMovie(EnrichmentStatus.Enriched);
         HandlerReturns(
-            Recommendation(Summary(EnrichmentStatus.Enriched, id: 21), 1.25, "First."),
-            Recommendation(Summary(EnrichmentStatus.Enriched, id: 22), 9.75, "Second."),
-            Recommendation(Summary(EnrichmentStatus.Enriched, id: 23), 5.0, "Third."));
+            Recommendation(Summary(EnrichmentStatus.Enriched, id: 21), 1.25, Evidence("Director", "First.", "First")),
+            Recommendation(Summary(EnrichmentStatus.Enriched, id: 22), 9.75, Evidence("Director", "Second.", "Second")),
+            Recommendation(Summary(EnrichmentStatus.Enriched, id: 23), 5.0, Evidence("Director", "Third.", "Third")));
         await using var host = CreateHost();
         using var client = host.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -448,13 +473,17 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     }
 
     [Fact]
-    public async Task GetRecommendations_ReasonAndScoreCases_MapKindAndTextVerbatim()
+    public async Task GetRecommendations_CriterionAndScoreCases_MapTextAndNamesVerbatim()
     {
         // arrange
         GivenSelectedMovie(EnrichmentStatus.Enriched);
         HandlerReturns(
-            Recommendation(Summary(EnrichmentStatus.Enriched, id: 31), 8.5, "Shares the director.", "Shares a genre."),
-            Recommendation(Summary(EnrichmentStatus.Enriched, id: 32), 0, "Zero contribution underflow."),
+            Recommendation(
+                Summary(EnrichmentStatus.Enriched, id: 31),
+                8.5,
+                Evidence("Director", "Same director: Ada", "Ada"),
+                Evidence("Genre", "Same genres: Drama", "Drama")),
+            Recommendation(Summary(EnrichmentStatus.Enriched, id: 32), 0, Evidence("Cast", "Shared cast: Actor", "Actor")),
             Recommendation(Summary(EnrichmentStatus.Enriched, id: 33), 0));
         await using var host = CreateHost();
         using var client = host.CreateClient();
@@ -468,27 +497,25 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.GetArrayLength().ShouldBe(3);
         body[0].GetProperty("score").GetDouble().ShouldBe(8.5);
-        ReasonTexts(body[0]).ShouldBe(["Shares the director.", "Shares a genre."]);
-        ReasonKinds(body[0]).ShouldBe(["structural", "structural"]);
+        EvidenceCriteria(body[0]).ShouldBe(["Director", "Genre"]);
+        EvidenceTexts(body[0]).ShouldBe(["Same director: Ada", "Same genres: Drama"]);
+        MatchedNames(body[0]).ShouldBe(["Ada", "Drama"]);
         body[1].GetProperty("score").GetDouble().ShouldBe(0);
-        ReasonTexts(body[1]).ShouldBe(["Zero contribution underflow."]);
+        EvidenceTexts(body[1]).ShouldBe(["Shared cast: Actor"]);
         body[2].GetProperty("score").GetDouble().ShouldBe(0);
-        ReasonTexts(body[2]).ShouldBeEmpty();
+        body[2].GetProperty("evidence").ValueKind.ShouldBe(JsonValueKind.Array);
+        EvidenceTexts(body[2]).ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task GetRecommendations_MixedReasonKinds_SerialisesLowercaseKindAndTextPairs()
+    public async Task GetRecommendations_Evidence_SerialisesCriterionTextAndMatchedNameTriples()
     {
         // arrange
         GivenSelectedMovie(EnrichmentStatus.Enriched);
-        HandlerReturns(new RecommendedMovie(
+        HandlerReturns(Recommendation(
             Summary(EnrichmentStatus.Enriched, id: 41),
             2.5,
-            [
-                Reason.Structural("Shares the director."),
-                Reason.Personal("Matches your Drama interest"),
-                Reason.Personal("Matches your viewing history"),
-            ]));
+            Evidence("Cast", "Shared cast: Name One, Name Two, Name Three +2", "Name One", "Name Two", "Name Three", "Name Four", "Name Five")));
         await using var host = CreateHost();
         using var client = host.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -499,19 +526,15 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var reasons = body[0].GetProperty("reasons").EnumerateArray().ToList();
-        foreach (var reason in reasons)
-        {
-            reason.EnumerateObject().Select(property => property.Name)
-                .ShouldBe(["kind", "text"], ignoreOrder: true);
-        }
-        ReasonKinds(body[0]).ShouldBe(["structural", "personal", "personal"]);
-        ReasonTexts(body[0]).ShouldBe(
-        [
-            "Shares the director.",
-            "Matches your Drama interest",
-            "Matches your viewing history",
-        ]);
+        ShouldNotCarryAnyCasingOf(body[0], "reasons", "seed");
+        var evidence = body[0].GetProperty("evidence").EnumerateArray().ToList();
+        evidence.ShouldHaveSingleItem();
+        evidence[0].EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["criterion", "text", "matchedNames"], ignoreOrder: true);
+        evidence[0].GetProperty("criterion").GetString().ShouldBe("Cast");
+        evidence[0].GetProperty("text").GetString().ShouldBe("Shared cast: Name One, Name Two, Name Three +2");
+        MatchedNames(body[0]).ShouldBe(["Name One", "Name Two", "Name Three", "Name Four", "Name Five"]);
+        body[0].GetRawText().ShouldNotContain("Matches your viewing history");
     }
 
     [Fact]
@@ -654,20 +677,18 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     }
 
     [Fact]
-    public async Task GetForYouRecommendations_RankedResult_MapsTypedLowercasePersonalReasonsInHandlerOrder()
+    public async Task GetForYouRecommendations_RankedResult_MapsSeedThenEvidenceInHandlerOrder()
     {
         // arrange
-        var first = new RecommendedMovie(
+        var first = ForYouRecommendation(
             Summary(EnrichmentStatus.Enriched, id: 51),
             4.5,
-            [
-                Reason.Personal("Matches your Drama interest"),
-                Reason.Personal("Matches your viewing history"),
-            ]);
-        var second = new RecommendedMovie(
+            new RecommendationSeed(90, "Alien", SeedSignal.WatchedWithoutReview),
+            Evidence("Director", "Same director: Ridley Scott", "Ridley Scott"));
+        var second = ForYouRecommendation(
             Summary(EnrichmentStatus.Enriched, id: 52),
             -1.25,
-            [Reason.Structural("No shared features identified")]);
+            new RecommendationSeed(91, "Heat", SeedSignal.Watchlist));
         ForYouHandlerReturns(first, second);
         await using var host = CreateHost();
         using var client = host.CreateClient();
@@ -685,12 +706,20 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         items.GetArrayLength().ShouldBe(2);
         items.EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ShouldBe([51, 52]);
         items[0].GetProperty("score").GetDouble().ShouldBe(4.5);
-        PropertyNames(items[0]).ShouldBe(DtoFieldNames);
-        ReasonKinds(items[0]).ShouldBe(["personal", "personal"]);
-        ReasonTexts(items[0]).ShouldBe(["Matches your Drama interest", "Matches your viewing history"]);
+        PropertyNames(items[0]).ShouldBe(ForYouDtoFieldNames);
+        ShouldNotCarryAnyCasingOf(items[0], "reasons");
+        var firstSeed = items[0].GetProperty("seed");
+        firstSeed.GetProperty("movieId").GetInt32().ShouldBe(90);
+        firstSeed.GetProperty("title").GetString().ShouldBe("Alien");
+        firstSeed.GetProperty("signal").GetString().ShouldBe("watched");
+        EvidenceCriteria(items[0]).ShouldBe(["Director"]);
+        EvidenceTexts(items[0]).ShouldBe(["Same director: Ridley Scott"]);
+        MatchedNames(items[0]).ShouldBe(["Ridley Scott"]);
         items[1].GetProperty("score").GetDouble().ShouldBe(-1.25);
-        ReasonKinds(items[1]).ShouldBe(["structural"]);
-        ReasonTexts(items[1]).ShouldBe(["No shared features identified"]);
+        items[1].GetProperty("seed").GetProperty("signal").GetString().ShouldBe("watchlist");
+        items[1].GetProperty("evidence").ValueKind.ShouldBe(JsonValueKind.Array);
+        EvidenceTexts(items[1]).ShouldBeEmpty();
+        body.GetRawText().ShouldNotContain("Matches your viewing history");
     }
 
     [Theory]
@@ -922,11 +951,20 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     private static IEnumerable<string> PropertyNames(JsonElement item) =>
         item.EnumerateObject().Select(property => property.Name);
 
-    private static IEnumerable<string?> ReasonTexts(JsonElement item) =>
-        item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetProperty("text").GetString());
+    private static void ShouldNotCarryAnyCasingOf(JsonElement item, params string[] names) =>
+        item.EnumerateObject()
+            .ShouldNotContain(property => names.Any(name => string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase)));
 
-    private static IEnumerable<string?> ReasonKinds(JsonElement item) =>
-        item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetProperty("kind").GetString());
+    private static IEnumerable<string?> EvidenceCriteria(JsonElement item) =>
+        item.GetProperty("evidence").EnumerateArray().Select(evidence => evidence.GetProperty("criterion").GetString());
+
+    private static IEnumerable<string?> EvidenceTexts(JsonElement item) =>
+        item.GetProperty("evidence").EnumerateArray().Select(evidence => evidence.GetProperty("text").GetString());
+
+    private static IEnumerable<string> MatchedNames(JsonElement item) =>
+        item.GetProperty("evidence").EnumerateArray()
+            .SelectMany(evidence => evidence.GetProperty("matchedNames").EnumerateArray())
+            .Select(name => name.GetString() ?? string.Empty);
 
     private static async Task<JsonElement> ReadProblemAsync(
         HttpResponseMessage response,
@@ -998,8 +1036,18 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
             new KeywordWeightsCalculator(catalog, new KeywordWeightsCache()),
             Microsoft.Extensions.Options.Options.Create(options));
 
-    private static RecommendedMovie Recommendation(MovieSummary summary, double score, params string[] reasons) =>
-        new(summary, score, [.. reasons.Select(Reason.Structural)]);
+    private static RecommendationEvidence Evidence(string criterion, string text, params string[] matchedNames) =>
+        new(criterion, text, [.. matchedNames]);
+
+    private static RecommendedMovie Recommendation(MovieSummary summary, double score, params RecommendationEvidence[] evidence) =>
+        new(summary, score, [.. evidence]);
+
+    private static RecommendedMovie ForYouRecommendation(
+        MovieSummary summary,
+        double score,
+        RecommendationSeed seed,
+        params RecommendationEvidence[] evidence) =>
+        new(summary, score, [.. evidence], seed);
 
     private MovieSummary Summary(EnrichmentStatus status, int id, bool sparse = false)
     {

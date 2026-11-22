@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -31,7 +31,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
     private const double IdenticalProfileScore = 1.0 / 3.0;
     private const double PartialProfileScore = 2.0 / 15.0;
 
-    private static readonly string[] DtoFieldNames =
+    private static readonly string[] RelatedDtoFieldNames =
     [
         "id",
         "title",
@@ -45,11 +45,29 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         "isNotInterested",
         "review",
         "score",
-        "reasons",
+        "evidence",
+    ];
+
+    private static readonly string[] ForYouDtoFieldNames =
+    [
+        "id",
+        "title",
+        "posterUrl",
+        "releaseYear",
+        "runtime",
+        "imdbRating",
+        "enrichmentStatus",
+        "isInWatchlist",
+        "isWatched",
+        "isNotInterested",
+        "review",
+        "score",
+        "evidence",
+        "seed",
     ];
 
     [Fact]
-    public async Task GetRecommendations_SeededEligibleMovie_ReturnsRankedJsonWithReasons()
+    public async Task GetRecommendations_SeededEligibleMovie_ReturnsRankedJsonWithEvidence()
     {
         // arrange
         // This suite asserts ranking order and DTO mapping, not the DEV-544 strong-match bar,
@@ -94,7 +112,8 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         items.Select(item => item.GetProperty("id").GetInt32()).ShouldBe([identicalId, partialId]);
 
         var identicalItem = items[0];
-        ShouldCarryExactly(identicalItem, DtoFieldNames);
+        ShouldCarryExactly(identicalItem, RelatedDtoFieldNames);
+        ShouldNotCarryAnyCasingOf(identicalItem, "reasons", "seed");
         identicalItem.GetProperty("id").GetInt32().ShouldBe(identicalId);
         identicalItem.GetProperty("title").GetString().ShouldBe(identical.Title);
         identicalItem.GetProperty("posterUrl").ValueKind.ShouldBe(JsonValueKind.Null);
@@ -106,19 +125,17 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         identicalItem.GetProperty("isWatched").GetBoolean().ShouldBeFalse();
         identicalItem.GetProperty("isNotInterested").GetBoolean().ShouldBeFalse();
         identicalItem.GetProperty("score").GetDouble().ShouldBe(IdenticalProfileScore, 1e-9);
-        ReasonTexts(identicalItem).ShouldBe(
+        EvidenceCriteria(identicalItem).ShouldBe(["Director", "Genre"]);
+        EvidenceTexts(identicalItem).ShouldBe(
         [
             $"Same director: {director}",
             $"Same genres: {genre}",
         ]);
-        ReasonKinds(identicalItem).ShouldBe(
-        [
-            "structural",
-            "structural",
-        ]);
+        EvidenceNames(identicalItem).ShouldBe([director, genre]);
 
         var partialItem = items[1];
-        ShouldCarryExactly(partialItem, DtoFieldNames);
+        ShouldCarryExactly(partialItem, RelatedDtoFieldNames);
+        ShouldNotCarryAnyCasingOf(partialItem, "reasons", "seed");
         partialItem.GetProperty("id").GetInt32().ShouldBe(partialId);
         partialItem.GetProperty("title").GetString().ShouldBe(partial.Title);
         partialItem.GetProperty("posterUrl").ValueKind.ShouldBe(JsonValueKind.Null);
@@ -127,11 +144,10 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         partialItem.GetProperty("imdbRating").ValueKind.ShouldBe(JsonValueKind.Null);
         partialItem.GetProperty("enrichmentStatus").GetString().ShouldBe(nameof(EnrichmentStatus.Enriched));
         partialItem.GetProperty("score").GetDouble().ShouldBe(PartialProfileScore, 1e-9);
-        ReasonTexts(partialItem).ShouldBe(
-        [
-            $"Same genres: {genre}",
-        ]);
-        ReasonKinds(partialItem).ShouldBe(["structural"]);
+        EvidenceCriteria(partialItem).ShouldBe(["Genre"]);
+        EvidenceTexts(partialItem).ShouldBe([$"Same genres: {genre}"]);
+        EvidenceNames(partialItem).ShouldBe([genre]);
+        ShouldNotCarryRetiredCopy(body);
     }
 
     [Fact]
@@ -178,7 +194,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
     }
 
     [Fact]
-    public async Task GetForYou_PositiveHistory_ReturnsPersonalReasonsAndRetainsVectorlessCandidates()
+    public async Task GetForYou_PositiveHistory_ReturnsSeedsAndRetainsVectorlessCandidates()
     {
         // arrange
         var client = await StartHostAsync(additionalSettings: NeutralStrongMatchBar());
@@ -228,15 +244,23 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         ids.ShouldNotContain(watchedId);
 
         var enrichedItem = items.Single(item => item.GetProperty("id").GetInt32() == enrichedId);
-        ShouldCarryExactly(enrichedItem, DtoFieldNames);
-        ReasonKinds(enrichedItem).ShouldContain("personal");
-        ReasonTexts(enrichedItem).ShouldContain($"Because you watched {watched.Title}");
-        ReasonTexts(enrichedItem).ShouldNotContain($"Matches your {genre} interest");
+        ShouldCarryExactly(enrichedItem, ForYouDtoFieldNames);
+        ShouldNotCarryAnyCasingOf(enrichedItem, "reasons");
+        var enrichedSeed = enrichedItem.GetProperty("seed");
+        enrichedSeed.GetProperty("movieId").GetInt32().ShouldBe(watchedId);
+        enrichedSeed.GetProperty("title").GetString().ShouldBe(watched.Title);
+        enrichedSeed.GetProperty("signal").GetString().ShouldBe("watched");
+        EvidenceCriteria(enrichedItem).ShouldBe(["Genre"]);
+        EvidenceTexts(enrichedItem).ShouldBe([$"Same genres: {genre}"]);
+        EvidenceNames(enrichedItem).ShouldBe([genre]);
 
         var vectorlessItem = items.Single(item => item.GetProperty("id").GetInt32() == vectorlessId);
-        ShouldCarryExactly(vectorlessItem, DtoFieldNames);
-        ReasonTexts(vectorlessItem).ShouldContain($"Because you watched {watched.Title}");
-        ReasonTexts(vectorlessItem).ShouldNotContain($"Matches your {genre} interest");
+        ShouldCarryExactly(vectorlessItem, ForYouDtoFieldNames);
+        ShouldNotCarryAnyCasingOf(vectorlessItem, "reasons");
+        vectorlessItem.GetProperty("seed").GetProperty("movieId").GetInt32().ShouldBe(watchedId);
+        vectorlessItem.GetProperty("seed").GetProperty("signal").GetString().ShouldBe("watched");
+        vectorlessItem.GetProperty("evidence").ValueKind.ShouldBe(JsonValueKind.Array);
+        ShouldNotCarryRetiredCopy(body);
     }
 
     [Fact]
@@ -308,8 +332,10 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         before.StatusCode.ShouldBe(HttpStatusCode.OK);
         var cachedItem = beforeBody.GetProperty("items").EnumerateArray()
             .Single(item => item.GetProperty("id").GetInt32() == candidateId);
-        ReasonKinds(cachedItem).ShouldContain("personal");
-        ReasonTexts(cachedItem).ShouldContain($"Because you watched {watched.Title}");
+        cachedItem.GetProperty("seed").GetProperty("movieId").GetInt32().ShouldBe(watchedId);
+        cachedItem.GetProperty("seed").GetProperty("title").GetString().ShouldBe(watched.Title);
+        cachedItem.GetProperty("seed").GetProperty("signal").GetString().ShouldBe("watched");
+        ShouldNotCarryAnyCasingOf(cachedItem, "reasons");
         marked.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         after.StatusCode.ShouldBe(HttpStatusCode.OK);
         afterBody.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ShouldNotContain(candidateId);
@@ -435,9 +461,21 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
     private static void ShouldCarryExactly(JsonElement element, IEnumerable<string> names) =>
         element.EnumerateObject().Select(property => property.Name).ShouldBe(names, ignoreOrder: true);
 
-    private static IEnumerable<string?> ReasonTexts(JsonElement item) =>
-        item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetProperty("text").GetString());
+    private static void ShouldNotCarryAnyCasingOf(JsonElement element, params string[] names) =>
+        element.EnumerateObject()
+            .ShouldNotContain(property => names.Any(name => string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase)));
 
-    private static IEnumerable<string?> ReasonKinds(JsonElement item) =>
-        item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetProperty("kind").GetString());
+    private static void ShouldNotCarryRetiredCopy(JsonElement body) =>
+        body.GetRawText().ShouldNotContain("Matches your viewing history");
+
+    private static IEnumerable<string?> EvidenceCriteria(JsonElement item) =>
+        item.GetProperty("evidence").EnumerateArray().Select(evidence => evidence.GetProperty("criterion").GetString());
+
+    private static IEnumerable<string?> EvidenceTexts(JsonElement item) =>
+        item.GetProperty("evidence").EnumerateArray().Select(evidence => evidence.GetProperty("text").GetString());
+
+    private static IEnumerable<string> EvidenceNames(JsonElement item) =>
+        item.GetProperty("evidence").EnumerateArray()
+            .SelectMany(evidence => evidence.GetProperty("matchedNames").EnumerateArray())
+            .Select(name => name.GetString() ?? string.Empty);
 }

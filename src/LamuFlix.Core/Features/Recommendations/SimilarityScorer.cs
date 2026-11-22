@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
@@ -10,6 +12,8 @@ namespace LamuFlix.Core.Features.Recommendations;
 
 public static class SimilarityScorer
 {
+    private const int DisplayNameLimit = 3;
+
     public static SimilarityResult Score(
         MovieFeatures a,
         MovieFeatures b,
@@ -357,6 +361,86 @@ public static class SimilarityScorer
             _ => $"Same genres: {string.Join(", ", term.Evidence)}",
         };
     }
+
+    public static ImmutableList<RecommendationEvidence> BuildEvidence(
+        SimilarityResult similarity,
+        RecommendationOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(similarity);
+        ArgumentNullException.ThrowIfNull(options);
+
+        return
+        [
+            .. similarity.Breakdown
+                .Select((contribution, index) => (Contribution: contribution, Index: index))
+                .Where(entry => IsDisplayable(entry.Contribution, options))
+                .OrderByDescending(entry => entry.Contribution.Contribution)
+                .ThenBy(entry => entry.Index)
+                .Select(entry => new RecommendationEvidence(
+                    entry.Contribution.Name,
+                    EvidenceText(entry.Contribution.Name, entry.Contribution.Evidence),
+                    [.. entry.Contribution.Evidence.Select(SanitizeDisplayText)])),
+        ];
+    }
+
+    internal static string SanitizeDisplayText(string? value)
+    {
+        if (value is null)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(value.Length);
+
+        foreach (var character in value)
+        {
+            builder.Append(char.IsControl(character) ? ' ' : character);
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static bool IsDisplayable(CriterionContribution contribution, RecommendationOptions options)
+    {
+        if (contribution.Value <= 0.0 || contribution.Value < DisplayThreshold(contribution.Name, options))
+        {
+            return false;
+        }
+
+        return contribution.Evidence.Count > 0 || contribution.Name == "Plot";
+    }
+
+    private static string EvidenceText(string name, ImmutableList<string> evidence)
+    {
+        var label = EvidenceLabel(name);
+        if (evidence.Count == 0)
+        {
+            return label;
+        }
+
+        var names = evidence.Select(SanitizeDisplayText).ToList();
+        var displayed = names.Count > DisplayNameLimit
+            ? string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} +{1}",
+                string.Join(", ", names.Take(DisplayNameLimit)),
+                names.Count - DisplayNameLimit)
+            : string.Join(", ", names);
+
+        return string.Format(CultureInfo.InvariantCulture, "{0}: {1}", label, displayed);
+    }
+
+    private static string EvidenceLabel(string name) =>
+        name switch
+        {
+            "Collection" => "Same collection",
+            "Director" => "Same director",
+            "Themes" => "Shared themes",
+            "Cast" => "Shared cast",
+            "Genre" => "Same genres",
+            "Plot" => "Similar story",
+            _ => name,
+        };
 
     private static double DisplayThreshold(string name, RecommendationOptions options) =>
         name switch

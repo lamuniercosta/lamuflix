@@ -270,6 +270,19 @@ export interface components {
       detail?: null | string;
       instance?: null | string;
     };
+    RecommendationEvidenceDto: {
+      criterion: string;
+      text: string;
+      matchedNames: string[];
+    };
+    RecommendationSeedDto: {
+      /** Format: int32 */
+      movieId: number | string;
+      title: string;
+      signal: components["schemas"]["RecommendationSeedSignal"];
+    };
+    /** @enum {unknown} */
+    RecommendationSeedSignal: "liked" | "watched" | "watchlist";
     RecommendedMovieDto: {
       /** Format: int32 */
       id: number | string;
@@ -288,11 +301,8 @@ export interface components {
       review: string;
       /** Format: double */
       score: number | string;
-      reasons: components["schemas"]["RecommendedMovieReasonDto"][];
-    };
-    RecommendedMovieReasonDto: {
-      kind: string;
-      text: string;
+      evidence: components["schemas"]["RecommendationEvidenceDto"][];
+      seed?: null | components["schemas"]["RecommendationSeedDto"];
     };
     RescanLibraryResponse: {
       /** Format: int32 */
