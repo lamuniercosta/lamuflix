@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
@@ -53,12 +54,18 @@ public static class RealLibrarySnapshotLoader
         ct.ThrowIfCancellationRequested();
 
         var genreCounts = await new EfMovieCatalog(db).GetGenreCountsAsync(ct);
+        ct.ThrowIfCancellationRequested();
+
+        // The Crowd link lookup comes from the production feature-load path so the evaluation copy
+        // sees exactly the links a scored request would see.
+        var library = await new EfRecommendationCandidateSource(db).GetLibraryFeaturesAsync(ct);
 
         return new RealLibrarySnapshot(
             [.. rows.Select(SnapshotMapper.ToDomain)],
             SnapshotMapper.BuildProfileMovies(rows, launches, embeddings),
             embeddings,
-            genreCounts);
+            genreCounts,
+            library.CrowdLinks);
     }
 
     private static async Task<List<MovieRecord>> ReadMovieRowsAsync(LamuFlixDbContext db, CancellationToken ct) =>
@@ -128,7 +135,8 @@ public sealed class RealLibrarySnapshot
         ImmutableArray<Movie> movies,
         ImmutableArray<TasteProfileMovie> profileMovies,
         ImmutableDictionary<MovieId, ImmutableArray<float>> plotEmbeddings,
-        GenreCounts genreCounts)
+        GenreCounts genreCounts,
+        CrowdLinks? crowdLinks = null)
     {
         if (movies.IsDefaultOrEmpty)
         {
@@ -144,6 +152,7 @@ public sealed class RealLibrarySnapshot
         ProfileMovies = profileMovies;
         PlotEmbeddings = plotEmbeddings ?? throw new ArgumentNullException(nameof(plotEmbeddings));
         GenreCounts = genreCounts ?? throw new ArgumentNullException(nameof(genreCounts));
+        CrowdLinks = crowdLinks ?? CrowdLinks.Empty;
         genreWeights = GenreWeights.Calculate(GenreCounts);
         keywordCounts = BuildKeywordCounts(Movies);
     }
@@ -155,6 +164,8 @@ public sealed class RealLibrarySnapshot
     public ImmutableDictionary<MovieId, ImmutableArray<float>> PlotEmbeddings { get; }
 
     public GenreCounts GenreCounts { get; }
+
+    public CrowdLinks CrowdLinks { get; }
 
     public GenreWeights GenreWeights => genreWeights;
 

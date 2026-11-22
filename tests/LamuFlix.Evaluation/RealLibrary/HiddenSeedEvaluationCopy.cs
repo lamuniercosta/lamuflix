@@ -237,7 +237,7 @@ public sealed class HiddenSeedEvaluationCopy
                 }),
             ];
 
-            return Task.FromResult(new RecommendationLibrarySnapshot(entries, CrowdLinks.Empty));
+            return Task.FromResult(new RecommendationLibrarySnapshot(entries, snapshot.CrowdLinks));
         }
 
         public Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(

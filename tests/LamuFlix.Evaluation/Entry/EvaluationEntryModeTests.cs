@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using LamuFlix.Core.Options;
 using LamuFlix.Evaluation.RealLibrary;
 using LamuFlix.Evaluation.TestSupport;
 
@@ -336,20 +337,117 @@ public sealed class EvaluationEntryModeTests
     }
 
     [Fact]
-    public void ResolveRealLibraryOutput_defaults_compare_under_the_repository_root()
+    public void ResolveRecommendationOptions_keeps_the_checked_in_defaults_without_the_crowd_markers()
+    {
+        // act
+        var options = EvaluationEntry.ResolveRecommendationOptions(_ => null);
+
+        // assert
+        var defaults = new RecommendationOptions();
+        options.CrowdEnabled.ShouldBe(defaults.CrowdEnabled);
+        options.CrowdActiveStrongMatchThreshold.ShouldBeNull();
+        options.Weights.ShouldBe(defaults.Weights);
+    }
+
+    [Fact]
+    public void ResolveRecommendationOptions_reads_the_nonsecret_crowd_markers()
     {
         // arrange
         var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
-            [EvaluationEntry.ModeVariable] = EvaluationEntry.CompareModeValue,
-            [EvaluationEntry.SelectedIdVariable] = "101",
+            [EvaluationEntry.CrowdEnabledVariable] = "true",
+            [EvaluationEntry.CrowdActiveThresholdVariable] = "0.30",
         };
 
         // act
-        var output = EvaluationEntry.ResolveRealLibraryOutput(name => environment.GetValueOrDefault(name));
+        var options = EvaluationEntry.ResolveRecommendationOptions(name => environment.GetValueOrDefault(name));
 
         // assert
-        output.ShouldBe(
-            Path.GetFullPath(Path.Combine(EvaluationPaths.Root, "artifacts", "recommendations", "compare-101.json")));
+        options.CrowdEnabled.ShouldBeTrue();
+        options.CrowdActiveStrongMatchThreshold.ShouldBe(0.30);
+    }
+
+    [Theory]
+    [InlineData("sideways")]
+    [InlineData("1")]
+    public void ResolveRecommendationOptions_rejects_a_malformed_crowd_flag(string value)
+    {
+        // arrange
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [EvaluationEntry.CrowdEnabledVariable] = value,
+        };
+
+        // act
+        var act = () => EvaluationEntry.ResolveRecommendationOptions(name => environment.GetValueOrDefault(name));
+
+        // assert
+        Should.Throw<InvalidOperationException>(act);
+    }
+
+    [Theory]
+    [InlineData("-0.1")]
+    [InlineData("1.1")]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    [InlineData("abc")]
+    public void ResolveRecommendationOptions_rejects_an_invalid_crowd_active_threshold(string value)
+    {
+        // arrange
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [EvaluationEntry.CrowdEnabledVariable] = "true",
+            [EvaluationEntry.CrowdActiveThresholdVariable] = value,
+        };
+
+        // act
+        var act = () => EvaluationEntry.ResolveRecommendationOptions(name => environment.GetValueOrDefault(name));
+
+        // assert
+        Should.Throw<InvalidOperationException>(act);
+    }
+
+    [Fact]
+    public void ResolveTmdbOptions_is_unconfigured_without_the_marker()
+    {
+        // act
+        var options = EvaluationEntry.ResolveTmdbOptions(_ => null);
+
+        // assert
+        options.Enabled.ShouldBeFalse();
+        options.ApiKey.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void ResolveTmdbOptions_uses_a_placeholder_key_for_the_configured_state()
+    {
+        // arrange
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [EvaluationEntry.TmdbConfiguredVariable] = "true",
+        };
+
+        // act
+        var options = EvaluationEntry.ResolveTmdbOptions(name => environment.GetValueOrDefault(name));
+
+        // assert
+        options.Enabled.ShouldBeTrue();
+        options.ApiKey.ShouldNotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public void ResolveTmdbOptions_rejects_a_malformed_configured_flag()
+    {
+        // arrange
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [EvaluationEntry.TmdbConfiguredVariable] = "enabled",
+        };
+
+        // act
+        var act = () => EvaluationEntry.ResolveTmdbOptions(name => environment.GetValueOrDefault(name));
+
+        // assert
+        Should.Throw<InvalidOperationException>(act);
     }
 }
