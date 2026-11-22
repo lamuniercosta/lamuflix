@@ -24,6 +24,33 @@ export const SEED_MOVIES = [
   },
 ];
 
+/**
+ * Opt-in DEV-517 For You catalog. The folders are staged in the isolated runtime library but never
+ * imported by the runner, so the default DEV-541 fresh-fixture scenario keeps its two-movie stack.
+ * The DEV-517 e2e journeys import them on demand and delete them afterwards (see
+ * `specs/DEV-517/CONCLUSIONS.md` T007 ruling). They share the seeded movie's genre so the live
+ * ranking returns them as ranked candidates once the journey records a positive signal.
+ */
+export const FOR_YOU_CATALOG_MOVIES = Array.from({ length: 26 }, (_, index) => {
+  const ordinal = String(index + 1).padStart(2, '0');
+  const title = `For You Catalog ${ordinal}`;
+  const year = 2001 + index;
+
+  return {
+    source: 'Big Buck Bunny (2008).mp4',
+    relativePath: `for-you-catalog/${title} (${year})`,
+    filename: `${title} (${year}).mp4`,
+    title,
+    year,
+    imdbId: `tt9910${String(index + 1).padStart(3, '0')}`,
+    genre: 'Animation, Comedy',
+    runtimeMinutes: 10,
+    rating: '7.0',
+    director: 'Smoke Fixture',
+    plot: 'For You catalog fixture: animation comedy friends adventure.',
+  };
+});
+
 export const RESERVED_MOVIE = {
   source: 'Sintel (2010).mp4',
   title: 'Sintel',
@@ -154,6 +181,16 @@ export function generateFixtures({ sampleLibraryDir, libraryDir }) {
     });
   }
 
+  for (const movie of FOR_YOU_CATALOG_MOVIES) {
+    copyMovie({
+      sampleLibraryDir,
+      libraryDir,
+      relativePath: movie.relativePath,
+      source: movie.source,
+      filename: movie.filename,
+    });
+  }
+
   for (const relativePath of Object.values(RESERVED_MOVIE.folders)) {
     copyMovie({ sampleLibraryDir, libraryDir, relativePath, source: RESERVED_MOVIE.source });
   }
@@ -175,5 +212,6 @@ export function generateFixtures({ sampleLibraryDir, libraryDir }) {
   return {
     seedFolders: SEED_MOVIES.map((movie) => movie.relativePath),
     reservedFolders: { ...RESERVED_MOVIE.folders },
+    forYouCatalogFolders: FOR_YOU_CATALOG_MOVIES.map((movie) => movie.relativePath),
   };
 }
