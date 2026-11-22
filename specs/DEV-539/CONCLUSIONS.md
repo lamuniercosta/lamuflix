@@ -173,3 +173,50 @@
 - **T014a glossary and scoring reference. Accept the documentation updates.** Root `CONTEXT.md` defines the five terms approved in [C1](#c1-glossary-file-scope) and updates Ordered criterion and Contribution. `docs/recommendations.md` aligns the criterion count and ordering, conditional denominator, and Crowd reason copy, including the corresponding configuration and test references. These edits belong in the introducing delivery PR under Constitution §VIII, C1, and the plan challenge ruling.
 
 The boundary review closes the four items from Anvil's Phase 6 receipt with no Phase 6 rework or structural owner checkbox. T017 and T018 retain their existing prerequisites and evidence requirements.
+
+---
+
+## Phase 7 operator and DEV-545 evidence (T017–T019)
+
+Sanitized operator evidence recorded by Anvil for the delivery PR body. Raw artifacts stay unversioned under the ignored `artifacts/recommendations/` directory. No credential, connection string or API key value appears in this section, its commands or the artifacts.
+
+### T019 home-library backup, migration and operator counts
+
+| Check | Result |
+|---|---|
+| Backup before any change | `pg_dump -Fc` of the home `lamuflix` database to `F:/Dev/lamuflix-home/backups/dev539-pre-migration-20261122-1757.dump` (1399218 bytes). Rollback readiness confirmed with `pg_restore -l` on that dump: exit 0, 18 TABLE DATA entries including `public.movies` and `public.movie_features`. `scripts/home/Restore-HomeCatalog.ps1 -DumpPath <dump>` is the documented rollback path. |
+| Migration | `dotnet ef database update` through `LamuFlixDesignTimeDbContextFactory` applied `20261122171551_AddCrowdRecommendations` against the home database. `movie_recommendations` exists and `__EFMigrationsHistory` records the migration. |
+| Operator run | `dotnet run --project src/LamuFlix.Api -- --backfill-tmdb-recommendations` with configured TMDb, exit 0, 451 s, complete (not stopped or partial). Sanitized counts: `imdb-eligible=447 matched=446 unmatched=1 skipped=0 failures=0`. |
+| Idempotent rerun | Same invocation immediately afterwards, exit 0: `imdb-eligible=447 matched=0 unmatched=1 skipped=446 failures=0`. The one unmatched row stays eligible; every stored row is skipped. |
+| Persisted result after the runs | 446 of 447 movies carry a `tmdb_id`; 8920 `movie_recommendations` rows owned by 446 distinct sources. |
+
+### T017 candidate measurement on the production Crowd path
+
+The DEV-545 harness previously supplied `CrowdLinks.Empty`. It now carries the link lookup resolved by the production `EfRecommendationCandidateSource.GetLibraryFeaturesAsync` into `RealLibrarySnapshot.CrowdLinks`, and `HiddenSeedEvaluationCopy` passes that lookup to the production For you handler. `CompareRunner` and `QualityReportRunner` now pass `CrowdScoring.Resolve(...)` with the selected and candidate movie identities to the production `SimilarityScorer`. Nonsecret harness markers select the state: `LAMUFLIX_EVALUATION_CROWD_ENABLED`, optional `LAMUFLIX_EVALUATION_CROWD_ACTIVE_THRESHOLD`, and `LAMUFLIX_EVALUATION_TMDB_CONFIGURED` (placeholder key; the real key is never read by the harness).
+
+Both runs used the same home library, harness revision and inputs (447 enriched movies, leave-one-out take 52 eligible candidates per seed, cohorts liked 103 / watched 396, overlap 103). "Before" is Crowd inactive with TMDb configured, which FR-012 defines as the pre-change scoring parity state; "after" is Crowd active with the shared strong-match bar (no active-only threshold set).
+
+| Cohort | Before HR@1 | Before HR@3 | Before HR@10 | Before MRR | After HR@1 | After HR@3 | After HR@10 | After MRR |
+|---|---|---|---|---|---|---|---|---|
+| liked (103 seeds) | 0.0971 | 0.2621 | 0.5534 | 0.2297 | 0.0874 | 0.2913 | 0.5728 | 0.2092 |
+| watched (396 seeds) | 0.1162 | 0.2424 | 0.5379 | 0.2304 | 0.1111 | 0.2854 | 0.5278 | 0.2187 |
+
+Deltas: liked HR@10 +0.0194 with MRR -0.0205; watched HR@10 -0.0101 with MRR -0.0116. Absolute values are harness-relative full-eligible measurements; only the same-protocol deltas are comparable, per the DEV-545 disclosure.
+
+Coverage table (enriched selected 447, score-only partitions, zero / one-to-three / four-to-ten / above-ten):
+
+| Bar | Before | After |
+|---|---|---|
+| 0.225 | 21 / 105 / 199 / 122 | 28 / 142 / 204 / 73 |
+| 0.25 | 34 / 173 / 172 / 68 | 63 / 167 / 176 / 41 |
+| 0.30 | 97 / 208 / 117 / 25 | 127 / 180 / 127 / 13 |
+| 0.35 | 173 / 179 / 89 / 6 | 197 / 172 / 75 / 3 |
+
+Artifacts (unversioned, SHA-256): `dev539-before-leave-one-out.json` `a5fa8972…aeb3` (119607 bytes), `dev539-after-leave-one-out.json` `b3c20033…f155` (113577 bytes), `dev539-before-quality.json` `52531ecb…1c23d` (8233 bytes), `dev539-after-quality.json` `d923ecd4…9f3e` (8264 bytes).
+
+**Judged pairs gap.** The owner-private, unversioned `artifacts/recommendations/judged-pairs.json` is not present in any accessible worktree, and the DEV-545 publication deliberately excluded it. Both quality reports therefore record `validCount` 0 and null judged-pair shares with zero skipped entries. The judged-pairs attachment remains outstanding for the delivery PR; no judgment was invented or reconstructed.
+
+### T018 activation default and threshold decision
+
+- **Checked-in default stays off.** The watched cohort (396 of 499 leave-one-out seeds) top-10 hit rate falls from 0.5379 to 0.5278 and MRR falls in both cohorts, so the enabled configuration does not hold the baseline hit rate. `RecommendationOptions.CrowdEnabled` keeps its `false` default and no test expectation changes.
+- **No Crowd-active strong-match bar is selected.** Because Crowd stays inactive by default and the judged-pairs input is unavailable, `CrowdActiveStrongMatchThreshold` remains unset in the checked-in configuration. The shared `MinimumSimilarity` bar (0.225) continues to govern inactive scoring, matching the pre-change behaviour in the before run.

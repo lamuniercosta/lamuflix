@@ -125,7 +125,8 @@ public static class QualityReportRunner
         RealLibrarySnapshot snapshot,
         RecommendationOptions options,
         QualityParameters parameters,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TmdbOptions? tmdbOptions = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(options);
@@ -134,7 +135,7 @@ public static class QualityReportRunner
         cancellationToken.ThrowIfCancellationRequested();
 
         var judged = JudgedPairReader.ReadOrDefault(parameters.JudgedPairsPath);
-        var ranking = Ranking.Build(snapshot, options, cancellationToken);
+        var ranking = Ranking.Build(snapshot, options, tmdbOptions, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
         return new QualityReport(
@@ -167,6 +168,7 @@ public static class QualityReportRunner
         public static Ranking Build(
             RealLibrarySnapshot snapshot,
             RecommendationOptions options,
+            TmdbOptions? tmdbOptions,
             CancellationToken cancellationToken)
         {
             var enriched = snapshot.Movies
@@ -178,7 +180,7 @@ public static class QualityReportRunner
             foreach (var movie in enriched)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                selected.Add(new SelectedRanking(movie.Id, RankAgainst(snapshot, options, movie, cancellationToken)));
+                selected.Add(new SelectedRanking(movie.Id, RankAgainst(snapshot, options, tmdbOptions, movie, cancellationToken)));
             }
 
             return new Ranking(enriched.Length, selected.ToImmutable());
@@ -187,10 +189,12 @@ public static class QualityReportRunner
         private static ImmutableArray<RankedResult> RankAgainst(
             RealLibrarySnapshot snapshot,
             RecommendationOptions options,
+            TmdbOptions? tmdbOptions,
             Movie selected,
             CancellationToken cancellationToken)
         {
             var selectedFeatures = Features(snapshot, selected);
+            var crowdScoring = CrowdScoring.Resolve(options, tmdbOptions ?? new TmdbOptions(), snapshot.CrowdLinks);
             var scored = ImmutableArray.CreateBuilder<RankedResult>();
 
             foreach (var movie in snapshot.Movies)
@@ -209,7 +213,10 @@ public static class QualityReportRunner
                         Features(snapshot, movie),
                         options,
                         snapshot.GenreWeights,
-                        snapshot.KeywordCounts)));
+                        snapshot.KeywordCounts,
+                        crowdScoring,
+                        selected.Id,
+                        movie.Id)));
             }
 
             var ordered = scored

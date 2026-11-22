@@ -234,6 +234,33 @@ public sealed class RealLibraryReadOnlyLoaderTests : IAsyncLifetime
         Should.Throw<ArgumentException>(act);
     }
 
+    [Fact]
+    public async Task LoadAsync_resolves_persisted_crowd_links_through_the_production_path()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var firstId = await SeedMovieAsync("Crowd first", isWatched: false, Review.None, ct);
+        var secondId = await SeedMovieAsync("Crowd second", isWatched: false, Review.None, ct);
+        var thirdId = await SeedMovieAsync("Crowd third", isWatched: false, Review.None, ct);
+        await SetTmdbIdAsync(firstId, 101, ct);
+        await SetTmdbIdAsync(secondId, 202, ct);
+        await SetTmdbIdAsync(thirdId, 303, ct);
+        await SeedRecommendationAsync(firstId, 202, ct);
+        await SeedRecommendationAsync(secondId, 202, ct);
+        await SeedRecommendationAsync(secondId, 999, ct);
+
+        // act
+        await using var db = OpenContext();
+        var snapshot = await RealLibrarySnapshotLoader.LoadAsync(db, ct);
+
+        // assert
+        snapshot.CrowdLinks.Count.ShouldBe(1);
+        snapshot.CrowdLinks.IsLinked(firstId, secondId).ShouldBeTrue();
+        snapshot.CrowdLinks.IsLinked(secondId, firstId).ShouldBeTrue();
+        snapshot.CrowdLinks.IsLinked(secondId, secondId).ShouldBeFalse();
+        snapshot.CrowdLinks.IsLinked(secondId, thirdId).ShouldBeFalse();
+    }
+
     private static RealLibrarySnapshot BuildMinimalSnapshot()
     {
         var movie = Movie.Create(
@@ -290,6 +317,25 @@ public sealed class RealLibraryReadOnlyLoaderTests : IAsyncLifetime
         await db.SaveChangesAsync(ct);
 
         return record.Id ?? throw new InvalidOperationException("The database did not assign a movie id.");
+    }
+
+    private async Task SetTmdbIdAsync(MovieId movieId, int tmdbId, CancellationToken ct)
+    {
+        await using var db = OpenContext();
+        var record = await db.Movies.SingleAsync(movie => movie.Id == movieId, ct);
+        record.TmdbId = tmdbId;
+        await db.SaveChangesAsync(ct);
+    }
+
+    private async Task SeedRecommendationAsync(MovieId sourceId, int recommendedTmdbId, CancellationToken ct)
+    {
+        await using var db = OpenContext();
+        db.Set<MovieRecommendationRecord>().Add(new MovieRecommendationRecord
+        {
+            SourceMovieId = sourceId,
+            RecommendedTmdbId = recommendedTmdbId,
+        });
+        await db.SaveChangesAsync(ct);
     }
 
     private async Task SeedLaunchAsync(MovieId movieId, CancellationToken ct)

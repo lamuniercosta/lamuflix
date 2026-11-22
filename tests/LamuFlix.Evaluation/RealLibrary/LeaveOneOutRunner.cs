@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Evaluation.Metrics;
 
@@ -24,15 +25,16 @@ public static class LeaveOneOutRunner
         RealLibrarySnapshot snapshot,
         RecommendationOptions options,
         TimeProvider timeProvider,
-        CancellationToken ct)
+        CancellationToken ct,
+        TmdbOptions? tmdbOptions = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         var cohorts = Cohorts(snapshot);
-        var liked = await RankCohortAsync(snapshot, options, timeProvider, cohorts.Liked, ct);
-        var watched = await RankCohortAsync(snapshot, options, timeProvider, cohorts.Watched, ct);
+        var liked = await RankCohortAsync(snapshot, options, timeProvider, tmdbOptions, cohorts.Liked, ct);
+        var watched = await RankCohortAsync(snapshot, options, timeProvider, tmdbOptions, cohorts.Watched, ct);
 
         return new LeaveOneOutResult(
             liked,
@@ -48,6 +50,7 @@ public static class LeaveOneOutRunner
         RealLibrarySnapshot snapshot,
         RecommendationOptions options,
         TimeProvider timeProvider,
+        TmdbOptions? tmdbOptions,
         ImmutableArray<MovieId> seeds,
         CancellationToken ct)
     {
@@ -58,7 +61,7 @@ public static class LeaveOneOutRunner
         {
             ct.ThrowIfCancellationRequested();
 
-            var copy = HiddenSeedEvaluationCopy.Create(snapshot, seed, options, timeProvider);
+            var copy = HiddenSeedEvaluationCopy.Create(snapshot, seed, options, timeProvider, tmdbOptions);
             var take = EligibleCandidateCount(snapshot, seed);
             var ranking = await copy.RankAsync(take, ct);
 

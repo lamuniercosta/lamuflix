@@ -52,9 +52,9 @@ Work inside the file boundaries in `plan.md` and `brief.md`. Follow phase order.
 
 ## Phase 7: DEV-545 evidence and defaults (US5)
 
-- [ ] T019 [US5] After T003/T011, confirm home-library backup and rollback readiness, apply the migration, run the operator and capture actual IMDb eligibility, matched, unmatched, skipped and failure counts before Crowd-enabled measurement. A refused or partial run does not satisfy T019. Publish sanitized actual counts on the delivery PR.
-- [ ] T017 [US5] After T015/T016 and T019, and once DEV-545 is ready, confirm candidate measurement uses the production Crowd feature/scoring path. If alignment is required, use the exact path inventory and approved boundary from T001. Run before/after with the same home library and inputs. Attach sanitized leave-one-out top-10 hit rate, MRR, coverage table and judged pairs. Missing DEV-545 blocks only this evidence phase.
-- [ ] T018 [US5] After T017, set and record the default activation decision. Enable by default only if hit rate holds. Use coverage and judged pairs to select a value for the already wired active-only threshold when required, or leave it unset and document evidence for the shared threshold. Verify the final scored configuration against the DEV-545 comparison.
+- [X] T019 [US5] After T003/T011, confirm home-library backup and rollback readiness, apply the migration, run the operator and capture actual IMDb eligibility, matched, unmatched, skipped and failure counts before Crowd-enabled measurement. A refused or partial run does not satisfy T019. Publish sanitized actual counts on the delivery PR.
+- [X] T017 [US5] After T015/T016 and T019, and once DEV-545 is ready, confirm candidate measurement uses the production Crowd feature/scoring path. If alignment is required, use the exact path inventory and approved boundary from T001. Run before/after with the same home library and inputs. Attach sanitized leave-one-out top-10 hit rate, MRR, coverage table and judged pairs. Missing DEV-545 blocks only this evidence phase.
+- [X] T018 [US5] After T017, set and record the default activation decision. Enable by default only if hit rate holds. Use coverage and judged pairs to select a value for the already wired active-only threshold when required, or leave it unset and document evidence for the shared threshold. Verify the final scored configuration against the DEV-545 comparison.
 
 ## Phase 8: Gates, Size L review, ship, and mergeability
 

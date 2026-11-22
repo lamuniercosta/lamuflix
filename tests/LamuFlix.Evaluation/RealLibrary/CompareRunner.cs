@@ -26,7 +26,8 @@ public static class CompareRunner
         RecommendationOptions options,
         int selectedId,
         int? otherId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        TmdbOptions? tmdbOptions = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(options);
@@ -38,7 +39,7 @@ public static class CompareRunner
         var selected = FindSelected(snapshot, selectedMovieId);
         var selectedVectorUsable = TryUsableVector(snapshot, selectedMovieId, out _);
 
-        var scored = ScoreEnriched(snapshot, options, selected, cancellationToken);
+        var scored = ScoreEnriched(snapshot, options, selected, tmdbOptions, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         var ordered = OrderRows(scored, PlotRanks(scored), options.CandidatePoolSize).ToList();
         var rows = KeepPair(ordered, otherMovieId);
@@ -122,9 +123,11 @@ public static class CompareRunner
         RealLibrarySnapshot snapshot,
         RecommendationOptions options,
         Movie selected,
+        TmdbOptions? tmdbOptions,
         CancellationToken cancellationToken)
     {
         var selectedFeatures = Features(snapshot, selected);
+        var crowdScoring = CrowdScoring.Resolve(options, tmdbOptions ?? new TmdbOptions(), snapshot.CrowdLinks);
         var scored = new List<ScoredMovie>();
 
         foreach (var movie in snapshot.Movies)
@@ -143,7 +146,10 @@ public static class CompareRunner
                     Features(snapshot, movie),
                     options,
                     snapshot.GenreWeights,
-                    snapshot.KeywordCounts),
+                    snapshot.KeywordCounts,
+                    crowdScoring,
+                    selected.Id,
+                    movie.Id),
                 PlotCosine(snapshot, selected.Id, movie.Id),
                 SharesCollection(selected, movie)));
         }

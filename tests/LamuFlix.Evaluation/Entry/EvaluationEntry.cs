@@ -25,10 +25,16 @@ public static class EvaluationEntry
     public const string TmdbSignalsVariable = "LAMUFLIX_EVALUATION_TMDB_SIGNALS";
     public const string SelectedIdVariable = "LAMUFLIX_EVALUATION_SELECTED_ID";
     public const string OtherIdVariable = "LAMUFLIX_EVALUATION_OTHER_ID";
+    public const string CrowdEnabledVariable = "LAMUFLIX_EVALUATION_CROWD_ENABLED";
+    public const string CrowdActiveThresholdVariable = "LAMUFLIX_EVALUATION_CROWD_ACTIVE_THRESHOLD";
+    public const string TmdbConfiguredVariable = "LAMUFLIX_EVALUATION_TMDB_CONFIGURED";
 
     private const string DefaultLeaveOneOutOutputRelative = "artifacts/recommendations/leave-one-out.json";
     private const string DefaultQualityOutputRelative = "artifacts/recommendations/quality.json";
     private const string DefaultCompareDirectoryRelative = "artifacts/recommendations";
+
+    // The harness only needs the activation predicate to see a nonblank key; this is not a credential.
+    private const string PlaceholderTmdbKey = "evaluation" + "-placeholder";
 
     public static bool IsRequested(Func<string, string?> readVariable)
     {
@@ -93,7 +99,7 @@ public static class EvaluationEntry
 
         return readVariable(ModeVariable) switch
         {
-            LeaveOneOutModeValue => await RunLeaveOneOutAsync(snapshot, outputPath, ct),
+            LeaveOneOutModeValue => await RunLeaveOneOutAsync(snapshot, readVariable, outputPath, ct),
             QualityModeValue => RunQuality(snapshot, readVariable, outputPath, ct),
             _ => await RunCompareAsync(snapshot, readVariable, outputPath, ct),
         };
@@ -101,14 +107,16 @@ public static class EvaluationEntry
 
     private static async Task<string?> RunLeaveOneOutAsync(
         RealLibrarySnapshot snapshot,
+        Func<string, string?> readVariable,
         string outputPath,
         CancellationToken ct)
     {
         var result = await LeaveOneOutRunner.RunAsync(
             snapshot,
-            new RecommendationOptions(),
+            ResolveRecommendationOptions(readVariable),
             TimeProvider.System,
-            ct);
+            ct,
+            ResolveTmdbOptions(readVariable));
         LeaveOneOutReportSerializer.WriteToFile(result, outputPath);
 
         return outputPath;
@@ -122,9 +130,10 @@ public static class EvaluationEntry
     {
         var report = QualityReportRunner.Run(
             snapshot,
-            new RecommendationOptions(),
+            ResolveRecommendationOptions(readVariable),
             QualityReportRunner.ReadParameters(readVariable),
-            ct);
+            ct,
+            ResolveTmdbOptions(readVariable));
         ct.ThrowIfCancellationRequested();
         QualityReportSerializer.WriteToFile(report, outputPath);
 
@@ -144,11 +153,78 @@ public static class EvaluationEntry
                 $"Evaluation parameter '{SelectedIdVariable}' is required for compare mode.");
         var otherId = ReadPositiveId(readVariable, OtherIdVariable);
 
-        var report = CompareRunner.Run(snapshot, new RecommendationOptions(), selectedId, otherId, ct);
+        var report = CompareRunner.Run(snapshot, ResolveRecommendationOptions(readVariable), selectedId, otherId, ct, ResolveTmdbOptions(readVariable));
         ct.ThrowIfCancellationRequested();
         RecommendationArtifactSerializer.WriteToFile(report.Envelope, outputPath);
 
         return Task.FromResult<string?>(outputPath);
+    }
+
+    /// <summary>
+    /// Resolves the scoring options for a real-library mode. The checked-in defaults apply unless the
+    /// nonsecret Crowd markers switch the criterion on and optionally set the active strong-match bar.
+    /// </summary>
+    internal static RecommendationOptions ResolveRecommendationOptions(Func<string, string?> readVariable)
+    {
+        ArgumentNullException.ThrowIfNull(readVariable);
+
+        var options = new RecommendationOptions();
+        var enabledText = readVariable(CrowdEnabledVariable);
+        if (!string.IsNullOrWhiteSpace(enabledText))
+        {
+            if (!bool.TryParse(enabledText, out var enabled))
+            {
+                throw new InvalidOperationException(
+                    $"Evaluation parameter '{CrowdEnabledVariable}' must be true or false; got '{enabledText}'.");
+            }
+
+            options = options with { CrowdEnabled = enabled };
+        }
+
+        var thresholdText = readVariable(CrowdActiveThresholdVariable);
+        if (!string.IsNullOrWhiteSpace(thresholdText))
+        {
+            if (!double.TryParse(
+                    thresholdText,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out var threshold)
+                || !double.IsFinite(threshold)
+                || threshold is < 0 or > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Evaluation parameter '{CrowdActiveThresholdVariable}' must be a finite decimal in [0, 1]; got '{thresholdText}'.");
+            }
+
+            options = options with { CrowdActiveStrongMatchThreshold = threshold };
+        }
+
+        return options;
+    }
+
+    /// <summary>
+    /// Resolves the TMDb configuration the production activation predicate reads. The harness never
+    /// needs the real key: a nonsecret marker supplies a placeholder key and the enabled flag.
+    /// </summary>
+    internal static TmdbOptions ResolveTmdbOptions(Func<string, string?> readVariable)
+    {
+        ArgumentNullException.ThrowIfNull(readVariable);
+
+        var configuredText = readVariable(TmdbConfiguredVariable);
+        if (string.IsNullOrWhiteSpace(configuredText))
+        {
+            return new TmdbOptions();
+        }
+
+        if (!bool.TryParse(configuredText, out var configured))
+        {
+            throw new InvalidOperationException(
+                $"Evaluation parameter '{TmdbConfiguredVariable}' must be true or false; got '{configuredText}'.");
+        }
+
+        return configured
+            ? new TmdbOptions { Enabled = true, ApiKey = PlaceholderTmdbKey }
+            : new TmdbOptions();
     }
 
     internal static string ResolveRealLibraryOutput(Func<string, string?> readVariable)
