@@ -383,3 +383,54 @@ T008 and T010 are complete. After-screenshot capture and the mandatory size:M ga
 - **Complete `SMOKE-001` / `SC-001` contract and pair verification across live and deterministic fixtures (`spec.md:30,102,164`, `CONCLUSIONS.md:321–365`)**: Every item in the live 47-item For You response carries a populated `seed` (`movieId`, `title`, `liked`/`watched`/`watchlist` signal), ordered `evidence`, and no `reasons` key; the live Aladdin Related endpoint (`GET /api/movies/519/recommendations`) lists **Hercules first** (`id 644`, `score 0.3293`) with `Same director: John Musker, Ron Clements` as its strongest evidence line; and deterministic component/Playwright e2e coverage (`MovieCard.test.tsx`, `ForYouPage.test.tsx`, `web/e2e/for-you-review.e2e.ts` `SMOKE-003`, `28/28` Playwright pass) proves the For You card renders `"Because you liked {title}"` (linked to `/movies/{movieId}` with accessible name `"Open {title}"`) above the strongest-first `"Same director"` evidence line.
 - **No tuning or synthetic library fabrication (`spec.md:48,151`, `specs/DEV-543/CONCLUSIONS.md:212`)**: Consistent with the standing `DEV-543` library-drift ruling (`specs/DEV-543/CONCLUSIONS.md:206–213`) and Charter §2.3, neither scoring/ranking parameters nor live home-library data may be altered or fabricated to force a specific movie into the live For You top set. Record this disposition in the `T016` delivery PR home-library receipt and proceed immediately to Phase 6 (`T013`–`T014`).
 
+
+---
+
+## Phase 6 (Polish) Receipt — after screenshots and mandatory size:M gates
+
+**Verdict.** T013 and T014 complete: the after-screenshot pair is captured in the T001 fixture state and viewport and recorded below, the one-off retired-copy source check returned only the test that asserts its removal, and every applicable size:M gate is recorded with its applicability and its actual verdict — including one honest non-PASS in the full `dotnet test` run (an unrelated, load-dependent telemetry test) and the pre-existing web `test:run` exit 1. SKIPPED/Could-not-run was never folded into PASS. No Phase 7 work was started.
+
+### 1. T013 — after screenshots (matched to the T001 baseline)
+
+- **Build/ref**: `git rev-parse HEAD` = `89d914dca08ced69f149ac2394d9104c1c7663e6` on `feature/DEV-542` (`artifacts/DEV-542/after/baseline.json`).
+- **Stack**: `docker-compose.yml` + `web/e2e/compose.e2e.yml` behind nginx at `http://localhost:3000`, Chromium via `npm run e2e` (`web/e2e/run.mjs`); `pwsh -NoProfile -File scripts/run-e2e-smoke.ps1` exit `0`.
+- **Viewport**: 1440x900 desktop for both captures — identical to the T001 before pair.
+- **Library fixture/state**: the same `web/e2e` sample library the T001 baseline used (`generateFixtures`): `Big Buck Bunny` (id 1, 2008) and `Elephants Dream` (id 2, 2006), action = Like on `Big Buck Bunny`; `relatedSeedMovieId` = 1. The captured card set is the same one-card set as the baseline — For You `Elephants Dream` only, and the Related rail under `Related movies` with the single `Elephants Dream` card.
+- **Matched recapture (mismatch resolved)**: the first capture ran as the last spec of the full suite, after `import.e2e.ts`/`manual-match.e2e.ts` had imported and enriched `Sintel`, so both surfaces additionally showed a `Sintel` card — a library-state mismatch against the baseline. The capture was therefore re-run on a fresh stack with only the capture spec present (the other spec files temporarily held out of `selectSpecs` and restored immediately after; `git status` clean apart from this receipt). That recapture reproduces the T001 fixture state exactly and is the pair recorded here.
+- **Captured content**: For You `Elephants Dream` now renders the seed line `Because you liked Big Buck Bunny` as plain linked text followed by the capped plain-text evidence lines `Same director: Smoke Fixture`, `Similar story` (the legacy chip stack with the separate `Shares cast: Smoke Fixture` chip is gone, and the desktop two-line cap is visible). The Related rail card renders the same evidence-only lines with **no** seed line — the same `Elephants Dream` card set as the baseline.
+- **Paths** (worktree-relative, git-ignored via `.gitignore:66` `artifacts/`):
+  - `artifacts/DEV-542/after/for-you-desktop-1440x900.png`
+  - `artifacts/DEV-542/after/related-rail-desktop-1440x900.png`
+  - supporting raw responses `artifacts/DEV-542/after/for-you-desktop-1440x900.json`, `artifacts/DEV-542/after/related-rail-desktop-1440x900.json`, and `artifacts/DEV-542/after/baseline.json` (HEAD, viewport, fixture state, seed movie, shot paths).
+  - T001 before pair for the same two paths: `artifacts/DEV-542/before/for-you-desktop-1440x900.png`, `artifacts/DEV-542/before/related-rail-desktop-1440x900.png`.
+- **T016 handoff**: attach and read back these two pairs (publication is a Done-when criterion; not claimed here).
+- **One-off retired-copy source check**: `rg "Matches your viewing history" src web/src` → exactly one match, `web/src/library/MovieCard.test.tsx:492` `expect(container.textContent).not.toContain('Matches your viewing history');` — the permitted test-asserting-removal match; no production match. Behavioural removal coverage stays with T002 (`ApiEndToEndRecommendationTests`/`RecommendationEndpointTests` reject any casing of `reasons`).
+
+### 2. T014 — size:M gates, applicability and actual verdicts
+
+Scope for every changed-file gate: `git diff --name-only --diff-filter=d 326756db6733ce0032284919a866a5995f9f5d9d...HEAD -- '*.cs'` = 16 existing changed `.cs` files (`RecommendationReasonBuilder.cs` is a deletion and has no file to analyze).
+
+| Gate | Command | Applicability | Verdict |
+|---|---|---|---|
+| Constitution PR gate — architecture | `dotnet test tests/LamuFlix.ArchitectureTests/LamuFlix.ArchitectureTests.csproj --blame-hang --blame-hang-timeout 10m` | Applicable (constitution.md:775 "Pull Request Quality Gates") | **PASS** — exit 0, 16/16 passed |
+| Roslyn analyzers (CA/IDE warning+) | `./scripts/run-roslyn-analyzers.ps1 -Files <16 files>` | Applicable (constitution.md:804–815) | **PASS** — exit 0, "no CA/IDE warnings on target files" |
+| Cyclomatic complexity (CA1502, >15) | `./scripts/run-cyclomatic-complexity.ps1 -Files <16 files>` | Applicable | **PASS** — exit 0, no method over 15 |
+| Cyclomatic complexity, refactor gate | `./scripts/run-cyclomatic-complexity.ps1 -Files <16 files> -Threshold 6` | Applicable (refactor gate after implementation) | **PASS** — exit 0, no method over 6 |
+| JetBrains InspectCode (WARNING+) | `./scripts/run-jetbrains-inspectcode.ps1 -Files <16 files>` | Applicable | **PASS** — exit 0, "no WARNING+ issues"; report `artifacts/inspectcode/inspect-report.sarif.json` |
+| Property tests | `./scripts/run-property-tests.ps1` | Applicable (recommendation property suites changed: `GetRecommendationsQueryHandlerPropertyTests.cs`, `SimilarityScorerTests.cs`) | **PASS** — exit 0, 153 property tests across 5 projects, 0 failed |
+| Vulnerable packages | `./scripts/run-vulnerable-packages.ps1` | Applicable (no package change, gate still required) | **PASS** — exit 0, "no vulnerable packages" |
+| Formatting (supplemental) | `dotnet format --verify-no-changes` | Applicable | **PASS** — exit 0 |
+| Unit tests | `dotnet test tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj --blame-hang --blame-hang-timeout 10m` | Applicable | **PASS** — exit 0, 4,207 passed / 1 skipped |
+| Evaluation tests | `dotnet test tests/LamuFlix.Evaluation.IntegrationTests --blame-hang --blame-hang-timeout 10m` | Applicable | **PASS** — exit 0, 68/68 passed |
+| Integration tests (full) | `dotnet test LamuFlix.sln --blame-hang --blame-hang-timeout 10m` | Applicable | **NOT PASS (honest)** — 1,867 passed / 2 skipped / **1 failed**: `ServiceDefaultsTelemetryTests.ProductionHost_ForceFlushAfterOneSpanMetricAndLog_ExporterIsComposed` (OTLP stub log-body wait, `ServiceDefaultsTelemetryTests.cs:411`). Unrelated to this ticket — no changed file is telemetry-related — and it **PASSES 8/8 in isolation** on rerun of `--filter FullyQualifiedName~ServiceDefaultsTelemetryTests` (exit 0), i.e. a load/timing-flaky failure in the full parallel run, not a regression from this change. Not claimed as PASS; a clean full-suite run is left to the T016/CI verification. |
+| Mutation (no `--since`) | `./scripts/run-mutation.ps1` | Applicable — production C# under `src/` is eligible (5 files: `RecommendationEndpoints.cs`, `RecommendedMovieDto.cs`, `GetForYouRecommendationsQueryHandler.cs`, `GetRecommendationsQueryHandler.cs`, `RecommendedMovie.cs`, `SimilarityScorer.cs`) | **PASS** — exit 0, "all projects scored at or above threshold 80%", 492 mutants, 1,323.7 s, output `C:\Users\lamun\AppData\Local\Temp\stryker\20261122-095251-c53603` |
+| Web contract parity | `npm run check:api` (in `web/`) | Applicable | **PASS** — exit 0 |
+| Web lint | `npm run lint` (in `web/`) | Applicable | **PASS** — exit 0 (check:api + eslint `--max-warnings 0` + prettier clean) |
+| Web typecheck/build | `npm run build` (in `web/`) | Applicable | **PASS** — exit 0 (tsc src + e2e typecheck + vite build) |
+| Web component suite | `npm run test:run` (in `web/`) | Applicable | **PASS on all tests / exit 1** — 74 files, 1,076 tests passed; Vitest exits 1 on one unhandled MSW rejection in `src/library/BulkImportDialog.states.test.tsx`, **pre-existing** at Phase 4 base `5a2aaeff` on a clean stash and outside this ticket's files (recorded in the Phase 4/5 receipts). Not folded into PASS. |
+| Web gates wrapper | `pwsh -NoProfile -File scripts/run-web-gates.ps1 -All` | Applicable | **FAIL** — exit 1 solely from that same pre-existing unhandled rejection; its lint/typecheck/build steps were green |
+| Web e2e (browser smoke) | `pwsh -NoProfile -File scripts/run-e2e-smoke.ps1` (`npm run e2e`) | Applicable | **PASS** — exit 0 at this HEAD; 29/29 Playwright tests in 1.8 m (28 ticket/suite tests + the temporary capture spec), including both `for-you-review.e2e.ts` SMOKE-003 tests. The dedicated matched-recapture run also exited 0. |
+
+### 3. Phase boundary
+
+T013/T014 complete. T015 (three-axis technical review, two-round cap) and T016 (publication, screenshot attach/read-back, merge-bar claim) were not started.
