@@ -9,3 +9,5 @@
 - [assumed] Render a labelled More for you section with Load more when it starts with zero cards and hasMore is true. Mount its carousel at one card and omit the section when it has neither cards nor available controls. Patron ratified this policy in Q5.
 
 - [assumed] Use “No recommendations closely match the movies you have liked, watched, or added to your watchlist yet.” for rule 6b and “Browse the library” for both library links. Patron ratified the copy in Q6.
+
+- [assumed] More for you keeps the landed DEV-517 control label (“Replace {title}” / “Replace”) for Swap, because DEV-517 owns that control; DEV-538 only scopes where it appears (More for you cards only) and moves Load more inside the More for you region.

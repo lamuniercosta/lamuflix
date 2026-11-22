@@ -121,6 +121,17 @@ function seeded(
   return { ...makeMovie(id, title), seed, ...extra };
 }
 
+function seedGroup(
+  from: number,
+  count: number,
+  movieId: number,
+  title: string,
+): ForYouRecommendation[] {
+  return Array.from({ length: count }, (_, index) =>
+    seeded(from + index, { movieId, title, signal: 'liked' }),
+  );
+}
+
 function pageSection(): HTMLElement | null {
   const heading = screen.queryByRole('heading', { level: 1, name: 'For You' });
   return heading?.closest('section') ?? null;
@@ -703,6 +714,219 @@ describe('ForYouPage replacement', () => {
     expect(screen.getByRole('link', { name: 'Heat' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Play Heat' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Replace / })).not.toBeInTheDocument();
+  });
+});
+
+describe('ForYouPage More for you controls', () => {
+  it('shows Load more and Swap only inside the More for you row', async () => {
+    // arrange
+    stubRanking([
+      seeded(1301, { movieId: 900, title: 'Seed A', signal: 'liked' }),
+      seeded(1302, { movieId: 900, title: 'Seed A', signal: 'liked' }),
+      ...range(1303, 1312),
+    ]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() => expect(rowLabels()).toEqual(['Because you liked Seed A', 'More for you']));
+    const themed = rowFor('Because you liked Seed A');
+    const more = rowFor('More for you');
+    expect(within(more).getByRole('button', { name: 'Load more' })).toBeInTheDocument();
+    expect(within(themed).queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+    expect(within(themed).queryByRole('button', { name: /^Replace / })).not.toBeInTheDocument();
+    expect(within(themed).getAllByRole('link', { name: /^Movie / })).toHaveLength(2);
+    expect(within(more).getAllByRole('button', { name: /^Replace / })).toHaveLength(8);
+    expect(screen.getAllByRole('button', { name: 'Load more' })).toHaveLength(1);
+  });
+
+  it('renders a card-less More for you region with its heading and Load more until a card arrives', async () => {
+    // arrange
+    stubRanking([
+      ...seedGroup(1401, 6, 900, 'Seed A'),
+      ...seedGroup(1407, 4, 901, 'Seed B'),
+      ...range(1411, 1412),
+    ]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() =>
+      expect(rowLabels()).toEqual([
+        'Because you liked Seed A',
+        'Because you liked Seed B',
+        'More for you',
+      ]),
+    );
+    const more = rowFor('More for you');
+    expect(screen.getAllByRole('region', { name: 'More for you' })).toContain(more);
+    expect(
+      within(more).getByRole('heading', { level: 2, name: 'More for you' }),
+    ).toBeInTheDocument();
+    expect(within(more).queryByRole('group', { name: 'More for you' })).not.toBeInTheDocument();
+    expect(cardTitles(more)).toEqual([]);
+    expect(within(more).queryByRole('button', { name: /^Replace / })).not.toBeInTheDocument();
+
+    // act
+    fireEvent.click(within(more).getByRole('button', { name: 'Load more' }));
+
+    // assert
+    await findGrid(12);
+    const loaded = rowFor('More for you');
+    expect(cardTitles(loaded)).toEqual(titles([1411, 1412]));
+    expect(within(loaded).getByRole('group', { name: 'More for you' })).toBeInTheDocument();
+    expect(within(loaded).getAllByRole('button', { name: /^Replace / })).toHaveLength(2);
+  });
+
+  it('omits the More for you section when it has neither cards nor controls', async () => {
+    // arrange
+    stubRanking([...seedGroup(1501, 6, 900, 'Seed A'), ...seedGroup(1507, 4, 901, 'Seed B')]);
+
+    // act
+    renderPage();
+
+    // assert
+    await waitFor(() =>
+      expect(rowLabels()).toEqual(['Because you liked Seed A', 'Because you liked Seed B']),
+    );
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'More for you' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Replace / })).not.toBeInTheDocument();
+  });
+
+  it('deduplicates Load more results against the themed rows', async () => {
+    // arrange
+    const requests = stubRanking([
+      ...seedGroup(1601, 6, 900, 'Seed A'),
+      ...seedGroup(1607, 4, 901, 'Seed B'),
+      ...range(1601, 1602),
+      ...range(1611, 1612),
+    ]);
+    renderPage();
+    await findGrid(10);
+
+    // act
+    fireEvent.click(loadMoreButton());
+
+    // assert
+    await findGrid(12);
+    expect(cardTitles(rowFor('More for you'))).toEqual(titles([1611, 1612]));
+    expect(renderedTitles()).toHaveLength(new Set(renderedTitles()).size);
+    expect(requests.map((request) => request.offset)).toEqual([0, 10]);
+  });
+
+  it('dispatches one action when Load more and Swap are attempted together', async () => {
+    // arrange
+    const gate = deferred();
+    const requests = stubRanking(range(1, 30), {
+      waitWhen: (request) => (request.offset === 10 ? gate.promise : null),
+    });
+    renderPage();
+    await findGrid(10);
+
+    // act
+    fireEvent.click(loadMoreButton());
+    await waitFor(() => expect(requests).toHaveLength(2));
+    fireEvent.click(replaceButton('Movie 2'));
+    fireEvent.click(replaceButton('Movie 3'));
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    await flush();
+
+    // assert
+    expect(requests).toHaveLength(2);
+
+    // act
+    gate.resolve();
+
+    // assert
+    await findGrid(20);
+    const settled = renderedTitles();
+    expect(settled).toHaveLength(new Set(settled).size);
+    expect(settled.slice(10)).toEqual(titles(range(11, 20).map((movie) => Number(movie.id))));
+  });
+
+  it('ignores an obsolete Load more response after a page reset', async () => {
+    // arrange
+    const gate = deferred();
+    const requests = stubRanking(range(1, 30), {
+      waitWhen: (request) => (request.offset === 10 ? gate.promise : null),
+    });
+    const first = renderPage();
+    await findGrid(10);
+    fireEvent.click(loadMoreButton());
+    await waitFor(() => expect(requests).toHaveLength(2));
+
+    // act
+    first.unmount();
+    renderPage();
+    await findGrid(10);
+    gate.resolve();
+    await flush();
+
+    // assert
+    expect(renderedTitles()).toEqual(titles([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+  });
+
+  it('keeps themed rows frozen across Load more and Swap', async () => {
+    // arrange
+    stubRanking([
+      seeded(1701, { movieId: 900, title: 'Seed A', signal: 'liked' }),
+      seeded(1702, { movieId: 900, title: 'Seed A', signal: 'liked' }),
+      ...range(1703, 1730),
+    ]);
+    renderPage();
+    await waitFor(() => expect(rowLabels()).toEqual(['Because you liked Seed A', 'More for you']));
+    const themedBefore = cardTitles(rowFor('Because you liked Seed A'));
+
+    // act
+    fireEvent.click(loadMoreButton());
+
+    // assert
+    await findGrid(20);
+    expect(rowLabels()).toEqual(['Because you liked Seed A', 'More for you']);
+    expect(cardTitles(rowFor('Because you liked Seed A'))).toEqual(themedBefore);
+
+    // act
+    fireEvent.click(replaceButton('Movie 1705'));
+
+    // assert
+    await waitFor(() => expect(renderedTitles()).toContain('Movie 1721'));
+    expect(renderedTitles()).not.toContain('Movie 1705');
+    expect(rowLabels()).toEqual(['Because you liked Seed A', 'More for you']);
+    expect(cardTitles(rowFor('Because you liked Seed A'))).toEqual(themedBefore);
+  });
+
+  it('keeps cards through empty Load more and empty Swap follow-ups without empty states', async () => {
+    // arrange
+    const requests = stubRanking([...range(1, 10), ...range(1, 3)]);
+    renderPage();
+    await findGrid(10);
+
+    // act
+    fireEvent.click(loadMoreButton());
+
+    // assert
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument(),
+    );
+    expect(renderedTitles()).toEqual(titles([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+    expect(screen.queryByText(/^No recommendations/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Browse the library' })).not.toBeInTheDocument();
+
+    // act
+    fireEvent.click(replaceButton('Movie 5'));
+
+    // assert
+    await waitFor(() => expect(requests).toHaveLength(4));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^No recommendations/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Browse the library' })).not.toBeInTheDocument();
+    expect(renderedTitles()).toEqual(titles([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+    expect(await screen.findByText('No new suggestions to swap in right now.')).toBeInTheDocument();
   });
 });
 
