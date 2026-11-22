@@ -446,7 +446,8 @@ describe('MovieCard feedback actions', () => {
     // assert
     const link = screen.getByRole('link', { name: 'Open Aladdin' });
     expect(link).toHaveAttribute('href', '/movies/42');
-    expect(link.textContent).toBe(expected);
+    expect(link.textContent).toBe('Aladdin');
+    expect(link.closest('p')?.textContent).toBe(expected);
   });
 
   it('renders delivered evidence text verbatim in a semantic list capped at two entries', () => {

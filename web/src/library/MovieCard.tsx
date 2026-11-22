@@ -17,10 +17,10 @@ const STATUS_LABELS: Record<string, string> = {
 export type RecommendationSeed = components['schemas']['RecommendationSeedDto'];
 export type RecommendationEvidence = components['schemas']['RecommendationEvidenceDto'];
 
-const SEED_LINES: Record<RecommendationSeed['signal'], (title: string) => string> = {
-  liked: (title) => `Because you liked ${title}`,
-  watched: (title) => `Because you watched ${title}`,
-  watchlist: (title) => `Because ${title} is on your watchlist`,
+const SEED_PARTS: Record<RecommendationSeed['signal'], { prefix: string; suffix: string }> = {
+  liked: { prefix: 'Because you liked ', suffix: '' },
+  watched: { prefix: 'Because you watched ', suffix: '' },
+  watchlist: { prefix: 'Because ', suffix: ' is on your watchlist' },
 };
 
 const EVIDENCE_LIMIT = 2;
@@ -81,7 +81,7 @@ export default function MovieCard({
     }
   };
 
-  const seedLine = seed ? SEED_LINES[seed.signal](seed.title) : null;
+  const seedParts = seed ? SEED_PARTS[seed.signal] : null;
   const visibleEvidence = evidence?.slice(0, EVIDENCE_LIMIT) ?? [];
 
   return (
@@ -152,15 +152,17 @@ export default function MovieCard({
 
       {failureMessage ? <p className="movie-card-failure">{failureMessage}</p> : null}
 
-      {seed && seedLine ? (
+      {seed && seedParts ? (
         <p className="movie-card-seed">
+          {seedParts.prefix}
           <a
             href={`/movies/${seed.movieId}`}
             aria-label={`Open ${seed.title}`}
             onClick={(event) => handleOpen(event, seed.movieId)}
           >
-            {seedLine}
+            {seed.title}
           </a>
+          {seedParts.suffix}
         </p>
       ) : null}
 

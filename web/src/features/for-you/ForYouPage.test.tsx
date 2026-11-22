@@ -63,7 +63,8 @@ describe('ForYouPage', () => {
 
     // assert
     const seedLink = within(first).getByRole('link', { name: 'Open Dune' });
-    expect(seedLink).toHaveTextContent('Because you watched Dune');
+    expect(seedLink).toHaveTextContent('Dune');
+    expect(seedLink.closest('p')).toHaveTextContent('Because you watched Dune');
     expect(seedLink).toHaveAttribute('href', '/movies/2');
     const evidenceList = first.querySelector('.movie-card-evidence');
     expect(evidenceList).not.toBeNull();

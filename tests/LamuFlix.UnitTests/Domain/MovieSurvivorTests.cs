@@ -11,6 +11,8 @@ public sealed class MovieSurvivorTests
     [Theory]
     [InlineData("")]
     [InlineData(" ")]
+    [InlineData("")]
+    [InlineData(" ")]
     public void Create_BlankTitle_ThrowsArgumentExceptionWithParamNameAndMessage(string title)
     {
         // act
