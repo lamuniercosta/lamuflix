@@ -14,6 +14,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import {
+  FOR_YOU_CATALOG_MOVIES,
   generateFixtures,
   MANUAL_MATCH_MOVIES,
   RESERVED_MOVIE,
@@ -252,7 +253,7 @@ function foundBody(movie) {
     Type: 'movie',
     Year: String(movie.year),
     Runtime: `${movie.runtimeMinutes} min`,
-    Plot: `${movie.title} smoke fixture.`,
+    Plot: movie.plot ?? `${movie.title} smoke fixture.`,
     Rated: 'N/A',
     imdbRating: movie.rating,
     imdbID: movie.imdbId,
@@ -271,7 +272,7 @@ const manualMatchMovies = MANUAL_MATCH_MOVIES.map((movie) => ({
 }));
 
 function writeStubResponses(fixture) {
-  const responses = [...SEED_MOVIES, RESERVED_MOVIE].map((movie) => ({
+  const responses = [...SEED_MOVIES, RESERVED_MOVIE, ...FOR_YOU_CATALOG_MOVIES].map((movie) => ({
     title: movie.title,
     year: movie.year,
     body: foundBody(movie),
@@ -324,6 +325,10 @@ function writeContext(fixture) {
     baseURL: BASE_URL,
     seedTitles: SEED_MOVIES.map((movie) => movie.title),
     seedMovies: SEED_MOVIES.map((movie) => ({
+      title: movie.title,
+      relativePath: movie.relativePath,
+    })),
+    forYouCatalog: FOR_YOU_CATALOG_MOVIES.map((movie) => ({
       title: movie.title,
       relativePath: movie.relativePath,
     })),
