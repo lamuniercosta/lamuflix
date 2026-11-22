@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Api;
@@ -21,6 +22,13 @@ using Scalar.AspNetCore;
 
 const string CorsPolicyName = "DevSpa";
 const string DevServerOrigin = "http://localhost:5173";
+
+if (BackfillOperatorMode.IsRequested(args) && !BackfillOperatorMode.TryParse(args, out var operatorError))
+{
+    Console.Error.WriteLine(string.Concat("tmdb-backfill: refused reason=malformed-invocation ", operatorError));
+    Environment.ExitCode = 2;
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
@@ -59,6 +67,21 @@ builder.Services.AddOpenApi("v1", static options =>
     options.AddOperationTransformer<RecommendationsOperationTransformer>();
 });
 var app = builder.Build();
+if (BackfillOperatorMode.IsRequested(args))
+{
+    using var operatorCancellation = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, eventArgs) =>
+    {
+        eventArgs.Cancel = true;
+        operatorCancellation.Cancel();
+    };
+    Environment.ExitCode = await BackfillOperatorMode.RunAsync(
+        app.Services,
+        Console.Out,
+        operatorCancellation.Token);
+    return;
+}
+
 if (app.Services.GetRequiredService<IOptions<DatabaseOptions>>().Value.ApplyMigrationsOnStartup)
 {
     using var migrationScope = app.Services.CreateScope();
