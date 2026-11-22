@@ -503,7 +503,7 @@ describe('ForYouPage replacement', () => {
     fireEvent.click(replaceButton('Movie 3'));
 
     // assert
-    await waitFor(() => expect(renderedTitles()[2]).toBe('Movie 12'));
+    await waitFor(() => expect(renderedTitles()[2]).toBe('Movie 21'));
     expect(requests.slice(3).map((request) => [request.offset, request.exclude])).toEqual([
       [0, [3]],
       [10, [3]],
@@ -518,11 +518,12 @@ describe('ForYouPage replacement', () => {
     expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
 
     // act
+    const statusesBefore = screen.getAllByRole('status').length;
     fireEvent.click(replaceButton('Movie 5'));
 
     // assert
     await waitFor(() => expect(requests).toHaveLength(2));
-    await waitFor(() => expect(screen.getByRole('status')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByRole('status')).toHaveLength(statusesBefore + 1));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(renderedTitles()).toEqual(titles([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
   });
