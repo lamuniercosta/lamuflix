@@ -151,3 +151,12 @@
 - The owner merged [spec PR #460](https://github.com/lamuniercosta/lamuflix/pull/460) into `main` on 2026-11-21 at 17:15:51 UTC. GitHub records merge commit `04e31d45d93aa5a87f0a3d5202b60f5ae434b077`.
 - Phase A base `1bbc8a637b97ec2efdf0eaa6f2be6da8abbbc089` is an ancestor of the merge commit, which is included in the DEV-539 worktree history.
 - This receipt completes T000 and satisfies the Gate 1 prerequisite for T001 read-only pickup.
+
+---
+
+## Phase 2 and Phase 3 T007 persistence boundary
+
+**Verdict. In scope under charter §2.3 item 6.** Anvil's Phase 2 receipt in the `DEV-539` Maestri note (lines 43–48) flags three paths outside the explicit inventory in [plan.md](plan.md#L53). The [ticket's AC 2](ticket-text.txt#L41) requires the nullable `movies.tmdb_id` column and the recommendation pair table. The [next enrichment criterion](ticket-text.txt#L42) requires persisting both the TMDb ID and the recommended IDs, as specified in [Wanted 2–3](ticket-text.txt#L29). The charter (`lamuflix-team-charter`, line 24) puts edits forced by an acceptance criterion in scope. The T001 pickup entry in `recon-DEV-539` (line 33) identifies `EfMovieRepository` as the existing movie persistence seam.
+
+- **Phase 2 (T002/T004/T003).** Approve the three changes at `159ad381` under `src/LamuFlix.Infrastructure/Persistence/`. `Records/MovieRecord.cs` carries the nullable TMDb ID and the source's recommendation collection. `Records/MovieRecommendationRecord.cs` represents the source movie ID and the recommended catalogue ID, including targets outside the library. `EfMovieRepository.cs` carries the nullable ID through insert, baseline comparison, tracked update, and rehydration. These changes support the EF mapping, migration and domain carry in [tasks.md](tasks.md#L21).
+- **Phase 3 T007.** Authorize edits to these paths only as required to persist source-owned pair updates through the existing EF save flow. Under [Q6](#q6) and [FR-005](spec.md#L195), a successful first page replaces the source's rows, including clearing them for a valid empty page. A failed fetch preserves rows when the source TMDb ID is unchanged and clears stale source rows when the ID changes. Persist the ID and affected rows together in the existing save flow. The enrichment handler retains its apply-and-save role under [FR-003](spec.md#L193). [T008](tasks.md#L32) requires integration evidence for the requested path, first page and persisted outcomes.
