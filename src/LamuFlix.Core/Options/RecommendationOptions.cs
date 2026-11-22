@@ -265,6 +265,19 @@ public sealed record RecommendationOptions : IValidatableObject
 
     private IEnumerable<ValidationResult> ValidateCore()
     {
+        foreach (var result in ValidateCoreFirst())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateCoreSecond())
+        {
+            yield return result;
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateCoreFirst()
+    {
         foreach (var result in ValidateDecay())
         {
             yield return result;
@@ -279,7 +292,10 @@ public sealed record RecommendationOptions : IValidatableObject
         {
             yield return result;
         }
+    }
 
+    private IEnumerable<ValidationResult> ValidateCoreSecond()
+    {
         foreach (var result in ValidatePool())
         {
             yield return result;

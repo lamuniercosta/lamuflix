@@ -337,6 +337,14 @@ public sealed record MovieMetadata
     public override int GetHashCode()
     {
         var hash = new HashCode();
+        AddScalars(ref hash);
+        AddRecommended(ref hash);
+        AddCollections(ref hash);
+        return hash.ToHashCode();
+    }
+
+    private void AddScalars(ref HashCode hash)
+    {
         hash.Add(Title);
         hash.Add(Synopsis);
         hash.Add(ReleaseYear);
@@ -351,30 +359,41 @@ public sealed record MovieMetadata
         hash.Add(Signals);
         hash.Add(TrailerKey);
         hash.Add(TmdbId);
-        if (RecommendedTmdbIds is not null)
+    }
+
+    private void AddRecommended(ref HashCode hash)
+    {
+        if (RecommendedTmdbIds is null)
         {
-            foreach (var recommendedTmdbId in RecommendedTmdbIds)
-            {
-                hash.Add(recommendedTmdbId);
-            }
+            return;
         }
 
+        foreach (var recommendedTmdbId in RecommendedTmdbIds)
+        {
+            hash.Add(recommendedTmdbId);
+        }
+    }
+
+    private void AddCollections(ref HashCode hash)
+    {
         foreach (var director in Directors)
         {
             hash.Add(director);
         }
+
         foreach (var actor in Actors)
         {
             hash.Add(actor);
         }
+
         foreach (var genre in Genres)
         {
             hash.Add(genre);
         }
+
         foreach (var writer in Writers)
         {
             hash.Add(writer);
         }
-        return hash.ToHashCode();
     }
 }
