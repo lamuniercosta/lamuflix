@@ -1072,6 +1072,91 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         result.HasSeeds.ShouldBeFalse();
     }
 
+    [Fact]
+    public async Task HandleAsync_OffsetEqualsRetainedCount_ReturnsEmptyWithoutMore()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isLiked: true),
+            NewMovie(2, genres: ["Drama"]));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(10, 2), CancellationToken.None);
+
+        // assert
+        result.Items.ShouldBeEmpty();
+        result.HasMore.ShouldBeFalse();
+        result.HasSeeds.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task HandleAsync_KeywordWeightsCancelToken_ThrowsBeforeRanking()
+    {
+        // arrange
+        var handler = NewHandler();
+        using var cts = new CancellationTokenSource();
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isLiked: true),
+            NewMovie(2, genres: ["Drama"]));
+        catalog.GetKeywordCountsAsync(Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
+                cts.Cancel();
+                return Task.FromResult(EmptyKeywordCounts);
+            });
+
+        // act / assert
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => handler.HandleAsync(new GetForYouRecommendationsQuery(), cts.Token));
+        await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_CollectionCutPrefersEarliestKnownYear()
+    {
+        // arrange
+        var handler = NewHandler();
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isLiked: true),
+            NewMovie(2, genres: ["Drama"], collectionId: 7, releaseYear: 2005),
+            NewMovie(9, genres: ["Drama"], collectionId: 7, releaseYear: 1999),
+            NewMovie(5, genres: ["Drama"]));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        var ids = result.Items.Select(item => item.Summary.Id.Value).ToArray();
+        ids.ShouldContain(9);
+        ids.ShouldContain(5);
+        ids.ShouldNotContain(2);
+    }
+
+    [Fact]
+    public async Task HandleAsync_CollectionCutWithHigherCapRetainsEarliestTwo()
+    {
+        // arrange
+        var handler = NewHandler(maxPerCollection: 2);
+        Arrange(
+            NewMovie(90, genres: ["Drama"], isLiked: true),
+            NewMovie(2, genres: ["Drama"], collectionId: 7, releaseYear: 2001),
+            NewMovie(3, genres: ["Drama"], collectionId: 7),
+            NewMovie(4, genres: ["Drama"], collectionId: 7, releaseYear: 2000),
+            NewMovie(5, genres: ["Drama"]));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        var ids = result.Items.Select(item => item.Summary.Id.Value).ToArray();
+        ids.ShouldContain(4);
+        ids.ShouldContain(2);
+        ids.ShouldContain(5);
+        ids.ShouldNotContain(3);
+    }
+
     private GetForYouRecommendationsQueryHandler NewHandler(
         int take = DefaultTake,
         int candidatePoolSize = 50,
@@ -1392,5 +1477,97 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
             null,
             null,
             isWatched: isWatched);
+    }
+}
+
+public sealed class RecommendedMovieEqualityTests
+{
+    private static RecommendationEvidence Evidence(
+        string criterion = "Genre",
+        string text = "Same genres: Drama",
+        params string[] matchedNames) =>
+        new(criterion, text, [.. matchedNames]);
+
+    [Fact]
+    public void Equals_SameValues_ReturnsTrueWithSameHashCode()
+    {
+        // arrange
+        var first = Evidence(matchedNames: ["Drama"]);
+        var second = Evidence(matchedNames: ["Drama"]);
+
+        // act / assert
+        first.Equals(second).ShouldBeTrue();
+        first.ShouldBe(second);
+        first.GetHashCode().ShouldBe(second.GetHashCode());
+    }
+
+    [Fact]
+    public void Equals_Null_ReturnsFalse()
+    {
+        // arrange
+        var evidence = Evidence(matchedNames: ["Drama"]);
+
+        // act / assert
+        evidence.Equals(null).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Equals_DifferentCriterion_ReturnsFalse()
+    {
+        // arrange
+        var first = Evidence(criterion: "Genre", matchedNames: ["Drama"]);
+        var second = Evidence(criterion: "Director", matchedNames: ["Drama"]);
+
+        // act / assert
+        first.Equals(second).ShouldBeFalse();
+        first.ShouldNotBe(second);
+    }
+
+    [Fact]
+    public void Equals_DifferentText_ReturnsFalse()
+    {
+        // arrange
+        var first = Evidence(text: "Same genres: Drama", matchedNames: ["Drama"]);
+        var second = Evidence(text: "Same genres: Comedy", matchedNames: ["Drama"]);
+
+        // act / assert
+        first.Equals(second).ShouldBeFalse();
+        first.ShouldNotBe(second);
+    }
+
+    [Fact]
+    public void Equals_DifferentMatchedNames_ReturnsFalse()
+    {
+        // arrange
+        var first = Evidence(matchedNames: ["Drama"]);
+        var second = Evidence(matchedNames: ["Comedy"]);
+
+        // act / assert
+        first.Equals(second).ShouldBeFalse();
+        first.ShouldNotBe(second);
+    }
+
+    [Fact]
+    public void Equals_CriterionCaseDiffers_ReturnsFalse()
+    {
+        // arrange
+        var first = Evidence(criterion: "Genre", matchedNames: ["Drama"]);
+        var second = Evidence(criterion: "genre", matchedNames: ["Drama"]);
+
+        // act / assert
+        first.Equals(second).ShouldBeFalse();
+        first.ShouldNotBe(second);
+    }
+
+    [Fact]
+    public void Equals_MatchedNameCaseDiffers_ReturnsFalse()
+    {
+        // arrange
+        var first = Evidence(matchedNames: ["Drama"]);
+        var second = Evidence(matchedNames: ["drama"]);
+
+        // act / assert
+        first.Equals(second).ShouldBeFalse();
+        first.ShouldNotBe(second);
     }
 }

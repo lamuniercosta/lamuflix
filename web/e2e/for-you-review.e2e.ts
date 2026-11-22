@@ -44,7 +44,7 @@ const REQUIRED_UNSEEN_AFTER_EXCLUSION = 2;
 const REQUIRED_STABLE_READS = 3;
 const STABILITY_INTERVAL_MS = 750;
 const RELOAD_MARKER = '__dev517NoReload';
-const FOR_YOU_GRID = 'Recommended movies';
+const MORE_FOR_YOU_ROW = 'More for you';
 
 async function readBrowse(request: APIRequestContext): Promise<BrowseResponse> {
   const response = await request.get(
@@ -74,10 +74,10 @@ function requireBrowsable(browse: BrowseResponse, title: string): BrowseItem {
   return movie as BrowseItem;
 }
 
-function recommendationCard(page: Page, title: string): Locator {
-  return page
+function recommendationCard(scope: Page | Locator, title: string): Locator {
+  return scope
     .locator('article.movie-card')
-    .filter({ has: page.getByRole('link', { name: title, exact: true }) });
+    .filter({ has: scope.getByRole('link', { name: title, exact: true }) });
 }
 
 async function ensureSeedLiked(page: Page, request: APIRequestContext): Promise<void> {
@@ -202,13 +202,18 @@ test.describe('for-you review ranking', () => {
       timeout: context.waitBudgetMs,
     });
 
-    const card = recommendationCard(page, RECOMMENDED_TITLE);
+    const row = moreForYouRow(page);
+    await expect(row.getByRole('heading', { name: MORE_FOR_YOU_ROW, exact: true })).toBeVisible({
+      timeout: context.waitBudgetMs,
+    });
+    const card = recommendationCard(row, RECOMMENDED_TITLE);
     await expect(card).toBeVisible({ timeout: context.waitBudgetMs });
-    await expect(card.locator('.movie-card-seed')).toHaveText(`Because you liked ${SEED_TITLE}`);
-    const seedLink = card.getByRole('link', { name: `Open ${SEED_TITLE}`, exact: true });
-    await expect(seedLink).toHaveText(SEED_TITLE);
-    await expect(seedLink).toHaveAttribute('href', `/movies/${String(seedId)}`);
-    await seedLink.click();
+    await expect(
+      card.locator('.movie-card-seed'),
+      'grouped rows hide the per-card seed line',
+    ).toHaveCount(0);
+
+    await page.goto(`${context.baseURL}/movies/${String(seedId)}`);
     await expect(page).toHaveURL(new RegExp(`/movies/${String(seedId)}$`));
     await expect(
       page.getByRole('heading', { level: 1, name: SEED_TITLE, exact: true }),
@@ -487,20 +492,26 @@ async function waitForSettledRanking(request: APIRequestContext): Promise<ForYou
   );
 }
 
-function grid(page: Page) {
-  return page.getByRole('list', { name: FOR_YOU_GRID });
+function forYouPage(page: Page): Locator {
+  return page.locator('section.for-you-page');
+}
+
+function moreForYouRow(page: Page): Locator {
+  return page
+    .locator('section.for-you-row')
+    .filter({ has: page.getByRole('heading', { name: MORE_FOR_YOU_ROW, exact: true }) });
 }
 
 function cardIds(page: Page): Promise<number[]> {
-  return grid(page)
-    .locator('[role="listitem"] .movie-card-title a')
+  return forYouPage(page)
+    .locator('.movie-card-title a')
     .evaluateAll((links) =>
       links.map((link) => Number((link.getAttribute('href') ?? '').split('/').at(-1))),
     );
 }
 
 function cardTitles(page: Page): Promise<string[]> {
-  return grid(page).locator('[role="listitem"] .movie-card-title').allTextContents();
+  return forYouPage(page).locator('.movie-card-title').allTextContents();
 }
 
 async function openForYou(page: Page): Promise<void> {
