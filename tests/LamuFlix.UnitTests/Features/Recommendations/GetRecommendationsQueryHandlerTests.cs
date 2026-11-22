@@ -73,7 +73,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var selected = NewMovie(1, withMetadata: false, status: EnrichmentStatus.Pending);
         var candidate = NewMovie(2, genres: ["Drama"]);
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
-        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns([Entry(candidate)]);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(Snapshot([Entry(candidate)]));
         ArrangeProfileWith(
             [],
             System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
@@ -788,7 +788,7 @@ public sealed class GetRecommendationsQueryHandlerTests
             {
                 // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
                 cts.Cancel();
-                return Task.FromResult(pool);
+                return Task.FromResult(Snapshot(pool));
             });
 
         // act / assert
@@ -829,7 +829,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         library.AddRange(Pool(3));
         var pool = new CancellingCandidates(library, cts);
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
-        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(pool);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(Snapshot(pool));
 
         // act / assert
         await Should.ThrowAsync<OperationCanceledException>(
@@ -859,7 +859,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var failure = new InvalidOperationException("candidate load failed");
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(Selected());
         candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<IReadOnlyList<RecommendationLibraryEntry>>(failure));
+            .Returns(Task.FromException<RecommendationLibrarySnapshot>(failure));
 
         // act / assert
         var thrown = await Should.ThrowAsync<InvalidOperationException>(
@@ -972,7 +972,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var candidate = NewMovie(2, genres: ["Mystery"]);
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
         candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
-            .Returns([Entry(candidate, PlotVector(primary: 1.0f))]);
+            .Returns(Snapshot([Entry(candidate, PlotVector(primary: 1.0f))]));
         ArrangeProfileWith([ProfileMovie(90, "Drama")], System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty);
 
         // act
@@ -992,7 +992,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var vector = PlotVector(primary: 1.0f);
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
         candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>())
-            .Returns([Entry(candidate, vector)]);
+            .Returns(Snapshot([Entry(candidate, vector)]));
         ArrangeProfileWith(
             [ProfileMovie(90, "Drama")],
             System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
@@ -1281,7 +1281,7 @@ public sealed class GetRecommendationsQueryHandlerTests
 
         var library = new CancellingOnSecondPassLibrary(entries, cts);
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
-        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(library);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(Snapshot(library));
 
         // act / assert
         await Should.ThrowAsync<OperationCanceledException>(
@@ -1500,7 +1500,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
         var library = new List<RecommendationLibraryEntry>(entries.Count + 1) { Entry(selected, PlotVector(primary: 1.0f)) };
         library.AddRange(entries);
-        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(library);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(Snapshot(library));
     }
 
     private static string[] PersonalTexts(RecommendedMovie movie) =>
@@ -1692,7 +1692,7 @@ public sealed class GetRecommendationsQueryHandlerTests
             Entry(selected, PlotVector(primary: 1.0f)),
         };
         library.AddRange(pool);
-        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(library);
+        candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(Snapshot(library));
     }
 
     private static RecommendationLibraryEntry Entry(Movie movie, System.Collections.Immutable.ImmutableArray<float> plotEmbedding = default) =>
@@ -1702,6 +1702,9 @@ public sealed class GetRecommendationsQueryHandlerTests
                 includeSignals: true,
                 plotEmbedding: plotEmbedding.IsDefault ? null : plotEmbedding),
             MovieSummaryMapper.From(movie));
+
+    private static RecommendationLibrarySnapshot Snapshot(IReadOnlyList<RecommendationLibraryEntry> entries) =>
+        new(entries, CrowdLinks.Empty);
 
     private void ArrangeProfile(params TasteProfileMovie[] profileMovies) =>
         ArrangeProfileWith(

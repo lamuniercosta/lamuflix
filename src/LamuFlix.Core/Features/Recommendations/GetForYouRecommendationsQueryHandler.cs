@@ -30,8 +30,9 @@ public sealed class GetForYouRecommendationsQueryHandler(
         var library = await candidates.GetLibraryFeaturesAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var hasSeeds = HasSeeds(library);
-        var eligible = Eligible(library, query.ExcludedMovieIds);
+        var entries = library.Entries;
+        var hasSeeds = HasSeeds(entries);
+        var eligible = Eligible(entries, query.ExcludedMovieIds);
         if (eligible.Count == 0)
         {
             return EmptyPage(hasSeeds);
@@ -52,7 +53,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
         var decay = new RecommendationRecencyDecay(timeProvider, recommendationOptions);
         var ranked = NearestSeedScorer.Rank(
             eligible,
-            library,
+            entries,
             profile,
             recommendationOptions,
             decay,
@@ -66,7 +67,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
             return EmptyPage(hasSeeds);
         }
 
-        var watchedCollectionIds = WatchedCollectionIds(library);
+        var watchedCollectionIds = WatchedCollectionIds(entries);
         var take = Math.Min(query.Take, recommendationOptions.CandidatePoolSize);
         var items = retained
             .Skip(query.Offset)

@@ -214,7 +214,7 @@ public sealed class HiddenSeedEvaluationCopy
     private sealed class SnapshotCandidateSource(RealLibrarySnapshot snapshot, MovieId hiddenSeed)
         : IRecommendationCandidateSource
     {
-        public Task<IReadOnlyList<RecommendationLibraryEntry>> GetLibraryFeaturesAsync(CancellationToken ct)
+        public Task<RecommendationLibrarySnapshot> GetLibraryFeaturesAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
 
@@ -232,7 +232,7 @@ public sealed class HiddenSeedEvaluationCopy
                 }),
             ];
 
-            return Task.FromResult(entries);
+            return Task.FromResult(new RecommendationLibrarySnapshot(entries, CrowdLinks.Empty));
         }
 
         public Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(

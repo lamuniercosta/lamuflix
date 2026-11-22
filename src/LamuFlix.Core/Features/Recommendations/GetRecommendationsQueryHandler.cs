@@ -33,8 +33,9 @@ public sealed class GetRecommendationsQueryHandler(
         var library = await candidates.GetLibraryFeaturesAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var entries = library.Entries;
         var recommendationOptions = options.Value;
-        var partitioned = Partition(library, query.MovieId, cancellationToken);
+        var partitioned = Partition(entries, query.MovieId, cancellationToken);
         if (IsEmptySelection(partitioned))
         {
             return ImmutableList<RecommendedMovie>.Empty;
@@ -59,7 +60,7 @@ public sealed class GetRecommendationsQueryHandler(
 
         var scored = Score(
             selectedFeatures,
-            library,
+            entries,
             query.MovieId,
             strongReasonCriteria,
             context.GenreWeights,

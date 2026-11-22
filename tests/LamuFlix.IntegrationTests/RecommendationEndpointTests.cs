@@ -347,10 +347,12 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         var selected = MovieIn(EnrichmentStatus.Enriched);
         movies.GetAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(selected);
         candidateSource.GetLibraryFeaturesAsync(Arg.Any<CancellationToken>()).Returns(
-        [
-            LibraryEntry(selected, PlotVector(primary: 1f)),
-            LibraryEntry(OtherMovie(id: KnownId + 1, genres: ["Drama"]), plotEmbedding: null),
-        ]);
+            new RecommendationLibrarySnapshot(
+            [
+                LibraryEntry(selected, PlotVector(primary: 1f)),
+                LibraryEntry(OtherMovie(id: KnownId + 1, genres: ["Drama"]), plotEmbedding: null),
+            ],
+            CrowdLinks.Empty));
         profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>()).Returns(EmptyProfile());
         profileSource.GetProfileInputsAsync(
                 Arg.Any<IReadOnlyCollection<MovieId>>(),
