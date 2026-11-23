@@ -51,6 +51,32 @@ public sealed class MovieRehydrateTests
         Should.NotThrow(() => movie.MarkEnriched(metadata, lastAttemptAt));
     }
 
+    [Fact]
+    public void Rehydrate_DoesNotRetainTheCallerOwnedRecommendationList()
+    {
+        // arrange
+        var source = new[] { 604, 605 };
+
+        // act
+        var movie = Movie.Rehydrate(
+            new MovieId(1),
+            "The Matrix",
+            new LibraryPath("C:/movie.mkv"),
+            new MediaFormat("mkv"),
+            false,
+            null,
+            EnrichmentStatus.Pending,
+            null,
+            0,
+            null,
+            null,
+            recommendedTmdbIds: source);
+        source[0] = -1;
+
+        // assert
+        movie.RecommendedTmdbIds.ShouldBe([604, 605]);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData(" ")]

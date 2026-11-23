@@ -104,11 +104,6 @@ public sealed class EfRecommendationCandidateSource(
             .Include(movie => movie.Collection)
             .AsSplitQuery();
 
-    /// <summary>
-    /// Resolves the stored first-page recommendation pairs into the symmetric binary Crowd lookup.
-    /// Each recommended TMDb id maps to every library row carrying it, distinct catalogue identities
-    /// only, with no self links and no extra weight for reciprocal rows.
-    /// </summary>
     private static CrowdLinks ResolveCrowdLinks(
         IReadOnlyList<MovieRecord> rows,
         IReadOnlyList<MovieRecommendationRecord> pairs)
@@ -143,7 +138,6 @@ public sealed class EfRecommendationCandidateSource(
                 continue;
             }
 
-            // A target that shares the source catalogue identity is the same title, not a crowd link.
             if (sourceTmdbId == pair.RecommendedTmdbId)
             {
                 continue;
@@ -292,3 +286,4 @@ public sealed class EfRecommendationCandidateSource(
             record.FullCast.Select(actor => actor.Name),
             record.CollectionId is not null);
 }
+

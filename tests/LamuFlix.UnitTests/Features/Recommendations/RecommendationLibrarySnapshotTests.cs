@@ -38,7 +38,7 @@ public sealed class RecommendationLibrarySnapshotTests
     [Fact]
     public void Ctor_NullEntries_ThrowsArgumentNullException()
     {
-        // arrange, act
+        // act
         // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
         var failure = Should.Throw<ArgumentNullException>(() => new RecommendationLibrarySnapshot(null!, CrowdLinks.Empty));
 
@@ -49,7 +49,7 @@ public sealed class RecommendationLibrarySnapshotTests
     [Fact]
     public void Ctor_NullCrowdLinks_ThrowsArgumentNullException()
     {
-        // arrange, act
+        // act
         // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
         var failure = Should.Throw<ArgumentNullException>(() => new RecommendationLibrarySnapshot([], null!));
 

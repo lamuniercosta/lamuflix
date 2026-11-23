@@ -59,13 +59,8 @@ public sealed class Movie
     /// <summary>An IMDb id supplied by the user when automatic matching cannot find the movie; used instead of title search.</summary>
     public ImdbId? ManualImdbId { get; private set; }
 
-    /// <summary>The TMDb catalogue identity stored for this movie when enrichment or backfill resolved one.</summary>
     public int? TmdbId { get; private set; }
 
-    /// <summary>
-    /// The first-page recommended TMDb ids carried by the last successful fetch, or null when that fetch did not succeed.
-    /// An empty list is a successful fetch that returned no recommendations.
-    /// </summary>
     public IReadOnlyList<int>? RecommendedTmdbIds { get; private set; }
 
     public static Movie Create(
@@ -114,7 +109,7 @@ public sealed class Movie
             ManualImdbId = manualImdbId,
             EnrichmentDeferredUntil = enrichmentDeferredUntil,
             TmdbId = tmdbId,
-            RecommendedTmdbIds = recommendedTmdbIds,
+            RecommendedTmdbIds = recommendedTmdbIds is null ? null : [.. recommendedTmdbIds],
         };
     }
 
@@ -130,10 +125,6 @@ public sealed class Movie
         Status = EnrichmentStatus.Enriched;
     }
 
-    /// <summary>
-    /// Stores the TMDb identity and its first-page recommendations resolved by the one-off operator backfill.
-    /// The enrichment state is untouched: this carries catalogue identity, it is not an enrichment result.
-    /// </summary>
     public void RecordBackfilledTmdbIdentity(int tmdbId, IReadOnlyList<int> recommendedTmdbIds)
     {
         if (tmdbId <= 0)
@@ -313,3 +304,4 @@ public sealed class Movie
         }
     }
 }
+

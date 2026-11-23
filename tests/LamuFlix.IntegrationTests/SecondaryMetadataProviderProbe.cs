@@ -223,10 +223,6 @@ public sealed class SecondaryMetadataProviderProbe : IAsyncLifetime
     public static string Resilience(string member) =>
         $"{MetadataProviderResilienceOptions.SectionName}:{member}";
 
-    /// <summary>
-    /// The same loopback configuration <see cref="BuildServices"/> uses, exposed so a caller can compose its
-    /// own container on top of the recorded logging and stubbed provider endpoints.
-    /// </summary>
     public IConfiguration BuildConfiguration(IDictionary<string, string?>? overrides = null) =>
         Configuration(overrides);
 
@@ -326,3 +322,4 @@ internal sealed class SecondaryMetricCapture : IDisposable
 
     public void Dispose() => listener.Dispose();
 }
+

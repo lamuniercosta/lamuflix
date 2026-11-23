@@ -8,11 +8,6 @@ using LamuFlix.Core.Ports;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 
-/// <summary>
-/// One fixed pair of library movies used to pin exact pre-Crowd scores for the For you and Related
-/// scoring paths. Provenance: captured from revision df855da3 (the last revision with the pre-Crowd
-/// scorer), same library inputs, same ordering, no seed inference from the changed scorer.
-/// </summary>
 public static class CrowdParityFixture
 {
     private static RecommendationOptions Options { get; } = new();
@@ -70,14 +65,11 @@ public static class CrowdParityFixture
             false,
             Review.None));
 
-    /// <summary>Stored Crowd links for the fixture pair; unused whenever Crowd is omitted.</summary>
     public static CrowdLinks Links { get; } = CrowdLinks.Create(
         [(new MovieId(90), new MovieId(2))]);
 
-    /// <summary>The For you path: nearest-seed ranking over the prepared scorer.</summary>
     public static NearestSeedMatch ForYou() => ForYouWith(CrowdScoring.Disabled);
 
-    /// <summary>The For you path with an explicit Crowd state.</summary>
     public static NearestSeedMatch ForYouWith(CrowdScoring crowdScoring)
     {
         var rank = NearestSeedScorer.Rank(
@@ -96,10 +88,8 @@ public static class CrowdParityFixture
             : throw new InvalidOperationException("The For you parity fixture must produce exactly one match.");
     }
 
-    /// <summary>The Related path: the same pair scored through the shared plain scorer.</summary>
     public static SimilarityResult Related() => RelatedWith(CrowdScoring.Disabled);
 
-    /// <summary>The Related path with an explicit Crowd state.</summary>
     public static SimilarityResult RelatedWith(CrowdScoring crowdScoring) =>
         SimilarityScorer.Score(
             Seed,
@@ -111,3 +101,4 @@ public static class CrowdParityFixture
             SeedEntry.Id,
             CandidateEntry.Id);
 }
+

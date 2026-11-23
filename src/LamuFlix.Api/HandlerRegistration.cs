@@ -45,8 +45,6 @@ internal static class HandlerRegistration
         services.AddHandler<RequestEnrichmentCommandHandler, RequestEnrichmentCommand, MovieId>();
         services.AddHandler<MatchMovieImdbIdCommandHandler, MatchMovieImdbIdCommand, MovieId>();
         services.AddHandler<BackfillTmdbRecommendationsCommandHandler, BackfillTmdbRecommendationsCommand, BackfillTmdbRecommendationsResult>();
-        // The one-off backfill operator mode talks to TMDb alone: resolve the configured TMDb provider under its
-        // existing key instead of the OMDB-first chain that AddHandler would otherwise supply.
         services.AddScoped<BackfillTmdbRecommendationsCommandHandler>(
             serviceProvider => new BackfillTmdbRecommendationsCommandHandler(
                 serviceProvider.GetRequiredService<IMovieRepository>(),
@@ -133,3 +131,4 @@ internal static class HandlerRegistration
             () => serviceProvider.GetRequiredService<IOptions<SubtitlesOptions>>().Value.CandidateStoreMaxEntries));
     }
 }
+

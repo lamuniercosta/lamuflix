@@ -15,11 +15,6 @@ using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Api;
 
-/// <summary>
-/// The one-off TMDb recommendation backfill operator mode. Startup hands argv here before the web host
-/// starts; this type owns argument validation, the configuration and migration preflight, dispatch and
-/// sanitized console output. It never prints configuration values, request URIs or provider payloads.
-/// </summary>
 public static class BackfillOperatorMode
 {
     public const string Flag = "--backfill-tmdb-recommendations";
@@ -27,20 +22,12 @@ public static class BackfillOperatorMode
     private const int CompletedExitCode = 0;
     private const int RefusedExitCode = 1;
 
-    /// <summary>
-    /// True when argv carries the operator flag or a malformed spelling of it, so startup must decide
-    /// between dispatching and refusing instead of running the web host.
-    /// </summary>
     public static bool IsRequested(IReadOnlyList<string> args)
     {
         ArgumentNullException.ThrowIfNull(args);
         return args.Any(argument => argument.StartsWith(Flag, StringComparison.Ordinal));
     }
 
-    /// <summary>
-    /// The operator invocation is exactly the flag. Any other argument alongside it is malformed and is
-    /// rejected before configuration, the database or the provider are touched.
-    /// </summary>
     public static bool TryParse(IReadOnlyList<string> args, out string? error)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -54,10 +41,6 @@ public static class BackfillOperatorMode
         return false;
     }
 
-    /// <summary>
-    /// Preflights configured TMDb and the applied migration, dispatches the Core backfill command and writes
-    /// the sanitized five-count result. Returns the process exit code: 0 completed, 1 refused or stopped.
-    /// </summary>
     public static async Task<int> RunAsync(
         IServiceProvider services,
         TextWriter output,

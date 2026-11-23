@@ -72,6 +72,30 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
         { "id": 603, "cast": [ { "id": 6384, "name": "   " } ] }
         """;
 
+    private const string DetailsWithoutUsableIdBody = """
+        {
+          "id": 0,
+          "title": "The Matrix",
+          "overview": "Set in the 22nd century.",
+          "release_date": "1999-03-30",
+          "runtime": 136,
+          "imdb_id": "tt0133093",
+          "original_language": "en"
+        }
+        """;
+
+    private const string RecommendationsBody = """
+        {
+          "page": 1,
+          "total_pages": 1,
+          "total_results": 2,
+          "results": [
+            { "id": 604, "title": "The Matrix Reloaded" },
+            { "id": 605, "title": "The Matrix Revolutions" }
+          ]
+        }
+        """;
+
     private const string MismatchedKeywordBody = """
         { "id": 999, "keywords": [ { "id": 2001, "name": "Dystopia" } ] }
         """;
@@ -239,6 +263,28 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
         signals.FullCast.ShouldBeEmpty();
         signals.KeywordAvailability.ShouldBe(SignalAvailability.Available);
         signals.Keywords.ShouldBe([new MovieKeyword(2001, "Dystopia"), new MovieKeyword(9715, "Superhero")]);
+    }
+
+    [Fact]
+    public async Task FindAsync_DetailsWithoutUsableId_DropsTheRecommendationRowsAndKeepsTheSignals()
+    {
+        // arrange
+        probe.StubFoundLookup(detailsBody: DetailsWithoutUsableIdBody);
+        StubSignals();
+        probe.StubPath(RecommendationsPath, 200, RecommendationsBody);
+        var services = probe.BuildServices();
+
+        // act
+        var metadata = Metadata(await FindAsync(services, "The Matrix"));
+
+        // assert
+        metadata.Title.ShouldBe("The Matrix");
+        metadata.TmdbId.ShouldBeNull();
+        metadata.RecommendedTmdbIds.ShouldBeNull();
+        metadata.Signals.ShouldNotBeNull();
+        metadata.Signals.KeywordAvailability.ShouldBe(SignalAvailability.Available);
+        metadata.Signals.FullCastAvailability.ShouldBe(SignalAvailability.Available);
+        probe.RequestPaths.ShouldContain(RecommendationsPath);
     }
 
     [Fact]

@@ -217,7 +217,9 @@ public sealed partial class TmdbMetadataProvider(
             metadata
                 .WithSignals(signals.Snapshot)
                 .WithTrailerKey(trailerKey)
-                .WithTmdbIdentity(metadata.TmdbId, signals.Recommendations.Values));
+                .WithTmdbIdentity(
+                    metadata.TmdbId,
+                    metadata.TmdbId is not null ? signals.Recommendations.Values : null));
     }
 
     private async Task<string?> FetchTrailerKeyAsync(int movieId, string? originalLanguage, CancellationToken ct)

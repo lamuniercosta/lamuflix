@@ -4,12 +4,6 @@ using LamuFlix.Core.Options;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 
-/// <summary>
-/// Parity pins for the states where Crowd must be absent: TMDb disabled, and TMDb enabled with a
-/// blank API key. Expected values were captured from revision df855da3, the last revision carrying
-/// the pre-Crowd scorer, using the identical fixture inputs in <see cref="CrowdParityFixture"/>.
-/// They are never derived from the changed scorer.
-/// </summary>
 public sealed class CrowdScoreParityTests
 {
     private const double ForYouPreChangeScore = 0.5358206122133712;
@@ -70,10 +64,11 @@ public sealed class CrowdScoreParityTests
     [Fact]
     public void Related_DefaultOptions_MatchThePreChangeScore()
     {
-        // arrange / act
+        // act
         var result = CrowdParityFixture.Related();
 
         // assert
         result.Score.ShouldBe(RelatedPreChangeScore);
     }
 }
+

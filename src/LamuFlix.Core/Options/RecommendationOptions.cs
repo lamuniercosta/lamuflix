@@ -104,17 +104,8 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public SimilarityWeights Weights { get; init; } = new();
 
-    /// <summary>
-    /// Gets whether the Crowd similarity criterion participates in scoring. It is independent of
-    /// TMDb enrichment so enrichment can stay on while Crowd scoring is off; the criterion is also
-    /// omitted whenever TMDb is unconfigured.
-    /// </summary>
     public bool CrowdEnabled { get; init; }
 
-    /// <summary>
-    /// Gets the optional strong-match bar used only while Crowd is active. When unset, or when Crowd
-    /// is inactive, <see cref="MinimumSimilarity"/> keeps its existing role.
-    /// </summary>
     public double? CrowdActiveStrongMatchThreshold { get; init; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -591,3 +582,4 @@ public sealed record RecommendationOptions : IValidatableObject
     }
 }
 // ReSharper restore UnusedAutoPropertyAccessor.Global
+

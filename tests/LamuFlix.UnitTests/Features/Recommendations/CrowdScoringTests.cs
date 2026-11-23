@@ -215,7 +215,7 @@ public sealed class CrowdScoringTests
         var crowd = ActiveLinked();
         var sameId = new MovieId(First.Value);
 
-        // act / assert
+        // assert
         crowd.IsLinked(First, Second).ShouldBeTrue();
         crowd.IsLinked(Second, First).ShouldBeTrue();
         crowd.IsLinked(First, sameId).ShouldBeFalse();
@@ -284,7 +284,7 @@ public sealed class CrowdScoringTests
         // arrange
         var result = CrowdWinningSimilarity(ActiveLinked());
 
-        // act / assert
+        // assert
         result.Reasons.ShouldBe([Reason.Structural("Often liked together")]);
     }
 
@@ -360,7 +360,7 @@ public sealed class CrowdScoringTests
         // arrange
         var options = new RecommendationOptions();
 
-        // act / assert
+        // assert
         options.CrowdEnabled.ShouldBeFalse();
         options.CrowdActiveStrongMatchThreshold.ShouldBeNull();
         Validate(options).ShouldBeEmpty();
