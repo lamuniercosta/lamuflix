@@ -28,12 +28,6 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-/// <summary>
-/// Drives the one-off operator backfill through the real typed TMDb client (WireMock) and the real movie
-/// repository (PostgreSQL): preflight refusals before any work, skip/match/unmatched/failure outcomes,
-/// atomic per-movie commits, the logical find/fetch budget, bounded retries including a throttled find,
-/// breaker and cancellation stops with partial counts, safe reruns and sanitized output.
-/// </summary>
 [Collection(SecondaryMetadataProviderCollection.Name)]
 public sealed class BackfillTmdbRecommendationsTests(
     PostgresFixture fixture,
@@ -259,7 +253,7 @@ public sealed class BackfillTmdbRecommendationsTests(
         (await RecordAsync(matched, ct)).TmdbId.ShouldBe(MatchTmdbId);
         (await RecordAsync(stopped, ct)).TmdbId.ShouldBeNull();
 
-        // act — rerun after the provider recovers
+        // act
         await probe.ResetAsync(ct);
         StubMatch(UnmatchedImdb, FailedTmdbId, [903]);
         await using var rerunServices = BuildServices(probe, seed);
@@ -300,7 +294,7 @@ public sealed class BackfillTmdbRecommendationsTests(
         (await RecordAsync(matched, ct)).TmdbId.ShouldBe(MatchTmdbId);
         (await RecordAsync(pending, ct)).TmdbId.ShouldBeNull();
 
-        // act — rerun without cancellation
+        // act
         await using var rerunServices = BuildServices(probe, seed);
         var rerunOutput = new StringWriter();
         var rerunExitCode = await BackfillOperatorMode.RunAsync(rerunServices, rerunOutput, ct);
@@ -479,7 +473,6 @@ public sealed class BackfillTmdbRecommendationsTests(
 
     private sealed record MovieRecordState(int? TmdbId, IReadOnlyList<int> Recommendations);
 
-    /// <summary>Cancels the run while the second movie is being looked up, then lets the cancellation surface.</summary>
     private sealed class CancellingMetadataProvider(IMetadataProvider inner, CancellationTokenSource cancellation)
         : IMetadataProvider
     {
@@ -497,3 +490,4 @@ public sealed class BackfillTmdbRecommendationsTests(
         }
     }
 }
+

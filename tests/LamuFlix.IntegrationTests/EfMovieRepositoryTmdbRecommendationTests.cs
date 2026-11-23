@@ -18,10 +18,6 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-/// <summary>
-/// Exercises the first-page TMDb recommendations signal through the real typed client and the real movie
-/// repository, then proves the Q6 replace/preserve/clear lifecycle against PostgreSQL.
-/// </summary>
 [Collection(SecondaryMetadataProviderCollection.Name)]
 public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fixture, SecondaryMetadataProviderProbe probe)
     : IClassFixture<PostgresFixture>, IClassFixture<SecondaryMetadataProviderProbe>, IAsyncLifetime
@@ -223,6 +219,31 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
         corpus.ShouldNotContain(SecondaryMetadataProviderProbe.SentinelApiKey);
         corpus.ShouldNotContain(Uri.EscapeDataString(SecondaryMetadataProviderProbe.SentinelApiKey));
         corpus.ShouldNotContain("api_key=");
+    }
+
+    [Fact]
+    public async Task SaveChanges_ReloadedEmptyPageAgainstEmptyRows_KeepsTheIdentityAndLeavesNoRows()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var emptyMetadata = await FindWithRecommendationsAsync(EmptyPageBody, ct);
+        emptyMetadata.RecommendedTmdbIds.ShouldBeEmpty();
+        var id = await PersistEnrichmentAsync(emptyMetadata, ct);
+
+        // act
+        await probe.ResetAsync(ct);
+        var reloaded = await EnrichAgainAsync(id, ct);
+        reloaded.Movie.RecommendedTmdbIds.ShouldBeNull();
+        var repeatedMetadata = await FindWithRecommendationsAsync(EmptyPageBody, ct);
+        repeatedMetadata.RecommendedTmdbIds.ShouldBeEmpty();
+        reloaded.Movie.MarkEnriched(repeatedMetadata, Now.AddMinutes(1));
+        await reloaded.Store.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = fixture.CreateMigratedContext();
+        var record = await LoadRecordAsync(verify, id, ct);
+        record.TmdbId.ShouldBe(603);
+        record.Recommendations.ShouldBeEmpty();
     }
 
     [Fact]

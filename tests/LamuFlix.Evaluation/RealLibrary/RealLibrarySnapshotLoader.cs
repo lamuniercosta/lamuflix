@@ -56,8 +56,6 @@ public static class RealLibrarySnapshotLoader
         var genreCounts = await new EfMovieCatalog(db).GetGenreCountsAsync(ct);
         ct.ThrowIfCancellationRequested();
 
-        // The Crowd link lookup comes from the production feature-load path so the evaluation copy
-        // sees exactly the links a scored request would see.
         var library = await new EfRecommendationCandidateSource(db).GetLibraryFeaturesAsync(ct);
 
         return new RealLibrarySnapshot(
@@ -305,3 +303,4 @@ internal static class SnapshotMapper
             record.FullCast.Select(actor => actor.Name),
             record.CollectionId is not null);
 }
+

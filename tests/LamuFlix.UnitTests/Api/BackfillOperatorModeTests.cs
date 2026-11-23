@@ -3,10 +3,6 @@ using LamuFlix.Api;
 
 namespace LamuFlix.UnitTests.Api;
 
-/// <summary>
-/// Pins the operator invocation contract: normal host arguments stay untouched, the exact flag is the only
-/// valid operator invocation, and any extra or altered argument is a malformed operator invocation.
-/// </summary>
 public sealed class BackfillOperatorModeTests
 {
     public static TheoryData<string[]> NormalHostArguments => new()
@@ -64,3 +60,4 @@ public sealed class BackfillOperatorModeTests
         error.ShouldNotContain("ApiKey");
     }
 }
+

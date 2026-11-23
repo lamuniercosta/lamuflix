@@ -239,11 +239,6 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
         property.HasConversion(converter);
 }
 
-/// <summary>
-/// Source-owned first-page TMDb recommendations. Rows belong to the library movie that fetched them:
-/// deleting that movie cascades them away, while recommended ids that name other library movies stay
-/// with their own sources.
-/// </summary>
 public sealed class MovieRecommendationConfiguration : IEntityTypeConfiguration<MovieRecommendationRecord>
 {
     public void Configure(EntityTypeBuilder<MovieRecommendationRecord> builder)
@@ -274,3 +269,4 @@ public sealed class MovieRecommendationConfiguration : IEntityTypeConfiguration<
             .HasForeignKey(recommendation => recommendation.SourceMovieId)
             .OnDelete(DeleteBehavior.Cascade);
 }
+

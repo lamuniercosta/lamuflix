@@ -10,11 +10,6 @@ using NSubstitute;
 
 namespace LamuFlix.UnitTests.Features.Enrichment;
 
-/// <summary>
-/// Pins the operator backfill contract: eligibility and skip rules, one identity lookup per eligible movie,
-/// atomic persistence only on a complete match, truthful five counts, and stop behaviour on breaker
-/// rejection or cancellation.
-/// </summary>
 public sealed class BackfillTmdbRecommendationsCommandHandlerTests
 {
     private const string ImdbIdValue = "tt0069293";
@@ -305,3 +300,4 @@ public sealed class BackfillTmdbRecommendationsCommandHandlerTests
 
     private static MovieId NewId() => new(Interlocked.Increment(ref nextId));
 }
+

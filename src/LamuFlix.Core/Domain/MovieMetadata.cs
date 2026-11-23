@@ -124,10 +124,6 @@ public sealed record MovieMetadata
         }
     }
 
-    /// <summary>
-    /// Copies the first-page recommended TMDb ids, dropping repeats so each stored pair stays unique.
-    /// A null source means the fetch did not succeed and carries no replace set.
-    /// </summary>
     private static IReadOnlyList<int>? CopyRecommendedTmdbIds(IEnumerable<int>? source)
     {
         if (source is null)
@@ -193,13 +189,8 @@ public sealed record MovieMetadata
 
     public string? TrailerKey { get; }
 
-    /// <summary>The TMDb catalogue identity when enrichment resolved one.</summary>
     public int? TmdbId { get; }
 
-    /// <summary>
-    /// The first-page recommended TMDb ids, or null when the recommendation fetch did not succeed.
-    /// An empty list is a successful fetch that returned no recommendations.
-    /// </summary>
     public IReadOnlyList<int>? RecommendedTmdbIds { get; }
 
     public MovieMetadata WithSignals(MovieSignalSnapshot? signals) =>
@@ -246,10 +237,6 @@ public sealed record MovieMetadata
             TmdbId,
             RecommendedTmdbIds);
 
-    /// <summary>
-    /// Carries the TMDb identity and the first-page recommendation outcome resolved by the TMDb adapter.
-    /// A null recommendation set records a failed fetch; an empty list records a successful empty page.
-    /// </summary>
     public MovieMetadata WithTmdbIdentity(int? tmdbId, IReadOnlyList<int>? recommendedTmdbIds) =>
         new(
             Title,
@@ -397,3 +384,4 @@ public sealed record MovieMetadata
         }
     }
 }
+

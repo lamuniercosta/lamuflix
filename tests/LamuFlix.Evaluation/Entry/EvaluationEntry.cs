@@ -33,7 +33,6 @@ public static class EvaluationEntry
     private const string DefaultQualityOutputRelative = "artifacts/recommendations/quality.json";
     private const string DefaultCompareDirectoryRelative = "artifacts/recommendations";
 
-    // The harness only needs the activation predicate to see a nonblank key; this is not a credential.
     private const string PlaceholderTmdbKey = "evaluation" + "-placeholder";
 
     public static bool IsRequested(Func<string, string?> readVariable)
@@ -160,10 +159,6 @@ public static class EvaluationEntry
         return Task.FromResult<string?>(outputPath);
     }
 
-    /// <summary>
-    /// Resolves the scoring options for a real-library mode. The checked-in defaults apply unless the
-    /// nonsecret Crowd markers switch the criterion on and optionally set the active strong-match bar.
-    /// </summary>
     internal static RecommendationOptions ResolveRecommendationOptions(Func<string, string?> readVariable)
     {
         ArgumentNullException.ThrowIfNull(readVariable);
@@ -202,10 +197,6 @@ public static class EvaluationEntry
         return options;
     }
 
-    /// <summary>
-    /// Resolves the TMDb configuration the production activation predicate reads. The harness never
-    /// needs the real key: a nonsecret marker supplies a placeholder key and the enabled flag.
-    /// </summary>
     internal static TmdbOptions ResolveTmdbOptions(Func<string, string?> readVariable)
     {
         ArgumentNullException.ThrowIfNull(readVariable);
@@ -348,3 +339,4 @@ public sealed class RealLibraryModeScope : IDisposable
         }
     }
 }
+

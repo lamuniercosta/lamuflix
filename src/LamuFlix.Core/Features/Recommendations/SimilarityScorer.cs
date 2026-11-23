@@ -532,10 +532,6 @@ public static class SimilarityScorer
             _ => name,
         };
 
-    /// <summary>
-    /// Returns the For you reason copy, quoting the winning seed title as literal data, or the Related
-    /// copy when no seed title is in context.
-    /// </summary>
     private static string CrowdEvidenceText(string? seedTitle)
     {
         var title = SanitizeDisplayText(seedTitle);
@@ -579,10 +575,6 @@ public static class SimilarityScorer
         return new FastSimilarity(collection, director, themes, plot, cast, genre, score);
     }
 
-    /// <summary>
-    /// Returns the strong-match bar for the current Crowd state: the Crowd-active bar only while
-    /// Crowd is active and the optional value is set, otherwise the existing similarity bar.
-    /// </summary>
     public static double StrongMatchThreshold(RecommendationOptions options, bool crowdActive)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -852,3 +844,4 @@ internal readonly record struct FastSimilarity(
     double Cast,
     double Genre,
     double Score);
+

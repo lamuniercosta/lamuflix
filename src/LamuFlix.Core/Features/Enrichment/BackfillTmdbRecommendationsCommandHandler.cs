@@ -8,11 +8,6 @@ using Microsoft.Extensions.Logging;
 
 namespace LamuFlix.Core.Features.Enrichment;
 
-/// <summary>
-/// Backfills the TMDb identity and first-page recommendations of IMDb-identified movies one at a time.
-/// Each matched movie commits its id and pair rows in the same save, so an unmatched or failed movie keeps
-/// a null TMDb id and stays retry-eligible. A broken circuit or cancellation stops the run with partial counts.
-/// </summary>
 public sealed class BackfillTmdbRecommendationsCommandHandler(
     IMovieRepository movies,
     IMetadataProvider provider,

@@ -149,10 +149,6 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         return record;
     }
 
-    /// <summary>
-    /// Mirrors the source-owned first-page recommendation set onto the record. An empty list is a
-    /// successful empty page and leaves no rows; a null set carries no replace instruction.
-    /// </summary>
     private static void CopyRecommendations(MovieRecord record, IReadOnlyList<int>? recommendedTmdbIds)
     {
         record.Recommendations.Clear();
@@ -474,7 +470,24 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
     }
 
     private bool HasMetadataWrites() =>
-        identityMap.Values.Any(tracked => tracked.Baseline.Metadata != tracked.Movie.Metadata);
+        identityMap.Values.Any(tracked => MetadataWriteRequired(tracked.Baseline.Metadata, tracked.Movie.Metadata));
+
+    internal static bool MetadataWriteRequired(MovieMetadata? baseline, MovieMetadata? current)
+    {
+        if (Equals(baseline, current))
+        {
+            return false;
+        }
+
+        return baseline is null
+            || current is null
+            || !WithoutRecommendationOutcome(baseline).Equals(WithoutRecommendationOutcome(current));
+    }
+
+    private static MovieMetadata WithoutRecommendationOutcome(MovieMetadata metadata) =>
+        metadata.RecommendedTmdbIds is { Count: > 0 }
+            ? metadata
+            : metadata.WithTmdbIdentity(metadata.TmdbId, null);
 
     private async Task SaveMetadataWithRetryAsync(CancellationToken ct)
     {
@@ -534,7 +547,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         await RebuildTrackingAsync(ct);
 
         var metadataTracked = identityMap.Values
-            .Where(tracked => tracked.Baseline.Metadata != tracked.Movie.Metadata)
+            .Where(tracked => MetadataWriteRequired(tracked.Baseline.Metadata, tracked.Movie.Metadata))
             .ToList();
 
         foreach (var tracked in identityMap.Values)
@@ -1131,11 +1144,6 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         ApplyRecommendations(movie, record, baseline);
     }
 
-    /// <summary>
-    /// Replaces the source-owned recommendation rows on a successful fetch (including an empty page) and
-    /// preserves them when a fetch fails for an unchanged TMDb identity. A changed TMDb identity drops the
-    /// rows that belonged to the previous identity so stale links never survive a re-identification.
-    /// </summary>
     private static void ApplyRecommendations(Movie movie, MovieRecord record, Baseline baseline)
     {
         if (movie.RecommendedTmdbIds is { } recommended)
@@ -1250,7 +1258,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
 
     private static void ApplyMetadata(Movie movie, MovieRecord record, Baseline baseline)
     {
-        if (baseline.Metadata != movie.Metadata)
+        if (MetadataWriteRequired(baseline.Metadata, movie.Metadata))
         {
             CopyMetadata(record, movie.Metadata);
         }
@@ -1362,3 +1370,4 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             movie.TmdbId);
     }
 }
+

@@ -58,11 +58,6 @@ public sealed partial class TmdbMetadataProvider
         return new RecommendationSignal(ids);
     }
 
-    /// <summary>
-    /// Reads the first recommendations page only. A rejected page (error body, wrong page number, or an
-    /// unusable result entry) is a failed fetch, never an empty one; a valid empty page is a successful
-    /// empty set that replaces the source's stored rows.
-    /// </summary>
     private static bool TryMapRecommendations(Response body, int movieId, out IReadOnlyList<int> ids)
     {
         ids = [];
@@ -220,10 +215,6 @@ public sealed partial class TmdbMetadataProvider
     private static ImmutableHashSet<string> EmptyCast() =>
         ImmutableHashSet.Create<string>(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// The first-page recommendation ids, or null when the fetch failed. An empty list is a successful
-    /// empty first page.
-    /// </summary>
     private readonly record struct RecommendationSignal(IReadOnlyList<int>? Values);
 
     private readonly record struct SignalBundle(
@@ -240,3 +231,4 @@ public sealed partial class TmdbMetadataProvider
         ImmutableHashSet<string> Values,
         bool Failed);
 }
+
