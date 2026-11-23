@@ -1,0 +1,36 @@
+# DEV-567
+
+**Id:** DEV-567
+
+**Summary:** Show temporary on-screen alerts when an API call fails
+
+**Type:** feature
+
+## Description
+
+## Problem
+
+When an API call fails, the web app shows nothing, or only a small inline line inside the subtitles panel that is visible only while the CC panel is open. The owner cannot tell that anything went wrong, or which log entry to look for.
+
+## What changes
+
+- A small toast system with no new dependency, styled to the house tokens in `web/src/index.css`:
+  - aubergine/ink/vermilion palette, square corners, no glass or blur;
+  - honors `prefers-reduced-motion`.
+- Each failed API call shows a temporary toast with a short title, the HTTP status, the problem `reason` when there is one, and the `traceId`, so the log entry can be found in the Aspire dashboard or the cluster logs.
+- Toasts dismiss themselves after a few seconds, can be closed by hand, and stack (capped, oldest dropped).
+- Announced through an `aria-live` region.
+- Wired at two points:
+  - **react-query:** the global `QueryCache`/`MutationCache` `onError`.
+  - **Raw openapi-fetch calls:** an explicit helper, since openapi-fetch returns `{ error }` instead of throwing. Today those calls are the subtitle search, download and quota calls in `useSubtitleAcquisition.ts`.
+- `ProblemDetails` in `web/src/api/types.ts` gains the optional `traceId` and `reason` fields the API already sends.
+
+## Context
+
+- The API's CORS allows only `http://localhost:5173`. The home web on port 3100 goes through the nginx `/api` proxy, so this is not a blocker, but the toast must also cover network errors where no problem body exists.
+
+## Done when
+
+- A forced 4xx/5xx and a network error each show one toast with the status and the traceId.
+- Covered by Vitest/RTL tests (msw) and one Playwright e2e check.
+- Lint, typecheck and tests are green.
