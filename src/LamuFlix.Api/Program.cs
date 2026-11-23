@@ -73,6 +73,7 @@ if (BackfillOperatorMode.IsRequested(args))
     Console.CancelKeyPress += (_, eventArgs) =>
     {
         eventArgs.Cancel = true;
+        // ReSharper disable once AccessToDisposedClosure - the handler fires only during the awaited RunAsync below, before disposal at process exit.
         operatorCancellation.Cancel();
     };
     Environment.ExitCode = await BackfillOperatorMode.RunAsync(

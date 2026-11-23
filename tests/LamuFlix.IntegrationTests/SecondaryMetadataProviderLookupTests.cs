@@ -506,19 +506,19 @@ public sealed class SecondaryMetadataProviderLookupTests(SecondaryMetadataProvid
         probe.StubFoundLookup();
         await FindAsync(services, "The Matrix", ct);
 
-        probe.Reset();
+        await probe.ResetAsync(ct);
         probe.StubSearch(string.Empty, statusCode: 401);
         await FindAsync(services, "The Matrix", ct);
 
-        probe.Reset();
+        await probe.ResetAsync(ct);
         probe.StubSearch(string.Empty, statusCode: 503);
         await FindAsync(services, "The Matrix", ct);
 
-        probe.Reset();
+        await probe.ResetAsync(ct);
         probe.StubSearch(string.Empty, statusCode: 429);
         await FindAsync(services, "The Matrix", ct);
 
-        probe.Reset();
+        await probe.ResetAsync(ct);
         probe.StubSearch("{ \"page\": 1, ");
         await FindAsync(services, "The Matrix", ct);
 

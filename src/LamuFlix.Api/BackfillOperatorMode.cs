@@ -68,20 +68,18 @@ public static class BackfillOperatorMode
 
         if (!IsTmdbConfigured(services))
         {
-            output.WriteLine("tmdb-backfill: refused reason=tmdb-not-configured");
+            await output.WriteLineAsync("tmdb-backfill: refused reason=tmdb-not-configured");
             return RefusedExitCode;
         }
 
         switch (await PendingMigrationAsync(services, cancellationToken))
         {
             case true:
-                output.WriteLine("tmdb-backfill: refused reason=migration-not-applied");
+                await output.WriteLineAsync("tmdb-backfill: refused reason=migration-not-applied");
                 return RefusedExitCode;
             case null:
-                output.WriteLine("tmdb-backfill: refused reason=database-preflight-unavailable");
+                await output.WriteLineAsync("tmdb-backfill: refused reason=database-preflight-unavailable");
                 return RefusedExitCode;
-            default:
-                break;
         }
 
         var handler = services.GetRequiredService<

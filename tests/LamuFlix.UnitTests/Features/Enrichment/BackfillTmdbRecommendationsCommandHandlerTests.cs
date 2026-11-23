@@ -6,9 +6,7 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Ports;
-using LamuFlix.UnitTests.Features;
 using NSubstitute;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Features.Enrichment;
 
@@ -206,7 +204,7 @@ public sealed class BackfillTmdbRecommendationsCommandHandlerTests
     {
         // arrange
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
 
         // act
         var result = await handler.HandleAsync(
@@ -232,7 +230,9 @@ public sealed class BackfillTmdbRecommendationsCommandHandlerTests
                 _ => new MetadataLookupResult.Found(MetadataWithRecommendations(603, [604])),
                 _ =>
                 {
+                    // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
                     cancellation.Cancel();
+                    // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
                     throw new OperationCanceledException(cancellation.Token);
                 });
 

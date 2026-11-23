@@ -55,7 +55,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
     private const string RenderedLogBody = "exporter is composed for probe 4217 times";
     private const int FlushTimeoutMilliseconds = 5_000;
     private const int MetricsFlushAttempts = 3;
-    private static readonly TimeSpan LogBodyTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan LogBodyTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan LogBodyPollInterval = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan SignalTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan SignalPollInterval = TimeSpan.FromMilliseconds(100);

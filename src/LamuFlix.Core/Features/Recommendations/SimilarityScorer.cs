@@ -103,7 +103,7 @@ public static class SimilarityScorer
         return ScoreWithoutValidation(a, b, options, genreWeights, keywordWeights, CrowdScoring.Disabled, null, null);
     }
 
-    internal static SimilarityResult ScoreWithoutValidation(
+    private static SimilarityResult ScoreWithoutValidation(
         MovieFeatures a,
         MovieFeatures b,
         RecommendationOptions options,
