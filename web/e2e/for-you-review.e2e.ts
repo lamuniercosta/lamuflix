@@ -600,8 +600,6 @@ test.describe('DEV-517 For You review journey', () => {
       await expect.poll(() => cardIds(page), { timeout: context.waitBudgetMs }).toEqual(initialIds);
       await markNoReload(page);
 
-      // Grouped rows render Replace only on More for you cards, so retire a
-      // card from the More row instead of the top-ranked slot.
       const moreIds = await moreForYouRow(page)
         .locator('.movie-card-title a')
         .evaluateAll((links) =>

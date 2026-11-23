@@ -125,7 +125,6 @@ export function groupForYou(items: ReadonlyArray<ForYouRecommendation>): ForYouR
     .sort((left, right) => right.movies.length - left.movies.length || left.rank - right.rank)
     .slice(0, MAX_SEED_ROWS);
 
-  const placed = new Set<number>();
   const rows: ForYouRow[] = [];
 
   const placeRow = (row: ForYouRow, minimum: number): void => {
@@ -135,9 +134,6 @@ export function groupForYou(items: ReadonlyArray<ForYouRecommendation>): ForYouR
     const movies = row.movies.slice(0, MAX_THEMED_ROW_CARDS);
     if (movies.length < minimum) {
       return;
-    }
-    for (const movie of movies) {
-      placed.add(movieId(movie));
     }
     rows.push({ ...row, movies });
   };
@@ -150,11 +146,6 @@ export function groupForYou(items: ReadonlyArray<ForYouRecommendation>): ForYouR
     { key: 'watchlist', kind: 'watchlist', label: WATCHLIST_ROW_LABEL, movies: watchlist },
     2,
   );
-
-  const more = ranked.filter((movie) => !placed.has(movieId(movie)));
-  if (more.length > 0) {
-    rows.push({ key: 'more', kind: 'more', label: MORE_FOR_YOU_LABEL, movies: more });
-  }
 
   return rows;
 }

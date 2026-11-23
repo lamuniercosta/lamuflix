@@ -101,7 +101,7 @@ export default function ForYouPage({ onOpenMovie }: ForYouPageProps) {
       }
       setVisit({
         items: slice.items,
-        themed: groupForYou(slice.items).filter((row) => row.kind !== 'more'),
+        themed: groupForYou(slice.items),
         hasSeeds: slice.hasSeeds,
         seen: seenIds(slice.items),
         committed: [],
