@@ -1,0 +1,54 @@
+# DEV-566
+
+**Id:** DEV-566
+
+**Summary:** Subtitle search must hide undownloadable candidates, plus a dev-time live provider check
+
+**Type:** bug
+
+## Description
+
+## Problem
+
+The subtitle search list shows candidates that can never be downloaded. Picking one spends one OpenSubtitles daily download quota (100/day). Then it fails with 502 `provider_unavailable`: "The subtitle provider returned a download link that is not an allowed https host."
+
+Root cause:
+- Real download links are served from `www.opensubtitles.com`. This was observed live in DEV-525 and recorded in `specs/DEV-525/provider-contract.md` section 6.
+- The home-cluster settings written by `scripts/home/New-HomeCluster.ps1` (DEV-499, f88ab233) allow only `api.opensubtitles.com` and `dl.opensubtitles.org`.
+- No test caught it, because every fake serves links from `127.0.0.1` or `localhost`.
+
+## What changes
+
+1. **Fail closed at search.**
+   - A new `Subtitles:OpenSubtitles:DownloadLinkHost` option, default `www.opensubtitles.com`, names the host the provider serves files from.
+   - The options validator rejects settings whose `DownloadAllowedHosts` does not contain it.
+   - Search and download then return 409 `provider_not_configured`, so no undownloadable list is ever shown.
+2. **Remember a refused link host at runtime.** If the provider ever returns a link on a host outside the allowlist (provider drift), the API:
+   - records the refused host (the host name only, never the token);
+   - returns 409 `provider_not_configured` from later searches until the settings are fixed and the API restarts.
+
+   No more quota is spent on downloads that are bound to fail.
+3. **Fix the home-cluster settings.**
+   - Allowlist `api.opensubtitles.com` and `www.opensubtitles.com`.
+   - Set `DownloadLinkHost`.
+   - Update `Test-NewHomeCluster.ps1`.
+   - Regenerate the cluster secret and redeploy after the merge.
+4. **Add a dev-time live check against the real API.** New script `scripts/Test-LiveSubtitleProvider.ps1`:
+   - Uses the developer's user-secrets key, never printed.
+   - Runs a free search.
+   - With an opt-in `-Download` switch, does one download (costs 1 of 100 daily quota). It checks that the real link host equals `DownloadLinkHost` and is allowlisted, and that the file GET returns 200 with no redirect.
+   - Never run by CI or by tests.
+5. **Make the live check part of the dev workflow.** The implement skill (`.claude` and `.agents` copies) requires dev agents to run the live check on any ticket that touches an external provider adapter, its options or its deploy settings, and to record the receipt in the brief or PR.
+
+## Out of scope
+
+- Integration and e2e tests stay network-isolated. They must not call real APIs.
+- On-screen error toasts are a separate ticket.
+
+## Done when
+
+- A misconfigured allowlist yields 409 `provider_not_configured` on search (no list).
+- A refused link host blocks later searches.
+- Unit and integration tests cover both.
+- The live check passes against the real API with the shipped settings.
+- All gates are green.
