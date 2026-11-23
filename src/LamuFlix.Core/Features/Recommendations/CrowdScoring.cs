@@ -28,7 +28,7 @@ public sealed class CrowdScoring
     public bool Active { get; }
 
     /// <summary>Gets the symmetric binary link lookup for the current library feature load.</summary>
-    public CrowdLinks Links { get; }
+    private CrowdLinks Links { get; }
 
     /// <summary>Resolves the activation state for one scoring pass.</summary>
     public static CrowdScoring Resolve(

@@ -160,7 +160,7 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
         var emptyMetadata = await FindWithRecommendationsAsync(EmptyPageBody, ct);
         emptyMetadata.RecommendedTmdbIds.ShouldBeEmpty();
         reEnrichment.Movie.MarkEnriched(emptyMetadata, Now.AddMinutes(1));
-        await reEnrichment.Repository.SaveChangesAsync(ct);
+        await reEnrichment.Store.SaveChangesAsync(ct);
 
         // assert
         await using var verify = fixture.CreateMigratedContext();
@@ -184,7 +184,7 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
         malformedMetadata.TmdbId.ShouldBe(603);
         malformedMetadata.RecommendedTmdbIds.ShouldBeNull();
         reEnrichment.Movie.MarkEnriched(malformedMetadata, Now.AddMinutes(1));
-        await reEnrichment.Repository.SaveChangesAsync(ct);
+        await reEnrichment.Store.SaveChangesAsync(ct);
 
         // assert
         await using var verify = fixture.CreateMigratedContext();
@@ -211,7 +211,7 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
         failedMetadata.TmdbId.ShouldBe(603);
         failedMetadata.RecommendedTmdbIds.ShouldBeNull();
         reEnrichment.Movie.MarkEnriched(failedMetadata, Now.AddMinutes(1));
-        await reEnrichment.Repository.SaveChangesAsync(ct);
+        await reEnrichment.Store.SaveChangesAsync(ct);
 
         // assert
         await using var verify = fixture.CreateMigratedContext();
@@ -243,7 +243,7 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
         changedMetadata.TmdbId.ShouldBe(604);
         changedMetadata.RecommendedTmdbIds.ShouldBeNull();
         reEnrichment.Movie.MarkEnriched(changedMetadata, Now.AddMinutes(1));
-        await reEnrichment.Repository.SaveChangesAsync(ct);
+        await reEnrichment.Store.SaveChangesAsync(ct);
 
         // assert
         await using var verify = fixture.CreateMigratedContext();
@@ -342,5 +342,5 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
         }
     }
 
-    private sealed record ReEnrichment(EfMovieRepository Repository, Movie Movie, IServiceProvider Services);
+    private sealed record ReEnrichment(EfMovieRepository Store, Movie Movie, IServiceProvider Services);
 }

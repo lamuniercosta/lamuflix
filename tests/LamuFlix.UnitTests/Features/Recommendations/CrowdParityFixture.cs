@@ -15,9 +15,9 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 /// </summary>
 public static class CrowdParityFixture
 {
-    public static RecommendationOptions Options { get; } = new();
+    private static RecommendationOptions Options { get; } = new();
 
-    public static GenreWeights Genres { get; } = GenreWeights.Calculate(
+    private static GenreWeights Genres { get; } = GenreWeights.Calculate(
         new GenreCounts(
             100,
             new Dictionary<string, long>
@@ -26,9 +26,9 @@ public static class CrowdParityFixture
                 ["Comedy"] = 20,
             }));
 
-    public static KeywordCounts Keywords { get; } = new(0, new Dictionary<string, long>());
+    private static KeywordCounts Keywords { get; } = new(0, new Dictionary<string, long>());
 
-    public static MovieFeatures Seed { get; } = new(
+    private static MovieFeatures Seed { get; } = new(
         genres: ["Drama"],
         directors: ["Ana"],
         cast: ["Dora", "Emil"],
@@ -36,13 +36,13 @@ public static class CrowdParityFixture
         collectionName: "Saga",
         plotEmbedding: [1f, 0f]);
 
-    public static MovieFeatures Candidate { get; } = new(
+    private static MovieFeatures Candidate { get; } = new(
         genres: ["Drama", "Comedy"],
         directors: ["Ana"],
         cast: ["Dora", "Emil", "Fay"],
         plotEmbedding: [0.44f, 0.9f]);
 
-    public static RecommendationLibraryEntry SeedEntry { get; } = new(
+    private static RecommendationLibraryEntry SeedEntry { get; } = new(
         Seed,
         new MovieSummary(
             new MovieId(90),
@@ -56,7 +56,7 @@ public static class CrowdParityFixture
             true,
             Review.Liked));
 
-    public static RecommendationLibraryEntry CandidateEntry { get; } = new(
+    private static RecommendationLibraryEntry CandidateEntry { get; } = new(
         Candidate,
         new MovieSummary(
             new MovieId(2),

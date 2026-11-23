@@ -200,7 +200,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         await context.SaveChangesAsync(cancellationToken);
         var expected = seeded
             .Select(movie => new LegacyMovie(movie.Title, movie.LibraryPath.Value, movie.Format.Extension, movie.Status.Value))
-            .OrderBy(movie => movie.Title)
+            .OrderBy(movie => movie.Title, StringComparer.Ordinal)
             .ToArray();
 
         await migrator.MigrateAsync("20261016195556_AddMovieWriters", cancellationToken);

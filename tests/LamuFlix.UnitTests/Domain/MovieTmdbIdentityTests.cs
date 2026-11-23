@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using LamuFlix.Core.Domain;
 
 namespace LamuFlix.UnitTests.Domain;
@@ -81,6 +80,7 @@ public sealed class MovieTmdbIdentityTests
         var movie = PendingMovie();
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
         var failure = Should.Throw<ArgumentNullException>(() => movie.MarkEnriched(null!, Now));
 
         // assert

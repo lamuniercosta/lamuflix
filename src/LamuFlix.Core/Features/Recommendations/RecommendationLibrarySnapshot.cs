@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace LamuFlix.Core.Features.Recommendations;
@@ -6,11 +7,22 @@ namespace LamuFlix.Core.Features.Recommendations;
 /// One library feature load: the scored library entries plus the immutable Crowd link lookup
 /// resolved for that same load, so scoring stays pure and performs no further reads.
 /// </summary>
-// ReSharper disable NotAccessedPositionalProperty.Global // Public port contract consumed by callers and tests
-public sealed record RecommendationLibrarySnapshot(
-    IReadOnlyList<RecommendationLibraryEntry> Entries,
-    CrowdLinks CrowdLinks)
+public sealed record RecommendationLibrarySnapshot
 {
+    public RecommendationLibrarySnapshot(
+        IReadOnlyList<RecommendationLibraryEntry> entries,
+        CrowdLinks crowdLinks)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(crowdLinks);
+
+        Entries = entries;
+        CrowdLinks = crowdLinks;
+    }
+
+    public IReadOnlyList<RecommendationLibraryEntry> Entries { get; init; }
+
+    public CrowdLinks CrowdLinks { get; init; }
+
     public int Count => Entries.Count;
 }
-// ReSharper restore NotAccessedPositionalProperty.Global

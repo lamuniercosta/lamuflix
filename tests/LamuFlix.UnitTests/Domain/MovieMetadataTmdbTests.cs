@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using LamuFlix.Core.Domain;
 
 namespace LamuFlix.UnitTests.Domain;

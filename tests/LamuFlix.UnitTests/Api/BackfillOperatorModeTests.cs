@@ -1,6 +1,5 @@
 using System;
 using LamuFlix.Api;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Api;
 

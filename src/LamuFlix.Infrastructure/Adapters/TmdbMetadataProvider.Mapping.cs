@@ -50,7 +50,7 @@ public sealed partial class TmdbMetadataProvider
                 tmdbId: MapTmdbId(response.Id));
         }
 
-        public static int? MapTmdbId(int? movieId) =>
+        private static int? MapTmdbId(int? movieId) =>
             movieId is { } id && id > 0 ? id : null;
 
         private static (int? Id, string? Name) MapCollection(CollectionPayload? collection) =>
