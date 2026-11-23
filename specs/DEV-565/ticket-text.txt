@@ -1,0 +1,52 @@
+# DEV-565
+
+**Type:** feature
+
+## Summary
+
+Unify provider API key configuration into the API settings file for Compose and the home cluster
+
+## Description
+
+### Problem
+
+Provider API keys reach the API through two different channels, so a developer has to know which key lives where.
+
+- **Compose:** `.env` carries `TMDB_ENABLED` / `TMDB_API_KEY`, which `docker-compose.yml` maps to `Tmdb__Enabled` / `Tmdb__ApiKey`. The OMDb key (`Omdb:ApiKey`) and the subtitle settings (`Subtitles`, including `Subtitles:OpenSubtitles:ApiKey`) live in the gitignored `docker/api.settings.json` mounted as the API settings file.
+- **Home cluster:** the same split. `deploy/k8s/base/api-deployment.yaml` sets `Tmdb__ApiKey` from its own Secret (`secretKeyRef`, key `apiKey`), while everything else comes from the mounted `api-settings` Secret.
+- **Local `dotnet run`:** user secrets for all three, so the split only exists in Compose and the cluster.
+
+The split is historical, not technical. The DEV-445 ticket text mandated the `.env` channel for TMDb, and the Patron ruling (`specs/DEV-445/CONCLUSIONS.md` Q2 and §2.3 item 5) kept the existing OMDb JSON flow untouched. Also, `docker/api.settings.example.json` has no `Subtitles:OpenSubtitles` section, so nothing tells a Compose user how to configure the subtitle provider.
+
+### Scope & Technical Design
+
+The spec phase decides the final channel. Recommendation: **one rule, all API configuration (provider keys included) in the API settings file; `.env` keeps only values that containers other than the API need** (Postgres and RabbitMQ init credentials, `LIBRARY_PATH`).
+
+- Compose: drop `Tmdb__Enabled` / `Tmdb__ApiKey` from the `api` service environment; TMDb moves into `docker/api.settings.json` (`Tmdb:Enabled`, `Tmdb:ApiKey`). Remove the TMDb lines from `.env.example`.
+- `docker/api.settings.example.json`: add a `Tmdb` section and a full `Subtitles:OpenSubtitles` section (`ApiKey`, `BaseUrl` `https://api.opensubtitles.com`, `UserAgent`, `DownloadAllowedHosts` with `api.opensubtitles.com` and `www.opensubtitles.com`, `MaxDownloadBytes`, `RequestTimeout`), placeholders only.
+- Home cluster: drop the `Tmdb__ApiKey` `secretKeyRef` from `api-deployment.yaml`; the TMDb key goes into the `api-settings` Secret. Update `deploy/home/secrets.example.json`, `scripts/home/New-HomeCluster.ps1`, `_home-common.ps1` and `Test-NewHomeCluster.ps1`, with a one-time migration note for the existing cluster's TMDb Secret.
+- Keep Compose and k8s in parity: update `scripts/fixtures/deploy-parity/*` and whatever check consumes them.
+- Tests: rewrite `tests/LamuFlix.UnitTests/TmdbComposeTests.cs` (DEV-445 static Compose/.env tests) for the new channel.
+- E2E runner (`web/e2e/run.mjs`, ADR 0023): confirm it still generates settings and env-file correctly; it already writes a generated settings file, so TMDb, if ever needed there, goes in that file.
+- `.gitleaks.toml`: adjust any TMDb env-specific rule.
+- README: one "Configuring provider keys" table covering `dotnet run` (user secrets), Compose (`docker/api.settings.json`) and the home cluster (`api-settings` Secret), with the key path for OMDb, TMDb and OpenSubtitles in each.
+
+Compose default today is `TMDB_ENABLED=true`; the spec must decide the new default and keep the DEV-445 behavior (blank key with TMDb enabled turns an OMDb miss into a retryable failure) documented.
+
+### Out of scope
+
+- Changing local `dotnet run` (user secrets already unify all keys).
+- Any change to provider adapters or option validation.
+
+### Notes
+
+- Depends on nothing, but the `Subtitles:OpenSubtitles` example values should match the DEV-525 findings (`specs/DEV-525/provider-contract.md`: the download link host is `www.opensubtitles.com`).
+- Supersedes the DEV-445 secret-channel ruling for TMDb; needs a Patron ruling recorded in this ticket's CONCLUSIONS.
+
+## Acceptance criteria
+
+- No provider API key is read from `.env` or from a dedicated env var in Compose or the cluster; every provider key has exactly one documented location per run mode.
+- `docker/api.settings.example.json` documents every provider section, including `Subtitles:OpenSubtitles`, with placeholders only.
+- Compose stack and home cluster both start and enrich a title with OMDb + TMDb using only the settings file / `api-settings` Secret.
+- Deploy-parity check, compose-smoke and e2e-smoke stay green; no secret committed (gitleaks clean).
+- README has the single key-configuration table; `.env.example` no longer mentions TMDb.
