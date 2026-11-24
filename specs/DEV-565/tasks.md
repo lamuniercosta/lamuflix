@@ -6,7 +6,7 @@ description: "Task list for DEV-565 unify provider API keys into API settings"
 
 **Input**: Design documents from `specs/DEV-565/` — `spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q8) plus Q9, `CONCLUSIONS.md` Q1–Q9; Maestri notes `DEV-565`, `recon-DEV-565`; `specs/DEV-565/ticket-text.txt`; `specs/PRODUCT.md`.
 
-**Status** — PLAN FROZEN. Gate 1 awaits Q9 owner approval and verified spec PR merge. See [brief.md](brief.md) and [PLAN_ADJUDICATION.md](PLAN_ADJUDICATION.md).
+**Status** — PLAN FROZEN. Gate 1 verified in T000. See the [Gate 1 receipt](CONCLUSIONS.md#phase-0-t000--gate-1-receipt).
 
 **Tests**: Required (`brief.md` Task order step 1 and evidence table; FR-009–FR-011). Write/update focused checks first so they fail against current channel, then drive the cutover. Focused checks remain at T002/T003 and the T006 re-run. Gate closure requires the full .NET suite (not a focused-suite substitute) plus an explicit property-test run when applicable. No new test framework.
 
@@ -42,7 +42,7 @@ Ordering per brief Task order / Q7/Q9. No dependency cycle. README completion fo
 **Purpose**: Produce/open the spec PR with the open Q9 structural checkbox; confirm **owner** approval of that checkbox and the spec PR merge before Build work.
 **Checkpoint**: Spec PR opened by Rigger under Bernstein coordination; owner checkbox approved on the PR; verified user-merge receipt in `CONCLUSIONS.md`, or stop. Patron’s Q9 ruling alone is insufficient. No Build tasks before that dual receipt.
 
-- [ ] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-565 spec PR for Gate 1, carrying the open Q9 owner checkbox from `brief.md` / `spec.md`. Only the **owner** approves the checkbox and merges. After both are done, **Keel** records in `specs/DEV-565/CONCLUSIONS.md`: (1) verified owner approval of the Q9 structural checkbox, and (2) the verified Gate 1 spec-PR merge receipt. Receipt only. **Never treat Patron as owner approval.** T001–T014 MUST NOT proceed without both verified owner checkbox approval and merge (`brief.md` Q9; FR-014).
+- [X] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-565 spec PR for Gate 1, carrying the open Q9 owner checkbox from `brief.md` / `spec.md`. Only the **owner** approves the checkbox and merges. After both are done, **Keel** records in `specs/DEV-565/CONCLUSIONS.md`: (1) verified owner approval of the Q9 structural checkbox, and (2) the verified Gate 1 spec-PR merge receipt. Receipt only. **Never treat Patron as owner approval.** T001–T014 MUST NOT proceed without both verified owner checkbox approval and merge (`brief.md` Q9; FR-014).
 
 ---
 
