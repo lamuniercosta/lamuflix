@@ -18,10 +18,12 @@
 | `tmdbId` | number (int) | Recommended TMDb catalogue id |
 | `title` | string | Non-blank display title |
 | `releaseYear` | number \| null | Optional |
-| `posterPath` | string \| null | Optional; client builds image URL if present |
-| `reason` | string | Two-seed explanation |
+| `posterPath` | string \| null | Optional provider path; client validates it before constructing an image URL |
+| `reason` | string | Plain-text two-seed explanation |
 
 Empty eligible set, `Tmdb:Enabled` false, or blank `Tmdb:ApiKey` → `200` with `[]`.
+
+Unauthenticated requests receive HTTP 401 under the route-group authorization, including when TMDb configuration would yield an empty result for an authenticated request.
 
 ## Unchanged contracts
 
@@ -30,7 +32,7 @@ Empty eligible set, `Tmdb:Enabled` false, or blank `Tmdb:ApiKey` → `200` with 
 
 ## Codegen
 
-1. C# response DTO in `src/LamuFlix.Core/Features/Recommendations/` (Core Recommendations)
+1. C# response DTO `OutsideLibraryRecommendation` in `src/LamuFlix.Core/Features/Recommendations/` (Core Recommendations)
 2. Regenerate and commit `web/src/api/openapi.json` (OpenAPI snapshot; drift verification green)
 3. Regenerate `web/src/api/types.ts`
 4. `web/src/features/for-you/` consumes generated types only (no hand-rolled duplicates)
@@ -39,4 +41,4 @@ Endpoint registration uses `TypedResults`. Error paths use shared RFC 7807 `Prob
 
 ## Client-derived URL
 
-Web derives the outbound TMDb movie page URL from `tmdbId`. The API does not return a URL field.
+Web derives the outbound movie-page URL from `tmdbId` in one tested TMDb URL builder. For posters, accept a single safe filename segment with an optional leading slash. Encode that segment and append it to the configured TMDb image base and size. Use the fallback for null, empty, whitespace-bearing or traversal paths and values with additional separators, percent escapes, queries or fragments. Render title and reason as text.

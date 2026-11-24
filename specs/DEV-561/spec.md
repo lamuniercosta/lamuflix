@@ -2,12 +2,12 @@
 
 **Feature Branch**: `feature/561-spec`
 **Created**: 2026-11-24
-**Status**: Draft
+**Status**: PLAN FROZEN, ready for owner Gate 1
 **Input**: Ticket DEV-561 (size L); grill-closed `brief.md` (Q1–Q12); `CONCLUSIONS.md`; `ASSUMPTIONS.md`; Maestri notes `DEV-561`, `recon-DEV-561`; `specs/PRODUCT.md`; Accepted ADR `docs/adr/0049-for-you-outside-library-discovery.md`.
 
 ## Owner question — Gate 1
 
-None remaining from ticket contradiction or constitution departure. Q3 Option A owner checkbox on PR #492 is resolved (`CONCLUSIONS.md` Q3 owner ruling; `brief.md` Q3). Ordinary owner Gate 1 remains pending until the user merges the Spec Kit PR. Quill does not invent PLAN FROZEN or a new structural checkbox.
+None remaining from ticket contradiction or constitution departure. Q3 Option A owner checkbox on PR #492 is resolved (`CONCLUSIONS.md` Q3 owner ruling; `brief.md` Q3). Ordinary owner Gate 1 remains pending until the user merges the Spec Kit PR.
 
 ## Clarifications
 
@@ -49,9 +49,8 @@ Smoke execution for this ticket includes web unit/integration coverage plus a lo
 - Candidate IMDb lookup or blanket suppression for IMDb-only library records (rejected by Q3 Option A).
 - New NuGet/npm dependency, project, top-level folder, or architectural layer.
 - `Features:LocalPlay`, secrets, or `Process.Start`.
-- Claiming PLAN FROZEN, Gate 1 merge, implementation PASS, or runtime acceptance from this draft.
 
-**Precedence**: Ticket Scope & Technical Design and acceptance criteria are already approved authority (`specs/PRODUCT.md` §3), as amended by the recorded Q3 Option A owner ruling for Wanted 3 / Done when 2. Brief Q1–Q12 and `CONCLUSIONS.md` govern plan boundaries. Only Keel declares PLAN FROZEN after independent reread / analyze.
+**Precedence**: Ticket Wanted, Done when, Out of scope and Open points are the approved scope and acceptance authority (`specs/PRODUCT.md` §3), as amended by the recorded Q3 Option A owner ruling for Wanted 3 / Done when 2. Brief Q1–Q12 and `CONCLUSIONS.md` govern plan boundaries. Keel recorded the Phase 2 plan challenge dispositions in [brief.md](brief.md#phase-2-step-6-adjudication).
 
 **Dependencies**: DEV-539 Done (stores recommended TMDb ids including outside-library targets). ADR 0049 Accepted before coding. Spec PR Gate 1 merged before coding.
 
@@ -87,7 +86,7 @@ Enrichment and the existing backfill store title, release year, and poster path 
 
 1. **Given** a successful first-page recommendations fetch during enrichment, **When** links are written, **Then** each row carries recommended TMDb id plus title, and may carry nullable release year and poster path from that response.
 2. **Given** legacy ID-only recommendation rows for a matched source movie that already has a TMDb id, **When** `--backfill-tmdb-recommendations` runs, **Then** those rows are refreshed with metadata rather than skipped solely because a TMDb id already exists.
-3. **Given** a provider fetch failure for a source, **When** enrichment or backfill finishes that attempt, **Then** previously stored links for that source remain.
+3. **Given** a provider fetch or replacement write failure for a source, **When** enrichment or backfill finishes that attempt, **Then** previously stored links for that source remain.
 4. **Given** the additive migration, **When** it applies on a database that already holds ID-only `movie_recommendations`, **Then** composite key, cascade, and existing Crowd binary consumers still work.
 
 ---
@@ -184,13 +183,13 @@ Product positioning, glossary, README feature list, and home-library acceptance 
 
 - **FR-001**: System MUST keep Accepted ADR 0049 in `docs/adr/` amending ADR-0011 decision 2 for one separate read-only outside-library For You row while main For You and Related stay library-only (`brief.md` Q1; ticket Wanted 1 / Done when 1).
 - **FR-002**: System MUST add nullable `title`, `release_year`, and `poster_path` to `MovieRecommendationRecord` / `movie_recommendations` via a compatible additive EF migration, preserving composite key, cascade, and existing ID-only Crowd behaviour (`brief.md` Q2; `CONCLUSIONS.md` Q2).
-- **FR-003**: Normal TMDb enrichment MUST persist first-page recommendation id, title, and optional year/poster; `--backfill-tmdb-recommendations` MUST hydrate matched source movies whose existing rows lack titles; failed fetches MUST retain prior links (`brief.md` Q2, Q11).
-- **FR-004**: Discovery MUST count only links with a non-blank title and MUST make zero request-time provider HTTP calls (`brief.md` Q1, Q6; ADR 0049).
+- **FR-003**: Normal TMDb enrichment MUST persist first-page recommendation id, title, and optional year/poster; `--backfill-tmdb-recommendations` MUST hydrate matched source movies whose existing rows lack titles; each successful source refresh MUST publish a complete link set atomically, and a failed fetch or write MUST retain prior links (`brief.md` Q2, Q11).
+- **FR-004**: Discovery MUST count only links with a title that is neither null, empty, nor whitespace-only and MUST make zero request-time provider HTTP calls (`brief.md` Q1, Q6; ADR 0049).
 - **FR-005**: After the canonical metadata tuple is chosen (FR-008), library exclusion MUST (1) match candidate TMDb ID against all library movies and (2) for library movies without a TMDb ID apply Unicode NFC + trim + collapsed-whitespace + ordinal case-insensitive title comparison to that canonical tuple while explicitly preserving punctuation and accents, requiring both release years known and equal; a missing year MUST NOT establish that fallback; candidate IMDb lookup and IMDb-only blanket suppression are out of scope (`brief.md` Q3, Q6; Q3 Option A).
-- **FR-006**: Seed eligibility MUST reject Disliked first; count each eligible Liked or Watched library movie once with Liked precedence; treat Watchlist alone as ineligible; bind Liked default 2 and Watched default 1 in `RecommendationOptions` (`brief.md` Q5).
-- **FR-007**: Ranking MUST deduplicate source/candidate pairs, group by recommended TMDb ID, require two distinct contributing sources before counting or returning a card, sort by summed weight descending then TMDb ID ascending, and cap at 20 (`brief.md` Q5; `ASSUMPTIONS.md`).
+- **FR-006**: Seed eligibility MUST reject Disliked first; count each eligible Liked or Watched library movie once with Liked precedence; treat Watchlist alone as ineligible; bind integer Liked default 2 and Watched default 1 in `RecommendationOptions` and reject values unless Liked > Watched > 0 (ticket Wanted 5 and `brief.md` Q5 and adjudication).
+- **FR-007**: Ranking MUST deduplicate source/candidate pairs, group by recommended TMDb ID, require two distinct contributing sources to count a candidate as passing the quality bar or return it as a card, sort by summed weight descending then TMDb ID ascending, and cap at 20 (`brief.md` Q5; `ASSUMPTIONS.md`).
 - **FR-008**: From eligible titled deduplicated contributors, conflicting metadata for one candidate MUST select one canonical atomic title/year/poster tuple from the highest-weight contributing seed, breaking ties by lowest library MovieId, before title/year fallback exclusion or return; an ineligible or losing seed MUST NOT determine fallback identity or displayed metadata (`brief.md` Q6).
-- **FR-009**: Card reason MUST name the two highest-weight contributing seeds ordered by weight descending and MovieId ascending as “Recommended for {seed title} and {seed title}”, using display-safe sanitization and keeping both titles when they coincide (`brief.md` Q7; `ASSUMPTIONS.md`).
+- **FR-009**: Card reason MUST name the two highest-weight contributing seeds ordered by weight descending and MovieId ascending as “Recommended for {seed title} and {seed title}”, as display-safe plain text, keeping both titles when they coincide (`brief.md` Q7; `ASSUMPTIONS.md`).
 - **FR-010**: System MUST expose `GET /api/recommendations/not-in-library` on `RecommendationEndpoints` under the existing `/api` authorization convention, returning HTTP 200 with the card array or `[]` for disabled TMDb, blank ApiKey, or no eligible candidates, without changing `GET /api/recommendations/for-you` (`brief.md` Q4).
 - **FR-011**: Contract chain MUST flow C# DTO in Core Recommendations → `web/src/api/openapi.json` → generated `web/src/api/types.ts`; web MUST consume generated types (`brief.md` Q4; `specs/PRODUCT.md` contract chain).
 - **FR-012**: For You MUST add an independently fetched **Not in your library yet** section below the library grid, visible only after a successful nonempty response; hide during loading, empty, and error; keep the library grid usable (`brief.md` Q9; `ASSUMPTIONS.md`).
@@ -214,10 +213,10 @@ Product positioning, glossary, README feature list, and home-library acceptance 
 
 - **SC-001**: Provider/integration coverage proves first-page recommendation mapping supplies candidate id, title, and optional year/poster without increasing the production fetch request count beyond the existing first-page path.
 - **SC-002**: Additive migration applies on a database that already holds ID-only recommendation rows; Crowd ID-only consumers and cascade behaviour remain intact.
-- **SC-003**: Backfill hydrates titled metadata for matched sources that previously lacked titles; failed fetches leave prior links in place.
+- **SC-003**: Backfill hydrates titled metadata for matched sources that previously lacked titles; prior links survive failed fetches and writes, and a concurrent reader sees the complete committed link set.
 - **SC-004**: Domain tests prove TMDb-id exclusion across the library, title/year fallback only against the canonical tuple for library movies without TMDb id, punctuation/accent preservation, conflicting-tuple isolation, blank-title exclusion, disliked/watchlist rules, two-seed bar, Liked precedence, weighted sort, TMDb-id tie-break, cap 20, metadata selection before exclusion, and reason formatting.
-- **SC-005**: API tests prove zero outside HTTP, both config-off empty cases, JSON card shape, unchanged For You ids/order, and Related library-only.
-- **SC-006**: Web and local E2E prove section visibility rules, read-only cards, new-tab TMDb link, visible credit, and independent library-grid usability.
+- **SC-005**: API tests prove zero outside HTTP, both config-off empty cases, unauthenticated HTTP 401, JSON card shape, unchanged For You ids/order, and Related library-only.
+- **SC-006**: Web and local E2E prove section visibility rules, read-only cards, new-tab TMDb link, visible credit, safe poster fallback, plain-text title and reason rendering, and independent library-grid usability.
 - **SC-007**: Delivery PR publishes home-library ≥1-seed and ≥2-seed counts and owner verdicts on the ranked top 10 or all if fewer.
 - **SC-008**: `specs/PRODUCT.md`, root `CONTEXT.md`, and README feature list match ADR 0049’s discovery exception; glossary includes **Outside-library recommendation**.
 - **SC-009**: Size L verification records actual gate statuses with honest exit-2 dispositions; failure or `Could not run` blocks; review findings have written dispositions per the closing bar.
@@ -227,4 +226,5 @@ Product positioning, glossary, README feature list, and home-library acceptance 
 - Taste/ordering assumptions logged in `ASSUMPTIONS.md` (TMDb ID ascending tie-break; reason seed ordering; glossary term; hide on loading/error) are Patron-approved `[assumed]` rulings, not Quill invents.
 - DEV-539 Done and ADR 0049 Accepted are prerequisites confirmed at Phase B pickup before coding (`brief.md` Q11).
 - Exact EF column facets and implementation/test seams are verified by pickup recon; this draft does not invent unstated schema facets beyond nullable title, release year, and poster path.
+- Option A can miss library records without a TMDb ID when either year is unknown or titles differ after normalization. The delivery receipt documents this limitation.
 - Day-verified TMDb attribution text is confirmed against official terms on the shipping day (`brief.md` Q9); this draft does not invent the exact credit wording beyond “official TMDb attribution.”

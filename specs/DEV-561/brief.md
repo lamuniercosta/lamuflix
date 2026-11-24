@@ -55,3 +55,39 @@ The owner approved Q3 Option A on PR #492. Treat that as the controlling amendme
 3. Implement the local discovery query and deterministic ranking against set-based persisted projections. Verify existing library paths and configuration behavior. Wire the endpoint and validate the C# DTO and actual HTTP response. Regenerate OpenAPI and TypeScript before web composition.
 4. Implement the independent For You section and its card and test coverage. Complete the scoped docs. Record the official TMDb terms source and date before shipping the credit. Run the local E2E and collect the separate hydrated home-library receipt.
 5. Apply the Phase 3 refactor and changed-diff gates: Roslyn, cyclomatic complexity, InspectCode, mutation, property tests, vulnerable packages, formatting, .NET tests and web gates. Keep gate thresholds intact. Report exit-2 statuses as defined by the harness and task-pipeline. Attach rebased-head gate results and all Risk, Standards and Spec reports before the L-tier ship signoff. Preserve the owner-only merge boundary.
+
+## Phase 2 step 6 adjudication
+
+Reviewed `8c7a3720b661f6ff069196a35d9ce93994146c31` using the Sentry (4 Medium, 5 Low), Ledger (4 Medium, 7 Low), and Compass (0) reports. Pinned ticket and implementation evidence is in Maestri `recon-DEV-561` lines 23–100. The ticket has Wanted, Done when, Out of scope, and Open points sections. The Q3 owner amendment governs Wanted 3 and the corresponding identity acceptance test.
+
+### Sentry — Risk and Security
+
+| Finding | Disposition and basis |
+|---|---|
+| M1 | **Partially accepted.** T019 documents that Option A can miss records without a known year or with variant titles. The alternate loose-match audit would add an unapproved comparison with false positives and no ground truth. Keep the Q3/Q6 identity rule and Q10 home-library evidence bar. |
+| M2 | **Closed by existing design and tests.** Q6 deliberately couples display and fallback to the winning atomic tuple. T011 covers losing and ineligible tuples. Conflict-frequency measurement adds a new receipt outside Q10. |
+| M3 | **Accepted.** Clarify Q11: publish each successful source refresh in one transaction after fetching. Readers see a complete old or new source link set. A failed fetch or write preserves prior links. T007 must use real PostgreSQL and a separate reader during a controlled uncommitted replacement. |
+| M4 | **Accepted.** Wanted 5 requires Liked to count more than Watched. Reject discovery weights unless they are integers satisfying Liked > Watched > 0, with defaults 2 and 1 under Q5. T008/T011 validate invalid configurations and valid overrides. Accumulate in a range sufficient for the allowed weights and source count. |
+| L1 | **Accepted.** Q6 non-blank means neither null, empty, nor whitespace-only. T011 covers all three. |
+| L2 | **Accepted.** Under Q9, the API carries the nullable provider poster path, while web accepts a single safe filename segment, encodes it and appends it to the configured TMDb image base and size. Malformed values use the fallback. T016 covers traversal, query delimiters and whitespace. |
+| L3 | **Accepted.** Under Q7/Q9 the server formats plain display-safe text. React renders titles and reasons as text. T016 covers markup-bearing input. |
+| L4 | **Partially accepted.** Q1/Q11 require the existing first-page fetch and typed client resilience for operator reruns. Preserve the existing bounded policy rather than adding another retry loop or budget. T007 separates first-page calls per attempt from retries already configured by the client and proves a later eligible run can succeed. |
+| L5 | **Accepted.** Preserve the existing candidate-ID index evidenced in recon line 99. T001 verifies index and set-based query shape at pickup. T013 pins unauthenticated HTTP 401 before empty-result branches under Q4's route-group authorization. |
+
+### Ledger — Standards
+
+| Finding | Disposition and basis |
+|---|---|
+| M1 | **Accepted.** The task notes explicitly apply AGENTS.md's comment rule and exemptions. |
+| M2 | **Accepted.** Recon lines 95–100 identify `IRecommendationCandidateSource` and its EF implementation. Extend that existing port with one set-based read returning the Core-owned `OutsideLibraryRecommendationSnapshot`. Include source ID, seed state and title, candidate ID and metadata tuple, and whole-library TMDb ID/title/year identities. The existing library-only Crowd read stays separate. This implements Q11 on the existing port with Infrastructure owning EF and Core owning ranking. |
+| M3 | **Accepted.** The handler orchestrates the read and calls cohesive pure ranking operations in Core. Preserve the ordering in data-model.md and apply the harness complexity and mutation initialisation rules. |
+| M4 | **Accepted.** ADR 0049 records the scoped hydration exception to ADR 0048's skip-on-rerun behavior and the added nullable metadata with ID-only Crowd compatibility (Q2/Q11). |
+| L1 | **Accepted.** Record rejected candidate IMDb lookup, blanket IMDb-only suppression, and additional TMDb list fetches under Q1/Q3. Add ticket and adjudication date to the ADR header. |
+| L2 | **Accepted.** Record the separate read-only row in ADR 0049. The heading remains in Q9 and ticket Wanted 8. |
+| L3 | **Accepted.** Reference the configured harness refactor threshold without duplicating its current value. |
+| L4 | **Accepted.** Use `OutsideLibraryRecommendation`, `GetOutsideLibraryRecommendationsQuery` and `GetOutsideLibraryRecommendationsQueryHandler` under the Q8 glossary term. Keep the route and heading from Q4 and Wanted 8. |
+| L5 | **Accepted.** Constitution VIII governs CONTEXT.md. Q8 and Wanted 2 govern product positioning. |
+| L6 | **Accepted.** The Q4 query is parameterless. Register the normal Validation decorator and omit an empty validator class. |
+| L7 | **Accepted.** Use TanStack Query, the generated openapi-fetch client, and MSW. Record the TMDb terms URL and verification date in the delivery PR and CONCLUSIONS.md. Confirm the Verify OpenAPI snapshot test and CI drift verification at pickup. If either is absent, bring the gap to Patron before expanding scope. Give TMDb movie-page URL construction one tested home and use data-model.md as the canonical ranking sequence. |
+
+Compass reported zero findings. These dispositions refine implementation and evidence under the approved ticket, constitution and Patron rulings. The Q3 owner amendment and Q10 evidence requirements govern delivery.
