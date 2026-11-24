@@ -1,6 +1,67 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 1.16.0 → 2.0.0 (MAJOR: Principle VII container configuration transport
+replaced by mounted API settings for Compose and the Kubernetes home cluster; owner-approved
+DEV-565 Q9 amendment; no new ADR)
+
+Amendment 2.0.0 (2026-11-24), DEV-565 T001b post-approval scoped amendment:
+  Authority: owner approval of the Q9 structural checkbox on spec PR #483 at
+    2026-11-23T21:27:40Z and owner merge at 2026-11-24T00:04:35Z
+    (a3ee0589453f783131abbd677d8146d12ca70b90), recorded in
+    specs/DEV-565/CONCLUSIONS.md Q9 / Phase 0 T000 receipt; Conductor
+    instruction to execute T001b. Written proposal, rationale and impact are
+    in specs/DEV-565/CONCLUSIONS.md Q9.
+  ADR: no new ADR and no ADR supersession (Q9 and T001b). Rechecked the Q9 ADR
+    citations (pre-amendment lines 132, 249, 911–913, 951): lines 132 and 249
+    record prior scoped amendments with no ADR; Documentation Rules lines
+    911–913 and Governance step 2 (line 951) require an ADR only for a change
+    in architectural choice. Q9 ruled this is deployment configuration
+    transport, not an application architecture change: ADR 0030 line 21 defines
+    `TmdbOptions` at section `Tmdb` without mandating environment-variable
+    transport, ADR 0023 already uses generated `api.settings.json` mounts,
+    adapters/validation are untouched, and only the operational deployment
+    split from `specs/DEV-445/CONCLUSIONS.md` Q2 is superseded.
+  Modified principles:
+    VII. Configuration Isolation and Deterministic Time (title unchanged): replace
+       only the pre-amendment lines 673–674 with the owner-approved container
+       configuration transport. Local `dotnet run` values remain in `dotnet
+       user-secrets` or git-ignored `appsettings.Development.json`. Containerized
+       Compose and Kubernetes home-cluster deployments receive API settings and
+       provider API keys via the mounted git-ignored settings JSON
+       (`docker/api.settings.json` -> `/app/appsettings.Production.json`) or
+       mounted Kubernetes Secret (`api-settings`). Container environment
+       variables supply non-API container initialization and host/container
+       wiring. All other VII rules, including typed options, validation,
+       LocalPlay and deterministic time, are unchanged.
+  Added sections: none
+  Removed sections: none
+  Templates reviewed (no updates required):
+    .specify/templates/constitution-template.md — Governance placeholder; no transport rule.
+    .specify/templates/plan-template.md — Constitution Check derives current principles.
+    .specify/templates/spec-template.md — no container configuration transport rule.
+    .specify/templates/tasks-template.md — generic ADR/constitution tasks only.
+    .specify/templates/checklist-template.md — no configuration transport rule.
+    .specify/templates/commands/ — absent; no command templates to synchronize.
+  Runtime guidance reviewed (no updates in this amendment):
+    README.md — still describes the old Compose TMDb `.env` channel at lines 55 and
+      80; T010 owns the ticket-scoped README table and cutover update, so this
+      governance amendment does not edit it.
+    AGENTS.md and specs/PRODUCT.md — no duplicated Principle VII transport rule.
+    ADR 0023 / ADR 0030 — no ADR text requires edit or supersession (see ADR above).
+  Migration / follow-up:
+    This replaces the required transport for Compose and the Kubernetes home
+    cluster and requires migration of the old deployment configuration. The
+    migration plan is the DEV-565 cutover: T004 updates the tracked settings
+    example and removes Compose TMDb env entries while operators populate the
+    mounted git-ignored settings JSON before recreating the API; T005 publishes
+    the single `api-settings` Secret and retires the dedicated TMDb Secret path;
+    T010 documents publish/populate-before-rollout, verify-before-cleanup and
+    rollback retention; post-verification `tmdb-credentials` deletion is a manual
+    operator step outside provisioning. No schema/data migration and no new ADR.
+    This amendment alone claims no implementation, gate, or runtime PASS.
+  Deferred placeholders / template follow-up: none
+
 Version change: 1.15.0 → 1.16.0 (MINOR: Principle VII subtitle acquisition validation
 reaches the DEV-501 search/download routes; ADR 0041 Accepted)
 
@@ -670,8 +731,12 @@ for connection strings, API keys, library roots, or player paths.
   allowed; `SaveEnabled` defaults false and language preferences default empty. Secret
   isolation remains mandatory. This exception applies only to subtitle acquisition
   validation; all other options retain their startup-validation requirements.
-- Local values live in `dotnet user-secrets` or `appsettings.Development.json` (git-ignored);
-  containers receive them as environment variables.
+- Local `dotnet run` values live in `dotnet user-secrets` or git-ignored
+  `appsettings.Development.json`; containerized Compose and Kubernetes home-cluster
+  deployments receive API settings and provider API keys via the mounted git-ignored
+  settings JSON (`docker/api.settings.json` mounted at `/app/appsettings.Production.json`)
+  or mounted Kubernetes Secret (`api-settings`). Container environment variables supply
+  non-API container initialization and host/container wiring.
 - Player mapping is configuration (`PlaybackOptions.Players[]`), never a database table.
 - Local playback is registered only when `Features:LocalPlay` is true; otherwise a
   `DisabledMediaPlayerLauncher` throws `FeatureDisabledException`. Process launches MUST use
@@ -963,4 +1028,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.16.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-12
+**Version**: 2.0.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-24
