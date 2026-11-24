@@ -14,6 +14,7 @@ public sealed class SubtitleSetupDocumentationTests
     private const string SaveEnabledPropertyName = "SaveEnabled";
     private const string PreferredLanguagesPropertyName = "PreferredLanguages";
     private const string ProviderSectionName = "OpenSubtitles";
+    private const string ApiKeyPropertyName = "ApiKey";
 
     private static readonly string[] DemoServingDocumentation =
     [
@@ -53,18 +54,19 @@ public sealed class SubtitleSetupDocumentationTests
         // assert
         saveEnabled.ShouldBeFalse();
         preferredLanguages.ShouldBe(0);
-        subtitles.TryGetProperty(ProviderSectionName, out _).ShouldBeFalse();
+        subtitles.TryGetProperty(ProviderSectionName, out var provider).ShouldBeTrue();
+        provider.GetProperty(ApiKeyPropertyName).GetString().ShouldBe(string.Empty);
     }
 
     [Fact]
-    public void ApiSettingsExample_Content_CarriesNoSubtitleProviderMaterial()
+    public void ApiSettingsExample_Content_CarriesPlaceholderSubtitleProviderMaterial()
     {
         // arrange
         var content = ReadApiSettingsExample();
 
         // act & assert
-        content.Contains(ProviderSectionName, StringComparison.Ordinal).ShouldBeFalse();
-        content.Contains("DownloadAllowedHosts", StringComparison.Ordinal).ShouldBeFalse();
+        content.Contains(ProviderSectionName, StringComparison.Ordinal).ShouldBeTrue();
+        content.Contains("DownloadAllowedHosts", StringComparison.Ordinal).ShouldBeTrue();
     }
 
     [Fact]
