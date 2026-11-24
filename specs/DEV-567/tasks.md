@@ -6,7 +6,7 @@ description: "Task list for DEV-567 API failure toasts"
 
 **Input**: Design documents from `specs/DEV-567/` — `spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q8), `CONCLUSIONS.md`, `ASSUMPTIONS.md`; Maestri notes `DEV-567`, `recon-DEV-567`; `specs/PRODUCT.md`.
 
-**Status**: **PLAN FROZEN** (2026-11-23). See [PLAN_ADJUDICATION.md](PLAN_ADJUDICATION.md). Gate 1 / T000 remains pending. T001 and later require the verified Gate 1 merge receipt.
+**Status**: **PLAN FROZEN** (2026-11-23). See [PLAN_ADJUDICATION.md](PLAN_ADJUDICATION.md). Gate 1 / T000 is complete. The verified spec PR #485 merge receipt is recorded in [CONCLUSIONS.md](CONCLUSIONS.md). T001 remains the read-only prerequisite for T002.
 
 **Tests**: Required (`brief.md` Test strategy; FR-009; SC-001–SC-007). TDD optional. Use existing Vitest/RTL/MSW (`web/src/test/server.ts`, `subtitlesTab.test.tsx` patterns). Named QueryClient suite: `web/src/api/queryClient.test.tsx`. One Playwright check under `web/e2e/`. No new test framework or npm dependency.
 
@@ -41,7 +41,7 @@ Ordering per brief approach steps 1–5. No dependency cycle. No parallel starts
 **Purpose**: After PLAN FROZEN, produce/open the spec PR, then confirm ordinary owner Gate 1 merge before Build work.
 **Checkpoint**: Spec PR opened by Rigger under Bernstein coordination; verified user-merge receipt in `CONCLUSIONS.md`, or stop. No Build tasks before that receipt.
 
-- [ ] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-567 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-567 in `specs/DEV-567/CONCLUSIONS.md`. Receipt only. T001–T015 MUST NOT proceed without verified merge (`brief.md` Closure; no structural owner checkbox on this ticket).
+- [X] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-567 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-567 in `specs/DEV-567/CONCLUSIONS.md`. Receipt only. T001–T015 MUST NOT proceed without verified merge (`brief.md` Closure; no structural owner checkbox on this ticket).
 
 ---
 

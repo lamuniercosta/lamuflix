@@ -180,3 +180,9 @@ Verdict: Approved — adopt your recommended Vitest/RTL + MSW suite, one Playwri
 - **Prerequisites verified (`DEV-567` note lines 34-54; `specs/DEV-567/PLAN_ADJUDICATION.md:3-8`):** `/speckit-analyze` is clean (`0` open findings after round 2) and all 24 plan challenge findings across Sentry (11), Ledger (10), and Compass (3) are adjudicated (`PLAN FROZEN`).
 - **User-Visible Outcome checklist (`specs/DEV-567/checklists/requirements.md:32-36`; `specs/DEV-567/spec.md:18-28`):** All three "User-Visible Outcome" items in `checklists/requirements.md` are ticked, covering "What the User Will See" and `SMOKE-001` / `SMOKE-002`.
 - **Owner checkboxes (`specs/PRODUCT.md` §5; `specs/DEV-567/CONCLUSIONS.md` Q1–Q8; `specs/DEV-567/spec.md:8-10`):** Zero §2.3 escalations (no ticket contradiction/scope change and no constitution departure). No owner checkboxes are needed on the spec PR; ordinary Gate 1 approval occurs when the user merges the spec PR.
+
+## Gate 1 Merge Receipt
+
+**Verdict:** `gate1: verified`. The owner merged DEV-567 spec PR #485 at `3316637fde71680fe3b8b163cdcd1feb591c99a5`. This completes T000.
+
+- **Evidence:** `recon-DEV-567` lines 60–61 and the `DEV-567` note lines 3–5. The merge commit is an ancestor of the Phase B pickup HEAD `c2cf527de98d6ea247856f56e9de2b634c52e3f3`.
