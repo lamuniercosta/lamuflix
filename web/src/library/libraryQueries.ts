@@ -132,7 +132,10 @@ export function useBrowseMoviesQuery(inWatchlist = false, filters: Record<string
           signal,
         })
         .catch((thrown: unknown) => {
-          throw markApiTransportFailure(thrown);
+          if (thrown instanceof TypeError) {
+            throw markApiTransportFailure(thrown);
+          }
+          throw thrown;
         });
       const { data, error, response } = result;
       if (error || !data) {
@@ -166,7 +169,10 @@ export function useImportCandidatesQuery(enabled: boolean) {
           signal,
         })
         .catch((thrown: unknown) => {
-          throw markApiTransportFailure(thrown);
+          if (thrown instanceof TypeError) {
+            throw markApiTransportFailure(thrown);
+          }
+          throw thrown;
         });
       const { data, error, response } = result;
       if (error || !data) {
@@ -200,7 +206,10 @@ export function useFailedEnrichmentsQuery(enabled: boolean) {
           signal,
         })
         .catch((thrown: unknown) => {
-          throw markApiTransportFailure(thrown);
+          if (thrown instanceof TypeError) {
+            throw markApiTransportFailure(thrown);
+          }
+          throw thrown;
         });
       const { data, error, response } = result;
       if (error || !data) {
@@ -229,7 +238,10 @@ export function useImportLibraryFoldersMutation() {
           body: { folders: input.folders, retryFailed: input.retryFailed },
         })
         .catch((thrown: unknown) => {
-          throw markApiTransportFailure(thrown);
+          if (thrown instanceof TypeError) {
+            throw markApiTransportFailure(thrown);
+          }
+          throw thrown;
         });
       const { data, error, response } = result;
       if (error || !data) {
@@ -254,9 +266,12 @@ export function useRetryEnrichmentMutation() {
           parseAs: 'text',
         })
         .catch((thrown: unknown): never => {
-          throw new RetryRowError(GENERIC_RETRY_ERROR, {
-            cause: markApiTransportFailure(thrown),
-          });
+          if (thrown instanceof TypeError) {
+            throw new RetryRowError(GENERIC_RETRY_ERROR, {
+              cause: markApiTransportFailure(thrown),
+            });
+          }
+          throw new RetryRowError(GENERIC_RETRY_ERROR, { cause: thrown });
         });
 
       if (result.response.status === 202) {
