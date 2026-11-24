@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feature/561-spec`
 **Created**: 2026-11-24
-**Status**: PLAN FROZEN, ready for owner Gate 1
+**Status**: gate1: provisional
 **Input**: Ticket DEV-561 (size L); grill-closed `brief.md` (Q1–Q12); `CONCLUSIONS.md`; `ASSUMPTIONS.md`; Maestri notes `DEV-561`, `recon-DEV-561`; `specs/PRODUCT.md`; Accepted ADR `docs/adr/0049-for-you-outside-library-discovery.md`.
 
 ## Owner question — Gate 1

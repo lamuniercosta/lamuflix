@@ -110,3 +110,12 @@
 - **Keel** — Approve a closing bar of zero open confirmed actionable in-scope findings at any severity across Risk, Standards, Spec and ship review? Require the Phase 3 and rebased-head gates and the delivery PR's acceptance evidence including the owner's home-library verdicts. Cap the loop at two rounds and two fix commits per round. Route any third-round findings or remaining blockers to the owner on the PR without clearance. Freeze Q1–Q11 and leave unrelated work outside this round.
 - **Patron** — Approved with the Charter §2.3 follow-up filter. Close all confirmed actionable in-scope findings, including Low. Meet the required gates and provide the acceptance receipts before awaiting-merge. Apply both caps and escalate remaining blockers on the PR. Outside-scope Critical or High observations, broken behavior, or owner-requested follow-ups can go through Rigger after checking existing open tickets. Record other outside-scope observations as “noted, no ticket.”
 - **Basis** — Task-pipeline size-L review, Phase 3 gate rules, Phase 5 merge bar and caps, Charter §2.3, ADR 0049, DEV-561 Done when and Out of scope, and Q10's acceptance evidence.
+
+---
+
+## Phase 2 step 7 — Provisional Gate 1 ruling
+- **Verdict**: Approved — `gate1: provisional` granted on `feature/561-spec` (frozen plan `5829223a`); no Patron-initiated YouTrack record update is needed before Rigger's standard Phase 2 step 7 `Gate 1` state transition.
+- **Basis**:
+  - **Spec analysis, plan challenge & checklist complete** (`DEV-561:28-34`; `specs/DEV-561/brief.md:59-93`; `specs/DEV-561/checklists/requirements.md:32-36`): `/speckit-analyze` passed clean at `8c7a3720`, Keel adjudicated all 20 Sentry/Ledger/Compass plan-plus-ADR challenge items and froze the plan at `5829223a`, and all User-Visible Outcome checklist items (`SMOKE-001`–`SMOKE-003`) are ticked.
+  - **Scope, ADR & owner alignment** (`DEV-561:18-19`; `specs/DEV-561/CONCLUSIONS.md` Q1–Q12; `docs/adr/0049-for-you-outside-library-discovery.md:1-23`; `specs/DEV-561/plan.md:19-34,53-68`): ADR 0049 has `status: accepted`, the Q3 Option A owner checkbox on PR #492 is resolved, and no open Charter §2.3(a)/(b) escalations or unauthorized dependencies/layers/schema changes remain.
+  - **YouTrack status** (`DEV-561:5,23`; `specs/DEV-561/brief.md:59-93`): `size:L`, parent `DEV-490`, summary, and the Q8 `specs/PRODUCT.md` Positioning comment are already verified on YouTrack, and the Phase 2 challenge produced no out-of-scope Critical/High or broken-behaviour follow-up tickets.
