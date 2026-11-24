@@ -191,6 +191,38 @@ describe('ApiFailureToastHost lifecycle', () => {
     expect(liveRegion.textContent).toContain('Announced third');
     expect(liveRegion.textContent?.match(/Announced first/g)).toHaveLength(1);
   });
+
+  it('bounds announcements at three and evicts the oldest first', () => {
+    render(<ApiFailureToastHost queue={queue} />);
+    const liveRegion = screen.getByRole('status');
+
+    publish(queue, failure('Overflow one', '501'));
+    publish(queue, failure('Overflow two', '502'));
+    publish(queue, failure('Overflow three', '503'));
+    publish(queue, failure('Overflow four', '504'));
+    publish(queue, failure('Overflow five', '505'));
+
+    expect(liveRegion.children).toHaveLength(3);
+    expect(queue.getSnapshot().announcements).toHaveLength(3);
+    expect(liveRegion.textContent).not.toContain('Overflow one');
+    expect(liveRegion.textContent).not.toContain('Overflow two');
+    expect(liveRegion.textContent).toContain('Overflow five');
+  });
+
+  it('announces repeated identical failures once each without replaying evicted ones', () => {
+    render(<ApiFailureToastHost queue={queue} />);
+    const liveRegion = screen.getByRole('status');
+
+    for (let index = 0; index < 5; index += 1) {
+      publish(queue, failure('Repeated toast', '500'));
+    }
+
+    expect(liveRegion.children).toHaveLength(3);
+    const announcements = queue.getSnapshot().announcements;
+    expect(announcements).toHaveLength(3);
+    expect(new Set(announcements.map((announcement) => announcement.id)).size).toBe(3);
+    expect(liveRegion.textContent?.match(/Repeated toast/g)).toHaveLength(3);
+  });
 });
 
 describe('ApiFailureToastHost styling intent', () => {

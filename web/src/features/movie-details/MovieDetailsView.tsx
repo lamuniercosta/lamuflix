@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
+import { createQueryClient } from '../../api/queryClient';
 import type { components } from '../../api/types';
 import { MovieFeedbackActions } from '../../library/MovieFeedbackActions';
 import { useAmbientPosters } from '../../ui/ambient';
@@ -124,9 +126,7 @@ function NoMetadata({
 
 export default function MovieDetailsView({ movieId, enrichmentStatus }: MovieDetailsViewProps) {
   const libraryClient = useQueryClient();
-  const [detailsClient] = useState(
-    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
-  );
+  const [detailsClient] = useState(() => createQueryClient());
   return (
     <QueryClientProvider client={detailsClient}>
       <MovieDetailsViewInner

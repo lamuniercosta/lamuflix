@@ -1,4 +1,5 @@
 export const MAX_VISIBLE_TOASTS = 3;
+export const MAX_ANNOUNCEMENTS = 3;
 export const TOAST_LIFETIME_MS = 5000;
 
 export type ToastPauseReason = 'hover' | 'focus';
@@ -14,9 +15,14 @@ export interface ApiFailureToast extends ApiFailureToastInput {
   id: string;
 }
 
+export interface ApiFailureToastAnnouncement {
+  id: string;
+  message: string;
+}
+
 export interface ApiFailureToastQueueSnapshot {
   toasts: readonly ApiFailureToast[];
-  announcements: readonly string[];
+  announcements: readonly ApiFailureToastAnnouncement[];
 }
 
 export interface ApiFailureToastQueue {
@@ -44,7 +50,7 @@ function announcementFor(input: ApiFailureToastInput): string {
 
 export function createApiFailureToastQueue(): ApiFailureToastQueue {
   const entries: Entry[] = [];
-  const announcements: string[] = [];
+  const announcements: ApiFailureToastAnnouncement[] = [];
   const listeners = new Set<() => void>();
   let nextId = 0;
   let snapshot: ApiFailureToastQueueSnapshot = { toasts: [], announcements: [] };
@@ -117,7 +123,10 @@ export function createApiFailureToastQueue(): ApiFailureToastQueue {
         pausedByFocus: false,
       };
       entries.push(entry);
-      announcements.push(announcementFor(input));
+      while (announcements.length >= MAX_ANNOUNCEMENTS) {
+        announcements.shift();
+      }
+      announcements.push({ id: entry.id, message: announcementFor(input) });
       schedule(entry);
       publishSnapshot();
     },
