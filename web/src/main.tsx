@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import '@fontsource-variable/sofia-sans';
 import '@fontsource-variable/sofia-sans-extra-condensed';
@@ -9,10 +9,9 @@ import { useEnrichmentStatus } from './library/useEnrichmentStatus';
 import { maybeStartWorker } from './mocks/startup';
 import ApiFailureToastHost from './ui/ApiFailureToastHost';
 import { apiFailureToastQueue } from './ui/apiFailureToastQueue';
+import { createQueryClient } from './api/queryClient';
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false } },
-});
+const queryClient = createQueryClient();
 
 const rootElement = document.getElementById('root');
 
