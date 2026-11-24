@@ -52,11 +52,11 @@ How enrichment flows: the API persists a movie as `Pending` and publishes `Enric
 
 ## Run with Docker Compose
 
-Copy both example files and replace their placeholders with local values. `.env` supplies only non-provider Compose values: Postgres and RabbitMQ container initialization credentials and an optional host library path. `docker/api.settings.json` is the one API settings channel: it carries the database and RabbitMQ credentials (which must match `.env`) and all three provider keys. The secret-bearing JSON file is ignored by Git and excluded from the Docker build context. For a fresh Compose setup, copy the tracked example to that ignored path before startup.
+Copy `.env.example` to `.env` and replace its placeholders with local values. `.env` supplies only non-provider Compose values: Postgres and RabbitMQ container initialization credentials and an optional host library path. `docker/api.settings.json` is the one API settings channel: it carries the database and RabbitMQ credentials (which must match `.env`) and all three provider keys. The secret-bearing JSON file is ignored by Git and excluded from the Docker build context. Never hand-edit it: render it with `scripts/New-ComposeApiSettings.ps1`, which reads the OMDb and TMDb keys from the shared provider-key source (see below) and preserves the other settings already in the file.
 
 ```bash
 cp .env.example .env
-cp docker/api.settings.example.json docker/api.settings.json
+pwsh -NoProfile -File scripts/New-ComposeApiSettings.ps1
 docker compose up -d --build
 ```
 
@@ -64,12 +64,12 @@ Applying changes to `docker/api.settings.json` requires recreating or restarting
 
 ### Provider API keys
 
-Each provider key has exactly one location per run mode. Provider keys are never read from Compose `.env`, API environment variables, or a second Kubernetes Secret.
+Each provider key has exactly one location per run mode. Provider keys are never read from Compose `.env`, API environment variables, or a second Kubernetes Secret. Compose and the home cluster share one provisioning input: the operator's external `secretSourcePath` env-style file holding `OMDB_API_KEY`, optional `TMDB_API_KEY`, and `OPENSUBTITLES_API_KEY`. `New-HomeCluster.ps1` reads it when publishing `api-settings`; `scripts/New-ComposeApiSettings.ps1` reads the same file when rendering the mounted Compose JSON, so both stacks enrich with the same credentials.
 
 | Provider key | `dotnet run` (API local settings) | Compose (`docker/api.settings.json`) | Home cluster (mounted `api-settings` Secret) |
 |---|---|---|---|
-| OMDb | `Omdb:ApiKey` via `dotnet user-secrets` | `Omdb:ApiKey` in the mounted JSON | `Omdb:ApiKey` in `appsettings.Production.json` inside `api-settings` |
-| TMDb | `Tmdb:Enabled` and `Tmdb:ApiKey` via `dotnet user-secrets` | `Tmdb:Enabled` and `Tmdb:ApiKey` in the mounted JSON | `Tmdb:Enabled` and `Tmdb:ApiKey` in `appsettings.Production.json` inside `api-settings` |
+| OMDb | `Omdb:ApiKey` via `dotnet user-secrets` | `Omdb:ApiKey` rendered from the shared `OMDB_API_KEY` | `Omdb:ApiKey` in `appsettings.Production.json` inside `api-settings` |
+| TMDb | `Tmdb:Enabled` and `Tmdb:ApiKey` via `dotnet user-secrets` | `Tmdb:Enabled` and `Tmdb:ApiKey` rendered from the shared `TMDB_API_KEY` | `Tmdb:Enabled` and `Tmdb:ApiKey` in `appsettings.Production.json` inside `api-settings` |
 | OpenSubtitles | `Subtitles:OpenSubtitles:ApiKey` via `dotnet user-secrets` | `Subtitles:OpenSubtitles:ApiKey` in the mounted JSON | `Subtitles:OpenSubtitles:ApiKey` in `appsettings.Production.json` inside `api-settings` |
 
 Both Compose and home-generated settings default to `Tmdb:Enabled: true`. With TMDb enabled and an empty `Tmdb:ApiKey`, the app sends no TMDb request, but an OMDb miss becomes a retryable "provider unavailable" failure instead of a plain not-found. To use OMDb-only `NotFound` behavior, opt out with `Tmdb:Enabled: false` in the mounted settings JSON. Never echo or commit a key value.
@@ -82,7 +82,7 @@ The header's `Bulk import` action lists every folder under the root that is not 
 
 ### TMDb collection membership
 
-TMDb supplements an OMDb hit with keywords, full cast, and collection membership, so the library's Collection filter needs a TMDb API key. Compose defaults to `Tmdb:Enabled: true` and reads the key from the ignored `docker/api.settings.json`, mounted read-only at `/app/appsettings.Production.json`:
+TMDb supplements an OMDb hit with keywords, full cast, and collection membership, so the library's Collection filter needs a TMDb API key. Compose defaults to `Tmdb:Enabled: true` and reads the key from the ignored `docker/api.settings.json`, mounted read-only at `/app/appsettings.Production.json`; that file is rendered from the shared provider-key source by `scripts/New-ComposeApiSettings.ps1`:
 
 ```json
 "Tmdb": {
@@ -91,9 +91,9 @@ TMDb supplements an OMDb hit with keywords, full cast, and collection membership
 }
 ```
 
-Edit `docker/api.settings.json` in place (never the tracked example) and put the key in `Tmdb:ApiKey`. Without a key, either supply one or set `Enabled` to `false` to opt out; do not echo secret values in logs or commands. Recreate the API (`docker compose up -d`) after changing the settings file so the new values take effect. Keep the effective enablement and key stable through the rollout and verify enrichment after it completes.
+Provision the key through the shared source and re-render the ignored settings file (never the tracked example): put `TMDB_API_KEY` in the `secretSourcePath` file and run `pwsh -NoProfile -File scripts/New-ComposeApiSettings.ps1`. A missing or blank `TMDB_API_KEY` renders an explicit empty `Tmdb:ApiKey`, matching the home setup. Without a key, either supply one or set `Enabled` to `false` in the rendered file to opt out; do not echo secret values in logs or commands. Recreate the API (`docker compose up -d`) after rendering so the new values take effect. Keep the effective enablement and key stable through the rollout and verify enrichment after it completes.
 
-**Cutover for an existing Compose stack.** Populate the mounted JSON with the effective TMDb enablement and key (or the intended opt-out) *before* recreating the API. Verify enrichment, then remove the obsolete `TMDB_ENABLED` / `TMDB_API_KEY` lines from the ignored local `.env`. Retain the prior `.env` inputs until verification succeeds so they remain available for rollback; never copy their values into Git. Fresh setups need no `.env` TMDb lines. Outside Compose, `appsettings.json` keeps `Tmdb:Enabled: false`, so a plain `dotnet run` only calls TMDb after you opt in through the user-secrets channel above.
+**Cutover for an existing Compose stack.** Re-render the mounted JSON from the shared source with the effective TMDb enablement and key (or the intended opt-out) *before* recreating the API. Verify enrichment, then remove the obsolete `TMDB_ENABLED` / `TMDB_API_KEY` lines from the ignored local `.env`. Retain the prior `.env` inputs until verification succeeds so they remain available for rollback; never copy their values into Git. Fresh setups need no `.env` TMDb lines. Outside Compose, `appsettings.json` keeps `Tmdb:Enabled: false`, so a plain `dotnet run` only calls TMDb after you opt in through the user-secrets channel above.
 
 ## Windows daily-driver setup
 
