@@ -23,4 +23,11 @@
   - **Why candidate-identity calls and candidate suppression alter ticket scope**: adding per-candidate TMDb lookups during ingest/backfill introduces up to 20 extra TMDb requests per source movie (thousands across the home library) contrary to `"It needs no extra TMDb call"` and `"Only the lists DEV-539 already fetches"` (`recon-DEV-561:63`), while suppressing unresolved candidates whenever any OMDb-enriched library movie has `ImdbId != null` and `TmdbId == null` (`Movie.cs:59-63`) could blank or severely truncate the discovery row (`recon-DEV-561:35,56`).
   - **Gate 1 & spec-PR implication**: carry this Option A vs Option B owner checkbox on the `DEV-561` spec PR and keep Gate 1 closed until the owner resolves it; neither extra TMDb candidate-identity HTTP calls nor row suppression on IMDb-only library records is authorized without owner selection.
 
+---
 
+## Q3 owner ruling
+
+- **Owner answer** — Approved Patron Option A. PR #492 records the checked item "Owner ruling on DEV-561 Q3 Patron Option A." The Conductor confirmed the ruling, and the DEV-561 task note records Rigger’s read-back at `68b19f8a`.
+- **Rationale** — The existing first-page TMDb recommendation response supplies the candidate TMDb ID and title/release-date data. It carries no candidate IMDb ID, and recon found no local mapping to supply one. Option A preserves the ticket’s zero-extra-TMDb-call requirement. [PR #492](https://github.com/lamuniercosta/lamuflix/pull/492) · `recon-DEV-561:4–8`.
+- **Scope amendment** — Wanted 3 and Done when 2 now require library exclusion by TMDb ID, with a normalized `(Title, ReleaseYear)` fallback for library movies lacking a TMDb ID. The discovery path uses the existing recommendation fetch and makes zero request-time provider calls. Candidate exclusion uses those two local identity checks even when the library contains IMDb-only movies.
+- **Gate 1** — This approval resolves the Q3 owner checkbox. Gate 1 remains pending the spec PR merge.
