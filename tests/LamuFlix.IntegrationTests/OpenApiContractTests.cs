@@ -970,6 +970,54 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task ProblemDetailsSchema_DocumentsOptionalReasonAndTraceIdStrings()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+
+        // assert
+        var schemas = parsed.RootElement.GetProperty("components").GetProperty("schemas");
+        var problem = schemas.GetProperty("ProblemDetails");
+        var properties = problem.GetProperty("properties");
+        foreach (var name in new[] { "reason", "traceId" })
+        {
+            properties.TryGetProperty(name, out var property).ShouldBeTrue($"ProblemDetails must document {name}.");
+            property.GetProperty("type").GetString().ShouldBe("string");
+            if (problem.TryGetProperty("required", out var required))
+            {
+                required.EnumerateArray().Select(item => item.GetString()).ShouldNotContain(name);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ProblemDetailsSchema_LeavesUnrelatedSchemasUntouched()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+
+        // assert
+        var schemas = parsed.RootElement.GetProperty("components").GetProperty("schemas");
+        schemas.TryGetProperty("HttpValidationProblemDetails", out _).ShouldBeFalse();
+        var unrelated = schemas.GetProperty("EnrichmentStatusChangedDto").GetProperty("properties");
+        unrelated.EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["id", "enrichmentStatus"], ignoreOrder: true);
+        var summary = schemas.GetProperty("MovieSummaryResponse").GetProperty("properties");
+        summary.TryGetProperty("reason", out _).ShouldBeFalse();
+        summary.TryGetProperty("traceId", out _).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task OpenApiRegeneration_OptInEnabled_WritesTheBaselineAndDerivedSnapshotTogether()
     {
         // arrange
