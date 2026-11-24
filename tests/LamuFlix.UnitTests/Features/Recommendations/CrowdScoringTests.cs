@@ -14,10 +14,10 @@ public sealed class CrowdScoringTests
     private const double SixWeightTotal = 15.0;
     private const double SevenWeightTotal = 17.0;
 
-    private static readonly MovieId First = new(1);
-    private static readonly MovieId Second = new(2);
+    private static MovieId First => new(1);
+    private static MovieId Second => new(2);
 
-    private static readonly GenreWeights Genres = GenreWeights.Calculate(
+    private static GenreWeights Genres => GenreWeights.Calculate(
         new GenreCounts(
             100,
             new Dictionary<string, long>
@@ -26,9 +26,9 @@ public sealed class CrowdScoringTests
                 ["Comedy"] = 20,
             }));
 
-    private static readonly KeywordCounts Keywords = new(0, new Dictionary<string, long>());
+    private static KeywordCounts Keywords => new(0, new Dictionary<string, long>());
 
-    private static readonly TmdbOptions ConfiguredTmdb = new()
+    private static TmdbOptions ConfiguredTmdb => new()
     {
         Enabled = true,
         ApiKey = "test-key",
