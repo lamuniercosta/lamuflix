@@ -16,6 +16,10 @@ $rules = Join-Path $root 'rules.json'
 $log = Join-Path $root 'calls.log'
 $argoManifest = Join-Path $root 'argocd-install.yaml'
 Write-TestText -Path $argoManifest -Text "apiVersion: v1`nkind: List`n"
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$apiDeploymentPath = Join-Path (Join-Path (Join-Path (Join-Path $repoRoot 'deploy') 'k8s') 'base') 'api-deployment.yaml'
+$apiDeployment = Get-Content -LiteralPath $apiDeploymentPath -Raw
+Assert-Case 'api deployment: api-settings mounted at the production settings path' (($apiDeployment -match 'mountPath:\s*/app/appsettings\.Production\.json') -and ($apiDeployment -match 'secretName:\s*api-settings'))
 
 $library = Join-Path $root 'library'
 $backups = Join-Path $root 'backups'
@@ -24,12 +28,62 @@ $sourceEnv = Join-Path $root 'source.env'
 Write-TestText -Path $sourceEnv -Text "OMDB_API_KEY=omdb-test-value`nTMDB_API_KEY=tmdb-test-value`nOPENSUBTITLES_API_KEY=opensubtitles-test-value`n"
 $sourceEnvNoOmdb = Join-Path $root 'source-no-omdb.env'
 Write-TestText -Path $sourceEnvNoOmdb -Text "TMDB_API_KEY=tmdb-test-value`n"
+$sourceEnvNoTmdb = Join-Path $root 'source-no-tmdb.env'
+Write-TestText -Path $sourceEnvNoTmdb -Text "OMDB_API_KEY=omdb-test-value`nOPENSUBTITLES_API_KEY=opensubtitles-test-value`n"
+$sourceEnvEmptyTmdb = Join-Path $root 'source-empty-tmdb.env'
+Write-TestText -Path $sourceEnvEmptyTmdb -Text "OMDB_API_KEY=omdb-test-value`nTMDB_API_KEY=`nOPENSUBTITLES_API_KEY=opensubtitles-test-value`n"
+$sourceEnvWhitespaceTmdb = Join-Path $root 'source-whitespace-tmdb.env'
+Write-TestText -Path $sourceEnvWhitespaceTmdb -Text "OMDB_API_KEY=omdb-test-value`nTMDB_API_KEY=   `nOPENSUBTITLES_API_KEY=opensubtitles-test-value`n"
 
 function New-Ops {
     param([string]$Name)
     $ops = Join-Path $root $Name
     New-Item -ItemType Directory -Force -Path $ops | Out-Null
     return $ops
+}
+
+function Assert-HomeSettingsChannel {
+    param([string]$Label, $Result, [string]$OpsPath, [string]$ExpectedTmdbKey)
+    $secretsDir = Join-Path $OpsPath 'secrets'
+    $settingsPath = Join-Path $secretsDir 'api.settings.json'
+    $tmdbEnvPath = Join-Path $secretsDir 'tmdb.env'
+    $templatePath = Join-Path (Join-Path $repoRoot 'docker') 'api.settings.example.json'
+
+    Assert-Case "${Label}: api settings generated" (Test-Path -LiteralPath $settingsPath)
+    if (-not (Test-Path -LiteralPath $settingsPath)) { return }
+    $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+    $template = Get-Content -LiteralPath $templatePath -Raw | ConvertFrom-Json
+    $tmdb = $settings.PSObject.Properties['Tmdb'] ? $settings.Tmdb : $null
+    $templateTmdb = $template.PSObject.Properties['Tmdb'] ? $template.Tmdb : $null
+    $provider = $settings.Subtitles.PSObject.Properties['OpenSubtitles'] ? $settings.Subtitles.OpenSubtitles : $null
+    $templateProvider = $template.Subtitles.PSObject.Properties['OpenSubtitles'] ? $template.Subtitles.OpenSubtitles : $null
+
+    Assert-Case "${Label}: home subtitle defaults preserved" ((([bool]$settings.Subtitles.SaveEnabled) -eq $true) -and ((@($settings.Subtitles.PreferredLanguages) -join ',') -eq 'pt-BR,en'))
+    Assert-Case "${Label}: OMDb key copied from source" ([string]$settings.Omdb.ApiKey -eq 'omdb-test-value')
+    Assert-Case "${Label}: TMDb enabled from the settings template" (($null -ne $tmdb) -and ($null -ne $templateTmdb) -and (([bool]$tmdb.Enabled) -eq $true) -and (([bool]$templateTmdb.Enabled) -eq $true))
+    Assert-Case "${Label}: TMDb key is explicit" (($null -ne $tmdb) -and ($tmdb.PSObject.Properties.Name -contains 'ApiKey'))
+    Assert-Case "${Label}: TMDb key matches the source" (($null -ne $tmdb) -and ([string]$tmdb.ApiKey -eq $ExpectedTmdbKey))
+    Assert-Case "${Label}: OpenSubtitles key copied from source" (($null -ne $provider) -and ([string]$provider.ApiKey -eq 'opensubtitles-test-value'))
+    Assert-Case "${Label}: OpenSubtitles endpoint is the production https API" (($null -ne $provider) -and ([string]$provider.BaseUrl -eq 'https://api.opensubtitles.com'))
+    Assert-Case "${Label}: OpenSubtitles fields come from the settings template" (($null -ne $provider) -and ($null -ne $templateProvider) -and ([string]$provider.UserAgent -eq [string]$templateProvider.UserAgent) -and ((@($provider.DownloadAllowedHosts) -join ',') -eq (@($templateProvider.DownloadAllowedHosts) -join ',')) -and ([long]$provider.MaxDownloadBytes -eq [long]$templateProvider.MaxDownloadBytes) -and ([string]$provider.RequestTimeout -eq [string]$templateProvider.RequestTimeout))
+    Assert-Case "${Label}: api-settings published from generated settings" (Test-LogHas $Result 'create secret generic api-settings --from-file=appsettings\.Production\.json=.*api\.settings\.json')
+    Assert-Case "${Label}: no tmdb.env written" (-not (Test-Path -LiteralPath $tmdbEnvPath))
+    Assert-Case "${Label}: no tmdb-credentials published" (-not (Test-LogHas $Result 'create secret generic tmdb-credentials'))
+    $publishes = @(@($Result.Log) | Where-Object { $_ -match 'create secret generic ' }).Count
+    Assert-Case "${Label}: only three Secrets published" ($publishes -eq 3) "found $publishes"
+    $combined = $Result.Output + "`n" + ($Result.Log -join "`n")
+    Assert-Case "${Label}: secret values are not printed" (-not ($combined.Contains('omdb-test-value') -or $combined.Contains('tmdb-test-value') -or $combined.Contains('opensubtitles-test-value')))
+}
+
+function Invoke-TmdbKeyCase {
+    param([string]$Label, [string]$SourcePath, [string]$ExpectedKey)
+    $ops = New-Ops ("case-tmdb-" + $Label)
+    $cfg = Write-TestConfig -Path (Join-Path $ops 'home.config.json') -LibraryPath $library -BackupPath $backups `
+        -KubeconfigPath (Join-Path $ops 'kubeconfig') -SecretSourcePath $SourcePath
+    Write-StubRules -Path $rules -Rules $freshRules
+    $result = Invoke-HomeCase -Script $target -Arguments @('-ConfigPath', $cfg, '-ArgoManifestPath', $argoManifest) -BinDir $bin -LogPath $log -RulesPath $rules
+    Assert-Case "${Label}: exit 0" ($result.ExitCode -eq 0) "exit $($result.ExitCode): $($result.Output)"
+    Assert-HomeSettingsChannel -Label $Label -Result $result -OpsPath $ops -ExpectedTmdbKey $ExpectedKey
 }
 
 $freshRules = @(
@@ -68,15 +122,19 @@ Assert-Case 'fresh: no leftover apply files' (-not (Get-ChildItem -LiteralPath $
 
 $pgLine = Get-Content -LiteralPath $pgEnvPath | Where-Object { $_ -like 'POSTGRES_PASSWORD=*' }
 $pgSecret = ($pgLine -split '=', 2)[1]
-$omdbInSettings = ([string]$settings.Omdb.ApiKey -eq 'omdb-test-value')
-Assert-Case 'fresh: OMDb key copied from source' $omdbInSettings
 Assert-Case 'fresh: subtitle saving is enabled for the home library' ([bool]$settings.Subtitles.SaveEnabled -eq $true)
 Assert-Case 'fresh: subtitle preferred languages are pt-BR then en' ((@($settings.Subtitles.PreferredLanguages) -join ',') -eq 'pt-BR,en')
-$provider = $settings.Subtitles.PSObject.Properties['OpenSubtitles'] ? $settings.Subtitles.OpenSubtitles : $null
-Assert-Case 'fresh: OpenSubtitles key copied from source' (($null -ne $provider) -and ([string]$provider.ApiKey -eq 'opensubtitles-test-value'))
-Assert-Case 'fresh: OpenSubtitles endpoint is the production https API' (($null -ne $provider) -and ([string]$provider.BaseUrl -eq 'https://api.opensubtitles.com'))
-Assert-Case 'fresh: OpenSubtitles allows the API and download hosts' (($null -ne $provider) -and ((@($provider.DownloadAllowedHosts) -join ',') -eq 'api.opensubtitles.com,dl.opensubtitles.org'))
-Assert-Case 'fresh: OpenSubtitles keeps a download ceiling and timeout' (($null -ne $provider) -and ([long]$provider.MaxDownloadBytes -gt 0) -and ([string]$provider.RequestTimeout -ne ''))
+Assert-HomeSettingsChannel -Label 'present' -Result $r1 -OpsPath $ops1 -ExpectedTmdbKey 'tmdb-test-value'
+
+# Case 1a: TMDb key absent from the operator source; settings still carry TMDb enabled with an explicit empty key
+Invoke-TmdbKeyCase -Label 'absent' -SourcePath $sourceEnvNoTmdb -ExpectedKey ''
+
+# Case 1b: TMDb key present but empty in the operator source
+Invoke-TmdbKeyCase -Label 'empty' -SourcePath $sourceEnvEmptyTmdb -ExpectedKey ''
+
+# Case 1c: TMDb key whitespace-only in the operator source
+Invoke-TmdbKeyCase -Label 'whitespace-only' -SourcePath $sourceEnvWhitespaceTmdb -ExpectedKey ''
+
 Assert-Case 'fresh: secret values are not printed' ((-not $r1.Output.Contains($pgSecret)) -and (-not $r1.Output.Contains('omdb-test-value')) -and (-not $r1.Output.Contains('tmdb-test-value')) -and (-not $r1.Output.Contains('opensubtitles-test-value')))
 Assert-Case 'fresh: secret values are not in the call log' ((-not (($r1.Log -join "`n").Contains($pgSecret))))
 

@@ -14,136 +14,190 @@ public sealed class TmdbComposeTests
     private const string ComposeFileName = "docker-compose.yml";
     private const string ApiServiceHeading = "  api:";
     private const string EnvironmentHeading = "    environment:";
-    private const string TmdbEnabledEntry = "Tmdb__Enabled: ${TMDB_ENABLED:-true}";
-    private const string TmdbApiKeyEntry = "Tmdb__ApiKey: ${TMDB_API_KEY:-}";
+    private const string VolumesHeading = "    volumes:";
     private const string TmdbKeyPrefix = "Tmdb__";
     private const string EnvExampleFileName = ".env.example";
-    private const string EnvEnabledEntry = "TMDB_ENABLED=true";
-    private const string EnvApiKeyEntry = "TMDB_API_KEY=";
+    private const string TmdbEnvPrefix = "TMDB_";
     private const string TmdbSectionName = "Tmdb";
-    private const string TmdbEnabledPropertyName = "Enabled";
+    private const string OmdbSectionName = "Omdb";
+    private const string SubtitlesSectionName = "Subtitles";
+    private const string OpenSubtitlesSectionName = "OpenSubtitles";
+    private const string ApiKeyPropertyName = "ApiKey";
+    private const string EnabledPropertyName = "Enabled";
+    private const string SaveEnabledPropertyName = "SaveEnabled";
+    private const string PreferredLanguagesPropertyName = "PreferredLanguages";
     private const string ApiAppSettingsRelativePath = "src/LamuFlix.Api/appsettings.json";
     private const string ApiSettingsExampleRelativePath = "docker/api.settings.example.json";
-    private const string TmdbNameFragment = "tmdb";
-    private const string TmdbKeyVariable = "TMDB_API_KEY";
+    private const string PlaceholderApiKeyValue = "change";
+    private const string SettingsSourceEntry = "source: ./docker/api.settings.json";
+    private const string SettingsTargetEntry = "target: /app/appsettings.Production.json";
+    private const string SettingsReadOnlyEntry = "read_only: true";
     private static readonly Regex ServiceBoundary = new(@"^\s{0,2}\S", RegexOptions.CultureInvariant);
-    private static readonly Regex EnvironmentBoundary = new(@"^\s{0,4}\S", RegexOptions.CultureInvariant);
-    private static readonly Regex NonEmptyTmdbKey = new(@"^TMDB_API_KEY=.+$", RegexOptions.CultureInvariant);
+    private static readonly Regex SectionBoundary = new(@"^\s{0,4}\S", RegexOptions.CultureInvariant);
     private static readonly Regex TrailingComment = new(@"\s+#.*$", RegexOptions.CultureInvariant);
+    private static readonly string[] OpenSubtitlesProperties =
+    [
+        ApiKeyPropertyName,
+        "BaseUrl",
+        "UserAgent",
+        "DownloadAllowedHosts",
+        "MaxDownloadBytes",
+        "RequestTimeout",
+    ];
 
     [Fact]
-    public void ComposeApiService_Environment_EnablesTmdbByDefaultFromEnv()
+    public void ComposeApiService_Volumes_MountSettingsFileAtProductionPath()
     {
         // arrange
-        var environment = ReadApiServiceEnvironment();
+        var volumes = ReadApiServiceSection(VolumesHeading);
 
-        // act & assert
-        environment.ShouldContain(TmdbEnabledEntry);
+        // act
+        var mountEntries = volumes
+            .Where(line => line.StartsWith("source:", StringComparison.Ordinal)
+                || line.StartsWith("target:", StringComparison.Ordinal)
+                || line.StartsWith("read_only:", StringComparison.Ordinal))
+            .ToList();
+
+        // assert
+        mountEntries.ShouldContain(SettingsSourceEntry);
+        mountEntries.ShouldContain(SettingsTargetEntry);
+        mountEntries.ShouldContain(SettingsReadOnlyEntry);
     }
 
     [Fact]
-    public void ComposeApiService_Environment_ReadsTmdbApiKeyFromEnvWithEmptyDefault()
+    public void ComposeApiService_Environment_DeclaresNoTmdbSettings()
     {
         // arrange
-        var environment = ReadApiServiceEnvironment();
-
-        // act & assert
-        environment.ShouldContain(TmdbApiKeyEntry);
-    }
-
-    [Fact]
-    public void ComposeApiService_Environment_DeclaresNoOtherTmdbSetting()
-    {
-        // arrange
-        var environment = ReadApiServiceEnvironment();
+        var environment = ReadApiServiceSection(EnvironmentHeading);
 
         // act
         var tmdbEntries = environment.Where(entry => entry.StartsWith(TmdbKeyPrefix, StringComparison.Ordinal)).ToList();
 
         // assert
-        tmdbEntries.ShouldBe([TmdbEnabledEntry, TmdbApiKeyEntry]);
+        tmdbEntries.ShouldBeEmpty();
     }
 
     [Fact]
-    public void EnvExample_ActiveEntries_DocumentTmdbEnablementAndEmptyKey()
+    public void EnvExample_Content_DoesNotMentionTmdb()
     {
         // arrange
-        var entries = ReadActiveEnvExampleEntries();
-
-        // act & assert
-        entries.ShouldContain(EnvEnabledEntry);
-        entries.ShouldContain(EnvApiKeyEntry);
-    }
-
-    [Fact]
-    public void EnvExample_ApiKeyPlaceholder_StaysEmpty()
-    {
-        // arrange
-        var entries = ReadActiveEnvExampleEntries();
+        var path = Path.Combine(FindRepositoryRoot(), EnvExampleFileName);
 
         // act
-        var committedKeys = entries.Where(entry => NonEmptyTmdbKey.IsMatch(entry)).ToList();
+        var tmdbLines = File.ReadAllLines(path)
+            .Where(line => line.Contains(TmdbEnvPrefix, StringComparison.OrdinalIgnoreCase)
+                || line.Contains(TmdbSectionName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
         // assert
-        committedKeys.ShouldBeEmpty();
+        tmdbLines.ShouldBeEmpty();
     }
 
     [Fact]
-    public void ApiAppSettings_TmdbSection_StaysDisabled()
+    public void ApiAppSettings_TmdbSection_StaysDisabledWithBlankKey()
     {
         // arrange
         var path = Path.Combine(FindRepositoryRoot(), ApiAppSettingsRelativePath);
 
         // act
         using var document = JsonDocument.Parse(File.ReadAllText(path));
-        var enabled = document.RootElement.GetProperty(TmdbSectionName).GetProperty(TmdbEnabledPropertyName).GetBoolean();
+        document.RootElement.TryGetProperty(TmdbSectionName, out var tmdb).ShouldBeTrue();
+        var enabled = tmdb.GetProperty(EnabledPropertyName).GetBoolean();
+        var keyIsBlank = !tmdb.TryGetProperty(ApiKeyPropertyName, out var apiKey)
+            || apiKey.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(apiKey.GetString());
 
         // assert
         enabled.ShouldBeFalse();
+        keyIsBlank.ShouldBeTrue();
     }
 
     [Fact]
-    public void ApiSettingsExample_Content_CarriesNoTmdbMaterial()
+    public void ApiSettingsExample_OmdbSection_DocumentsPlaceholderKey()
     {
         // arrange
         var path = Path.Combine(FindRepositoryRoot(), ApiSettingsExampleRelativePath);
 
         // act
-        var content = File.ReadAllText(path);
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        var apiKey = document.RootElement.GetProperty(OmdbSectionName).GetProperty(ApiKeyPropertyName).GetString();
 
         // assert
-        content.Contains(TmdbNameFragment, StringComparison.OrdinalIgnoreCase).ShouldBeFalse();
-        content.Contains(TmdbKeyVariable, StringComparison.OrdinalIgnoreCase).ShouldBeFalse();
+        apiKey.ShouldBe(PlaceholderApiKeyValue);
     }
 
-    private static IReadOnlyList<string> ReadApiServiceEnvironment()
+    [Fact]
+    public void ApiSettingsExample_TmdbSection_EnablesWithBlankKey()
+    {
+        // arrange
+        var path = Path.Combine(FindRepositoryRoot(), ApiSettingsExampleRelativePath);
+
+        // act
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        document.RootElement.TryGetProperty(TmdbSectionName, out var tmdb).ShouldBeTrue();
+        var enabled = tmdb.GetProperty(EnabledPropertyName).GetBoolean();
+        var apiKey = tmdb.GetProperty(ApiKeyPropertyName).GetString();
+
+        // assert
+        enabled.ShouldBeTrue();
+        apiKey.ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public void ApiSettingsExample_SubtitlesSection_PreservesSiblingKeys()
+    {
+        // arrange
+        var path = Path.Combine(FindRepositoryRoot(), ApiSettingsExampleRelativePath);
+
+        // act
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        var subtitles = document.RootElement.GetProperty(SubtitlesSectionName);
+        var saveEnabled = subtitles.GetProperty(SaveEnabledPropertyName).GetBoolean();
+        var preferredLanguages = subtitles.GetProperty(PreferredLanguagesPropertyName).GetArrayLength();
+
+        // assert
+        saveEnabled.ShouldBeFalse();
+        preferredLanguages.ShouldBe(0);
+    }
+
+    [Fact]
+    public void ApiSettingsExample_OpenSubtitlesSection_MatchesRatifiedContract()
+    {
+        // arrange
+        var path = Path.Combine(FindRepositoryRoot(), ApiSettingsExampleRelativePath);
+
+        // act
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        document.RootElement.TryGetProperty(SubtitlesSectionName, out var subtitles).ShouldBeTrue();
+        subtitles.TryGetProperty(OpenSubtitlesSectionName, out var openSubtitles).ShouldBeTrue();
+        var propertyNames = openSubtitles.EnumerateObject().Select(property => property.Name).ToArray();
+        var allowedHosts = openSubtitles.GetProperty("DownloadAllowedHosts").EnumerateArray().Select(host => host.GetString()).ToArray();
+
+        // assert
+        propertyNames.ShouldBe(OpenSubtitlesProperties);
+        openSubtitles.GetProperty(ApiKeyPropertyName).GetString().ShouldBe(string.Empty);
+        openSubtitles.GetProperty("BaseUrl").GetString().ShouldBe("https://api.opensubtitles.com");
+        openSubtitles.GetProperty("UserAgent").GetString().ShouldBe("LamuFlix v1.0");
+        allowedHosts.ShouldBe(["api.opensubtitles.com", "www.opensubtitles.com"]);
+        openSubtitles.GetProperty("MaxDownloadBytes").GetInt64().ShouldBe(1048576);
+        openSubtitles.GetProperty("RequestTimeout").GetString().ShouldBe("00:00:15");
+    }
+
+    private static IReadOnlyList<string> ReadApiServiceSection(string heading)
     {
         var lines = File.ReadAllLines(Path.Combine(FindRepositoryRoot(), ComposeFileName));
         var serviceStart = Array.IndexOf(lines, ApiServiceHeading);
         serviceStart.ShouldBeGreaterThanOrEqualTo(0);
 
         var service = lines.Skip(serviceStart + 1).TakeWhile(line => !ServiceBoundary.IsMatch(line)).ToList();
-        var environmentStart = service.IndexOf(EnvironmentHeading);
-        environmentStart.ShouldBeGreaterThanOrEqualTo(0);
+        var sectionStart = service.IndexOf(heading);
+        sectionStart.ShouldBeGreaterThanOrEqualTo(0);
 
         return
         [
             .. service
-                .Skip(environmentStart + 1)
-                .TakeWhile(line => !EnvironmentBoundary.IsMatch(line))
+                .Skip(sectionStart + 1)
+                .TakeWhile(line => !SectionBoundary.IsMatch(line))
                 .Select(line => TrailingComment.Replace(line.Trim(), string.Empty)),
-        ];
-    }
-
-    private static IReadOnlyList<string> ReadActiveEnvExampleEntries()
-    {
-        var path = Path.Combine(FindRepositoryRoot(), EnvExampleFileName);
-        return
-        [
-            .. File.ReadAllLines(path)
-                .Select(line => line.Trim())
-                .Where(line => !line.StartsWith('#'))
-                .Where(line => line.Length > 0),
         ];
     }
 
