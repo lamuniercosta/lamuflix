@@ -197,7 +197,6 @@ try {
     Publish-Secret -Cfg $cfg -Name 'postgres-credentials' -SecretsDir $secretsDir -CreateArgs @("--from-env-file=$(Join-Path $secretsDir 'postgres.env')")
     Publish-Secret -Cfg $cfg -Name 'rabbitmq-credentials' -SecretsDir $secretsDir -CreateArgs @("--from-env-file=$(Join-Path $secretsDir 'rabbitmq.env')")
     Publish-Secret -Cfg $cfg -Name 'api-settings' -SecretsDir $secretsDir -CreateArgs @("--from-file=appsettings.Production.json=$(Join-Path $secretsDir 'api.settings.json')")
-    # The legacy tmdb-credentials Secret stays for rollback and post-verification operator cleanup.
     Write-HomeInfo 'api-settings published; verify Tmdb:Enabled there before rolling the API (set false to opt out; values not shown)'
 
     Install-ArgoCd -Cfg $cfg -RepoRoot $repoRoot -ScratchDir $scratch
