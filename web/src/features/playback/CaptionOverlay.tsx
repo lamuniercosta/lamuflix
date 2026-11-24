@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type {
   SubtitleStyleProfile,
   SubtitleFontToken,
   SubtitleEdgeToken,
 } from './subtitlePreferences';
 import { SUBTITLE_PREVIEW_SAMPLE_COPY } from './subtitleCopy';
+import { parseCueMarkup, type CueMarkupNode } from './cueMarkup';
 import './captionOverlay.css';
 
 export interface RenderableSubtitleCue {
@@ -97,6 +98,17 @@ function captionStyle(
   };
 }
 
+function renderCueNode(node: CueMarkupNode, key: string): ReactNode {
+  if (node.kind === 'text') return node.text;
+  const Tag = node.kind;
+  return <Tag key={key}>{renderCueNodes(node.children, key)}</Tag>;
+}
+
+// Builds React elements only; cue text never reaches innerHTML.
+function renderCueNodes(nodes: readonly CueMarkupNode[], path: string): ReactNode[] {
+  return nodes.map((node, index) => renderCueNode(node, `${path}.${index}`));
+}
+
 export default function CaptionOverlay({
   surface,
   cues,
@@ -140,7 +152,7 @@ export default function CaptionOverlay({
             whiteSpace: 'pre-wrap',
           }}
         >
-          {line.text}
+          {renderCueNodes(parseCueMarkup(line.text), line.id)}
         </span>
       ))}
     </div>

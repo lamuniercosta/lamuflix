@@ -139,35 +139,100 @@ describe('CaptionOverlay', () => {
     expect(rendered[1].style.whiteSpace).toBe('pre-wrap');
   });
 
-  it('renders markup-looking text literally with no active elements or handlers', () => {
-    const hostile = [
-      '<i>italic</i> and <b>bold</b>',
-      '<img src="x" onerror="alert(1)">',
-      '<svg onload="alert(1)"></svg>',
-      '<a href="javascript:alert(1)">link</a>',
-      '<span style="background:url(javascript:alert(1))">styled</span>',
+  it('renders hostile markup as inert text with no dangerous elements or handlers', () => {
+    const hostile: Array<[string, string]> = [
+      ['<img src="x" onerror="alert(1)">', ''],
+      ['<svg onload="alert(1)"></svg>', ''],
+      ['<a href="javascript:alert(1)">link</a>', 'link'],
+      ['<span style="background:url(javascript:alert(1))">styled</span>', 'styled'],
     ];
     const { container } = render(
       <CaptionOverlay
         surface="windowed"
         style={style()}
         surfaceWidthPx={640}
-        cues={hostile.map((text, index) => ({ id: `cue-${index}`, text }))}
+        cues={hostile.map(([text], index) => ({ id: `cue-${index}`, text }))}
       />,
     );
 
     const rendered = boxes(container);
-    expect(rendered.map((box) => box.textContent)).toEqual(hostile);
+    expect(rendered.map((box) => box.textContent)).toEqual(hostile.map(([, text]) => text));
     expect(container.querySelector('img')).toBeNull();
     expect(container.querySelector('svg')).toBeNull();
     expect(container.querySelector('a')).toBeNull();
-    expect(container.querySelector('i')).toBeNull();
-    expect(container.querySelector('b')).toBeNull();
+    expect(container.querySelector('span span')).toBeNull();
+    expect(container.querySelector('[onerror]')).toBeNull();
+    expect(container.querySelector('[onload]')).toBeNull();
+    expect(container.querySelector('[href]')).toBeNull();
     expect(
-      Array.from(container.querySelectorAll('[data-testid="caption-box"]')).some((node) =>
-        node.getAttribute('style')?.includes('url('),
+      Array.from(container.querySelectorAll('[style]')).some((node) =>
+        (node.getAttribute('style') ?? '').includes('url('),
       ),
     ).toBe(false);
+  });
+
+  it('renders i and b cue markup as real italic and bold elements', () => {
+    const { container } = render(
+      <CaptionOverlay
+        surface="windowed"
+        style={style()}
+        surfaceWidthPx={640}
+        cues={[{ id: 'a', text: '&lt;i&gt;italic&lt;/i&gt; and &lt;b&gt;bold&lt;/b&gt;' }]}
+      />,
+    );
+    const box = boxes(container)[0];
+    const italic = box.querySelector('i');
+    const bold = box.querySelector('b');
+    expect(italic?.textContent).toBe('italic');
+    expect(bold?.textContent).toBe('bold');
+    expect(box.textContent).toBe('italic and bold');
+    expect(italic?.getAttribute('style')).toBeNull();
+    expect(bold?.getAttribute('style')).toBeNull();
+  });
+
+  it('renders u cue markup as an underline element', () => {
+    const { container } = render(
+      <CaptionOverlay
+        surface="windowed"
+        style={style()}
+        surfaceWidthPx={640}
+        cues={[{ id: 'a', text: '&lt;u&gt;under&lt;/u&gt;' }]}
+      />,
+    );
+    const underline = boxes(container)[0].querySelector('u');
+    expect(underline?.textContent).toBe('under');
+  });
+
+  it('drops font tags, keeps the text, and leaves the profile colour in charge', () => {
+    const { container } = render(
+      <CaptionOverlay
+        surface="windowed"
+        style={style()}
+        surfaceWidthPx={640}
+        cues={[{ id: 'a', text: '&lt;font color=#FFFF00&gt;Qual é a regra?&lt;/font&gt;' }]}
+      />,
+    );
+    const box = boxes(container)[0];
+    expect(box.textContent).toBe('Qual é a regra?');
+    expect(container.querySelector('font')).toBeNull();
+    expect(box.style.color).toBe('rgb(255, 255, 255)');
+  });
+
+  it('decodes ampersands and less-than signs in cue text', () => {
+    const { container } = render(
+      <CaptionOverlay
+        surface="windowed"
+        style={style()}
+        surfaceWidthPx={640}
+        cues={[
+          { id: 'a', text: 'Tom &amp; Jerry' },
+          { id: 'b', text: 'a &lt; b' },
+        ]}
+      />,
+    );
+    const rendered = boxes(container);
+    expect(rendered[0].textContent).toBe('Tom & Jerry');
+    expect(rendered[1].textContent).toBe('a < b');
   });
 
   it('is pointer-transparent, non-interactive, aria-hidden and not an aria-live stream', () => {
