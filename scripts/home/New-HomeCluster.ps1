@@ -53,10 +53,11 @@ function New-ApiSettingsFile {
     $pg = Read-EnvFile (Join-Path $SecretsDir 'postgres.env')
     $rmq = Read-EnvFile (Join-Path $SecretsDir 'rabbitmq.env')
 
-    $omdb = Read-EnvValue -Path $Cfg.SecretSourcePath -Key 'OMDB_API_KEY'
-    if (-not $omdb) { throw 'OMDB_API_KEY not found in secretSourcePath' }
-    $opensubtitles = Read-EnvValue -Path $Cfg.SecretSourcePath -Key 'OPENSUBTITLES_API_KEY'
-    if (-not $opensubtitles) { throw 'OPENSUBTITLES_API_KEY not found in secretSourcePath' }
+    $omdb = Read-ProviderKey -Path $Cfg.SecretSourcePath -Key 'OMDB_API_KEY'
+    if ([string]::IsNullOrWhiteSpace($omdb)) { throw 'OMDB_API_KEY not found in secretSourcePath' }
+    $tmdb = Read-ProviderKey -Path $Cfg.SecretSourcePath -Key 'TMDB_API_KEY'
+    $opensubtitles = Read-ProviderKey -Path $Cfg.SecretSourcePath -Key 'OPENSUBTITLES_API_KEY'
+    if ([string]::IsNullOrWhiteSpace($opensubtitles)) { throw 'OPENSUBTITLES_API_KEY not found in secretSourcePath' }
 
     $settings = Get-Content -LiteralPath $example -Raw | ConvertFrom-Json
     $settings.PSObject.Properties.Remove('OTEL_EXPORTER_OTLP_ENDPOINT')
@@ -64,16 +65,10 @@ function New-ApiSettingsFile {
     $settings.RabbitMq.UserName = $rmq['RABBITMQ_DEFAULT_USER']
     $settings.RabbitMq.Password = $rmq['RABBITMQ_DEFAULT_PASS']
     $settings.Omdb.ApiKey = $omdb
+    $settings.Tmdb.ApiKey = $tmdb
     $settings.Subtitles.SaveEnabled = $true
     $settings.Subtitles.PreferredLanguages = @('pt-BR', 'en')
-    $settings.Subtitles | Add-Member -NotePropertyName 'OpenSubtitles' -NotePropertyValue ([pscustomobject][ordered]@{
-        ApiKey = $opensubtitles
-        BaseUrl = 'https://api.opensubtitles.com'
-        UserAgent = 'LamuFlix/1.0 (personal library)'
-        DownloadAllowedHosts = @('api.opensubtitles.com', 'dl.opensubtitles.org')
-        MaxDownloadBytes = 1048576
-        RequestTimeout = '00:00:15'
-    }) -Force
+    $settings.Subtitles.OpenSubtitles.ApiKey = $opensubtitles
 
     Write-TextFileUtf8 -Path (Join-Path $SecretsDir 'api.settings.json') -Text ($settings | ConvertTo-Json -Depth 20)
 }
@@ -85,18 +80,6 @@ function Read-EnvFile {
         if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') { $map[$matches[1]] = $matches[2] }
     }
     return $map
-}
-
-function Get-TmdbKeyFile {
-    param($Cfg, [string]$SecretsDir)
-    $tmdb = Read-EnvValue -Path $Cfg.SecretSourcePath -Key 'TMDB_API_KEY'
-    $path = Join-Path $SecretsDir 'tmdb.env'
-    if ($tmdb) {
-        Write-EnvFile -Path $path -Values ([ordered]@{ apiKey = $tmdb })
-        return $path
-    }
-    Write-HomeInfo 'TMDB_API_KEY not found; tmdb-credentials is optional and will be skipped'
-    return $null
 }
 
 function Publish-Secret {
@@ -205,7 +188,6 @@ try {
 
     Get-FreshCredentials -SecretsDir $secretsDir
     New-ApiSettingsFile -RepoRoot $repoRoot -SecretsDir $secretsDir -Cfg $cfg
-    $tmdbFile = Get-TmdbKeyFile -Cfg $cfg -SecretsDir $secretsDir
 
     if (-not $clusterExists) { New-KindCluster -Cfg $cfg -RepoRoot $repoRoot -SecretsDir $secretsDir }
 
@@ -215,9 +197,8 @@ try {
     Publish-Secret -Cfg $cfg -Name 'postgres-credentials' -SecretsDir $secretsDir -CreateArgs @("--from-env-file=$(Join-Path $secretsDir 'postgres.env')")
     Publish-Secret -Cfg $cfg -Name 'rabbitmq-credentials' -SecretsDir $secretsDir -CreateArgs @("--from-env-file=$(Join-Path $secretsDir 'rabbitmq.env')")
     Publish-Secret -Cfg $cfg -Name 'api-settings' -SecretsDir $secretsDir -CreateArgs @("--from-file=appsettings.Production.json=$(Join-Path $secretsDir 'api.settings.json')")
-    if ($tmdbFile) {
-        Publish-Secret -Cfg $cfg -Name 'tmdb-credentials' -SecretsDir $secretsDir -CreateArgs @("--from-env-file=$tmdbFile")
-    }
+    # The legacy tmdb-credentials Secret stays for rollback and post-verification operator cleanup.
+    Write-HomeInfo 'api-settings published; verify Tmdb:Enabled there before rolling the API (set false to opt out; values not shown)'
 
     Install-ArgoCd -Cfg $cfg -RepoRoot $repoRoot -ScratchDir $scratch
     Assert-Kube -Cfg $cfg -KubeArgs @('apply', '-f', (Join-Path $repoRoot 'deploy\argocd\application.yaml')) -What 'apply Application' | Out-Null

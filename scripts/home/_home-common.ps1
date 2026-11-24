@@ -5,7 +5,8 @@
 #   clusterName, libraryPath, backupPath, webPort (3100), argoPort (3180)
 # Optional keys:
 #   kubeconfigPath   default <opsRoot>\kubeconfig. Must not be the user's ~\.kube\config.
-#   secretSourcePath env-style file holding TMDB_API_KEY, OMDB_API_KEY and OPENSUBTITLES_API_KEY (values are never printed)
+#   secretSourcePath env-style file holding OMDB_API_KEY, TMDB_API_KEY and OPENSUBTITLES_API_KEY (values are never printed);
+#     TMDB_API_KEY is optional and an absent or blank value renders an explicit empty Tmdb:ApiKey in generated settings
 #   releaseJsonPath  RELEASE.json written by promote-home, read by Get-HomeStatus
 #   kind, kubectl, docker   executables, default from PATH
 #   waitSeconds      default 900
@@ -190,6 +191,13 @@ function Read-EnvValue {
         }
     }
     return $null
+}
+
+function Read-ProviderKey {
+    param([string]$Path, [string]$Key)
+    $value = Read-EnvValue -Path $Path -Key $Key
+    if ($null -eq $value) { return '' }
+    return $value.Trim()
 }
 
 # Same digest as deploy/k8s/base (postgres) and phase2-decisions. Used only to run pg_restore -l on the host.

@@ -57,14 +57,6 @@ spec:
               value: http://aspire-dashboard:18889
             - name: OTEL_SERVICE_NAME
               value: lamuflix-api
-            - name: Tmdb__Enabled
-              value: "true"
-            - name: Tmdb__ApiKey
-              valueFrom:
-                secretKeyRef:
-                  name: tmdb-credentials
-                  key: apiKey
-                  optional: true
           volumeMounts:
             - name: api-settings
               mountPath: /app/appsettings.Production.json
