@@ -1,0 +1,7 @@
+# DEV-547 — Conclusions
+
+## Q1 — Dedicated version endpoint (`GET /api/version`, HTTP `200 OK`)
+**Verdict:** Approved (not `blocked: structural`) — freeze a dedicated `GET /api/version` endpoint returning HTTP `200 OK` with `{ release, commit }` (`string | null` for `release`, `string` for `commit`); no additional recon needed.
+- **Ticket authorization (`DEV-547` Wanted 5, Done when 2, Where it lands `src/LamuFlix.Api`; `DEV-547` note line 4; `recon-DEV-547:11,29,33`):** The ticket explicitly authorizes either a dedicated version endpoint or a field on the optional DEV-560 status response, and `Done when` bullet 2 specifically names "the version endpoint" returning `{ release, commit }` (`release: null` when unset). Freezing `GET /api/version` keeps DEV-560 optional regardless of its merge state.
+- **API shape & route convention (Charter §2.3 item 4; `specs/PRODUCT.md:34,46`; `recon-DEV-547:12-13`; Constitution lines 809, 849, 960–961):** Grouping `GET /api/version` under `/api` via `MapApiEndpoints` (`src/LamuFlix.Api/Endpoints/ApiEndpoints.cs:6-25`) and returning `TypedResults.Ok(...)` (`200 OK`) matches existing Minimal API conventions and exposes build/release metadata rather than URI/header API versioning.
+- **Contract chain (`AGENTS.md` Contract chain; `specs/PRODUCT.md:12`; Constitution lines 849–850, 967–969; `recon-DEV-547:16`):** Project the new route and response DTO through the app-generated OpenAPI document (`web/src/api/openapi.json`) and regenerate TypeScript types (`web/src/api/types.ts` via `generate:api`).
