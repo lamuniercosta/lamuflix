@@ -16,7 +16,7 @@
 ## Requirement Clarity
 
 - [ ] CHK006 Is Option A library exclusion (TMDb id, then normalized title + equal known year) unambiguous and free of IMDb-candidate invent? [Clarity, Spec §FR-005]
-- [ ] CHK007 Is “normalized title” defined with NFC, trim, collapsed whitespace, ordinal case-insensitive comparison, and punctuation/accent preservation? [Clarity, Spec §FR-005]
+- [ ] CHK007 Is “normalized title” defined with NFC, trim, collapsed whitespace, ordinal case-insensitive comparison, and explicit punctuation/accent preservation, and is that normalization applied only to the canonical metadata tuple chosen before title/year fallback? [Clarity, Spec §FR-005, FR-008, data-model.md]
 - [ ] CHK008 Are Liked/Watched defaults, Watchlist ineligibility, and Liked precedence quantified? [Clarity, Spec §FR-006]
 - [ ] CHK009 Is the reason format pinned to the two-seed ticket example with coincident-title behaviour? [Clarity, Spec §FR-009]
 - [ ] CHK010 Is “day-verified official TMDb attribution” bounded without inventing exact credit copy in the draft? [Clarity, Spec §FR-014, Assumptions]

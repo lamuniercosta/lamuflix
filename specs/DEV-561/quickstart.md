@@ -24,9 +24,10 @@ Use this to refresh matched source movies whose `movie_recommendations` rows sti
 
 1. Apply migration against a database that already holds ID-only recommendation rows.
 2. Run unit/integration suites for mapping, ranking, API zero-HTTP, For You parity, and web section behaviour.
-3. With hydrated titled links and two eligible seeds for at least one outside candidate, open For You and confirm **Not in your library yet** (SMOKE-001).
-4. With TMDb disabled or blank key, confirm the section is hidden and the library grid still works (SMOKE-002).
-5. For delivery evidence, run production ranking on the home library after hydration; publish ≥1-seed and ≥2-seed counts and owner verdicts on the ranked top 10 (or all if fewer). Keep raw viewing/seed data local.
+3. **SMOKE-001 (required local seeded E2E):** with hydrated titled links and two eligible seeds for at least one outside candidate, open For You and confirm **Not in your library yet** with title, two-seed reason, and accessible TMDb link; library grid still loads. Fixture strategy confirmed at Phase B pickup.
+4. **SMOKE-002 (both config-off cases):** with `Tmdb:Enabled` false, and separately with blank `ApiKey`, confirm API returns `200 []`, the discovery section is hidden, and the library grid remains usable (web tests cover API `200 []` → hidden section → usable grid).
+5. **SMOKE-003:** on a visible discovery card, confirm no Play / library-details / Not interested controls, accessible new-tab TMDb link with `rel="noopener noreferrer"`, and day-verified TMDb credit beside the section.
+6. For delivery evidence, run production ranking on the home library after hydration; publish ≥1-seed and ≥2-seed counts under the same Option A exclusion as the live query and owner verdicts on the ranked top 10 (or all if fewer). Keep raw viewing/seed data local.
 
 ## Notes
 

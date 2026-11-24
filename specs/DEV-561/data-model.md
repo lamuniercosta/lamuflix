@@ -19,15 +19,16 @@ Existing `movie_recommendations` / `MovieRecommendationRecord` rows, extended in
 
 ## Discovery candidate (derived, not persisted)
 
-Computed at read time from titled links:
+Computed at read time from titled links. Ordering is mandatory:
 
-1. Exclude blank-title links.
-2. Exclude candidates whose `recommended_tmdb_id` appears on any library movie.
-3. Exclude candidates that match a library movie lacking TMDb id when normalized titles equal and both release years are known and equal.
-4. Aggregate eligible Liked/Watched (non-Disliked) source contributions per candidate TMDb id after pair dedupe.
-5. Keep candidates with at least two distinct contributing sources.
-6. Select one atomic title/year/poster tuple from the highest-weight contributing seed (lowest MovieId on tie).
-7. Sort by summed weight descending, then TMDb id ascending; take at most 20.
+1. Drop blank-title links; keep only eligible Liked/Watched (non-Disliked) contributors after source/candidate pair dedupe.
+2. Group by recommended TMDb ID and, from those eligible titled deduplicated contributors, select one canonical atomic title/year/poster tuple per candidate from the highest-weight contributing seed (lowest library MovieId on tie). An ineligible or losing seed MUST NOT supply fallback identity or displayed metadata.
+3. Exclude any candidate whose recommended TMDb ID appears on any library movie (TMDb-ID check covers the whole library).
+4. Apply normalized-title plus equal known-year fallback to that canonical tuple only, against library movies that lack a TMDb ID; both years must be known and equal. A missing year cannot establish the match. Normalization is Unicode NFC + trim + collapsed whitespace + ordinal case-insensitive comparison while preserving punctuation and accents.
+5. Count remaining candidates; keep those with at least two distinct contributing sources before returning any card.
+6. Sort by summed weight descending, then TMDb id ascending; take at most 20.
+
+Home-library ≥1-seed and ≥2-seed acceptance counts MUST use this same Option A exclusion (steps 3–4) before denominators are reported.
 
 ## Discovery seed contribution (derived)
 

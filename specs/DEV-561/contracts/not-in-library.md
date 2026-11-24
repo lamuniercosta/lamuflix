@@ -30,10 +30,12 @@ Empty eligible set, `Tmdb:Enabled` false, or blank `Tmdb:ApiKey` → `200` with 
 
 ## Codegen
 
-1. C# response DTO in Core/Api recommendation feature
-2. Regenerate `web/src/api/openapi.json`
+1. C# response DTO in `src/LamuFlix.Core/Features/Recommendations/` (Core Recommendations)
+2. Regenerate and commit `web/src/api/openapi.json` (OpenAPI snapshot; drift verification green)
 3. Regenerate `web/src/api/types.ts`
 4. `web/src/features/for-you/` consumes generated types only (no hand-rolled duplicates)
+
+Endpoint registration uses `TypedResults`. Error paths use shared RFC 7807 `ProblemDetails`. Empty eligible / config-off cases remain HTTP 200 `[]`.
 
 ## Client-derived URL
 
