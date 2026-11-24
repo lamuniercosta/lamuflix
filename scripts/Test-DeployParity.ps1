@@ -395,7 +395,6 @@ $clusterOnlyWorkloads = @('aspire-dashboard')
 $otelEndpointName = 'OTEL_EXPORTER_OTLP_ENDPOINT'
 $otelEndpointValue = 'http://aspire-dashboard:18889'
 $webNodePort = '30100'
-# Provider keys belong in the mounted API settings JSON, never in API env vars.
 $legacyProviderKeyEnvNames = @(
     'Tmdb__Enabled',
     'Tmdb__ApiKey',
