@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { client } from '../../api/client';
 import type { components } from '../../api/types';
+import { markApiTransportFailure, reportApiFailure } from '../../api/reportApiFailure';
 import {
   readSubtitleProblem,
   type SubtitleCandidate,
@@ -62,6 +63,10 @@ const INITIAL_CATALOG: CatalogSnapshot = {
 
 const UNREACHABLE_PROBLEM: SubtitleProblem = { status: null, reason: null, quota: null };
 
+function classifyRawFailure(error: unknown): unknown {
+  return error instanceof TypeError ? markApiTransportFailure(error) : error;
+}
+
 export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquisition {
   const numericId = Number(movieId);
   const [catalog, setCatalog] = useState<CatalogSnapshot>(INITIAL_CATALOG);
@@ -81,8 +86,14 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
     catalogGeneration.current = generation;
     void (async () => {
       let next: CatalogSnapshot;
+      let failure: unknown;
       try {
-        const result = await client.GET('/api/subtitles/languages');
+        const result = await client.GET('/api/subtitles/languages').catch((error: unknown) => {
+          throw classifyRawFailure(error);
+        });
+        if (result.error !== undefined || result.response.status >= 400) {
+          failure = result;
+        }
         next =
           result.error || !result.data
             ? { defaultLanguage: null, languages: EMPTY_LANGUAGES, status: 'error' }
@@ -91,10 +102,12 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
                 languages: result.data.languages,
                 status: 'ready',
               };
-      } catch {
+      } catch (error) {
+        if (failure === undefined) failure = error;
         next = { defaultLanguage: null, languages: EMPTY_LANGUAGES, status: 'error' };
       }
       if (generation !== catalogGeneration.current) return;
+      if (failure !== undefined) reportApiFailure(failure);
       setCatalog(next);
     })();
     return () => {
@@ -110,10 +123,18 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
     searchGeneration.current = generation;
     void (async () => {
       let next: SearchSnapshot;
+      let failure: unknown;
       try {
-        const result = await client.GET('/api/movies/{id}/subtitles/search', {
-          params: { path: { id: numericId }, query: { language } },
-        });
+        const result = await client
+          .GET('/api/movies/{id}/subtitles/search', {
+            params: { path: { id: numericId }, query: { language } },
+          })
+          .catch((error: unknown) => {
+            throw classifyRawFailure(error);
+          });
+        if (result.error !== undefined || result.response.status >= 400) {
+          failure = result;
+        }
         next = result.error
           ? {
               language,
@@ -131,7 +152,8 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
               availability: result.data.downloadAvailability,
               problem: null,
             };
-      } catch {
+      } catch (error) {
+        if (failure === undefined) failure = error;
         next = {
           language,
           status: 'error',
@@ -142,6 +164,7 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
         };
       }
       if (generation !== searchGeneration.current) return;
+      if (failure !== undefined) reportApiFailure(failure);
       setSnapshot(next);
     })();
     return () => {
@@ -186,12 +209,18 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
     void (async () => {
       let problem: SubtitleProblem | null = null;
       let outcome: SubtitleDownloadOutcome | null = null;
+      let failure: unknown;
       try {
-        const result = await client.POST('/api/movies/{id}/subtitles/download', {
-          params: { path: { id: numericId } },
-          body: { candidateId },
-        });
-        if (result.error) {
+        const result = await client
+          .POST('/api/movies/{id}/subtitles/download', {
+            params: { path: { id: numericId } },
+            body: { candidateId },
+          })
+          .catch((error: unknown) => {
+            throw classifyRawFailure(error);
+          });
+        if (result.error !== undefined || result.response.status >= 400) {
+          failure = result;
           problem = readSubtitleProblem(result.error);
         } else {
           outcome = {
@@ -200,10 +229,12 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
             language: downloadLanguage,
           };
         }
-      } catch {
+      } catch (error) {
+        if (failure === undefined) failure = error;
         problem = UNREACHABLE_PROBLEM;
       }
       if (generation !== downloadGeneration.current) return;
+      if (failure !== undefined) reportApiFailure(failure);
       setDownloadingCandidateId(null);
       if (problem) {
         setDownloadProblem(problem);

@@ -12,12 +12,14 @@ import {
   SUBTITLE_LANGUAGE_LABEL,
   SUBTITLE_LOCAL_TRACKS_LABEL,
   SUBTITLE_NO_RESULTS_COPY,
+  SUBTITLE_PROVIDER_FAILURE_COPY,
   SUBTITLE_QUOTA_REACHED_COPY,
   SUBTITLE_QUOTA_UNAVAILABLE_COPY,
   SUBTITLE_READY_COPY,
   SUBTITLE_READ_ONLY_COPY,
   SUBTITLE_RETRY_SEARCH_LABEL,
   SUBTITLE_SEARCHING_COPY,
+  SUBTITLE_SEARCH_FAILURE_COPY,
   SUBTITLE_SEARCH_RATE_LIMITED_COPY,
   SUBTITLE_STALE_CANDIDATE_COPY,
   subtitleGetLabel,
@@ -25,6 +27,9 @@ import {
 import { server } from '../../test/server';
 import { installMediaStubs, type MediaStubHandle } from '../../test/mediaElement';
 import type { components } from '../../api/types';
+import { client } from '../../api/client';
+import ApiFailureToastHost from '../../ui/ApiFailureToastHost';
+import { apiFailureToastQueue, type ApiFailureToastQueue } from '../../ui/apiFailureToastQueue';
 
 type SubtitleLanguagesResponse = components['schemas']['SubtitleLanguagesResponse'];
 type SubtitleSearchResponse = components['schemas']['SubtitleSearchResponse'];
@@ -594,5 +599,294 @@ describe('subtitle download states', () => {
       expect(row?.querySelector('[role="radio"]')).toBeNull();
       expect(row?.textContent).not.toMatch(/active/i);
     }
+  });
+});
+
+describe('API failure reporting for raw subtitle calls', () => {
+  let queue: ApiFailureToastQueue;
+  let publish: ReturnType<typeof vi.spyOn>;
+
+  function renderWithToasts(): ReturnType<typeof render> {
+    const view = render(
+      <>
+        <ApiFailureToastHost queue={queue} />
+        <BrowserPlayer title="Dune" movieId={1} streamUrl="/api/movies/1/stream" />
+      </>,
+    );
+    const trigger = within(region()).getByRole('button', { name: SUBTITLES_LABEL });
+    if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger);
+    return view;
+  }
+
+  function shownToasts(): HTMLElement[] {
+    return Array.from(document.querySelectorAll<HTMLElement>('.lamu-toast'));
+  }
+
+  function expectOneToast(
+    title: string,
+    status: string,
+    reason: string | undefined,
+    traceId: string,
+  ): void {
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(shownToasts()).toHaveLength(1);
+    const toast = shownToasts()[0];
+    expect(toast).toHaveTextContent(title);
+    expect(toast).toHaveTextContent(`Status: ${status}`);
+    if (reason) expect(toast).toHaveTextContent(reason);
+    expect(toast).toHaveTextContent(`Trace ID: ${traceId}`);
+  }
+
+  function expectNetworkToast(): void {
+    expectOneToast('Network error', 'Unavailable', undefined, 'Unavailable');
+  }
+
+  beforeEach(() => {
+    queue = apiFailureToastQueue;
+    queue.reset();
+    publish = vi.spyOn(queue, 'publish');
+  });
+
+  afterEach(() => {
+    queue.reset();
+  });
+
+  it('reports a catalog HTTP failure with response precedence and keeps the inline catalog error', async () => {
+    server.use(
+      http.get('*/api/subtitles/languages', () =>
+        HttpResponse.json(
+          {
+            status: 503,
+            title: 'Catalog unavailable',
+            reason: 'catalog offline',
+            traceId: 'trace-catalog',
+            detail: 'hidden catalog path',
+          },
+          {
+            status: 500,
+            headers: { 'Content-Type': 'application/problem+json' },
+          },
+        ),
+      ),
+    );
+
+    renderWithToasts();
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    expectOneToast('Catalog unavailable', '500', 'catalog offline', 'trace-catalog');
+    expect(document.body.textContent).not.toContain('hidden catalog path');
+    await waitFor(() => expect(languageSelect().value).toBe(''));
+    expect(searchQueries).toEqual([]);
+  });
+
+  it('reports a catalog transport rejection as a network error', async () => {
+    server.use(http.get('*/api/subtitles/languages', () => HttpResponse.error()));
+
+    renderWithToasts();
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    expectNetworkToast();
+    expect(document.body.textContent).not.toContain('Failed to fetch');
+    await waitFor(() => expect(languageSelect().value).toBe(''));
+  });
+
+  it.each(['', '<html>Bad gateway</html>', '{truncated'])(
+    'reports an unusable search body (%s) as an HTTP failure with inline search copy',
+    async (body) => {
+      server.use(
+        http.get(
+          '*/api/movies/:id/subtitles/search',
+          () =>
+            new HttpResponse(body, {
+              status: 502,
+              headers: { 'Content-Type': 'text/html' },
+            }),
+        ),
+      );
+
+      renderWithToasts();
+
+      await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+      expectOneToast('Request failed', '502', undefined, 'Unavailable');
+      expect(await screen.findByText(SUBTITLE_SEARCH_FAILURE_COPY)).toBeInTheDocument();
+      expect(document.body.textContent).not.toContain('Bad gateway');
+    },
+  );
+
+  it('reports each repeated search 429 once per execution and keeps the inline quota copy', async () => {
+    serveSearchProblem(429, {
+      status: 429,
+      title: 'Too many requests',
+      reason: 'search_rate_limited',
+      traceId: 'trace-429',
+      detail: 'hidden search path',
+    });
+
+    renderWithToasts();
+
+    expect(await screen.findByText(SUBTITLE_SEARCH_RATE_LIMITED_COPY)).toBeInTheDocument();
+    expectOneToast('Too many requests', '429', 'search_rate_limited', 'trace-429');
+    expect(document.body.textContent).not.toContain('hidden search path');
+
+    fireEvent.click(within(region()).getByRole('button', { name: SUBTITLE_RETRY_SEARCH_LABEL }));
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(2));
+    expect(shownToasts()).toHaveLength(2);
+    expect(await screen.findByText(SUBTITLE_SEARCH_RATE_LIMITED_COPY)).toBeInTheDocument();
+  });
+
+  it('reports each download 429 once per execution and keeps the inline quota state', async () => {
+    serveDownloadProblem(429, {
+      status: 429,
+      title: 'Quota reached',
+      reason: 'download_quota_exhausted',
+      traceId: 'trace-quota',
+      quota: { remainingDownloads: 0, resetAtUtc: '2026-03-04T14:32:00+00:00' },
+    });
+
+    renderWithToasts();
+    await screen.findByText(SUBTITLE_READY_COPY);
+
+    fireEvent.click(getButtons()[0]);
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    expectOneToast('Quota reached', '429', 'download_quota_exhausted', 'trace-quota');
+    expect(await screen.findByText(/Download quota reached\. Resets at .+\./)).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(getButtons().every((button) => !button.matches(':disabled'))).toBe(true),
+    );
+    fireEvent.click(getButtons()[0]);
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(2));
+    expect(shownToasts()).toHaveLength(2);
+    expect(await screen.findByText(/Download quota reached\. Resets at .+\./)).toBeInTheDocument();
+  });
+
+  it('reports a download 5xx without optional fields and keeps the active local track', async () => {
+    serveDownloadProblem(500, {
+      status: 429,
+      title: null,
+      reason: 'provider_unavailable',
+      traceId: null,
+      detail: 'hidden download path',
+    });
+
+    renderWithToasts();
+    await screen.findByText(SUBTITLE_READY_COPY);
+    fireEvent.click(within(region()).getByRole('radio', { name: TRACKS[0].label }));
+    await waitFor(() =>
+      expect(within(region()).getByRole('radio', { name: TRACKS[0].label })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      ),
+    );
+
+    fireEvent.click(getButtons()[0]);
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    expectOneToast('Request failed', '500', 'provider_unavailable', 'Unavailable');
+    expect(await screen.findByText(SUBTITLE_PROVIDER_FAILURE_COPY)).toBeInTheDocument();
+    expect(within(region()).getByRole('radio', { name: TRACKS[0].label })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(document.body.textContent).not.toContain('hidden download path');
+  });
+
+  it('reports a rejected search fetch as a network error with inline search copy', async () => {
+    server.use(http.get('*/api/movies/:id/subtitles/search', () => HttpResponse.error()));
+
+    renderWithToasts();
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    expectNetworkToast();
+    expect(await screen.findByText(SUBTITLE_SEARCH_FAILURE_COPY)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('Failed to fetch');
+  });
+
+  it('reports a rejected download fetch as a network error with inline provider copy', async () => {
+    server.use(http.post('*/api/movies/:id/subtitles/download', () => HttpResponse.error()));
+
+    renderWithToasts();
+    await screen.findByText(SUBTITLE_READY_COPY);
+    fireEvent.click(getButtons()[0]);
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    expectNetworkToast();
+    expect(await screen.findByText(SUBTITLE_PROVIDER_FAILURE_COPY)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('Failed to fetch');
+  });
+
+  it('does not report a stale search failure superseded by a newer language success', async () => {
+    server.use(
+      http.get('*/api/movies/:id/subtitles/search', async ({ request }) => {
+        const language = new URL(request.url).searchParams.get('language');
+        searchQueries.push(language ?? '');
+        if (language === 'pt-BR') {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          return HttpResponse.json(
+            { status: 503, title: 'Stale failure', traceId: 'trace-stale' },
+            { status: 503, headers: { 'Content-Type': 'application/problem+json' } },
+          );
+        }
+        return HttpResponse.json(
+          {
+            ...SEARCH,
+            candidates: [{ ...SEARCH.candidates[0], releaseName: 'Dune.2021.EN-FRESH' }],
+          },
+          { status: 200 },
+        );
+      }),
+    );
+
+    renderWithToasts();
+    await waitFor(() => expect(searchQueries).toEqual(['pt-BR']));
+
+    fireEvent.change(languageSelect(), { target: { value: 'en' } });
+
+    expect(await screen.findByText('Dune.2021.EN-FRESH')).toBeInTheDocument();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    });
+    expect(publish).not.toHaveBeenCalled();
+    expect(shownToasts()).toEqual([]);
+    expect(document.body.textContent).not.toContain('Stale failure');
+  });
+
+  it('does not report an in-flight search failure after the player unmounts', async () => {
+    server.use(
+      http.get('*/api/movies/:id/subtitles/search', async ({ request }) => {
+        searchQueries.push(new URL(request.url).searchParams.get('language') ?? '');
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return HttpResponse.json(
+          { status: 503, title: 'Unmounted failure', traceId: 'trace-unmounted' },
+          { status: 503, headers: { 'Content-Type': 'application/problem+json' } },
+        );
+      }),
+    );
+
+    const view = renderWithToasts();
+    await waitFor(() => expect(searchQueries).toEqual(['pt-BR']));
+
+    view.unmount();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    });
+
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('does not report an unrelated programming throw as a network error', async () => {
+    vi.spyOn(client, 'POST').mockRejectedValueOnce(new Error('programming bug'));
+
+    renderWithToasts();
+    await screen.findByText(SUBTITLE_READY_COPY);
+    fireEvent.click(getButtons()[0]);
+
+    expect(await screen.findByText(SUBTITLE_PROVIDER_FAILURE_COPY)).toBeInTheDocument();
+    expect(publish).not.toHaveBeenCalled();
+    expect(shownToasts()).toEqual([]);
+    expect(document.body.textContent).not.toContain('programming bug');
   });
 });
