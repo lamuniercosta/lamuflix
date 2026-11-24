@@ -270,6 +270,8 @@ export interface components {
       status?: null | number | string;
       detail?: null | string;
       instance?: null | string;
+      reason?: string;
+      traceId?: string;
     };
     RecommendationEvidenceDto: {
       criterion: string;
