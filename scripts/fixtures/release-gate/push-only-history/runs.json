@@ -1,0 +1,10 @@
+﻿{
+    "id":  104,
+    "event":  "push",
+    "path":  ".github/workflows/ci.yml",
+    "head_branch":  "main",
+    "head_sha":  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "created_at":  "2026-11-20T08:00:00Z",
+    "status":  "completed",
+    "conclusion":  "success"
+}

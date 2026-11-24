@@ -116,38 +116,19 @@ jobs:
 
       - name: Require the mutation gate for a release tag
         if: github.event_name == 'push'
-        shell: bash
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
           SHA: ${{ steps.published.outputs.sha }}
         run: |
-          set -euo pipefail
           # A release means the commit passed the whole-Core mutation gate that publish-images
-          # deliberately does not wait for (ADR 0039). Judge the CI run of the commit whose
-          # images are promoted: the tagged commit, or the newest one before it with images.
-          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Release tags look like v1.2.3, got $TAG."
-            exit 1
-          fi
-          run_id="$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&event=push&branch=main" \
-            --jq '[.workflow_runs[] | select(.path == ".github/workflows/ci.yml")] | sort_by(.created_at) | last | .id // empty')"
-          if [ -z "$run_id" ]; then
-            echo "::error::No CI run on main found for $SHA, so the mutation gate has not been judged."
-            exit 1
-          fi
-          gate="$(gh api "repos/$REPO/actions/runs/$run_id/jobs" --paginate \
-            --jq '.jobs[] | select(.name == "stryker-core-gate") | (.conclusion // .status)')"
-          if [ "$gate" != "success" ]; then
-            echo "::error::stryker-core-gate for $SHA is '${gate:-missing}' (CI run $run_id). Wait for it to pass and re-run this workflow, or promote by sha with workflow_dispatch for a hotfix."
-            exit 1
-          fi
-          {
-            echo "## promote-home release $TAG"
-            echo ""
-            echo "Mutation gate passed for $SHA (CI run $run_id)."
-          } >> "$GITHUB_STEP_SUMMARY"
+          # deliberately does not wait for (ADR 0039). The lookup lives in
+          # scripts/Resolve-ReleaseGate.ps1; a nonzero exit fails this step before any
+          # env/home change.
+          pwsh -NoProfile -File ./scripts/Resolve-ReleaseGate.ps1 -Sha $env:SHA -Repo $env:REPO -Tag $env:TAG
+          exit $LASTEXITCODE
 
       - name: Resolve image digests
         id: digests

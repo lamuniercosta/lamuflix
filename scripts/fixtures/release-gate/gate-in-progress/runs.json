@@ -1,0 +1,10 @@
+﻿{
+    "id":  108,
+    "created_at":  "2026-11-20T03:17:00Z",
+    "status":  "in_progress",
+    "conclusion":  null,
+    "path":  ".github/workflows/ci.yml",
+    "head_branch":  "main",
+    "head_sha":  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "event":  "schedule"
+}

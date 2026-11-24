@@ -1,0 +1,1 @@
+﻿{"description":"Later run with code changes cannot judge the promoted SHA","exitCode":1,"mustContain":["change code beyond the docs-only paths"],"mustNotContain":[]}

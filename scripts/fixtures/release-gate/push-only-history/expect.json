@@ -1,0 +1,1 @@
+﻿{"description":"Push-only history is refused with the skipped-job message","exitCode":1,"mustContain":["skipped stryker-core-gate job cannot satisfy the gate"],"mustNotContain":[]}
