@@ -340,6 +340,11 @@ function Get-ComposeEnv {
     return $result
 }
 
+function Get-LegacyProviderKeyEnv {
+    param($EnvMap)
+    return ,@($legacyProviderKeyEnvNames | Where-Object { $EnvMap.Contains($_) })
+}
+
 function Get-ImageParts {
     param([string]$Ref)
     $r = [string]$Ref
@@ -390,6 +395,13 @@ $clusterOnlyWorkloads = @('aspire-dashboard')
 $otelEndpointName = 'OTEL_EXPORTER_OTLP_ENDPOINT'
 $otelEndpointValue = 'http://aspire-dashboard:18889'
 $webNodePort = '30100'
+# Provider keys belong in the mounted API settings JSON, never in API env vars.
+$legacyProviderKeyEnvNames = @(
+    'Tmdb__Enabled',
+    'Tmdb__ApiKey',
+    'Omdb__ApiKey',
+    'Subtitles__OpenSubtitles__ApiKey'
+)
 
 try {
     $composeDocs = ConvertFrom-SubsetYaml (Get-Content -LiteralPath $ComposePath -Raw)
@@ -430,6 +442,8 @@ try {
     }
 
     $apiComposeEnv = Get-ComposeEnv (Get-ComposeService $compose 'api')
+    $composeProviderKeyEnv = Get-LegacyProviderKeyEnv $apiComposeEnv
+    Add-Check 'compose api environment rejects legacy provider-key env' ($composeProviderKeyEnv.Count -eq 0) "legacy provider-key env: $($composeProviderKeyEnv -join ', ')"
     $endpointRaw = [string]$apiComposeEnv['Ollama__Endpoint']
     $endpoint = [regex]::Match($endpointRaw, '^https?://([^/:]+):(\d+)')
     $ollamaHost = if ($endpoint.Success) { $endpoint.Groups[1].Value } else { '' }
@@ -512,6 +526,8 @@ try {
         $apiContainers = @(Get-Containers $apiWl)
         if ($apiContainers.Count -gt 0) {
             $apiEnv = Get-EnvMap $apiContainers[0]
+            $renderedProviderKeyEnv = Get-LegacyProviderKeyEnv $apiEnv
+            Add-Check 'rendered api environment rejects legacy provider-key env' ($renderedProviderKeyEnv.Count -eq 0) "legacy provider-key env: $($renderedProviderKeyEnv -join ', ')"
             $renderedEndpoint = if ($apiEnv.ContainsKey('Ollama__Endpoint')) { [string](Get-Field $apiEnv['Ollama__Endpoint'] 'value') } else { '' }
             Add-Check 'api Ollama__Endpoint in manifests matches compose' ($renderedEndpoint -eq $endpointRaw) "compose '$endpointRaw', manifests '$renderedEndpoint'"
         }

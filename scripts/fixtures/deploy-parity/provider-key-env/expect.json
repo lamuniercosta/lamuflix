@@ -1,0 +1,16 @@
+{
+  "description": "Legacy provider-key env restored in both Compose and rendered API workloads",
+  "exitCode": 1,
+  "mustContain": [
+    "FAIL  compose api environment rejects legacy provider-key env - legacy provider-key env: Tmdb__Enabled, Tmdb__ApiKey, Omdb__ApiKey, Subtitles__OpenSubtitles__ApiKey",
+    "FAIL  rendered api environment rejects legacy provider-key env - legacy provider-key env: Tmdb__Enabled, Tmdb__ApiKey, Omdb__ApiKey, Subtitles__OpenSubtitles__ApiKey"
+  ],
+  "mustNotContain": [
+    "FAIL  compose '",
+    "FAIL  workload '",
+    "FAIL  Service '",
+    "FAIL  image ",
+    "FAIL  api Ollama__Endpoint",
+    "FAIL  OTEL_"
+  ]
+}
