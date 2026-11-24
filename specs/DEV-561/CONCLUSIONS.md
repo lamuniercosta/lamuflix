@@ -68,3 +68,45 @@
 - **Keel** — Approve the card reason contract? I recommend the two highest-weight contributing library seeds, breaking seed ties by ascending library MovieId, and the ticket example “Recommended for {seed title} and {seed title}.” Reuse the concise, display-safe reason style with a discovery-specific formatter if necessary. Recon found no RecommendationReasonBuilder.cs, and SimilarityScorer.BuildEvidence represents similarities instead of direct links. Keep the two actual contributing seed movies when their display titles coincide. This bounds copy while still naming two contributors. Basis: Wanted 6, ADR 0049, Q5, recon-DEV-561:26–27,71,80–85.
 - **Patron** — Approved. Use a focused discovery formatter under Features/Recommendations, reusing existing display-safe title sanitization. Select two contributors by seed weight descending and library MovieId ascending. Preserve both titles if the selected distinct seeds share a display title. Log the two-title cap and tie-break as [assumed].
 - **Basis** — Wanted 5–6, ADR 0049 and Q5 require two distinct contributing seeds and a reason grounded in their library titles. The ticket's example and existing reason handling establish copy and sanitization style. See recon-DEV-561:25–27,71,81–82,85.
+
+---
+
+## Q8 — Product positioning and discovery terminology
+
+- **Keel, initial question** — Approve Outside-library recommendation as the CONTEXT.md term? Define it as a movie outside the library surfaced in the dedicated For You row from TMDb recommendations contributed by eligible library seeds, with an _Avoid_: wanted movie line. Keep the row heading Not in your library yet. Update the Recommendation entry and PRODUCT.md Positioning to describe the separate read-only row and preserve library-only For You and Related.
+- **Patron, initial answer** — Needs recon on the PRODUCT.md path, the cited Positioning text, and whether the ticket's prerequisites introduce the missing document or section.
+- **Keel, resumed question** — Wisp found only specs/PRODUCT.md, which has no Positioning section, and neither prerequisite introduces one. Approve treating the ticket's bare path and line number as stale references, adding a focused Positioning subsection to that blueprint in the delivery scope, and updating the root CONTEXT.md glossary as proposed? Should Rigger record the corrected path and section reference?
+- **Patron** — Approved under Charter §2.3 items 2 and 6. Add the focused Positioning subsection to the existing specs/PRODUCT.md. Update the root CONTEXT.md Recommendation entry and add Outside-library recommendation with _Avoid_: wanted movie. Keep the ticket's row heading. Log the glossary naming as [assumed]. Patron dispatched Rigger to record the corrected file and section in a DEV-561 comment.
+- **Basis** — Wanted 2, Done when 11, ADR 0049 and the restored PRODUCT provenance in recon-DEV-561:5–21. The existing blueprint is the document that fulfills the ticket's positioning requirement.
+
+---
+
+## Q9 — Web behavior and attribution
+
+- **Keel** — Approve one independent section beneath the For You library grid, visible only after a successful nonempty discovery response? Keep the library experience usable during discovery loading, empty results, and errors. Use visually distinct read-only cards with title, reason, optional year and poster treatment, and an accessible, safe new-tab TMDb link. Omit Play, library details, and Not interested. Place the required, day-verified TMDb credit beside the section and list the feature in the README, leaving README provider credit with DEV-559.
+- **Patron** — Approved. Hide the section while discovery loads, on an empty response, or on discovery fetch failure. Keep the library grid usable. Use title, reason, optional year, image or poster fallback, and a derived TMDb movie link with target new tab and rel noopener noreferrer. Omit library actions and Not interested. Verify the official TMDb terms on the day and display the required credit beside the visible section. Add the feature to README.md while leaving README provider attribution with DEV-559. Log loading/error suppression as [assumed].
+- **Basis** — Wanted 6, 8–9, Done when 6–9 and 11, Open points, Where it lands, ADR 0049 and Q4. The ticket specifies a separate discovery surface, empty-state hiding and a distinct read-only card. See the restored ticket text in recon-DEV-561:27–34,42–47,60–61,73–75 before the PRODUCT addendum.
+
+---
+
+## Q10 — Acceptance evidence and home-library counts
+
+- **Keel** — Approve deterministic provider, real EF, ranking and identity, HTTP, parity, web and local E2E tests, plus a separate home-library run? Hydrate legacy rows first. Count unique titled out-of-library candidates with at least one eligible seed before the cutoff, then those meeting two seeds before the card cap. Publish those counts and the ranked top 10 or all if fewer, with the owner's actual good-pick/not verdict for each. Keep raw viewing and seed data local and retain the cutoff if the run is sparse.
+- **Patron** — Approved. Use real PostgreSQL/EF with Testcontainers for migration and backfill, a fail-on-any-request HTTP handler, both unconfigured TMDb cases, unchanged exact For You order, Related library-only parity, web coverage, and local E2E visibility. Use the two agreed denominators and obtain actual human-owner verdicts after hydration. A short or empty run is valid evidence when accurately reported. Any change to the two-seed bar requires an owner ruling.
+- **Basis** — Wanted 3–9, Done when 2–10, Open points, ADR 0049, Q2–Q9 and the AGENTS.md real-storage rule. The ticket requires both automated coverage and a separate home-library receipt. See the previously restored ticket text in recon-DEV-561:24–46.
+
+---
+
+## Q11 — Implementation sequence and data path
+
+- **Keel** — Approve the ordered implementation and boundary? After Phase B prerequisite and seam verification, add the compatible schema, provider mapping, enrichment and atomic per-source backfill that retains prior links on failed fetches. Implement the separate local query with set-based projections. Preserve existing For You configuration, bind discovery weights in RecommendationOptions and name the two-seed and 20-card rules. Generate C# DTO, OpenAPI and TypeScript before web, then finish scoped docs, local E2E, home acceptance and gates. Use the existing dependencies and layers and keep LocalPlay, secrets and unrelated schema out.
+- **Patron** — Approved under Charter §2.3 items 1–6. Start Phase B by confirming DEV-539 Done, ADR 0049 Accepted and the spec merge, with fresh recon for column facets and implementation/test seams. Use additive EF storage and the existing first-page fetch; hydrate older links through the backfill and preserve stored links when a fetch fails. Implement set-based local discovery and preserve For You and Related behavior. Finish generated types before wiring web and retain the scoped docs, tests and receipt sequence.
+- **Basis** — Wanted 1, 3–7, Open points, Where it lands, the verbatim Needs section in the PRODUCT addendum at recon-DEV-561:13–21, ADR 0049, task-pipeline Phase 3, and Q1–Q10. The ordering ensures the local query can depend on hydrated links and web uses the published API schema.
+
+---
+
+## Q12 — Review closing bar, scope, and round cap
+
+- **Keel** — Approve a closing bar of zero open confirmed actionable in-scope findings at any severity across Risk, Standards, Spec and ship review? Require the Phase 3 and rebased-head gates and the delivery PR's acceptance evidence including the owner's home-library verdicts. Cap the loop at two rounds and two fix commits per round. Route any third-round findings or remaining blockers to the owner on the PR without clearance. Freeze Q1–Q11 and leave unrelated work outside this round.
+- **Patron** — Approved with the Charter §2.3 follow-up filter. Close all confirmed actionable in-scope findings, including Low. Meet the required gates and provide the acceptance receipts before awaiting-merge. Apply both caps and escalate remaining blockers on the PR. Outside-scope Critical or High observations, broken behavior, or owner-requested follow-ups can go through Rigger after checking existing open tickets. Record other outside-scope observations as “noted, no ticket.”
+- **Basis** — Task-pipeline size-L review, Phase 3 gate rules, Phase 5 merge bar and caps, Charter §2.3, ADR 0049, DEV-561 Done when and Out of scope, and Q10's acceptance evidence.
