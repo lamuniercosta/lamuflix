@@ -135,6 +135,11 @@ Invoke-TmdbKeyCase -Label 'empty' -SourcePath $sourceEnvEmptyTmdb -ExpectedKey '
 # Case 1c: TMDb key whitespace-only in the operator source
 Invoke-TmdbKeyCase -Label 'whitespace-only' -SourcePath $sourceEnvWhitespaceTmdb -ExpectedKey ''
 
+$provider = $settings.Subtitles.PSObject.Properties['OpenSubtitles'] ? $settings.Subtitles.OpenSubtitles : $null
+Assert-Case 'fresh: OpenSubtitles key copied from source' (($null -ne $provider) -and ([string]$provider.ApiKey -eq 'opensubtitles-test-value'))
+Assert-Case 'fresh: OpenSubtitles endpoint is the production https API' (($null -ne $provider) -and ([string]$provider.BaseUrl -eq 'https://api.opensubtitles.com'))
+Assert-Case 'fresh: OpenSubtitles allows the API and www download hosts' (($null -ne $provider) -and ((@($provider.DownloadAllowedHosts) -join ',') -eq 'api.opensubtitles.com,www.opensubtitles.com'))
+Assert-Case 'fresh: OpenSubtitles keeps a download ceiling and timeout' (($null -ne $provider) -and ([long]$provider.MaxDownloadBytes -gt 0) -and ([string]$provider.RequestTimeout -ne ''))
 Assert-Case 'fresh: secret values are not printed' ((-not $r1.Output.Contains($pgSecret)) -and (-not $r1.Output.Contains('omdb-test-value')) -and (-not $r1.Output.Contains('tmdb-test-value')) -and (-not $r1.Output.Contains('opensubtitles-test-value')))
 Assert-Case 'fresh: secret values are not in the call log' ((-not (($r1.Log -join "`n").Contains($pgSecret))))
 

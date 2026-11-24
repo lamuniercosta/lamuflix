@@ -49,7 +49,8 @@ internal sealed class SubtitleProviderHealthCheck(
         !string.IsNullOrWhiteSpace(provider.ApiKey)
         && !string.IsNullOrWhiteSpace(provider.UserAgent)
         && !string.IsNullOrWhiteSpace(provider.BaseUrl)
-        && provider.DownloadAllowedHosts.Length > 0;
+        && provider.DownloadAllowedHosts.Length > 0
+        && SubtitleProviderOptionsValidator.IsLinkHostAllowed(provider);
 
     private static bool HasBounds(SubtitleProviderOptions provider) =>
         provider.MaxDownloadBytes > 0 && provider.RequestTimeout > TimeSpan.Zero;

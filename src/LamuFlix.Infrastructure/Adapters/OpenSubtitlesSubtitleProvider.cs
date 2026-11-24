@@ -82,10 +82,7 @@ public sealed class OpenSubtitlesSubtitleProvider(
         EnsureAccepted(response, "The subtitle provider rejected the download request.");
 
         var (linkCandidate, quota) = await ReadDownloadBodyAsync(response, cancellationToken);
-        var link = EnsurePermitted(
-            linkCandidate,
-            Options.DownloadAllowedHosts,
-            "The subtitle provider returned a download link that is not an allowed https host.");
+        var link = EnsureLinkPermitted(linkCandidate, Options.DownloadAllowedHosts);
 
         using var payload = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, link), cancellationToken);
         EnsureAccepted(payload, "The subtitle provider returned an unusable subtitle download.");
@@ -313,6 +310,16 @@ public sealed class OpenSubtitlesSubtitleProvider(
         }
 
         return uri;
+    }
+
+    private static Uri EnsureLinkPermitted(Uri? linkCandidate, IReadOnlyList<string> allowedHosts)
+    {
+        if (linkCandidate is null || !SubtitleRequestUriPolicy.IsPermitted(linkCandidate, allowedHosts))
+        {
+            throw SubtitleProviderFailureException.ForRefusedLinkHost(linkCandidate?.Host ?? string.Empty);
+        }
+
+        return linkCandidate;
     }
 
     private bool IsProviderApiHost(Uri? uri)

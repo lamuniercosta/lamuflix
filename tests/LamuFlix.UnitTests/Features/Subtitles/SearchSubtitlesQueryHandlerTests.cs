@@ -139,6 +139,25 @@ public sealed class SearchSubtitlesQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_RecordedLinkHostRefusal_ThrowsProviderNotConfiguredNamingTheHost()
+    {
+        // arrange
+        Arrange();
+        var refusals = new SubtitleLinkHostRefusals();
+        refusals.Record("bad.example");
+        var handler = CreateHandler(refusals: refusals);
+
+        // act
+        var act = () => handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(MovieIdValue), "en"), CancellationToken.None);
+
+        // assert
+        var exception = await Should.ThrowAsync<SubtitleProviderNotConfiguredException>(act);
+        exception.Message.ShouldContain("bad.example");
+        await provider.DidNotReceiveWithAnyArgs().SearchAsync(
+            Arg.Any<SubtitleSearch>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task HandleAsync_ProviderRateLimit_ReportsASearchRateLimitRatherThanADownloadQuota()
     {
         // arrange
@@ -570,7 +589,8 @@ public sealed class SearchSubtitlesQueryHandlerTests
     private SearchSubtitlesQueryHandler CreateHandler(
         bool saveEnabled = true,
         string[]? preferredLanguages = null,
-        bool providerConfigured = true) =>
+        bool providerConfigured = true,
+        SubtitleLinkHostRefusals? refusals = null) =>
         new(
             catalog,
             scanner,
@@ -586,7 +606,8 @@ public sealed class SearchSubtitlesQueryHandlerTests
                 SaveEnabled = saveEnabled,
                 PreferredLanguages = preferredLanguages ?? [],
             }),
-            providerConfigured ? OptionsFactory.Create(ConfiguredProviderOptions()) : UnconfiguredProviderOptions());
+            providerConfigured ? OptionsFactory.Create(ConfiguredProviderOptions()) : UnconfiguredProviderOptions(),
+            refusals ?? new SubtitleLinkHostRefusals());
 
     private static ProviderOptionsAccessor UnconfiguredProviderOptions()
     {
@@ -605,6 +626,7 @@ public sealed class SearchSubtitlesQueryHandlerTests
             UserAgent = "LamuFlix/test",
             BaseUrl = "https://api.opensubtitles.invalid",
             DownloadAllowedHosts = ["dl.opensubtitles.invalid"],
+            DownloadLinkHost = "dl.opensubtitles.invalid",
             MaxDownloadBytes = 4096,
             RequestTimeout = TimeSpan.FromSeconds(5),
         };

@@ -1,0 +1,262 @@
+<#
+.SYNOPSIS
+    Live check of the OpenSubtitles provider against the real API.
+
+.DESCRIPTION
+    Developer tool only. It is never run by CI or by any test suite, and it must
+    not be wired into a pipeline. It calls the real OpenSubtitles API with the
+    developer's key to confirm that:
+      - a canonical search returns at least one result with a downloadable file id;
+      - with -Download, one download returns an https link whose host is the
+        configured DownloadLinkHost and is in DownloadAllowedHosts, and the file
+        GET returns 200 with a non-empty body.
+
+    -Download costs 1 of the 100 daily download quota. Search is free.
+
+    The API key, the download link and any token are never printed.
+
+    Key lookup order: SettingsFile ApiKey, then LAMUFLIX_OPENSUBTITLES_API_KEY,
+    then the Subtitles:OpenSubtitles:ApiKey user secret of -Project.
+
+    Exit codes: 0 = PASS, 1 = FAIL, 2 = could not run (for example, no key).
+
+.PARAMETER Query
+    Search text. Lowercased and sent as a canonical query.
+
+.PARAMETER Language
+    Language code for the search. Lowercased and sent as the languages parameter.
+
+.PARAMETER Download
+    Also request one download. Costs 1 of 100 daily quota.
+
+.PARAMETER SettingsFile
+    Optional generated api.settings.json. Its Subtitles.OpenSubtitles values
+    (BaseUrl, UserAgent, DownloadLinkHost, DownloadAllowedHosts, ApiKey) override
+    the defaults.
+
+.PARAMETER Project
+    Project whose user secrets hold the key, relative to the repository root.
+
+.EXAMPLE
+    pwsh -NoProfile -WindowStyle Hidden -File ./scripts/Test-LiveSubtitleProvider.ps1
+
+.EXAMPLE
+    pwsh -NoProfile -WindowStyle Hidden -File ./scripts/Test-LiveSubtitleProvider.ps1 -Download
+#>
+#Requires -Version 7
+[CmdletBinding()]
+param(
+    [string]$Query = 'the matrix',
+    [string]$Language = 'en',
+    [switch]$Download,
+    [string]$BaseUrl = 'https://api.opensubtitles.com',
+    [string]$UserAgent = 'LamuFlix/1.0 (personal library)',
+    [string]$DownloadLinkHost = 'www.opensubtitles.com',
+    [string[]]$DownloadAllowedHosts = @('api.opensubtitles.com', 'www.opensubtitles.com'),
+    [string]$SettingsFile,
+    [string]$Project = 'src/LamuFlix.Api'
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$script:RepoRoot = Split-Path -Parent $PSScriptRoot
+$script:Secrets = [System.Collections.Generic.List[string]]::new()
+
+function Get-JsonProperty {
+    param($Object, [string]$Name)
+    if ($null -eq $Object) { return $null }
+    $prop = $Object.PSObject.Properties[$Name]
+    if ($null -eq $prop) { return $null }
+    return $prop.Value
+}
+
+function Read-SettingsOpenSubtitles {
+    param([string]$Path)
+    try {
+        $settings = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    }
+    catch {
+        Write-Host 'LIVE CHECK: Could not run - settings file is not valid JSON'
+        exit 2
+    }
+    return Get-JsonProperty (Get-JsonProperty $settings 'Subtitles') 'OpenSubtitles'
+}
+
+function Read-UserSecretApiKey {
+    param([string]$ProjectPath)
+    if (-not (Test-Path -LiteralPath $ProjectPath)) { return $null }
+    $prefix = 'Subtitles:OpenSubtitles:ApiKey = '
+    $lines = & dotnet user-secrets list --project $ProjectPath 2>$null
+    if ($LASTEXITCODE -ne 0) { return $null }
+    $line = $lines | Where-Object { ([string]$_).StartsWith($prefix, [StringComparison]::Ordinal) } | Select-Object -First 1
+    if ($null -eq $line) { return $null }
+    return ([string]$line).Substring($prefix.Length).Trim()
+}
+
+function Remove-Secrets {
+    param([string]$Text)
+    $clean = [string]$Text
+    foreach ($secret in $script:Secrets) {
+        if ($secret) { $clean = $clean.Replace($secret, '<redacted>') }
+    }
+    return $clean
+}
+
+function New-ApiHeaders {
+    param([string]$ApiKey)
+    return @{
+        'Api-Key' = $ApiKey
+        'User-Agent' = $UserAgent
+        'Accept' = 'application/json'
+    }
+}
+
+function Invoke-SubtitleSearch {
+    param([string]$ApiKey)
+    $languageCode = $Language.ToLowerInvariant()
+    $queryText = [uri]::EscapeDataString($Query.ToLowerInvariant()).Replace('%20', '+')
+    $url = "$($BaseUrl.TrimEnd('/'))/api/v1/subtitles?languages=$languageCode&query=$queryText"
+    $resp = Invoke-WebRequest -Method Get -Uri $url -Headers (New-ApiHeaders -ApiKey $ApiKey) -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Stop
+    $status = [int]$resp.StatusCode
+    if ($status -ne 200) {
+        $note = if ($status -in 301, 302, 303, 307, 308) { ' (the query was not canonical: the API redirected)' } else { '' }
+        Write-Host "LIVE CHECK search: FAIL status $status$note"
+        return $null
+    }
+    $json = $resp.Content | ConvertFrom-Json
+    $data = @(Get-JsonProperty $json 'data')
+    $fileId = $null
+    foreach ($item in $data) {
+        $files = @(Get-JsonProperty (Get-JsonProperty $item 'attributes') 'files')
+        if ($files.Count -eq 0) { continue }
+        $candidate = Get-JsonProperty $files[0] 'file_id'
+        if ($null -ne $candidate) {
+            $fileId = $candidate
+            break
+        }
+    }
+    if ($null -eq $fileId) {
+        Write-Host 'LIVE CHECK search: FAIL status 200, no result with a file_id'
+        return $null
+    }
+    $total = Get-JsonProperty $json 'total_count'
+    $count = $total ?? $data.Count
+    Write-Host "LIVE CHECK search: PASS ($count results)"
+    return $fileId
+}
+
+function Test-LinkHost {
+    param($Uri)
+    $expected = $DownloadLinkHost.Trim()
+    if (-not [string]::Equals($Uri.Host, $expected, [StringComparison]::OrdinalIgnoreCase)) {
+        Write-Host "LIVE CHECK download: FAIL link host $($Uri.Host) is not DownloadLinkHost $expected"
+        return $false
+    }
+    $allowed = @($DownloadAllowedHosts | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -ne '' })
+    if (-not ($allowed | Where-Object { $_ -ieq $Uri.Host })) {
+        Write-Host "LIVE CHECK download: FAIL link host $($Uri.Host) is not in DownloadAllowedHosts"
+        return $false
+    }
+    return $true
+}
+
+function Invoke-SubtitleDownload {
+    param([string]$ApiKey, $FileId)
+    $body = @{ file_id = $FileId } | ConvertTo-Json
+    $headers = New-ApiHeaders -ApiKey $ApiKey
+    $post = Invoke-WebRequest -Method Post -Uri "$($BaseUrl.TrimEnd('/'))/api/v1/download" -Headers $headers -ContentType 'application/json' -Body $body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Stop
+    $postStatus = [int]$post.StatusCode
+    if ($postStatus -ne 200) {
+        Write-Host "LIVE CHECK download: FAIL download request status $postStatus"
+        return $false
+    }
+    $json = $post.Content | ConvertFrom-Json
+    $link = [string](Get-JsonProperty $json 'link')
+    $remaining = Get-JsonProperty $json 'remaining'
+    $quota = $remaining ?? 'unknown'
+    if ([string]::IsNullOrWhiteSpace($link)) {
+        Write-Host 'LIVE CHECK download: FAIL download response had no link'
+        return $false
+    }
+    $script:Secrets.Add($link)
+    $uri = $null
+    if (-not [Uri]::TryCreate($link, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -ne 'https') {
+        Write-Host 'LIVE CHECK download: FAIL link is not an absolute https URL'
+        return $false
+    }
+    if (-not (Test-LinkHost -Uri $uri)) { return $false }
+    $file = Invoke-WebRequest -Method Get -Uri $link -Headers @{ 'User-Agent' = $UserAgent } -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Stop
+    $fileStatus = [int]$file.StatusCode
+    if ($fileStatus -ne 200) {
+        Write-Host "LIVE CHECK download: FAIL file GET status $fileStatus from link host $($uri.Host)"
+        return $false
+    }
+    $size = if ($file.Content -is [byte[]]) { $file.Content.Length } else { ([string]$file.Content).Length }
+    if ($size -le 0) {
+        Write-Host "LIVE CHECK download: FAIL file GET returned an empty body from link host $($uri.Host)"
+        return $false
+    }
+    Write-Host "LIVE CHECK download: PASS link host $($uri.Host), quota remaining $quota"
+    return $true
+}
+
+# Settings file overrides come first so the key lookup can use them.
+$apiKey = $null
+if ($SettingsFile) {
+    if (-not (Test-Path -LiteralPath $SettingsFile -PathType Leaf)) {
+        Write-Host 'LIVE CHECK: Could not run - settings file not found'
+        exit 2
+    }
+    $sub = Read-SettingsOpenSubtitles -Path $SettingsFile
+    if ($null -ne $sub) {
+        $value = Get-JsonProperty $sub 'BaseUrl'
+        if ($value) { $BaseUrl = [string]$value }
+        $value = Get-JsonProperty $sub 'UserAgent'
+        if ($value) { $UserAgent = [string]$value }
+        $value = Get-JsonProperty $sub 'DownloadLinkHost'
+        if ($value) { $DownloadLinkHost = [string]$value }
+        $value = Get-JsonProperty $sub 'DownloadAllowedHosts'
+        if ($null -ne $value) { $DownloadAllowedHosts = [string[]]@($value) }
+        $apiKey = [string](Get-JsonProperty $sub 'ApiKey')
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($apiKey)) { $apiKey = $env:LAMUFLIX_OPENSUBTITLES_API_KEY }
+if ([string]::IsNullOrWhiteSpace($apiKey)) {
+    $projectPath = if ([IO.Path]::IsPathRooted($Project)) { $Project } else { Join-Path $script:RepoRoot $Project }
+    $apiKey = Read-UserSecretApiKey -ProjectPath $projectPath
+}
+if ([string]::IsNullOrWhiteSpace($apiKey)) {
+    Write-Host 'LIVE CHECK: Could not run - no OpenSubtitles API key (set user-secret Subtitles:OpenSubtitles:ApiKey or LAMUFLIX_OPENSUBTITLES_API_KEY)'
+    exit 2
+}
+$apiKey = $apiKey.Trim()
+$script:Secrets.Add($apiKey)
+
+$overall = $true
+try {
+    $fileId = Invoke-SubtitleSearch -ApiKey $apiKey
+    if ($null -eq $fileId) {
+        $overall = $false
+        if ($Download) { Write-Host 'LIVE CHECK download: FAIL no search result to download' }
+    }
+    elseif ($Download) {
+        $overall = (Invoke-SubtitleDownload -ApiKey $apiKey -FileId $fileId) -and $overall
+    }
+    else {
+        Write-Host 'LIVE CHECK download: skipped (pass -Download; costs 1 of 100 daily quota)'
+    }
+}
+catch {
+    $message = Remove-Secrets -Text $_.Exception.Message
+    Write-Host "LIVE CHECK: FAIL $($_.Exception.GetType().FullName): $message"
+    $overall = $false
+}
+
+if ($overall) {
+    Write-Host 'LIVE CHECK: PASS'
+    exit 0
+}
+Write-Host 'LIVE CHECK: FAIL'
+exit 1

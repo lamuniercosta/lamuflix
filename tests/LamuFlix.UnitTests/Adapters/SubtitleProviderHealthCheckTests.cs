@@ -107,6 +107,21 @@ public sealed class SubtitleProviderHealthCheckTests
     }
 
     [Fact]
+    public async Task CheckHealthAsync_LinkHostOutsideTheDownloadAllowlist_ReportsDisabledOrUnconfigured()
+    {
+        // arrange
+        var provider = ConfiguredProvider() with { DownloadLinkHost = "www.opensubtitles.com" };
+        var healthCheck = CreateHealthCheck(EnabledSubtitles(), provider);
+
+        // act
+        var result = await healthCheck.CheckHealthAsync(new HealthCheckContext(), TestContext.Current.CancellationToken);
+
+        // assert
+        result.Status.ShouldBe(HealthStatus.Healthy);
+        AcquisitionState(result).ShouldBe(TelemetryConstants.SubtitleDisabledOrUnconfiguredState);
+    }
+
+    [Fact]
     public async Task CheckHealthAsync_FullyConfigured_ReportsReadyAndNeverUnhealthy()
     {
         // arrange
@@ -167,6 +182,7 @@ public sealed class SubtitleProviderHealthCheckTests
             UserAgent = "LamuFlix/test",
             BaseUrl = "https://api.opensubtitles.com",
             DownloadAllowedHosts = ["dl.opensubtitles.org"],
+            DownloadLinkHost = "dl.opensubtitles.org",
             MaxDownloadBytes = 1024,
             RequestTimeout = TimeSpan.FromSeconds(5),
         };

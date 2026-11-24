@@ -21,7 +21,8 @@ public sealed class SearchSubtitlesQueryHandler(
     ISubtitleProvider provider,
     SubtitleCandidateBinder binder,
     IOptions<SubtitlesOptions> subtitlesOptions,
-    IOptions<SubtitleProviderOptions> providerOptions)
+    IOptions<SubtitleProviderOptions> providerOptions,
+    SubtitleLinkHostRefusals refusals)
     : IQueryHandler<SearchSubtitlesQuery, SearchSubtitlesResult>
 {
     public async Task<SearchSubtitlesResult> HandleAsync(
@@ -103,6 +104,12 @@ public sealed class SearchSubtitlesQueryHandler(
             throw new SubtitleProviderNotConfiguredException(
                 "The subtitle provider acquisition settings are missing or invalid.",
                 exception);
+        }
+
+        if (refusals.TryGetRefused(out var host))
+        {
+            throw new SubtitleProviderNotConfiguredException(
+                $"The subtitle provider served a download link from host '{host}', which {SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.DownloadAllowedHosts)} does not allow. Fix the setting and restart the API.");
         }
     }
 

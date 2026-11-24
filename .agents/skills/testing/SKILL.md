@@ -58,6 +58,8 @@ Acceptance scenarios, when the repo uses them, come from `$gherkin`.
 | Test data setup | Builder pattern |
 | Shared expensive fixture | `IClassFixture<T>` with `IAsyncLifetime` |
 
+- **Real provider APIs** are never called by tests. For a provider adapter change, run the developer live check described in the `Live provider check (external APIs)` section of the implement skill (`.agents/skills/implement/SKILL.md`).
+
 ## Topics
 
 - **Integration Tests** — WebApplicationFactory and Testcontainers. Read ./integration-tests.md in this skill's directory

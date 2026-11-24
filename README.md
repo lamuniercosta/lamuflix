@@ -330,7 +330,7 @@ So a library that already has `Film.srt` next to `Film.mkv` needs no configurati
 
 1. `Subtitles:SaveEnabled` is `true`.
 2. `Subtitles:PreferredLanguages` lists the language codes you accept, in priority order. Selection never leaves this list.
-3. The `Subtitles:OpenSubtitles` acquisition settings are complete and valid: `ApiKey` (secret), `BaseUrl`, `UserAgent`, `DownloadAllowedHosts`, `MaxDownloadBytes`, and `RequestTimeout`.
+3. The `Subtitles:OpenSubtitles` acquisition settings are complete and valid: `ApiKey` (secret), `BaseUrl`, `UserAgent`, `DownloadAllowedHosts`, `DownloadLinkHost`, `MaxDownloadBytes`, and `RequestTimeout`.
 4. The library the Api reads is writable by the Api process.
 
 ```powershell
@@ -342,12 +342,15 @@ dotnet user-secrets set "Subtitles:OpenSubtitles:ApiKey" "<your provider API key
 dotnet user-secrets set "Subtitles:OpenSubtitles:BaseUrl" "<provider https base URL>" --project src/LamuFlix.Api
 dotnet user-secrets set "Subtitles:OpenSubtitles:UserAgent" "<your-application>/<version>" --project src/LamuFlix.Api
 dotnet user-secrets set "Subtitles:OpenSubtitles:DownloadAllowedHosts:0" "<allowed download host>" --project src/LamuFlix.Api
+dotnet user-secrets set "Subtitles:OpenSubtitles:DownloadLinkHost" "www.opensubtitles.com" --project src/LamuFlix.Api
 dotnet user-secrets set "Subtitles:OpenSubtitles:MaxDownloadBytes" "<byte ceiling you accept>" --project src/LamuFlix.Api
 dotnet user-secrets set "Subtitles:OpenSubtitles:RequestTimeout" "<timeout, e.g. HH:MM:SS>" --project src/LamuFlix.Api
 ```
 
 - **No guessed numeric defaults.** Every acquisition bound above is yours to state; the app ships no fallback for `MaxDownloadBytes` or `RequestTimeout`, and an incomplete or invalid set keeps acquisition off with a `409` instead of failing startup.
 - **`BaseUrl` must be HTTPS** with no plaintext exception. `DownloadAllowedHosts` is an explicit allowlist: a download URL outside it, or any redirect, is refused without contacting the destination.
+- **`DownloadLinkHost` must be in `DownloadAllowedHosts`.** `DownloadLinkHost` (default `www.opensubtitles.com`) names the host where OpenSubtitles serves subtitle files. If it is missing from `DownloadAllowedHosts`, search returns `409` `provider_not_configured` instead of listing subtitles that cannot be downloaded.
+- **Live check (developer tool).** `scripts/Test-LiveSubtitleProvider.ps1` calls the real OpenSubtitles API with your key to confirm search and, with `-Download`, one download work against the settings you configured. It costs 1 of 100 daily download quota and is never run by CI or the test suites.
 - **Writable library.** The daily-driver entrypoint runs the Api as a host process, so writeability is a property of `Library:RootPath` and the account running the Api — grant the Api process write permission on that folder. The daily-driver Compose file contains only Postgres and RabbitMQ and mounts no library; the read-only `:ro` bind mount belongs to the full Compose stack and is not the writable setup.
 - **Secrets stay local.** Put the API key and any machine-specific path only in the Api local settings channel. Never commit credentials or absolute library paths to `docker/api.settings.example.json`, `.env.example`, or any other tracked file.
 - **What a save looks like.** On success a language-tagged sidecar appears in the movie's `Subs` folder (`Film.mkv` → `Subs/Film.pt-BR.srt`, the names BS Player autodetects) and `POST /api/movies/{id}/subtitles/download` answers `201` with the created track and the provider quota. A colliding name is never overwritten.

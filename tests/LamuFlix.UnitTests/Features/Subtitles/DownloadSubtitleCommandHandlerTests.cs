@@ -394,6 +394,73 @@ public sealed class DownloadSubtitleCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_RecordedLinkHostRefusal_ThrowsProviderNotConfiguredBeforePaidCall()
+    {
+        // arrange
+        Arrange();
+        var candidateId = IssueCandidate();
+        var refusals = new SubtitleLinkHostRefusals();
+        refusals.Record("bad.example");
+        var handler = CreateHandler(refusals: refusals);
+
+        // act
+        var act = () => handler.HandleAsync(
+            new DownloadSubtitleCommand(new MovieId(MovieIdValue), candidateId),
+            CancellationToken.None);
+
+        // assert
+        var notConfigured = await Should.ThrowAsync<SubtitleProviderNotConfiguredException>(act);
+        notConfigured.Message.ShouldContain("bad.example");
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
+            Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ProviderRefusedLinkHost_RethrowsAndRecordsTheHost()
+    {
+        // arrange
+        Arrange();
+        var candidateId = IssueCandidate();
+        var refusal = SubtitleProviderFailureException.ForRefusedLinkHost("bad.example");
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(refusal);
+        var refusals = new SubtitleLinkHostRefusals();
+        var handler = CreateHandler(refusals: refusals);
+
+        // act
+        var act = () => handler.HandleAsync(
+            new DownloadSubtitleCommand(new MovieId(MovieIdValue), candidateId),
+            CancellationToken.None);
+
+        // assert
+        var thrown = await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        thrown.ShouldBeSameAs(refusal);
+        refusals.TryGetRefused(out var host).ShouldBeTrue();
+        host.ShouldBe("bad.example");
+    }
+
+    [Fact]
+    public async Task HandleAsync_ProviderFailureWithoutRefusedHost_RethrowsAndRecordsNothing()
+    {
+        // arrange
+        Arrange();
+        var candidateId = IssueCandidate();
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new SubtitleProviderFailureException("x"));
+        var refusals = new SubtitleLinkHostRefusals();
+        var handler = CreateHandler(refusals: refusals);
+
+        // act
+        var act = () => handler.HandleAsync(
+            new DownloadSubtitleCommand(new MovieId(MovieIdValue), candidateId),
+            CancellationToken.None);
+
+        // assert
+        await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        refusals.TryGetRefused(out _).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task HandleAsync_ProviderQuotaExceeded_DuringDownload_PropagatesTheTypedFailure()
     {
         // arrange
@@ -701,7 +768,8 @@ public sealed class DownloadSubtitleCommandHandlerTests
         bool providerConfigured = true,
         long maxDownloadBytes = SubtitlesOptions.DefaultMaxSubtitleDownloadBytes,
         int maxAttempts = SubtitlesOptions.DefaultMaxSubtitlePublicationAttempts,
-        ILogger<DownloadSubtitleCommandHandler>? logger = null) =>
+        ILogger<DownloadSubtitleCommandHandler>? logger = null,
+        SubtitleLinkHostRefusals? refusals = null) =>
         new(
             catalog,
             scanner,
@@ -724,7 +792,8 @@ public sealed class DownloadSubtitleCommandHandlerTests
                 MaxSubtitleLineCharacters = 16384,
                 MaxSubtitleOutputBytes = 33554432,
             }),
-            logger ?? NullLogger<DownloadSubtitleCommandHandler>.Instance);
+            logger ?? NullLogger<DownloadSubtitleCommandHandler>.Instance,
+            refusals ?? new SubtitleLinkHostRefusals());
 
     private static Microsoft.Extensions.Options.IOptions<SubtitleProviderOptions> UnconfiguredProviderOptions()
     {
@@ -743,6 +812,7 @@ public sealed class DownloadSubtitleCommandHandlerTests
             UserAgent = "LamuFlix/test",
             BaseUrl = "https://api.opensubtitles.invalid",
             DownloadAllowedHosts = ["dl.opensubtitles.invalid"],
+            DownloadLinkHost = "dl.opensubtitles.invalid",
             MaxDownloadBytes = 4096,
             RequestTimeout = TimeSpan.FromSeconds(5),
         };
