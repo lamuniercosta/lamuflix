@@ -156,6 +156,34 @@ describe('library production failure reporting', () => {
     expect(publish).not.toHaveBeenCalled();
   });
 
+  it('does not report an HTTP 200 body-decoding TypeError as a network error', async () => {
+    const seen: unknown[] = [];
+    const decodeError = new TypeError('terminated', { cause: { code: 'Z_DATA_ERROR' } });
+    const response = new Response('{}', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    vi.spyOn(response, 'json').mockRejectedValue(decodeError);
+    vi.spyOn(response, 'text').mockRejectedValue(decodeError);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(response);
+    try {
+      renderHarness(
+        <BrowseProbe
+          onError={(error) => {
+            seen.push(error);
+          }}
+        />,
+      );
+
+      await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+      expect(seen[0]).toBe(decodeError);
+      expect(toasts()).toHaveLength(0);
+      expect(publish).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it('keeps the invalid-filter marker on a browse 422 alongside the toast', async () => {
     const seen: BrowseMoviesQueryError[] = [];
     server.use(

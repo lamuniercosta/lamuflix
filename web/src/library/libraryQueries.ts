@@ -1,7 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
-import { markApiTransportFailure } from '../api/reportApiFailure';
 import type { components, paths } from '../api/types';
 
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
@@ -122,21 +121,14 @@ export function useBrowseMoviesQuery(inWatchlist = false, filters: Record<string
   return useQuery({
     queryKey: ['browseMovies', browseParams],
     queryFn: async ({ signal }) => {
-      const result = await client
-        .GET('/api/movies', {
-          params: {
-            query: browseParams as unknown as NonNullable<
-              paths['/api/movies']['get']['parameters']['query']
-            >,
-          },
-          signal,
-        })
-        .catch((thrown: unknown) => {
-          if (thrown instanceof TypeError) {
-            throw markApiTransportFailure(thrown);
-          }
-          throw thrown;
-        });
+      const result = await client.GET('/api/movies', {
+        params: {
+          query: browseParams as unknown as NonNullable<
+            paths['/api/movies']['get']['parameters']['query']
+          >,
+        },
+        signal,
+      });
       const { data, error, response } = result;
       if (error || !data) {
         const status = response?.status ?? 0;
@@ -164,16 +156,9 @@ export function useImportCandidatesQuery(enabled: boolean) {
   return useQuery({
     queryKey: ['importCandidates'],
     queryFn: async ({ signal }) => {
-      const result = await client
-        .GET('/api/movies/import/candidates', {
-          signal,
-        })
-        .catch((thrown: unknown) => {
-          if (thrown instanceof TypeError) {
-            throw markApiTransportFailure(thrown);
-          }
-          throw thrown;
-        });
+      const result = await client.GET('/api/movies/import/candidates', {
+        signal,
+      });
       const { data, error, response } = result;
       if (error || !data) {
         const failure = new Error(
@@ -195,22 +180,15 @@ export function useFailedEnrichmentsQuery(enabled: boolean) {
   return useQuery({
     queryKey: ['failedEnrichments'],
     queryFn: async ({ signal }) => {
-      const result = await client
-        .GET('/api/movies', {
-          params: {
-            query: {
-              ...standingBrowseQuery,
-              Statuses: ['Failed'],
-            } as unknown as NonNullable<paths['/api/movies']['get']['parameters']['query']>,
-          },
-          signal,
-        })
-        .catch((thrown: unknown) => {
-          if (thrown instanceof TypeError) {
-            throw markApiTransportFailure(thrown);
-          }
-          throw thrown;
-        });
+      const result = await client.GET('/api/movies', {
+        params: {
+          query: {
+            ...standingBrowseQuery,
+            Statuses: ['Failed'],
+          } as unknown as NonNullable<paths['/api/movies']['get']['parameters']['query']>,
+        },
+        signal,
+      });
       const { data, error, response } = result;
       if (error || !data) {
         const failure = new Error(
@@ -233,16 +211,9 @@ export function useImportLibraryFoldersMutation() {
 
   return useMutation({
     mutationFn: async (input: { folders: string[]; retryFailed: boolean }) => {
-      const result = await client
-        .POST('/api/movies/import/library', {
-          body: { folders: input.folders, retryFailed: input.retryFailed },
-        })
-        .catch((thrown: unknown) => {
-          if (thrown instanceof TypeError) {
-            throw markApiTransportFailure(thrown);
-          }
-          throw thrown;
-        });
+      const result = await client.POST('/api/movies/import/library', {
+        body: { folders: input.folders, retryFailed: input.retryFailed },
+      });
       const { data, error, response } = result;
       if (error || !data) {
         throw new BulkImportError(response?.status ?? 0, error?.detail ?? null, response, error);
@@ -266,11 +237,6 @@ export function useRetryEnrichmentMutation() {
           parseAs: 'text',
         })
         .catch((thrown: unknown): never => {
-          if (thrown instanceof TypeError) {
-            throw new RetryRowError(GENERIC_RETRY_ERROR, {
-              cause: markApiTransportFailure(thrown),
-            });
-          }
           throw new RetryRowError(GENERIC_RETRY_ERROR, { cause: thrown });
         });
 

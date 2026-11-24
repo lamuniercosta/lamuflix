@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { client } from '../../api/client';
 import type { components } from '../../api/types';
-import { markApiTransportFailure, reportApiFailure } from '../../api/reportApiFailure';
+import { reportApiFailure } from '../../api/reportApiFailure';
 import {
   readSubtitleProblem,
   type SubtitleCandidate,
@@ -63,10 +63,6 @@ const INITIAL_CATALOG: CatalogSnapshot = {
 
 const UNREACHABLE_PROBLEM: SubtitleProblem = { status: null, reason: null, quota: null };
 
-function rethrowClassifiedRawFailure(error: unknown): never {
-  throw error instanceof TypeError ? markApiTransportFailure(error) : error;
-}
-
 export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquisition {
   const numericId = Number(movieId);
   const [catalog, setCatalog] = useState<CatalogSnapshot>(INITIAL_CATALOG);
@@ -88,9 +84,7 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
       let next: CatalogSnapshot;
       let failure: unknown;
       try {
-        const result = await client
-          .GET('/api/subtitles/languages')
-          .catch(rethrowClassifiedRawFailure);
+        const result = await client.GET('/api/subtitles/languages');
         if (result.error !== undefined || result.response.status >= 400) {
           failure = result;
         }
@@ -125,11 +119,9 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
       let next: SearchSnapshot;
       let failure: unknown;
       try {
-        const result = await client
-          .GET('/api/movies/{id}/subtitles/search', {
-            params: { path: { id: numericId }, query: { language } },
-          })
-          .catch(rethrowClassifiedRawFailure);
+        const result = await client.GET('/api/movies/{id}/subtitles/search', {
+          params: { path: { id: numericId }, query: { language } },
+        });
         if (result.error !== undefined || result.response.status >= 400) {
           failure = result;
         }
@@ -209,12 +201,10 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
       let outcome: SubtitleDownloadOutcome | null = null;
       let failure: unknown;
       try {
-        const result = await client
-          .POST('/api/movies/{id}/subtitles/download', {
-            params: { path: { id: numericId } },
-            body: { candidateId },
-          })
-          .catch(rethrowClassifiedRawFailure);
+        const result = await client.POST('/api/movies/{id}/subtitles/download', {
+          params: { path: { id: numericId } },
+          body: { candidateId },
+        });
         if (result.error !== undefined || result.response.status >= 400) {
           failure = result;
           problem = readSubtitleProblem(result.error);
