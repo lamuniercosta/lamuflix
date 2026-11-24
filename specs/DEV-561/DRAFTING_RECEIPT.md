@@ -13,6 +13,7 @@
 - `/speckit-tasks` — wrote `specs/DEV-561/tasks.md`
 - `/speckit-checklist` — discovery requirements-quality items in `checklists/discovery.md` (requirements.md quality checklist from specify retained)
 - Analyze round 1 repairs — applied Keel fix list `C:/Users/lamun/AppData/Local/Temp/DEV-561-Keel-analyze-round-1-a817818e.md` (six items)
+- Analyze round 2 repairs — applied Keel fix list `C:/Users/lamun/AppData/Local/Temp/DEV-561-Keel-analyze-round-2-6023e385.md` (three items; plan/tasks + mirrors only)
 - **Not run**: `/speckit-analyze` (Keel-owned — Quill applies fix list only); `before_specify` grill (already closed at brief HEAD)
 
 ## Files written / updated (Spec Kit PR surface)
@@ -55,6 +56,12 @@ Gate 1 commit surface remains `specs/DEV-561/` per Quill duty / DEV-539 pattern.
 4. Web acceptance — `tasks.md` T015–T017/T020; `quickstart.md` SMOKE-001–003 and both config-off paths
 5. Plan-plus-ADR / Gate 1 sequence — `plan.md` status/approach; `tasks.md` T000/T021/T022; mutation N/A + harness SKIP + scope-empty SKIPPED; brief follow-up disposition
 6. Disposable `ticket-text.txt` — removed from PR surface; provenance retargeted here
+
+## Analyze round 2 repair map
+
+1. Ranking pipeline order + validation split — `tasks.md` T008 (options validation without FluentValidation prescription), T009 (Disliked / Liked-over-Watched / Watchlist-only / blank-title / pair dedupe before per-ID tuple; both Option A exclusions before counting; weight desc / TMDb ID asc; cap 20; query FluentValidation path), T010 (reason/response assembly), T019 depends on T010; `plan.md` Approach 3 / constitution V
+2. Ranking test pins — `tasks.md` T011 (positive normalized-title/equal-known-year match; fallback only for library movies without TMDb ID; one-seed vs two-seed; disliked/watchlist-only; candidate vs seed/tuple ordering)
+3. SC-001 / empty API / Verify / follow-up — `tasks.md` T007 first-page request count; T013 TMDb-configured no-eligible 200 `[]`; T014 + `plan.md` API rules constitution Verify snapshot/drift; T022 existing-open-ticket check before filing follow-ups
 
 ## Notes
 
