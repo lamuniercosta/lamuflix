@@ -250,7 +250,7 @@ describe('configured QueryClient cache reporting', () => {
 
     expect(publish).toHaveBeenCalledTimes(4);
     expect(toasts()).toHaveLength(3);
-    expect(screen.getByRole('status').children).toHaveLength(4);
+    expect(screen.getByRole('status').children).toHaveLength(3);
   });
 
   it('does not report an intentionally cancelled query', async () => {

@@ -18,8 +18,8 @@ export default function ApiFailureToastHost({
         aria-live="polite"
         aria-atomic="false"
       >
-        {announcements.map((message, index) => (
-          <p key={`announcement-${index + 1}`}>{message}</p>
+        {announcements.map((announcement) => (
+          <p key={announcement.id}>{announcement.message}</p>
         ))}
       </div>
       <div className="lamu-toast-stack">

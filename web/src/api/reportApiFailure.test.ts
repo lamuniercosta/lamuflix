@@ -94,6 +94,42 @@ describe('normalizeApiFailure', () => {
     expect(JSON.stringify(result)).not.toContain('Failed to fetch');
   });
 
+  it('follows a wrapped cause to the original transport failure', () => {
+    const wrapped = new Error('row failed', {
+      cause: markApiTransportFailure(new TypeError('Failed to fetch')),
+    });
+
+    expect(normalizeApiFailure(wrapped)).toEqual({
+      kind: 'network',
+      title: 'Network error',
+      status: 'Unavailable',
+      reason: undefined,
+      traceId: 'Unavailable',
+    });
+  });
+
+  it('reads diagnostics carried on an error instance', () => {
+    const carried = new Error('Browse failed (503)') as Error & {
+      response: unknown;
+      error: unknown;
+    };
+    carried.response = response(503);
+    carried.error = problem({
+      status: 503,
+      title: 'Service degraded',
+      reason: 'retry later',
+      traceId: 'trace-503',
+    });
+
+    expect(normalizeApiFailure(carried)).toEqual({
+      kind: 'http',
+      title: 'Service degraded',
+      status: '503',
+      reason: 'retry later',
+      traceId: 'trace-503',
+    });
+  });
+
   it('ignores unknown throws, unmarked TypeErrors, aborts and non-failure statuses', () => {
     const abort = new DOMException('Aborted', 'AbortError');
 

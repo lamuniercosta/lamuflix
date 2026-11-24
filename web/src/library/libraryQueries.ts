@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
+import { markApiTransportFailure } from '../api/reportApiFailure';
 import type { components, paths } from '../api/types';
 
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
@@ -32,11 +33,15 @@ export const BULK_IMPORT_REASON_TEXT: Record<string, string> = {
 export class BulkImportError extends Error {
   readonly status: number;
   readonly detail: string | null;
+  response?: unknown;
+  error?: unknown;
 
-  constructor(status: number, detail: string | null) {
+  constructor(status: number, detail: string | null, response?: unknown, error?: unknown) {
     super(detail ?? `Bulk import failed (${status})`);
     this.status = status;
     this.detail = detail;
+    this.response = response;
+    this.error = error;
   }
 }
 
@@ -63,6 +68,8 @@ export type BulkImportSummary = components['schemas']['ImportLibraryResponse'];
 
 export class RetryRowError extends Error {
   readonly kind = 'row' as const;
+  response?: unknown;
+  error?: unknown;
 }
 
 export function invalidateBrowseMovies(queryClient: QueryClient): void {
@@ -93,6 +100,8 @@ export function markRowPending(
 export interface BrowseMoviesQueryError extends Error {
   status?: number;
   invalidFilter?: boolean;
+  response?: unknown;
+  error?: unknown;
 }
 
 export function useBrowseMoviesQuery(inWatchlist = false, filters: Record<string, unknown> = {}) {
@@ -113,20 +122,27 @@ export function useBrowseMoviesQuery(inWatchlist = false, filters: Record<string
   return useQuery({
     queryKey: ['browseMovies', browseParams],
     queryFn: async ({ signal }) => {
-      const { data, error, response } = await client.GET('/api/movies', {
-        params: {
-          query: browseParams as unknown as NonNullable<
-            paths['/api/movies']['get']['parameters']['query']
-          >,
-        },
-        signal,
-      });
+      const result = await client
+        .GET('/api/movies', {
+          params: {
+            query: browseParams as unknown as NonNullable<
+              paths['/api/movies']['get']['parameters']['query']
+            >,
+          },
+          signal,
+        })
+        .catch((thrown: unknown) => {
+          throw markApiTransportFailure(thrown);
+        });
+      const { data, error, response } = result;
       if (error || !data) {
         const status = response?.status ?? 0;
         const failure = new Error(
           error?.detail ?? `Browse failed (${status})`,
         ) as BrowseMoviesQueryError;
         failure.status = status;
+        failure.response = response;
+        failure.error = error;
         if (status === 422) {
           failure.invalidFilter = true;
         }
@@ -145,11 +161,21 @@ export function useImportCandidatesQuery(enabled: boolean) {
   return useQuery({
     queryKey: ['importCandidates'],
     queryFn: async ({ signal }) => {
-      const { data, error, response } = await client.GET('/api/movies/import/candidates', {
-        signal,
-      });
+      const result = await client
+        .GET('/api/movies/import/candidates', {
+          signal,
+        })
+        .catch((thrown: unknown) => {
+          throw markApiTransportFailure(thrown);
+        });
+      const { data, error, response } = result;
       if (error || !data) {
-        throw new Error(error?.detail ?? `Candidates failed (${response?.status ?? 0})`);
+        const failure = new Error(
+          error?.detail ?? `Candidates failed (${response?.status ?? 0})`,
+        ) as Error & { response: unknown; error: unknown };
+        failure.response = response;
+        failure.error = error;
+        throw failure;
       }
       return data;
     },
@@ -163,17 +189,27 @@ export function useFailedEnrichmentsQuery(enabled: boolean) {
   return useQuery({
     queryKey: ['failedEnrichments'],
     queryFn: async ({ signal }) => {
-      const { data, error, response } = await client.GET('/api/movies', {
-        params: {
-          query: {
-            ...standingBrowseQuery,
-            Statuses: ['Failed'],
-          } as unknown as NonNullable<paths['/api/movies']['get']['parameters']['query']>,
-        },
-        signal,
-      });
+      const result = await client
+        .GET('/api/movies', {
+          params: {
+            query: {
+              ...standingBrowseQuery,
+              Statuses: ['Failed'],
+            } as unknown as NonNullable<paths['/api/movies']['get']['parameters']['query']>,
+          },
+          signal,
+        })
+        .catch((thrown: unknown) => {
+          throw markApiTransportFailure(thrown);
+        });
+      const { data, error, response } = result;
       if (error || !data) {
-        throw new Error(error?.detail ?? `Failed movies failed (${response?.status ?? 0})`);
+        const failure = new Error(
+          error?.detail ?? `Failed movies failed (${response?.status ?? 0})`,
+        ) as Error & { response: unknown; error: unknown };
+        failure.response = response;
+        failure.error = error;
+        throw failure;
       }
       return data;
     },
@@ -188,11 +224,16 @@ export function useImportLibraryFoldersMutation() {
 
   return useMutation({
     mutationFn: async (input: { folders: string[]; retryFailed: boolean }) => {
-      const { data, error, response } = await client.POST('/api/movies/import/library', {
-        body: { folders: input.folders, retryFailed: input.retryFailed },
-      });
+      const result = await client
+        .POST('/api/movies/import/library', {
+          body: { folders: input.folders, retryFailed: input.retryFailed },
+        })
+        .catch((thrown: unknown) => {
+          throw markApiTransportFailure(thrown);
+        });
+      const { data, error, response } = result;
       if (error || !data) {
-        throw new BulkImportError(response?.status ?? 0, error?.detail ?? null);
+        throw new BulkImportError(response?.status ?? 0, error?.detail ?? null, response, error);
       }
       return data;
     },
@@ -207,23 +248,25 @@ export function useRetryEnrichmentMutation() {
 
   return useMutation({
     mutationFn: async (id: number | string) => {
-      let response: Response;
-
-      try {
-        const result = await client.POST('/api/movies/{id}/enrichment', {
+      const result = await client
+        .POST('/api/movies/{id}/enrichment', {
           params: { path: { id } },
           parseAs: 'text',
+        })
+        .catch((thrown: unknown): never => {
+          throw new RetryRowError(GENERIC_RETRY_ERROR, {
+            cause: markApiTransportFailure(thrown),
+          });
         });
-        response = result.response;
-      } catch {
-        throw new RetryRowError(GENERIC_RETRY_ERROR);
-      }
 
-      if (response.status === 202) {
+      if (result.response.status === 202) {
         return { id };
       }
 
-      throw new RetryRowError(GENERIC_RETRY_ERROR);
+      const httpFailure = new RetryRowError(GENERIC_RETRY_ERROR);
+      httpFailure.response = result.response;
+      httpFailure.error = result.error;
+      throw httpFailure;
     },
     onSuccess: ({ id }) => {
       queryClient.setQueriesData<BrowseMoviesResponse>({ queryKey: ['browseMovies'] }, (current) =>

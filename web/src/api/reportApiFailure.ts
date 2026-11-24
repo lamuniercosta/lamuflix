@@ -103,13 +103,19 @@ export function normalizeApiFailure(value: unknown): NormalizedApiFailure | null
     };
   }
   if (isRecord(value) && ('response' in value || 'error' in value)) {
-    return normalizeHttp(value['response'], value['error']);
+    const viaHttp = normalizeHttp(value['response'], value['error']);
+    if (viaHttp) {
+      return viaHttp;
+    }
   }
   if (isProblemDetails(value)) {
     return normalizeHttp(undefined, value);
   }
   if (isResponseLike(value)) {
     return normalizeHttp(value, undefined);
+  }
+  if (value instanceof Error && value.cause !== undefined) {
+    return normalizeApiFailure(value.cause);
   }
   return null;
 }
