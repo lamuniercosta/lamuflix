@@ -331,7 +331,6 @@ public sealed partial class OpenSubtitlesSubtitleProvider(
             return link;
         }
 
-        // System.Uri already lowercases DNS host names.
         var host = link.IdnHost;
         if (refusals.TryRecord(host))
         {

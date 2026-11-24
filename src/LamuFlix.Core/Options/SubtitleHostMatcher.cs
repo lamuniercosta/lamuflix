@@ -3,7 +3,6 @@ using System.Collections.Generic;
 
 namespace LamuFlix.Core.Options;
 
-// Shared host-name checks for subtitle provider settings and request URIs: trimmed, case-insensitive.
 public static class SubtitleHostMatcher
 {
     public static bool IsListed(string host, IReadOnlyList<string> allowedHosts)

@@ -4,9 +4,6 @@ using System.Threading;
 
 namespace LamuFlix.Core.Features.Subtitles;
 
-// Process-lifetime record of a download link host the provider served that DownloadAllowedHosts refuses.
-// The first refused host is kept; later refusals do not replace it. Once recorded, search and download
-// stay disabled until the API restarts.
 public sealed class SubtitleLinkHostRefusals
 {
     private string? _refusedHost;

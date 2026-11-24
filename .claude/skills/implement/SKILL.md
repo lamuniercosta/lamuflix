@@ -71,6 +71,7 @@ pwsh -NoProfile -WindowStyle Hidden -File ./scripts/Test-LiveSubtitleProvider.ps
 - `-Download` costs 1 of the 100 daily quota. Run it once per ticket, not once per edit.
 - Exit 0 is a pass. Exit 1 is a fail. Exit 2 means "Could not run" (no key), never a pass.
 - Record the receipt (date, exit code, link host, quota remaining) in the ticket's `brief.md` and in the PR description.
+- When the check, credentials, or quota are unavailable, record the specific pending evidence in the ticket's `brief.md` and in the PR description. Pending evidence keeps acceptance pending: only a passing sanitized `-Download` receipt completes live acceptance.
 - Never paste keys, download links or tokens into a receipt.
 - Origin: DEV-566. The fakes served subtitle links from 127.0.0.1, so the real download host `www.opensubtitles.com` was never allowlisted, and every download failed with 502 after burning quota.
 
