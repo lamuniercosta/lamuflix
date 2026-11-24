@@ -18,6 +18,10 @@
   "Omdb": {
     "ApiKey": "change"
   },
+  "Tmdb": {
+    "Enabled": true,
+    "ApiKey": ""
+  },
   "Enrichment": {
     "SweepInterval": "00:01:00",
     "ClaimLease": "00:00:10"
@@ -28,7 +32,15 @@
   },
   "Subtitles": {
     "SaveEnabled": false,
-    "PreferredLanguages": []
+    "PreferredLanguages": [],
+    "OpenSubtitles": {
+      "ApiKey": "",
+      "BaseUrl": "https://api.opensubtitles.com",
+      "UserAgent": "LamuFlix v1.0",
+      "DownloadAllowedHosts": ["api.opensubtitles.com", "www.opensubtitles.com"],
+      "MaxDownloadBytes": 1048576,
+      "RequestTimeout": "00:00:15"
+    }
   },
   "Recommendations": {
     "MinimumSimilarity": 0.225,
