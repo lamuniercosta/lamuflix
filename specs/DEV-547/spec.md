@@ -113,7 +113,7 @@ The running app shows release and short commit in exactly one place, using the g
 
 **Why this priority**: Done when requires the owner to see `v0.1.0` and the commit on port 3100 after release; local Compose must show the `dev` form without blocking the shell.
 
-**Independent Test**: Web state tests cover tagged display, successful null-release `dev` with short commit, successful null-release `dev (unknown)`, in-flight omission, failed-response omission, and one-location uniqueness across shell and status page when both exist after Q3 pickup selection.
+**Independent Test**: Generated-MSW web state tests cover tagged display, successful null-release `dev` with short commit, successful null-release verbatim `dev (unknown)`, deterministic in-flight hold omission, controlled failed-response omission, and one-location uniqueness across shell and status page when both exist after Q3 pickup selection (with Phase 6 drift recheck).
 
 **Acceptance Scenarios**:
 
@@ -147,7 +147,7 @@ After both tickets land and the nightly gate passes on that commit, the authoriz
 
 **Why this priority**: Closure criteria are post-merge; they must not block pre-merge delivery verification, but they remain in scope for ticket Done when.
 
-**Independent Test**: Tag run green; GitHub Release exists; `RELEASE.json` records `"release": "v0.1.0"` plus target commit and digests; port 3100 shows `v0.1.0` and short commit; Rigger comment carries tag-run link and screenshot.
+**Independent Test**: Eligible exact-SHA nightly; pre-push SHA/tag-state checks with halt/escalate on mismatch; tag run green; GitHub Release exists; `RELEASE.json` records safely serialized `"release": "v0.1.0"` plus target commit and digests; live port 3100 shows `v0.1.0` and short commit (harness blockers distinguished); Rigger comment carries tag-run link and screenshot.
 
 **Acceptance Scenarios**:
 
