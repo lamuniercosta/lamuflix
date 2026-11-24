@@ -33,6 +33,16 @@ public sealed class SubtitleProviderOptionsTests
     }
 
     [Fact]
+    public void Defaults_DownloadLinkHostIsTheProviderWwwHost()
+    {
+        // act
+        var options = new SubtitleProviderOptions();
+
+        // assert
+        options.DownloadLinkHost.ShouldBe("www.opensubtitles.com");
+    }
+
+    [Fact]
     public void Configuration_BindsEveryAcquisitionSettingWithoutDefaulting()
     {
         // arrange

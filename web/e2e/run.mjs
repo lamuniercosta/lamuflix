@@ -165,6 +165,9 @@ function validateProviderSettings(settings) {
       'Subtitles:OpenSubtitles:DownloadAllowedHosts must allow the API host 127.0.0.1 and the link host localhost',
     );
   }
+  if (settings.Subtitles?.OpenSubtitles?.DownloadLinkHost !== 'localhost') {
+    throw new Error('Subtitles:OpenSubtitles:DownloadLinkHost must be the e2e link host localhost');
+  }
 }
 
 function writeSettings(settings) {
@@ -223,6 +226,7 @@ function buildSettings() {
         BaseUrl: subtitleProviderBaseUrl(),
         UserAgent: 'LamuFlix-E2E/DEV-525',
         DownloadAllowedHosts: ['127.0.0.1', 'localhost'],
+        DownloadLinkHost: 'localhost',
         MaxDownloadBytes: 1048576,
         RequestTimeout: '00:00:15',
       },

@@ -383,7 +383,9 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         var act = () => provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
 
         // assert
-        await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        var thrown = await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        thrown.RefusedLinkHost.ShouldBe("not-allowlisted.example.test");
+        thrown.Message.ShouldNotContain("/srt/101.srt");
         ApiCount(DownloadPath).ShouldBe(1);
         emulator.Links.LogEntries.Count().ShouldBe(0);
     }
@@ -676,6 +678,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
             BaseUrl = emulator.BaseUrl,
             UserAgent = UserAgent,
             DownloadAllowedHosts = ["127.0.0.1"],
+            DownloadLinkHost = "127.0.0.1",
             MaxDownloadBytes = MaxBytes,
             RequestTimeout = RequestTimeout,
         };

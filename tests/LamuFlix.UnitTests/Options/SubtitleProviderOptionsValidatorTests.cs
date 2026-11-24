@@ -88,6 +88,83 @@ public sealed class SubtitleProviderOptionsValidatorTests
     }
 
     [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void Validate_BlankDownloadLinkHost_FailsNamingDownloadLinkHost(string linkHost)
+    {
+        // act
+        var result = Validate(Complete() with { DownloadLinkHost = linkHost });
+
+        // assert
+        result.Failed.ShouldBeTrue();
+        string.Join("; ", result.Failures).ShouldContain("Subtitles:OpenSubtitles:DownloadLinkHost must be provided.");
+    }
+
+    [Fact]
+    public void Validate_DownloadLinkHostMissingFromDownloadAllowedHosts_FailsNamingBothSettings()
+    {
+        // act
+        var result = Validate(Complete() with { DownloadLinkHost = "www.example.invalid" });
+
+        // assert
+        result.Failed.ShouldBeTrue();
+        var message = string.Join("; ", result.Failures);
+        message.ShouldContain("Subtitles:OpenSubtitles:DownloadLinkHost must be listed in");
+        message.ShouldContain(nameof(SubtitleProviderOptions.DownloadAllowedHosts));
+    }
+
+    [Fact]
+    public void Validate_DownloadLinkHostMatchesAllowedHostCaseInsensitivelyAndTrimmed_Succeeds()
+    {
+        // arrange
+        var options = Complete() with
+        {
+            DownloadAllowedHosts = [" www.example.com "],
+            DownloadLinkHost = "WWW.Example.com",
+        };
+
+        // act
+        var result = Validate(options);
+
+        // assert
+        result.ShouldBe(ValidateOptionsResult.Success);
+    }
+
+    [Fact]
+    public void IsLinkHostAllowed_BlankDownloadLinkHost_ReturnsFalse()
+    {
+        // arrange
+        var options = Complete() with { DownloadLinkHost = " " };
+
+        // act
+        var allowed = SubtitleProviderOptionsValidator.IsLinkHostAllowed(options);
+
+        // assert
+        allowed.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IsLinkHostAllowed_DownloadLinkHostInTheAllowlist_ReturnsTrue()
+    {
+        // act
+        var allowed = SubtitleProviderOptionsValidator.IsLinkHostAllowed(Complete());
+
+        // assert
+        allowed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsLinkHostAllowed_NullOptions_ThrowsArgumentNullException()
+    {
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
+        var act = () => { SubtitleProviderOptionsValidator.IsLinkHostAllowed(null!); };
+
+        // assert
+        Should.Throw<ArgumentNullException>(act);
+    }
+
+    [Theory]
     [InlineData(0)]
     [InlineData(-1)]
     public void Validate_NonPositiveMaxDownloadBytes_FailsNamingMaxDownloadBytes(long maxDownloadBytes)
@@ -115,6 +192,7 @@ public sealed class SubtitleProviderOptionsValidatorTests
         BaseUrl = "https://api.example.invalid/api/v1/",
         UserAgent = "LamuFlix test",
         DownloadAllowedHosts = ["dl.example.invalid"],
+        DownloadLinkHost = "dl.example.invalid",
         MaxDownloadBytes = 1048576,
         RequestTimeout = TimeSpan.FromSeconds(15),
     };

@@ -35,6 +35,7 @@ public sealed class SubtitleSetupDocumentationTests
         "Subtitles:OpenSubtitles:BaseUrl",
         "Subtitles:OpenSubtitles:UserAgent",
         "Subtitles:OpenSubtitles:DownloadAllowedHosts",
+        "Subtitles:OpenSubtitles:DownloadLinkHost",
         "Subtitles:OpenSubtitles:MaxDownloadBytes",
         "Subtitles:OpenSubtitles:RequestTimeout",
         "Library:RootPath",

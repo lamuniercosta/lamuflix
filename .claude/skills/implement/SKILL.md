@@ -57,6 +57,22 @@ Feature files are synced from `specs/**/acceptance/` into `Features/` at build t
 
 Reuse existing patterns: NSubstitute, FluentAssertions, WireMock, Testcontainers, WebApplicationFactory.
 
+## Live provider check (external APIs)
+
+Unit, integration and e2e tests never call real APIs. External providers are replaced by WireMock emulators, and test networks are loopback-only. A fake can only encode what we already believe about a provider, so it cannot catch a wrong assumption about that provider.
+
+A ticket that touches an external provider adapter (`src/LamuFlix.Infrastructure/Adapters/*Provider*.cs`), its options (`src/LamuFlix.Core/Options/*Provider*Options*.cs`), or its deploy settings (`scripts/home/New-HomeCluster.ps1`) MUST, during development, call the real API with the developer key. For OpenSubtitles:
+
+```powershell
+pwsh -NoProfile -WindowStyle Hidden -File ./scripts/Test-LiveSubtitleProvider.ps1 -Download
+```
+
+- `-Download` costs 1 of the 100 daily quota. Run it once per ticket, not once per edit.
+- Exit 0 is a pass. Exit 1 is a fail. Exit 2 means "Could not run" (no key), never a pass.
+- Record the receipt (date, exit code, link host, quota remaining) in the ticket's `brief.md` and in the PR description.
+- Never paste keys, download links or tokens into a receipt.
+- Origin: DEV-566. The fakes served subtitle links from 127.0.0.1, so the real download host `www.opensubtitles.com` was never allowlisted, and every download failed with 502 after burning quota.
+
 ## Mid-Stage Gates
 
 After materially editing `.cs` files, run from repo root:

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Core.Options;
@@ -51,6 +52,37 @@ public sealed class SubtitleProviderOptionsValidator : IValidateOptions<Subtitle
                 failures.Add($"{Field(nameof(SubtitleProviderOptions.DownloadAllowedHosts))}[{index}] must not be blank.");
             }
         }
+
+        AddLinkHostFailures(options, failures);
+    }
+
+    private static void AddLinkHostFailures(SubtitleProviderOptions options, List<string> failures)
+    {
+        if (string.IsNullOrWhiteSpace(options.DownloadLinkHost))
+        {
+            failures.Add($"{Field(nameof(SubtitleProviderOptions.DownloadLinkHost))} must be provided.");
+        }
+        else if (!IsLinkHostAllowed(options))
+        {
+            failures.Add(
+                $"{Field(nameof(SubtitleProviderOptions.DownloadLinkHost))} must be listed in "
+                + $"{Field(nameof(SubtitleProviderOptions.DownloadAllowedHosts))}; "
+                + "the provider serves subtitle files from that host.");
+        }
+    }
+
+    public static bool IsLinkHostAllowed(SubtitleProviderOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (string.IsNullOrWhiteSpace(options.DownloadLinkHost))
+        {
+            return false;
+        }
+
+        var linkHost = options.DownloadLinkHost.Trim();
+        return options.DownloadAllowedHosts.Any(host =>
+            !string.IsNullOrWhiteSpace(host)
+            && string.Equals(host.Trim(), linkHost, StringComparison.OrdinalIgnoreCase));
     }
 
     private static void AddBoundFailures(SubtitleProviderOptions options, List<string> failures)

@@ -744,6 +744,43 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
     }
 
     [Fact]
+    public async Task PostDownload_LinkHostOutsideTheAllowlist_Returns502ThenSearchReturns409ProviderNotConfigured()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var emulator = new OpenSubtitlesEmulator(
+            SentinelKey,
+            new OpenSubtitlesScenario
+            {
+                Subtitles = [new OpenSubtitlesSubtitle(101, "en", 4, "Heat.1995.1080p.BluRay-GROUP", "Movie", "Heat")],
+            });
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        // The allowlist is 127.0.0.1 only, so this link on localhost is refused before any request is sent to it.
+        emulator.OverrideDownload(Response.Create().WithStatusCode(200)
+            .WithBody("{\"link\":\"https://localhost/download/token/subfile/101.srt\"}"));
+        // A dedicated factory instance: the refusal singleton lives as long as its host, so this host must not be shared.
+        await using var isolatedFactory = new ApiHostFactory();
+        await using var host = CreateHost(
+            library.Root,
+            WritableProviderSettings(baseUrl: emulator.BaseUrl),
+            providerStub: false,
+            hostFactory: isolatedFactory);
+        using var client = host.CreateClient();
+        var candidateId = await IssueCandidateAsync(client);
+
+        // act
+        var download = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+        var search = await client.GetAsync(SearchRoute(KnownId, "en"), ct);
+
+        // assert
+        await AssertProblemAsync(download, HttpStatusCode.BadGateway, "provider_unavailable", library.Root);
+        SubsFiles(library.Root).ShouldBeEmpty();
+        await AssertProblemAsync(search, HttpStatusCode.Conflict, "provider_not_configured", library.Root);
+    }
+
+    [Fact]
     public async Task PostDownload_InvalidSrtPayload_Returns502AndWritesNothing()
     {
         // arrange
@@ -1031,6 +1068,7 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
                 baseUrl ?? "https://api.opensubtitles.invalid",
             [$"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.DownloadAllowedHosts)}:0"] =
                 "127.0.0.1",
+            [$"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.DownloadLinkHost)}"] = "127.0.0.1",
             [$"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.MaxDownloadBytes)}"] = "65536",
             [$"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.RequestTimeout)}"] = "00:00:05",
         };
@@ -1038,8 +1076,9 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
     private WebApplicationFactory<Program> CreateHost(
         string libraryRoot,
         IReadOnlyDictionary<string, string?>? providerSettings = null,
-        bool providerStub = true) =>
-        factory.WithWebHostBuilder(builder =>
+        bool providerStub = true,
+        ApiHostFactory? hostFactory = null) =>
+        (hostFactory ?? factory).WithWebHostBuilder(builder =>
         {
             var settings = new Dictionary<string, string?>(StringComparer.Ordinal)
             {

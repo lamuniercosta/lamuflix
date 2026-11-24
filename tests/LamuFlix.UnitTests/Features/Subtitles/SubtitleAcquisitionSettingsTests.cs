@@ -94,6 +94,7 @@ public sealed class SubtitleAcquisitionSettingsTests
             UserAgent = "LamuFlix/test",
             BaseUrl = "https://api.opensubtitles.invalid",
             DownloadAllowedHosts = ["dl.opensubtitles.invalid"],
+            DownloadLinkHost = "dl.opensubtitles.invalid",
             MaxDownloadBytes = 4096,
             RequestTimeout = TimeSpan.FromSeconds(5),
         };

@@ -17,6 +17,8 @@ public sealed record SubtitleProviderOptions
     public string[] DownloadAllowedHosts { get; init; } = [];
 #pragma warning restore CA1819
 
+    public string DownloadLinkHost { get; init; } = "www.opensubtitles.com";
+
     public long MaxDownloadBytes { get; init; }
 
     public TimeSpan RequestTimeout { get; init; }
