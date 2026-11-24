@@ -52,7 +52,7 @@ How enrichment flows: the API persists a movie as `Pending` and publishes `Enric
 
 ## Run with Docker Compose
 
-Copy both example files and replace their placeholders with local values. `.env` supplies the Postgres and RabbitMQ container initialization credentials, can set an optional host library path, and carries the TMDb enablement flag and API key. `docker/api.settings.json` configures the API; its database and RabbitMQ credentials must match the corresponding values in `.env`. Put the OMDb key in the JSON file. The secret-bearing JSON file is ignored by Git and excluded from the Docker build context.
+Copy both example files and replace their placeholders with local values. `.env` supplies only non-provider Compose values: Postgres and RabbitMQ container initialization credentials and an optional host library path. `docker/api.settings.json` is the one API settings channel: it carries the database and RabbitMQ credentials (which must match `.env`) and all three provider keys. The secret-bearing JSON file is ignored by Git and excluded from the Docker build context. For a fresh Compose setup, copy the tracked example to that ignored path before startup.
 
 ```bash
 cp .env.example .env
@@ -60,7 +60,21 @@ cp docker/api.settings.example.json docker/api.settings.json
 docker compose up -d --build
 ```
 
-Applying changes to `docker/api.settings.json` requires restarting the API because some options are read at startup. Open http://localhost:3000. To mount a different library directory, set `LIBRARY_PATH` in `.env` before starting (defaults to `./docker/sample-library`). Imports take the movie folder name relative to the library root (for example `2 Days in New York[2012]`), and full paths still work.
+Applying changes to `docker/api.settings.json` requires recreating or restarting the API because some options are read at startup.
+
+### Provider API keys
+
+Each provider key has exactly one location per run mode. Provider keys are never read from Compose `.env`, API environment variables, or a second Kubernetes Secret.
+
+| Provider key | `dotnet run` (API local settings) | Compose (`docker/api.settings.json`) | Home cluster (mounted `api-settings` Secret) |
+|---|---|---|---|
+| OMDb | `Omdb:ApiKey` via `dotnet user-secrets` | `Omdb:ApiKey` in the mounted JSON | `Omdb:ApiKey` in `appsettings.Production.json` inside `api-settings` |
+| TMDb | `Tmdb:Enabled` and `Tmdb:ApiKey` via `dotnet user-secrets` | `Tmdb:Enabled` and `Tmdb:ApiKey` in the mounted JSON | `Tmdb:Enabled` and `Tmdb:ApiKey` in `appsettings.Production.json` inside `api-settings` |
+| OpenSubtitles | `Subtitles:OpenSubtitles:ApiKey` via `dotnet user-secrets` | `Subtitles:OpenSubtitles:ApiKey` in the mounted JSON | `Subtitles:OpenSubtitles:ApiKey` in `appsettings.Production.json` inside `api-settings` |
+
+Both Compose and home-generated settings default to `Tmdb:Enabled: true`. With TMDb enabled and an empty `Tmdb:ApiKey`, the app sends no TMDb request, but an OMDb miss becomes a retryable "provider unavailable" failure instead of a plain not-found. To use OMDb-only `NotFound` behavior, opt out with `Tmdb:Enabled: false` in the mounted settings JSON. Never echo or commit a key value.
+
+Open http://localhost:3000. To mount a different library directory, set `LIBRARY_PATH` in `.env` before starting (defaults to `./docker/sample-library`). Imports take the movie folder name relative to the library root (for example `2 Days in New York[2012]`), and full paths still work.
 
 The header's `Bulk import` action lists every folder under the root that is not yet imported, plus a loose video file sitting directly in the root, and imports the selection or all of it in one pass; already-imported folders are skipped, so repeating the pass is safe. It is backed by `GET /api/movies/import/candidates` (`newFolders`) and `POST /api/movies/import/library` (`folders`, `retryFailed`), which returns `imported`, `skipped`, `retried` counts and per-folder `failures` with a closed reason code (`folder-not-found`, `no-video`, `invalid-folder`, `import-failed`) — one folder never aborts the rest. `retryFailed` also requeues movies stuck in Failed enrichment. `POST /api/movies/import` remains the single-folder call.
 
@@ -68,18 +82,18 @@ The header's `Bulk import` action lists every folder under the root that is not 
 
 ### TMDb collection membership
 
-TMDb supplements an OMDb hit with keywords, full cast, and collection membership, so the library's Collection filter needs a TMDb API key. Compose enables TMDb by default (`Tmdb__Enabled: ${TMDB_ENABLED:-true}`) and reads the key from `${TMDB_API_KEY:-}`, so a `.env` that only adds a key is enough:
+TMDb supplements an OMDb hit with keywords, full cast, and collection membership, so the library's Collection filter needs a TMDb API key. Compose defaults to `Tmdb:Enabled: true` and reads the key from the ignored `docker/api.settings.json`, mounted read-only at `/app/appsettings.Production.json`:
 
-```bash
-# in .env (ignored by Git; never commit a real key)
-TMDB_ENABLED=true
-TMDB_API_KEY=your-local-key
-docker compose up -d
+```json
+"Tmdb": {
+  "Enabled": true,
+  "ApiKey": ""
+}
 ```
 
-`docker compose up -d` recreates the API container so changed `.env` values take effect. Both TMDb settings live only in the ignored `.env` file — that is the TMDb secret channel, separate from the OMDb key in the ignored `docker/api.settings.json`. Never commit credentials, and nothing is baked into the image.
+Edit `docker/api.settings.json` in place (never the tracked example) and put the key in `Tmdb:ApiKey`. Without a key, either supply one or set `Enabled` to `false` to opt out; do not echo secret values in logs or commands. Recreate the API (`docker compose up -d`) after changing the settings file so the new values take effect. Keep the effective enablement and key stable through the rollout and verify enrichment after it completes.
 
-Without a TMDb key, leave `TMDB_ENABLED=false`. With TMDb enabled and a blank key, the app sends no TMDb request, but an OMDb miss becomes a retryable "provider unavailable" failure instead of a plain not-found, so OMDb-only `NotFound` behavior requires explicitly setting `TMDB_ENABLED=false` until a real key is configured. Outside Compose the API keeps `Tmdb.Enabled: false` in `appsettings.json`, so a plain `dotnet run` never calls TMDb unless you opt in through configuration.
+**Cutover for an existing Compose stack.** Populate the mounted JSON with the effective TMDb enablement and key (or the intended opt-out) *before* recreating the API. Verify enrichment, then remove the obsolete `TMDB_ENABLED` / `TMDB_API_KEY` lines from the ignored local `.env`. Retain the prior `.env` inputs until verification succeeds so they remain available for rollback; never copy their values into Git. Fresh setups need no `.env` TMDb lines. Outside Compose, `appsettings.json` keeps `Tmdb:Enabled: false`, so a plain `dotnet run` only calls TMDb after you opt in through the user-secrets channel above.
 
 ## Windows daily-driver setup
 
@@ -121,6 +135,8 @@ dotnet user-secrets set "RabbitMq:UserName" "<local rabbitmq user>" --project sr
 dotnet user-secrets set "RabbitMq:Password" "<local rabbitmq password>" --project src/LamuFlix.Api
 dotnet user-secrets set "Library:RootPath" "<absolute path to your movie library>" --project src/LamuFlix.Api
 dotnet user-secrets set "Omdb:ApiKey" "<your OMDb API key>" --project src/LamuFlix.Api
+dotnet user-secrets set "Tmdb:Enabled" "true" --project src/LamuFlix.Api
+dotnet user-secrets set "Tmdb:ApiKey" "<your TMDb API key>" --project src/LamuFlix.Api
 dotnet user-secrets set "Database:ApplyMigrationsOnStartup" "true" --project src/LamuFlix.Api
 ```
 
@@ -255,6 +271,20 @@ Ports on the host: the app at `http://127.0.0.1:3100`, Argo CD at `http://127.0.
 
 Secrets never enter Git. The operator keeps the config and secret values in a folder outside the repository: a sibling `lamuflix-home` folder beside the checkout by default, holding `home.config.json`; set `-ConfigPath` or `$env:LAMUFLIX_HOME_CONFIG` to override. The shape is in `deploy/home/home.config.example.json`, and `deploy/home/secrets.example.json` lists the secret names only.
 
+### Home provider settings and cutover
+
+`New-HomeCluster.ps1` reads `OMDB_API_KEY`, optional `TMDB_API_KEY`, and `OPENSUBTITLES_API_KEY` from the operator's external `secretSourcePath` (a provisioning input, not a pod environment source), renders them into API settings from `docker/api.settings.example.json`, and publishes only the `api-settings` Secret mounted at `/app/appsettings.Production.json`. The generated settings inherit `Tmdb:Enabled: true` and pin `Tmdb:ApiKey` to an explicit empty string when the TMDb input is absent, empty, or whitespace-only. Missing TMDb input does not block provisioning.
+
+Publish the updated `api-settings` **before** applying the new API deployment. Keep the keys stable through the rollout and verify the rollout and OMDb + TMDb enrichment of a known title after it completes. Retain the external provisioning inputs until verification succeeds so they remain available for rollback; never echo their values. Operators who opt out must re-apply `Tmdb:Enabled: false` in the published `api-settings` JSON after **each** publication and verify the setting without printing credentials before rolling or restarting the API. The same applies to any effective TMDb override you need to preserve on regeneration.
+
+**One-time legacy Secret migration.** An existing `tmdb-credentials` Secret is deliberately retained for rollback: provisioning never deletes it, and the API no longer references it. Only after the new rollout and enrichment are verified, remove it manually in the `lamuflix` namespace:
+
+```bash
+kubectl -n lamuflix delete secret tmdb-credentials
+```
+
+Run this cleanup by hand, not as part of provisioning, and only when rollback is no longer needed.
+
 Operator commands (PowerShell 7):
 
 ```powershell
@@ -283,7 +313,7 @@ kubectl kustomize --load-restrictor LoadRestrictionsNone deploy/k8s/overlays/hom
 
 Subtitle handling has two modes, and the default is the read-only one. Serving an existing subtitle is separate from acquiring a new one: nothing in ordinary playback or streaming ever calls a subtitle provider.
 
-**Read-only demo (default).** `docker/api.settings.example.json` ships `Subtitles:SaveEnabled: false` with an empty `Subtitles:PreferredLanguages` array and no `Subtitles:OpenSubtitles` section at all, so the plain stack starts with acquisition disabled and unconfigured. Missing or invalid acquisition settings never block startup and never block existing-track serving. The Compose library mount stays read-only (`${LIBRARY_PATH:-./docker/sample-library}:/media/library:ro`), which is exactly what the demo needs:
+**Read-only demo (default).** `docker/api.settings.example.json` ships `Subtitles:SaveEnabled: false`, an empty `Subtitles:PreferredLanguages` array, and a placeholder-only `Subtitles:OpenSubtitles` section with an empty `ApiKey`, so the plain stack starts with acquisition disabled and unconfigured. Missing or invalid acquisition settings never block startup and never block existing-track serving. The Compose library mount stays read-only (`${LIBRARY_PATH:-./docker/sample-library}:/media/library:ro`), which is exactly what the demo needs:
 
 | Endpoint | Behavior in the demo |
 |---|---|
