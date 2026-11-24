@@ -7,6 +7,8 @@ import '@fontsource-variable/sofia-sans-extra-condensed';
 import './index.css';
 import { useEnrichmentStatus } from './library/useEnrichmentStatus';
 import { maybeStartWorker } from './mocks/startup';
+import ApiFailureToastHost from './ui/ApiFailureToastHost';
+import { apiFailureToastQueue } from './ui/apiFailureToastQueue';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
@@ -29,6 +31,7 @@ function EnrichmentStatusHost() {
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
+      <ApiFailureToastHost queue={apiFailureToastQueue} />
       <EnrichmentStatusHost />
     </QueryClientProvider>
   </StrictMode>,
