@@ -69,6 +69,8 @@ function Assert-HomeSettingsChannel {
     Assert-Case "${Label}: TMDb key matches the source" (($null -ne $tmdb) -and ([string]$tmdb.ApiKey -eq $ExpectedTmdbKey))
     Assert-Case "${Label}: OpenSubtitles key copied from source" (($null -ne $provider) -and ([string]$provider.ApiKey -eq 'opensubtitles-test-value'))
     Assert-Case "${Label}: OpenSubtitles endpoint is the production https API" (($null -ne $provider) -and ([string]$provider.BaseUrl -eq 'https://api.opensubtitles.com'))
+    Assert-Case "${Label}: OpenSubtitles allowlist contains api and www download hosts" (($null -ne $provider) -and (@($provider.DownloadAllowedHosts) -contains 'api.opensubtitles.com') -and (@($provider.DownloadAllowedHosts) -contains 'www.opensubtitles.com'))
+    Assert-Case "${Label}: OpenSubtitles DownloadLinkHost is www.opensubtitles.com" (($null -ne $provider) -and ([string]$provider.DownloadLinkHost -eq 'www.opensubtitles.com'))
     Assert-Case "${Label}: OpenSubtitles fields come from the settings template" (($null -ne $provider) -and ($null -ne $templateProvider) -and ([string]$provider.UserAgent -eq [string]$templateProvider.UserAgent) -and ((@($provider.DownloadAllowedHosts) -join ',') -eq (@($templateProvider.DownloadAllowedHosts) -join ',')) -and ([long]$provider.MaxDownloadBytes -eq [long]$templateProvider.MaxDownloadBytes) -and ([string]$provider.RequestTimeout -eq [string]$templateProvider.RequestTimeout))
     Assert-Case "${Label}: api-settings published from generated settings" (Test-LogHas $Result 'create secret generic api-settings --from-file=appsettings\.Production\.json=.*api\.settings\.json')
     Assert-Case "${Label}: no tmdb.env written" (-not (Test-Path -LiteralPath $tmdbEnvPath))

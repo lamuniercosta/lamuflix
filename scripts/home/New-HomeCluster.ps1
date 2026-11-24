@@ -69,6 +69,8 @@ function New-ApiSettingsFile {
     $settings.Subtitles.SaveEnabled = $true
     $settings.Subtitles.PreferredLanguages = @('pt-BR', 'en')
     $settings.Subtitles.OpenSubtitles.ApiKey = $opensubtitles
+    $settings.Subtitles.OpenSubtitles.DownloadAllowedHosts = @('api.opensubtitles.com', 'www.opensubtitles.com')
+    $settings.Subtitles.OpenSubtitles | Add-Member -NotePropertyName 'DownloadLinkHost' -NotePropertyValue 'www.opensubtitles.com' -Force
 
     Write-TextFileUtf8 -Path (Join-Path $SecretsDir 'api.settings.json') -Text ($settings | ConvertTo-Json -Depth 20)
 }
