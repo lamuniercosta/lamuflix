@@ -565,7 +565,6 @@ button.lamu-chip {
   margin-top: var(--lamu-space-4);
 }
 
-/* API failure toasts stay bottom-end on desktop and wrap inside narrow viewports. */
 .lamu-toast-host {
   position: fixed;
   z-index: 20;

@@ -63,8 +63,8 @@ const INITIAL_CATALOG: CatalogSnapshot = {
 
 const UNREACHABLE_PROBLEM: SubtitleProblem = { status: null, reason: null, quota: null };
 
-function classifyRawFailure(error: unknown): unknown {
-  return error instanceof TypeError ? markApiTransportFailure(error) : error;
+function rethrowClassifiedRawFailure(error: unknown): never {
+  throw error instanceof TypeError ? markApiTransportFailure(error) : error;
 }
 
 export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquisition {
@@ -88,9 +88,9 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
       let next: CatalogSnapshot;
       let failure: unknown;
       try {
-        const result = await client.GET('/api/subtitles/languages').catch((error: unknown) => {
-          throw classifyRawFailure(error);
-        });
+        const result = await client
+          .GET('/api/subtitles/languages')
+          .catch(rethrowClassifiedRawFailure);
         if (result.error !== undefined || result.response.status >= 400) {
           failure = result;
         }
@@ -129,9 +129,7 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
           .GET('/api/movies/{id}/subtitles/search', {
             params: { path: { id: numericId }, query: { language } },
           })
-          .catch((error: unknown) => {
-            throw classifyRawFailure(error);
-          });
+          .catch(rethrowClassifiedRawFailure);
         if (result.error !== undefined || result.response.status >= 400) {
           failure = result;
         }
@@ -216,9 +214,7 @@ export function useSubtitleAcquisition(movieId: number | string): SubtitleAcquis
             params: { path: { id: numericId } },
             body: { candidateId },
           })
-          .catch((error: unknown) => {
-            throw classifyRawFailure(error);
-          });
+          .catch(rethrowClassifiedRawFailure);
         if (result.error !== undefined || result.response.status >= 400) {
           failure = result;
           problem = readSubtitleProblem(result.error);
