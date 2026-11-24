@@ -132,6 +132,30 @@ describe('library production failure reporting', () => {
     expect(toasts()[0]).toHaveTextContent('Network error');
   });
 
+  it('does not report HTTP 200 invalid JSON as a network error', async () => {
+    const seen: unknown[] = [];
+    server.use(
+      http.get('*/api/movies', () =>
+        HttpResponse.text('<html>proxy login</html>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      ),
+    );
+    renderHarness(
+      <BrowseProbe
+        onError={(error) => {
+          seen.push(error);
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    expect(seen[0]).toBeInstanceOf(SyntaxError);
+    expect(toasts()).toHaveLength(0);
+    expect(publish).not.toHaveBeenCalled();
+  });
+
   it('keeps the invalid-filter marker on a browse 422 alongside the toast', async () => {
     const seen: BrowseMoviesQueryError[] = [];
     server.use(
