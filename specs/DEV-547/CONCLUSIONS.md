@@ -39,11 +39,42 @@
 ## P2.6-1 — Ledger F4: Generator-only contract-chain file scope (`OpenApiContractTests` snapshot & `web/src/mocks/handlers.ts`)
 **Verdict:** Approved (not `blocked: structural`) — under Charter §2.3 item 6, authorize generator-only updates to `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` and `web/src/mocks/handlers.ts` alongside `web/src/api/openapi.json` and `web/src/api/types.ts` (never hand-edited; no `web/src/test/*` file authorized).
 - **Forced contract & gate scope (Charter §2.3 item 6; `specs/PRODUCT.md:12,48`; `AGENTS.md` Contract chain & Non-negotiables; `CONCLUSIONS.md:7,29`):** Adding `GET /api/version` (`DEV-547` Wanted 5, Done when 2; `spec.md:38,176,182,185` FR-001/FR-007/FR-010) forces the committed OpenAPI baseline and all gate-enforced derived contract artifacts (`dotnet test` Verify drift gate and `check:api` web gate) to update in lockstep; none may be edited by hand.
-- **Host export & Verify snapshot (`recon-DEV-547:4-6`; `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs:33-41,934-952,1021-1044`):** Refresh `web/src/api/openapi.json` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` together exclusively through the opt-in `LAMUFLIX_REGENERATE_OPENAPI=true` integration export/Verify flow (`OpenApiRegeneration_OptInEnabled_WritesTheBaselineAndDerivedSnapshotTogether`), verified without the switch by `DriftMatchesCommittedBaseline`.
-- **NPM contract generation (`recon-DEV-547:2-3,7`; `web/package.json:17-18`; `web/scripts/generate-api.mjs:5-11,96-100`):** Refresh `web/src/api/types.ts` and `web/src/mocks/handlers.ts` exclusively via `npm run generate:api` from `web/src/api/openapi.json` (validated by `npm run check:api`); `generate-api.mjs` emits no `web/src/test/*` output, so no `web/src/test` file is authorized.
+- **Host export & Verify snapshot (`recon-DEV-547:86-88`; `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs:33-41,934-952,1021-1044`):** Refresh `web/src/api/openapi.json` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` together exclusively through the opt-in `LAMUFLIX_REGENERATE_OPENAPI=true` integration export/Verify flow (`OpenApiRegeneration_OptInEnabled_WritesTheBaselineAndDerivedSnapshotTogether`), verified without the switch by `DriftMatchesCommittedBaseline`.
+- **NPM contract generation (`recon-DEV-547:84-85,89`; `web/package.json:17-18`; `web/scripts/generate-api.mjs:5-11,96-100`):** Refresh `web/src/api/types.ts` and `web/src/mocks/handlers.ts` exclusively via `npm run generate:api` from `web/src/api/openapi.json` (validated by `npm run check:api`); `generate-api.mjs` emits no `web/src/test/*` output, so no `web/src/test` file is authorized.
 
 ## P2.6-2 — Sentry M2: Q2 `LAMUFLIX_COMMIT` build-arg vs runtime-override precedence
 **Verdict:** Approved (not `blocked: structural`) — ratify Keel's Q2 precedence rule: `DEV-547` sets `LAMUFLIX_COMMIT` via image build args only (no Compose or promotion runtime `LAMUFLIX_COMMIT` assignment), an absent runtime assignment preserves image-baked `ENV LAMUFLIX_COMMIT`, and any explicit operator-supplied runtime `LAMUFLIX_COMMIT` is the effective process value (full non-whitespace value passed through; empty or whitespace normalized to `"unknown"`), with no second variable.
 - **No runtime shadowing in repo configs (`DEV-547` Wanted 3–4, Done when 3; `CONCLUSIONS.md:10-12` Q2; `brief.md:17`; `spec.md:179-181` FR-004–FR-006):** CI (`container-build`, `publish-images`) and `docker-compose.yml` pass `LAMUFLIX_COMMIT` through image `build.args` only into `Dockerfile.api` and `Dockerfile.web` (`ENV LAMUFLIX_COMMIT`, defaulting locally to `"unknown"`), while `promote-home.yml`/Kubernetes manifests and Compose omit any runtime `LAMUFLIX_COMMIT` environment assignment so neither deployment path overwrites or masks a baked SHA.
 - **Effective process value & normalization (`DEV-547` Wanted 5, Done when 2; `CONCLUSIONS.md:13` Q2; `spec.md:86-88,163,177` FR-002):** When no runtime `LAMUFLIX_COMMIT` is supplied, the container retains baked `ENV LAMUFLIX_COMMIT`; when an operator explicitly supplies runtime `LAMUFLIX_COMMIT`, that runtime value governs the process — non-whitespace values pass through in full and empty/whitespace values normalize to `"unknown"` under the existing Q2 API rule.
 - **No second variable or speculative fallback (`specs/PRODUCT.md:18,34` §§2, 5; `CONCLUSIONS.md:10,13` Q2):** Keeping standard container `ENV`-vs-runtime process resolution and the single `LAMUFLIX_COMMIT` key satisfies Q2 without introducing a shadow environment variable or extra precedence layer.
+
+## Phase 2 step 6 plan challenge dispositions
+
+Reviewed `findings-DEV-547-Sentry` (5 Medium, 5 Low), `findings-DEV-547-Ledger` (1 High, 3 Medium, 2 Low), and `findings-DEV-547-Compass` (0). The numbered decisions in `brief.md` define the repairs. Patron confirmed both scope-sensitive decisions in P2.6-1 and P2.6-2. No owner escalation arises from the challenge.
+
+| Finding | Disposition | Basis and closure |
+| --- | --- | --- |
+| Sentry M1 | Accepted | Test-host startup reads process metadata. T002 uses isolated nonparallel execution, fresh hosts and restoration, and T017 runs the full integration project. Brief decision 1. |
+| Sentry M2 | Accepted | P2.6-2 resolves absent versus explicit nonblank, empty and whitespace overrides. T002 and T010 cover the resulting behavior. Brief decision 6. |
+| Sentry M3 | Accepted | T001 checks parity comparison on pickup HEAD and stops ahead of implementation if any outside-envelope edit is required. Actual parity verdicts remain T010/T017. Brief decision 2. |
+| Sentry M4 | Partially accepted | T019 binds nightly and pre-push checks to an eligible SHA and halts on tag mismatch. T021 records harness availability separately. Gate changes, per-SHA replay tooling and automatic tag repair lack authorization. Brief decision 4. |
+| Sentry M5 | Partially accepted | T013/T015 require deterministic holds and evidence before and after settlement. A successful request must display the line after settlement per SMOKE-001. Persistent absence belongs to the separate failure scenario. Brief decision 3. |
+| Sentry L1 | Partially accepted | Preserve the existing tagged/manual input contract and serialize safely from the same value. UI renders opaque text. Input shape restrictions would change the accepted input contract. Brief decision 4. |
+| Sentry L2 | Accepted | T014 renders the unknown sentinel verbatim and shortens the full SHA for display. Brief decision 3. |
+| Sentry L3 | Partially accepted | Verify the entry against merged behavior before pre-merge gates. Q4 explicitly permits drafting in parallel. Brief decision 5. |
+| Sentry L4 | Partially accepted | T013 rechecks the surfaces and records any pickup drift. Q3 fixes placement at pickup. Verify uniqueness across both surfaces if present. Brief decision 3. |
+| Sentry L5 | Accepted | T006 stops generation handoff on unrelated baseline/snapshot drift. Brief decision 5. |
+| Ledger F1 | Partially accepted | The planning gap is a safe test seam and read timing. Host startup capture plus isolated HTTP test cases resolves it without a new DI abstraction. Constitution PR 855–857 governs configuration magic strings and options. Brief decision 1. |
+| Ledger F2 | Accepted | Name sealed VersionDto and the existing-group mapper call, with mapper signature confirmed at T001. Brief decision 1. |
+| Ledger F3 | Partially accepted | T001 records expected applicability and T017 reports the actual script result, including a possible FAILED for a missing eligible project. The finding supplies no basis to preauthorize a harness exclusion. Brief decision 2. |
+| Ledger F4 | Partially accepted | P2.6-1 authorizes the recon-confirmed snapshot and single MSW output and names the export and Verify flow. Recon lines 83–90 establish the actual output paths. Brief decision 7. |
+| Ledger F5 | Accepted | Carry repo integration naming and AAA convention and test web states through generated MSW handling. Brief decisions 1 and 3. |
+| Ledger F6 | Accepted | Refer to the configured refactor threshold and apply the existing comment rule to delivery configuration edits. Brief decision 2. |
+
+Compass found no additional issue requiring disposition.
+
+### Freeze verification
+
+Keel independently reread the remediation against all three challenge reports, the brief, Patron rulings, ticket recon, and the constitution. Final read-only Spec Kit analysis found zero open findings. All 12 functional requirements, six success criteria, and two smoke checks map to the 22-task plan. The private Spec Kit plan and tasks match the worktree copies byte for byte.
+
+**Verdict** — PLAN FROZEN on 2026-11-24. Gate 1, Build, and live release acceptance remain pending.
