@@ -1,0 +1,1 @@
+﻿{"description":"Successful nightly run on a later docs-only commit passes","exitCode":0,"mustContain":["Release gate passed","CI run 103"],"mustNotContain":[]}

@@ -1,0 +1,1 @@
+﻿{"description":"Newest eligible run controls the result even when an older one passed","exitCode":1,"mustContain":["run 111","is \u0027failure\u0027"],"mustNotContain":["run 110"]}

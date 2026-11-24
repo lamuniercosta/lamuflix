@@ -1,0 +1,1 @@
+﻿{"description":"Empty history prints the operator guidance","exitCode":1,"mustContain":["Wait for the nightly run or dispatch ci.yml"],"mustNotContain":[]}

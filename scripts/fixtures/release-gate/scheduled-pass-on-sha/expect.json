@@ -1,0 +1,1 @@
+﻿{"description":"Successful scheduled run on the promoted SHA passes","exitCode":0,"mustContain":["Release gate passed","CI run 101"],"mustNotContain":[]}
