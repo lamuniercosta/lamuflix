@@ -23,6 +23,11 @@ public sealed class TmdbComposeTests
     private const string SubtitlesSectionName = "Subtitles";
     private const string OpenSubtitlesSectionName = "OpenSubtitles";
     private const string ApiKeyPropertyName = "ApiKey";
+    private const string BaseUrlPropertyName = "BaseUrl";
+    private const string UserAgentPropertyName = "UserAgent";
+    private const string DownloadAllowedHostsPropertyName = "DownloadAllowedHosts";
+    private const string MaxDownloadBytesPropertyName = "MaxDownloadBytes";
+    private const string RequestTimeoutPropertyName = "RequestTimeout";
     private const string EnabledPropertyName = "Enabled";
     private const string SaveEnabledPropertyName = "SaveEnabled";
     private const string PreferredLanguagesPropertyName = "PreferredLanguages";
@@ -38,11 +43,11 @@ public sealed class TmdbComposeTests
     private static readonly string[] OpenSubtitlesProperties =
     [
         ApiKeyPropertyName,
-        "BaseUrl",
-        "UserAgent",
-        "DownloadAllowedHosts",
-        "MaxDownloadBytes",
-        "RequestTimeout",
+        BaseUrlPropertyName,
+        UserAgentPropertyName,
+        DownloadAllowedHostsPropertyName,
+        MaxDownloadBytesPropertyName,
+        RequestTimeoutPropertyName,
     ];
 
     [Fact]
@@ -170,16 +175,16 @@ public sealed class TmdbComposeTests
         document.RootElement.TryGetProperty(SubtitlesSectionName, out var subtitles).ShouldBeTrue();
         subtitles.TryGetProperty(OpenSubtitlesSectionName, out var openSubtitles).ShouldBeTrue();
         var propertyNames = openSubtitles.EnumerateObject().Select(property => property.Name).ToArray();
-        var allowedHosts = openSubtitles.GetProperty("DownloadAllowedHosts").EnumerateArray().Select(host => host.GetString()).ToArray();
+        var allowedHosts = openSubtitles.GetProperty(DownloadAllowedHostsPropertyName).EnumerateArray().Select(host => host.GetString()).ToArray();
 
         // assert
         propertyNames.ShouldBe(OpenSubtitlesProperties);
         openSubtitles.GetProperty(ApiKeyPropertyName).GetString().ShouldBe(string.Empty);
-        openSubtitles.GetProperty("BaseUrl").GetString().ShouldBe("https://api.opensubtitles.com");
-        openSubtitles.GetProperty("UserAgent").GetString().ShouldBe("LamuFlix v1.0");
+        openSubtitles.GetProperty(BaseUrlPropertyName).GetString().ShouldBe("https://api.opensubtitles.com");
+        openSubtitles.GetProperty(UserAgentPropertyName).GetString().ShouldBe("LamuFlix v1.0");
         allowedHosts.ShouldBe(["api.opensubtitles.com", "www.opensubtitles.com"]);
-        openSubtitles.GetProperty("MaxDownloadBytes").GetInt64().ShouldBe(1048576);
-        openSubtitles.GetProperty("RequestTimeout").GetString().ShouldBe("00:00:15");
+        openSubtitles.GetProperty(MaxDownloadBytesPropertyName).GetInt64().ShouldBe(1048576);
+        openSubtitles.GetProperty(RequestTimeoutPropertyName).GetString().ShouldBe("00:00:15");
     }
 
     private static IReadOnlyList<string> ReadApiServiceSection(string heading)
