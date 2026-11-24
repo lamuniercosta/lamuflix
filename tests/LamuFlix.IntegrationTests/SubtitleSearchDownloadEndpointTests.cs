@@ -759,10 +759,8 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
         using var library = new TemporaryLibrary();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
-        // The allowlist is 127.0.0.1 only, so this link on localhost is refused before any request is sent to it.
         emulator.OverrideDownload(Response.Create().WithStatusCode(200)
             .WithBody("{\"link\":\"https://localhost/download/token/subfile/101.srt\"}"));
-        // A dedicated factory instance: the refusal singleton lives as long as its host, so this host must not be shared.
         await using var isolatedFactory = new ApiHostFactory();
         await using var host = CreateHost(
             library.Root,
@@ -802,7 +800,6 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
         using var library = new TemporaryLibrary();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
-        // A new process starts with an empty refusal latch, so corrected settings serve search again.
         await using var restartedFactory = new ApiHostFactory();
         await using var host = CreateHost(
             library.Root,
