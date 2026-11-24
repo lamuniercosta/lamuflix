@@ -1,5 +1,6 @@
 using System;
 using System.Net.Http;
+using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Ports;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -13,6 +14,7 @@ public static class SubtitleProviderServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<SubtitleLinkHostRefusals>();
         services
             .AddHttpClient<ISubtitleProvider, OpenSubtitlesSubtitleProvider>()
             .ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false })

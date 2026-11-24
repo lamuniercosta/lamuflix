@@ -16,11 +16,13 @@ using LamuFlix.Infrastructure.Adapters;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Shouldly;
 using WireMock.ResponseBuilders;
+using WireMock.Server;
 using Xunit;
 
 namespace LamuFlix.IntegrationTests;
@@ -769,15 +771,54 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
             hostFactory: isolatedFactory);
         using var client = host.CreateClient();
         var candidateId = await IssueCandidateAsync(client);
+        var searchCallsBeforeDownload = CountPath(emulator.Api, OpenSubtitlesEmulator.SearchPath);
 
         // act
         var download = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
         var search = await client.GetAsync(SearchRoute(KnownId, "en"), ct);
+        var repeatDownload = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
 
         // assert
         await AssertProblemAsync(download, HttpStatusCode.BadGateway, "provider_unavailable", library.Root);
         SubsFiles(library.Root).ShouldBeEmpty();
         await AssertProblemAsync(search, HttpStatusCode.Conflict, "provider_not_configured", library.Root);
+        await AssertProblemAsync(repeatDownload, HttpStatusCode.Conflict, "provider_not_configured", library.Root);
+        CountPath(emulator.Api, OpenSubtitlesEmulator.DownloadPath).ShouldBe(1);
+        CountPath(emulator.Api, OpenSubtitlesEmulator.SearchPath).ShouldBe(searchCallsBeforeDownload);
+        emulator.Links.LogEntries.Count.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Search_AfterARestartWithCorrectedSettings_ReturnsCandidates()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var emulator = new OpenSubtitlesEmulator(
+            SentinelKey,
+            new OpenSubtitlesScenario
+            {
+                Subtitles = [new OpenSubtitlesSubtitle(101, "en", 4, "Heat.1995.1080p.BluRay-GROUP", "Movie", "Heat")],
+            });
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        // A new process starts with an empty refusal latch, so corrected settings serve search again.
+        await using var restartedFactory = new ApiHostFactory();
+        await using var host = CreateHost(
+            library.Root,
+            WritableProviderSettings(baseUrl: emulator.BaseUrl),
+            providerStub: false,
+            hostFactory: restartedFactory);
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(SearchRoute(KnownId, "en"), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        using var document = JsonDocument.Parse(body);
+        document.RootElement.GetProperty("candidates").GetArrayLength().ShouldBeGreaterThan(0);
     }
 
     [Fact]
@@ -1120,8 +1161,13 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
             client,
             services.GetRequiredService<IOptions<SubtitleProviderOptions>>(),
             services.GetRequiredService<IOptions<SubtitlesOptions>>(),
-            services.GetRequiredService<TimeProvider>());
+            services.GetRequiredService<TimeProvider>(),
+            services.GetRequiredService<SubtitleLinkHostRefusals>(),
+            services.GetRequiredService<ILogger<OpenSubtitlesSubtitleProvider>>());
     }
+
+    private static int CountPath(WireMockServer server, string path) =>
+        server.LogEntries.Count(entry => entry.RequestMessage?.Path == path);
 
     private static byte[] SidecarPayload() =>
         "1\n00:00:01,000 --> 00:00:02,000\nhello subtitle\n"u8.ToArray();

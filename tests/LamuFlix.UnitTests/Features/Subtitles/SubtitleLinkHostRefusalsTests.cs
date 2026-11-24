@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Threading.Tasks;
 using LamuFlix.Core.Features.Subtitles;
 
 namespace LamuFlix.UnitTests.Features.Subtitles;
@@ -20,46 +22,79 @@ public sealed class SubtitleLinkHostRefusalsTests
     }
 
     [Fact]
-    public void TryGetRefused_AfterRecord_ReturnsTheRecordedHost()
+    public void TryRecord_FirstWrite_ReturnsTrueAndIsReadable()
     {
         // arrange
         var refusals = new SubtitleLinkHostRefusals();
-        refusals.Record("a.example");
 
         // act
-        var recorded = refusals.TryGetRefused(out var host);
+        var won = refusals.TryRecord("a.example");
 
         // assert
-        recorded.ShouldBeTrue();
+        won.ShouldBeTrue();
+        refusals.TryGetRefused(out var host).ShouldBeTrue();
         host.ShouldBe("a.example");
     }
 
     [Fact]
-    public void TryGetRefused_LatestRecordWins()
+    public void TryRecord_SecondDifferentHost_ReturnsFalseAndKeepsTheFirst()
     {
         // arrange
         var refusals = new SubtitleLinkHostRefusals();
-        refusals.Record("a.example");
-        refusals.Record("b.example");
+        refusals.TryRecord("a.example");
 
         // act
-        refusals.TryGetRefused(out var host);
+        var won = refusals.TryRecord("b.example");
 
         // assert
-        host.ShouldBe("b.example");
+        won.ShouldBeFalse();
+        refusals.TryGetRefused(out var host);
+        host.ShouldBe("a.example");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public void TryRecord_EmptyOrWhitespaceHost_ThrowsArgumentException(string host)
+    {
+        // arrange
+        var refusals = new SubtitleLinkHostRefusals();
+
+        // act
+        Action act = () => refusals.TryRecord(host);
+
+        // assert
+        Should.Throw<ArgumentException>(act);
     }
 
     [Fact]
-    public void Record_NullHost_ThrowsArgumentNullException()
+    public void TryRecord_NullHost_ThrowsArgumentNullException()
     {
         // arrange
         var refusals = new SubtitleLinkHostRefusals();
 
         // act
         // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
-        var act = () => refusals.Record(null!);
+        Action act = () => refusals.TryRecord(null!);
 
         // assert
         Should.Throw<ArgumentNullException>(act);
+    }
+
+    [Fact]
+    public void TryRecord_ConcurrentWriters_ExactlyOneWinsAndTheWinnerIsStored()
+    {
+        // arrange
+        var refusals = new SubtitleLinkHostRefusals();
+        var results = new bool[64];
+
+        // act
+        Parallel.For(0, results.Length, i => results[i] = refusals.TryRecord($"host{i}.example"));
+
+        // assert
+        results.Count(won => won).ShouldBe(1);
+        refusals.TryGetRefused(out var host).ShouldBeTrue();
+        host.ShouldBe($"host{Array.IndexOf(results, true)}.example");
     }
 }

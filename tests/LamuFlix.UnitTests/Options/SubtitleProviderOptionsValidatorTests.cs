@@ -131,6 +131,69 @@ public sealed class SubtitleProviderOptionsValidatorTests
     }
 
     [Fact]
+    public void Validate_PaddedAndDifferentlyCasedDownloadLinkHost_Succeeds()
+    {
+        // arrange
+        var options = Complete() with
+        {
+            DownloadAllowedHosts = ["dl.example.invalid"],
+            DownloadLinkHost = "  DL.Example.INVALID  ",
+        };
+
+        // act
+        var result = Validate(options);
+
+        // assert
+        result.ShouldBe(ValidateOptionsResult.Success);
+    }
+
+    [Theory]
+    [InlineData("https://www.opensubtitles.com")]
+    [InlineData("user@www.opensubtitles.com")]
+    [InlineData("www.opensubtitles.com:443")]
+    [InlineData("www.opensubtitles.com/path")]
+    [InlineData("www.opensubtitles.com?x=1")]
+    [InlineData("www.opensubtitles.com.")]
+    public void Validate_NonBareDownloadLinkHost_FailsEvenWhenListed(string linkHost)
+    {
+        // arrange
+        var options = Complete() with
+        {
+            DownloadAllowedHosts = [linkHost, "www.opensubtitles.com"],
+            DownloadLinkHost = linkHost,
+        };
+
+        // act
+        var result = Validate(options);
+
+        // assert
+        result.Failed.ShouldBeTrue();
+        string.Join("; ", result.Failures).ShouldContain("must be a host name only");
+        SubtitleProviderOptionsValidator.IsLinkHostAllowed(options).ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("localhost")]
+    [InlineData("127.0.0.1")]
+    [InlineData("[::1]")]
+    public void Validate_LoopbackBareDownloadLinkHostInAllowlist_Succeeds(string linkHost)
+    {
+        // arrange
+        var options = Complete() with
+        {
+            DownloadAllowedHosts = [linkHost],
+            DownloadLinkHost = linkHost,
+        };
+
+        // act
+        var result = Validate(options);
+
+        // assert
+        result.ShouldBe(ValidateOptionsResult.Success);
+        SubtitleProviderOptionsValidator.IsLinkHostAllowed(options).ShouldBeTrue();
+    }
+
+    [Fact]
     public void IsLinkHostAllowed_BlankDownloadLinkHost_ReturnsFalse()
     {
         // arrange

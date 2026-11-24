@@ -3,7 +3,11 @@
 # Exit 0 when every case passes, 1 otherwise.
 
 [CmdletBinding()]
-param()
+param(
+    # Optional. When every case passes, the fresh case's api.settings.json is copied here.
+    # Its secret values are fake (see $sourceEnv below), so the copy holds no real key.
+    [string]$SettingsOut
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -215,8 +219,15 @@ Assert-Case 'missing OpenSubtitles key: exit 1' ($r9.ExitCode -eq 1) "exit $($r9
 Assert-Case 'missing OpenSubtitles key: names the key, not a value' ($r9.Output -match 'OPENSUBTITLES_API_KEY')
 Assert-Case 'missing OpenSubtitles key: no cluster created' (-not (Test-LogHas $r9 'create cluster'))
 
-Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 $failures = Get-CaseFailureCount
+if ($SettingsOut -and $failures -eq 0) {
+    $destination = [IO.Path]::GetFullPath($SettingsOut)
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+    Copy-Item -LiteralPath (Join-Path (Join-Path $ops1 'secrets') 'api.settings.json') -Destination $destination -Force
+    Write-Host "Wrote api settings (fake secret values) to $destination"
+}
+
+Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host ''
 Write-Host "New-HomeCluster companion: $failures failed"
 if ($failures -gt 0) { exit 1 }

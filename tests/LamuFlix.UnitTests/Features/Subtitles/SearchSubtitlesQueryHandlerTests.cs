@@ -144,7 +144,7 @@ public sealed class SearchSubtitlesQueryHandlerTests
         // arrange
         Arrange();
         var refusals = new SubtitleLinkHostRefusals();
-        refusals.Record("bad.example");
+        refusals.TryRecord("bad.example");
         var handler = CreateHandler(refusals: refusals);
 
         // act

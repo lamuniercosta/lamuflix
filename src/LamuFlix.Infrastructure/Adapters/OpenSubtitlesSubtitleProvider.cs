@@ -10,17 +10,21 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.Adapters;
 
-public sealed class OpenSubtitlesSubtitleProvider(
+public sealed partial class OpenSubtitlesSubtitleProvider(
     HttpClient httpClient,
     IOptions<SubtitleProviderOptions> optionsProvider,
     IOptions<SubtitlesOptions> subtitlesOptions,
-    TimeProvider timeProvider) : ISubtitleProvider
+    TimeProvider timeProvider,
+    SubtitleLinkHostRefusals refusals,
+    ILogger<OpenSubtitlesSubtitleProvider> logger) : ISubtitleProvider
 {
     private const string SearchPath = "api/v1/subtitles";
     private const string DownloadPath = "api/v1/download";
@@ -34,6 +38,7 @@ public sealed class OpenSubtitlesSubtitleProvider(
     private const string TypeParameter = "type";
     private const string MovieType = "movie";
     private const char LanguageSeparator = ',';
+    private const int MaxHostNameLength = 253;
 
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
     {
@@ -82,7 +87,7 @@ public sealed class OpenSubtitlesSubtitleProvider(
         EnsureAccepted(response, "The subtitle provider rejected the download request.");
 
         var (linkCandidate, quota) = await ReadDownloadBodyAsync(response, cancellationToken);
-        var link = EnsureLinkPermitted(linkCandidate, Options.DownloadAllowedHosts);
+        var link = EnsureLinkPermitted(linkCandidate);
 
         using var payload = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, link), cancellationToken);
         EnsureAccepted(payload, "The subtitle provider returned an unusable subtitle download.");
@@ -312,14 +317,28 @@ public sealed class OpenSubtitlesSubtitleProvider(
         return uri;
     }
 
-    private static Uri EnsureLinkPermitted(Uri? linkCandidate, IReadOnlyList<string> allowedHosts)
+    private Uri EnsureLinkPermitted(Uri link)
     {
-        if (linkCandidate is null || !SubtitleRequestUriPolicy.IsPermitted(linkCandidate, allowedHosts))
+        if (!string.Equals(link.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            || link.IdnHost.Length == 0
+            || link.IdnHost.Length > MaxHostNameLength)
         {
-            throw SubtitleProviderFailureException.ForRefusedLinkHost(linkCandidate?.Host ?? string.Empty);
+            throw new SubtitleProviderFailureException("The subtitle provider returned an unusable download link.");
         }
 
-        return linkCandidate;
+        if (SubtitleRequestUriPolicy.IsPermitted(link, Options.DownloadAllowedHosts))
+        {
+            return link;
+        }
+
+        // System.Uri already lowercases DNS host names.
+        var host = link.IdnHost;
+        if (refusals.TryRecord(host))
+        {
+            Log.RefusedLinkHost(logger, host);
+        }
+
+        throw SubtitleProviderFailureException.ForRefusedLinkHost(host);
     }
 
     private bool IsProviderApiHost(Uri? uri)
