@@ -39,3 +39,32 @@
   - **Card DTO shape & empty-list conditions** (`recon-DEV-561:24,27-28,30-33,42,61`; `specs/DEV-561/CONCLUSIONS.md` Q2 & Q3): exposes only card fields persisted on `MovieRecommendationRecord` (`tmdbId`, non-blank `title`, nullable `releaseYear`, nullable `posterPath`) plus library-seed `reason`, lets the web client derive the outbound TMDb movie page URL from `tmdbId` (ticket default; no candidate IMDb ID per Q3 Option A), and returns HTTP `200` `[]` when `Tmdb:Enabled` is `false`, `ApiKey` is blank, or no candidates qualify.
   - **Contract chain** (`specs/PRODUCT.md:12,46`; `recon-DEV-561:73-74`; `web/src/features/for-you/forYouApi.ts:1-7`): the C# response DTO regenerates `web/src/api/openapi.json` and `web/src/api/types.ts` so `web/src/features/for-you/` consumes generated schema types with no hand-rolled duplicates.
 
+
+**Q4 exchange**
+
+- **Keel** — Approve the public read contract? I recommend GET /api/recommendations/not-in-library, a separate local read query using the existing recommendation routes authorization convention. Return HTTP 200 with an array of cards containing tmdbId, title, nullable releaseYear, nullable posterPath, and reason. Return [] for disabled TMDb, blank API key, or no eligible candidates. Generate OpenAPI and TypeScript from the C# DTO. The frontend can derive the TMDb movie URL from tmdbId. This keeps the existing For You contract independent and exposes only card data. Basis: recon-DEV-561 lines 24-44, 56-61 and 69-74, and ADR 0049.
+- **Patron** — DEV-561 Q4 approved at 48345282. The full ruling is above.
+
+---
+
+## Q5 — Seed eligibility, score, and ordering
+
+- **Keel** — Approve the deterministic seed and ranking algorithm for the new row? I recommend one weight per distinct library movie: exclude Disliked first, then use Liked 2, else Watched 1, with Watchlist alone ineligible. Bind the two weights in RecommendationOptions, use the two-seed minimum and 20-card maximum from Wanted 5, collapse duplicate source/candidate pairs, group by recommended TMDb ID, then sort by total weight descending and TMDb ID ascending. A movie both liked and watched counts once at Liked weight. This preserves the ticket quality bar and keeps results reproducible. Basis: recon-DEV-561 lines 25–27, 39–40, 58–60, and 80–81.
+- **Patron** — Approved. Reject Disliked first. Count each eligible liked or watched library movie once, with Liked taking precedence. Bind defaults Liked 2 and Watched 1 in RecommendationOptions. Deduplicate source/candidate pairs before grouping by candidate TMDb ID. Require two distinct seeds before ranking and capping at 20. Order by summed weight descending, then TMDb ID ascending. Record the tie-break as [assumed].
+- **Basis** — Wanted 4–5, Done when 3–4, and Open points establish eligibility, quality bar, weights and limit. Existing seed precedence and stable tie handling provide the precedent. See recon-DEV-561:25–26,39–40,58–59,80–83 and Q2.
+
+---
+
+## Q6 — Candidate identity and metadata
+
+- **Keel** — Approve the exact candidate identity and metadata selection rule under owner-approved Option A? Exclude any candidate whose TMDb ID appears in the library. For library movies without a TMDb ID, compare both known release years for equality and titles after Unicode NFC, trimming, collapsing internal whitespace, and ordinal case-insensitive comparison. Preserve punctuation and accents. A missing year cannot establish the fallback match, so an otherwise eligible candidate may remain with a null year. Count only links with a nonblank title under Q2. For conflicting metadata on eligible links for the same candidate ID, take the entire title/year/poster tuple from the highest-weight contributing seed, then smallest library movie ID. This gives the same local identity check and displayed card on every read, with a documented limitation for incomplete legacy metadata. Basis: Q2, owner Q3, recon-DEV-561:4–8,24,38,80–84.
+- **Patron** — Approved. Match TMDb ID across the library. Apply the normalized title and equal known-year match only to library movies without a TMDb ID. A missing year cannot establish a match. Count only links with a nonblank title. Resolve metadata conflicts by choosing one atomic tuple from the highest-weight contributor, using lowest source MovieId for a tie.
+- **Basis** — Q2 allows null year and preserves legacy ID-only Crowd links. Owner Q3 requires local two-tier exclusion. Requiring both years avoids excluding distinct same-title films on weak evidence. Taking the whole tuple avoids mixing provider snapshots, and strongest-seed ordering follows existing precedent. See recon-DEV-561:4–8,24,38,81,83–84.
+
+---
+
+## Q7 — Discovery card reason
+
+- **Keel** — Approve the card reason contract? I recommend the two highest-weight contributing library seeds, breaking seed ties by ascending library MovieId, and the ticket example “Recommended for {seed title} and {seed title}.” Reuse the concise, display-safe reason style with a discovery-specific formatter if necessary. Recon found no RecommendationReasonBuilder.cs, and SimilarityScorer.BuildEvidence represents similarities instead of direct links. Keep the two actual contributing seed movies when their display titles coincide. This bounds copy while still naming two contributors. Basis: Wanted 6, ADR 0049, Q5, recon-DEV-561:26–27,71,80–85.
+- **Patron** — Approved. Use a focused discovery formatter under Features/Recommendations, reusing existing display-safe title sanitization. Select two contributors by seed weight descending and library MovieId ascending. Preserve both titles if the selected distinct seeds share a display title. Log the two-title cap and tie-break as [assumed].
+- **Basis** — Wanted 5–6, ADR 0049 and Q5 require two distinct contributing seeds and a reason grounded in their library titles. The ticket's example and existing reason handling establish copy and sanitization style. See recon-DEV-561:25–27,71,81–82,85.
