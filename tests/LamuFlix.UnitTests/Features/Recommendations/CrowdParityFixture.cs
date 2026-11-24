@@ -10,9 +10,9 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 
 public static class CrowdParityFixture
 {
-    private static RecommendationOptions Options { get; } = new();
+    private static RecommendationOptions Options => new();
 
-    private static GenreWeights Genres { get; } = GenreWeights.Calculate(
+    private static GenreWeights Genres => GenreWeights.Calculate(
         new GenreCounts(
             100,
             new Dictionary<string, long>
@@ -21,9 +21,9 @@ public static class CrowdParityFixture
                 ["Comedy"] = 20,
             }));
 
-    private static KeywordCounts Keywords { get; } = new(0, new Dictionary<string, long>());
+    private static KeywordCounts Keywords => new(0, new Dictionary<string, long>());
 
-    private static MovieFeatures Seed { get; } = new(
+    private static MovieFeatures Seed => new(
         genres: ["Drama"],
         directors: ["Ana"],
         cast: ["Dora", "Emil"],
@@ -31,13 +31,13 @@ public static class CrowdParityFixture
         collectionName: "Saga",
         plotEmbedding: [1f, 0f]);
 
-    private static MovieFeatures Candidate { get; } = new(
+    private static MovieFeatures Candidate => new(
         genres: ["Drama", "Comedy"],
         directors: ["Ana"],
         cast: ["Dora", "Emil", "Fay"],
         plotEmbedding: [0.44f, 0.9f]);
 
-    private static RecommendationLibraryEntry SeedEntry { get; } = new(
+    private static RecommendationLibraryEntry SeedEntry => new(
         Seed,
         new MovieSummary(
             new MovieId(90),
@@ -51,7 +51,7 @@ public static class CrowdParityFixture
             true,
             Review.Liked));
 
-    private static RecommendationLibraryEntry CandidateEntry { get; } = new(
+    private static RecommendationLibraryEntry CandidateEntry => new(
         Candidate,
         new MovieSummary(
             new MovieId(2),
@@ -65,21 +65,24 @@ public static class CrowdParityFixture
             false,
             Review.None));
 
-    public static CrowdLinks Links { get; } = CrowdLinks.Create(
+    public static CrowdLinks Links => CrowdLinks.Create(
         [(new MovieId(90), new MovieId(2))]);
 
     public static NearestSeedMatch ForYou() => ForYouWith(CrowdScoring.Disabled);
 
     public static NearestSeedMatch ForYouWith(CrowdScoring crowdScoring)
     {
+        var options = Options;
+        var seedEntry = SeedEntry;
+        var candidateEntry = CandidateEntry;
         var rank = NearestSeedScorer.Rank(
-            [CandidateEntry],
-            [SeedEntry, CandidateEntry],
+            [candidateEntry],
+            [seedEntry, candidateEntry],
             new TasteProfile(System.Collections.Immutable.ImmutableDictionary<string, double>.Empty),
-            Options,
-            new RecommendationRecencyDecay(TimeProvider.System, Options),
+            options,
+            new RecommendationRecencyDecay(TimeProvider.System, options),
             Genres,
-            SimilarityScorer.PrepareKeywordWeights(Options, Keywords),
+            SimilarityScorer.PrepareKeywordWeights(options, Keywords),
             CancellationToken.None,
             crowdScoring);
 
@@ -90,15 +93,22 @@ public static class CrowdParityFixture
 
     public static SimilarityResult Related() => RelatedWith(CrowdScoring.Disabled);
 
-    public static SimilarityResult RelatedWith(CrowdScoring crowdScoring) =>
-        SimilarityScorer.Score(
-            Seed,
-            Candidate,
-            Options,
+    public static SimilarityResult RelatedWith(CrowdScoring crowdScoring)
+    {
+        var options = Options;
+        var seed = Seed;
+        var candidate = Candidate;
+        var seedEntry = SeedEntry;
+        var candidateEntry = CandidateEntry;
+        return SimilarityScorer.Score(
+            seed,
+            candidate,
+            options,
             Genres,
             Keywords,
             crowdScoring,
-            SeedEntry.Id,
-            CandidateEntry.Id);
+            seedEntry.Id,
+            candidateEntry.Id);
+    }
 }
 
