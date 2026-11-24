@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Core.Options;
@@ -62,6 +61,12 @@ public sealed class SubtitleProviderOptionsValidator : IValidateOptions<Subtitle
         {
             failures.Add($"{Field(nameof(SubtitleProviderOptions.DownloadLinkHost))} must be provided.");
         }
+        else if (!SubtitleHostMatcher.IsBareHost(options.DownloadLinkHost))
+        {
+            failures.Add(
+                $"{Field(nameof(SubtitleProviderOptions.DownloadLinkHost))} must be a host name only, "
+                + "without a scheme, user info, port, path, query or trailing dot.");
+        }
         else if (!IsLinkHostAllowed(options))
         {
             failures.Add(
@@ -79,10 +84,8 @@ public sealed class SubtitleProviderOptionsValidator : IValidateOptions<Subtitle
             return false;
         }
 
-        var linkHost = options.DownloadLinkHost.Trim();
-        return options.DownloadAllowedHosts.Any(host =>
-            !string.IsNullOrWhiteSpace(host)
-            && string.Equals(host.Trim(), linkHost, StringComparison.OrdinalIgnoreCase));
+        return SubtitleHostMatcher.IsBareHost(options.DownloadLinkHost)
+            && SubtitleHostMatcher.IsListed(options.DownloadLinkHost, options.DownloadAllowedHosts);
     }
 
     private static void AddBoundFailures(SubtitleProviderOptions options, List<string> failures)

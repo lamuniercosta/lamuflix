@@ -64,7 +64,8 @@ Unit, integration and e2e tests never call real APIs. External providers are rep
 A ticket that touches an external provider adapter (`src/LamuFlix.Infrastructure/Adapters/*Provider*.cs`), its options (`src/LamuFlix.Core/Options/*Provider*Options*.cs`), or its deploy settings (`scripts/home/New-HomeCluster.ps1`) MUST, during development, call the real API with the developer key. For OpenSubtitles:
 
 ```powershell
-pwsh -NoProfile -WindowStyle Hidden -File ./scripts/Test-LiveSubtitleProvider.ps1 -Download
+pwsh -NoProfile -WindowStyle Hidden -File ./scripts/home/Test-NewHomeCluster.ps1 -SettingsOut <scratch>/api.settings.json
+pwsh -NoProfile -WindowStyle Hidden -File ./scripts/Test-LiveSubtitleProvider.ps1 -SettingsPath <scratch>/api.settings.json -Download
 ```
 
 - `-Download` costs 1 of the 100 daily quota. Run it once per ticket, not once per edit.

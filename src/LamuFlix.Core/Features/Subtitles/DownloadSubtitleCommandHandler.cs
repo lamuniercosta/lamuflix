@@ -80,7 +80,7 @@ public sealed class DownloadSubtitleCommandHandler(
             throw new SubtitleDownloadQuotaExhaustedException(binding.LastKnownQuota);
         }
 
-        var download = await DownloadFromProviderAsync(binding.Candidate, cancellationToken);
+        var download = await provider.DownloadAsync(binding.Candidate, cancellationToken);
         if (download.Content.Length == 0 || download.Content.Length > settings.MaxSubtitleDownloadBytes)
         {
             throw new SubtitleProviderFailureException(
@@ -106,24 +106,6 @@ public sealed class DownloadSubtitleCommandHandler(
         return new DownloadSubtitleResult(
             BuildTrack(command.Id, target, binding.Language, published.FileName),
             download.Quota);
-    }
-
-    private async Task<SubtitleDownload> DownloadFromProviderAsync(
-        SubtitleCandidate candidate,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await provider.DownloadAsync(candidate, cancellationToken);
-        }
-        catch (SubtitleProviderFailureException exception) when (exception.RefusedLinkHost is not null)
-        {
-            refusals.Record(exception.RefusedLinkHost);
-            logger.LogWarning(
-                "Subtitle provider returned a download link on refused host {RefusedLinkHost}; subtitle search stays disabled until DownloadAllowedHosts is fixed and the API restarts.",
-                exception.RefusedLinkHost);
-            throw;
-        }
     }
 
     private SubtitlePreparationTarget ResolveTarget(MovieDetails details)

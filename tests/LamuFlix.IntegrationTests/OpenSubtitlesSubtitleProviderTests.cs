@@ -5,10 +5,14 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
+using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using WireMock.ResponseBuilders;
@@ -377,7 +381,9 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     {
         // arrange
         OverrideDownloadWithLink("https://not-allowlisted.example.test/srt/101.srt");
-        var provider = Provider();
+        var refusals = new SubtitleLinkHostRefusals();
+        var logger = new CapturingLogger();
+        var provider = Provider(refusals: refusals, logger: logger);
 
         // act
         var act = () => provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
@@ -388,17 +394,68 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         thrown.Message.ShouldNotContain("/srt/101.srt");
         ApiCount(DownloadPath).ShouldBe(1);
         emulator.Links.LogEntries.Count().ShouldBe(0);
+        refusals.TryGetRefused(out var host).ShouldBeTrue();
+        host.ShouldBe("not-allowlisted.example.test");
+        var warnings = logger.Entries.Where(entry => entry.Level == LogLevel.Warning).ToArray();
+        warnings.Length.ShouldBe(1);
+        warnings[0].Message.ShouldContain("not-allowlisted.example.test");
+        warnings[0].Message.ShouldContain("restarts");
+        logger.Entries.ShouldAllBe(entry => !entry.Message.Contains("/srt/101.srt", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task DownloadAsync_TwoRefusedLinks_TheFirstHostStaysLatchedAndWarnsOnce()
+    {
+        // arrange
+        var refusals = new SubtitleLinkHostRefusals();
+        var logger = new CapturingLogger();
+        var provider = Provider(refusals: refusals, logger: logger);
+
+        // act
+        OverrideDownloadWithLink("https://first-refused.example.test/a.srt");
+        await Should.ThrowAsync<SubtitleProviderFailureException>(
+            () => provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken));
+        OverrideDownloadWithLink("https://second-refused.example.test/b.srt");
+        await Should.ThrowAsync<SubtitleProviderFailureException>(
+            () => provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken));
+
+        // assert
+        refusals.TryGetRefused(out var host).ShouldBeTrue();
+        host.ShouldBe("first-refused.example.test");
+        logger.Entries.Count(entry => entry.Level == LogLevel.Warning).ShouldBe(1);
+        emulator.Links.LogEntries.Count().ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_MixedCaseRefusedLinkHost_LatchesTheLowercaseHost()
+    {
+        // arrange
+        OverrideDownloadWithLink("https://Not-Allowlisted.Example.TEST/x.srt");
+        var refusals = new SubtitleLinkHostRefusals();
+        var provider = Provider(refusals: refusals);
+
+        // act
+        await Should.ThrowAsync<SubtitleProviderFailureException>(
+            () => provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken));
+
+        // assert
+        refusals.TryGetRefused(out var host).ShouldBeTrue();
+        host.ShouldBe("not-allowlisted.example.test");
     }
 
     [Theory]
     [InlineData("http://example.test/srt/101.srt")]
     [InlineData("file:///C:/library/Heat.srt")]
     [InlineData("/relative/srt/101.srt")]
+    [InlineData("not a url")]
+    [InlineData("https://")]
     public async Task DownloadAsync_UnsafeLinkScheme_FailsBeforeAnyLinkRequest(string link)
     {
         // arrange
         OverrideDownloadWithLink(link);
-        var provider = Provider();
+        var refusals = new SubtitleLinkHostRefusals();
+        var logger = new CapturingLogger();
+        var provider = Provider(refusals: refusals, logger: logger);
 
         // act
         var act = () => provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
@@ -407,6 +464,8 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         await Should.ThrowAsync<SubtitleProviderFailureException>(act);
         emulator.Api.LogEntries.Count().ShouldBe(1);
         emulator.Links.LogEntries.Count().ShouldBe(0);
+        refusals.TryGetRefused(out _).ShouldBeFalse();
+        logger.Entries.ShouldBeEmpty();
     }
 
     [Fact]
@@ -415,7 +474,8 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         // arrange
         using var destination = LoopbackWireMock.StartHttps();
         emulator.OverrideLink(Response.Create().WithStatusCode(301).WithHeader("Location", destination.Urls[0]));
-        var provider = Provider();
+        var refusals = new SubtitleLinkHostRefusals();
+        var provider = Provider(refusals: refusals);
 
         // act
         var act = () => provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
@@ -423,6 +483,8 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         // assert
         await Should.ThrowAsync<SubtitleProviderFailureException>(act);
         destination.LogEntries.ShouldBeEmpty();
+        emulator.Links.LogEntries.Count().ShouldBe(1);
+        refusals.TryGetRefused(out _).ShouldBeFalse();
     }
 
     [Theory]
@@ -670,7 +732,9 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
     private OpenSubtitlesSubtitleProvider Provider(
         Func<SubtitleProviderOptions, SubtitleProviderOptions>? configure = null,
-        SubtitlesOptions? subtitles = null)
+        SubtitlesOptions? subtitles = null,
+        SubtitleLinkHostRefusals? refusals = null,
+        ILogger<OpenSubtitlesSubtitleProvider>? logger = null)
     {
         var options = new SubtitleProviderOptions
         {
@@ -700,7 +764,9 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
             client,
             Options.Create(options),
             Options.Create(subtitles ?? new SubtitlesOptions()),
-            new FixedTimeProvider(Now));
+            new FixedTimeProvider(Now),
+            refusals ?? new SubtitleLinkHostRefusals(),
+            logger ?? NullLogger<OpenSubtitlesSubtitleProvider>.Instance);
     }
 
     private void StubSearch(string body) =>
@@ -708,6 +774,27 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
     private void OverrideDownloadWithLink(string link) =>
         emulator.OverrideDownload(Response.Create().WithStatusCode(200).WithBody($"{{\"link\":\"{link}\"}}"));
+
+    private sealed class CapturingLogger : ILogger<OpenSubtitlesSubtitleProvider>
+    {
+        private readonly ConcurrentQueue<LogEntry> entries = new();
+
+        public IEnumerable<LogEntry> Entries => entries;
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter) =>
+            entries.Enqueue(new LogEntry(logLevel, formatter(state, exception)));
+
+        public sealed record LogEntry(LogLevel Level, string Message);
+    }
 
     private sealed record Recorded(string Method, string RawQuery, string? Body, IDictionary<string, WireMock.Types.WireMockList<string>>? Headers);
 

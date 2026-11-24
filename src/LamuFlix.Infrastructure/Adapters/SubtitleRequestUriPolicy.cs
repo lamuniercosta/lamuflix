@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using LamuFlix.Core.Options;
 
 namespace LamuFlix.Infrastructure.Adapters;
 
@@ -18,18 +19,8 @@ internal static class SubtitleRequestUriPolicy
     private static bool IsAllowedScheme(Uri uri) =>
         uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
 
-    public static bool IsAllowedHost(string host, IReadOnlyList<string> allowedHosts)
-    {
-        foreach (var allowed in allowedHosts)
-        {
-            if (!string.IsNullOrWhiteSpace(allowed) && string.Equals(allowed.Trim(), host, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    public static bool IsAllowedHost(string host, IReadOnlyList<string> allowedHosts) =>
+        SubtitleHostMatcher.IsListed(host, allowedHosts);
 
     public static Uri? TryBuildEndpoint(string baseUrl, string relativePath)
     {

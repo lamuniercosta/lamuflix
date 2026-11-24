@@ -124,7 +124,6 @@ internal static class HandlerRegistration
         services.AddSingleton<IValidateOptions<SubtitlesOptions>, SubtitlesOptionsValidator>();
         services.AddOptions<SubtitleProviderOptions>().BindConfiguration(SubtitleProviderOptions.SectionName);
         services.AddSingleton<IValidateOptions<SubtitleProviderOptions>, SubtitleProviderOptionsValidator>();
-        services.AddSingleton<SubtitleLinkHostRefusals>();
         services.AddSingleton(serviceProvider => new SubtitleCandidateBinder(
             serviceProvider.GetRequiredService<TimeProvider>(),
             new Random(),

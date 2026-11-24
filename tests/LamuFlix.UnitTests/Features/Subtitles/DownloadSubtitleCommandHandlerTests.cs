@@ -400,7 +400,7 @@ public sealed class DownloadSubtitleCommandHandlerTests
         Arrange();
         var candidateId = IssueCandidate();
         var refusals = new SubtitleLinkHostRefusals();
-        refusals.Record("bad.example");
+        refusals.TryRecord("bad.example");
         var handler = CreateHandler(refusals: refusals);
 
         // act
@@ -416,7 +416,7 @@ public sealed class DownloadSubtitleCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_ProviderRefusedLinkHost_RethrowsAndRecordsTheHost()
+    public async Task HandleAsync_ProviderRefusedLinkHost_RethrowsAndLeavesTheLatchToTheProvider()
     {
         // arrange
         Arrange();
@@ -435,8 +435,7 @@ public sealed class DownloadSubtitleCommandHandlerTests
         // assert
         var thrown = await Should.ThrowAsync<SubtitleProviderFailureException>(act);
         thrown.ShouldBeSameAs(refusal);
-        refusals.TryGetRefused(out var host).ShouldBeTrue();
-        host.ShouldBe("bad.example");
+        refusals.TryGetRefused(out _).ShouldBeFalse();
     }
 
     [Fact]

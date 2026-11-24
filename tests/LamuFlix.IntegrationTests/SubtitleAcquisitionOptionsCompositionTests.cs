@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
@@ -79,5 +80,21 @@ public sealed class SubtitleAcquisitionOptionsCompositionTests(ApiHostFactory fa
         providerValidators.ShouldContain(validator => validator is SubtitleProviderOptionsValidator);
         startupValidators.ShouldNotContain(validator =>
             (validator.GetType().FullName ?? string.Empty).Contains("Subtitle", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void StartedComposition_RegistersTheLinkHostRefusalsAsOneProcessWideInstance()
+    {
+        // arrange
+        using var scope = factory.Services.CreateScope();
+
+        // act
+        var root = factory.Services.GetRequiredService<SubtitleLinkHostRefusals>();
+        var again = factory.Services.GetRequiredService<SubtitleLinkHostRefusals>();
+        var scoped = scope.ServiceProvider.GetRequiredService<SubtitleLinkHostRefusals>();
+
+        // assert
+        again.ShouldBeSameAs(root);
+        scoped.ShouldBeSameAs(root);
     }
 }
