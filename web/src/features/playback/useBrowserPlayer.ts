@@ -51,6 +51,7 @@ export interface BrowserPlayerControls {
   boostSupported: boolean;
   boostPercent: number;
   boostActive: boolean;
+  boostPending: boolean;
   setBoost: (percent: number) => void;
   resetBoost: () => void;
   retry: () => void;
@@ -62,6 +63,8 @@ export interface BrowserPlayerControls {
 
 const BOOST_MIN = 100;
 const BOOST_MAX = 300;
+const BOOST_STORAGE_KEY = 'lamuflix:volume-boost:v1';
+const BOOST_INTEGER_PATTERN = /^\d+$/;
 const DIRECT_STREAM_PATH = /^\/api\/movies\/(\d+)\/stream\/?$/;
 const BOOST_BINDING = Symbol.for('lamuflix.playback.boostBinding');
 
@@ -88,6 +91,30 @@ function clampBoost(value: number): number {
 
 function hasWebAudio(): boolean {
   return typeof window !== 'undefined' && typeof window.AudioContext === 'function';
+}
+
+function readRememberedBoost(): number {
+  if (typeof window === 'undefined') return BOOST_MIN;
+  try {
+    const raw = window.localStorage.getItem(BOOST_STORAGE_KEY);
+    if (raw === null) return BOOST_MIN;
+    const trimmed = raw.trim();
+    if (!BOOST_INTEGER_PATTERN.test(trimmed)) return BOOST_MIN;
+    const parsed = Number(trimmed);
+    if (!Number.isSafeInteger(parsed) || parsed < BOOST_MIN || parsed > BOOST_MAX) return BOOST_MIN;
+    return parsed;
+  } catch {
+    return BOOST_MIN;
+  }
+}
+
+function writeRememberedBoost(percent: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(BOOST_STORAGE_KEY, String(percent));
+  } catch {
+    // A storage failure never interrupts playback or the in-session adjustment.
+  }
 }
 
 function matchesDeliveryPath(streamUrl: string, movieId: number | string | undefined): boolean {
@@ -175,8 +202,9 @@ export function useBrowserPlayer({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [status, setStatus] = useState<PlayerStatus>('loading');
   const [attempt, setAttempt] = useState(0);
-  const [boostPercent, setBoostPercent] = useState(BOOST_MIN);
+  const [boostPercent, setBoostPercent] = useState(readRememberedBoost);
   const [boostActive, setBoostActive] = useState(false);
+  const [boostPending, setBoostPending] = useState(() => boostPercent > BOOST_MIN);
   const [elementKey, setElementKey] = useState(0);
   const generationRef = useRef(0);
   const elementKeyRef = useRef(0);
@@ -184,7 +212,8 @@ export function useBrowserPlayer({
   const diagnosticRef = useRef(onDiagnostic);
   const streamUrlRef = useRef(streamUrl);
   const movieIdRef = useRef(movieId);
-  const boostPercentRef = useRef(BOOST_MIN);
+  const boostPercentRef = useRef(boostPercent);
+  const activationStartingRef = useRef(false);
   const continuityRef = useRef<PlaybackContinuity | null>(null);
   const pendingRecoveryRef = useRef<HTMLVideoElement | null>(null);
 
@@ -329,6 +358,7 @@ export function useBrowserPlayer({
       if (!element) return;
       const generation = generationRef.current;
       const existing = readBinding(element);
+      setBoostPending(false);
       if (existing && existing.generation === generation && existing.context.state !== 'closed') {
         applyBoost(existing, value);
         if (existing.context.state === 'suspended') {
@@ -337,6 +367,8 @@ export function useBrowserPlayer({
         setBoostActive(true);
         return;
       }
+      if (activationStartingRef.current) return;
+      activationStartingRef.current = true;
 
       void (async () => {
         let graph: AudioGraph | null = null;
@@ -393,7 +425,7 @@ export function useBrowserPlayer({
             generation: generationRef.current,
           };
           writeBinding(element, binding);
-          applyBoost(binding, value);
+          applyBoost(binding, clampBoost(boostPercentRef.current));
           setBoostActive(true);
         } catch {
           if (createdSource) {
@@ -404,6 +436,8 @@ export function useBrowserPlayer({
             }
           }
           await closeGraph(graph);
+        } finally {
+          activationStartingRef.current = false;
         }
       })();
     },
@@ -415,6 +449,7 @@ export function useBrowserPlayer({
       const next = clampBoost(percent);
       boostPercentRef.current = next;
       setBoostPercent(next);
+      writeRememberedBoost(next);
       activateBoost(next);
     },
     [activateBoost],
@@ -423,6 +458,7 @@ export function useBrowserPlayer({
   const resetBoost = useCallback(() => {
     boostPercentRef.current = BOOST_MIN;
     setBoostPercent(BOOST_MIN);
+    writeRememberedBoost(BOOST_MIN);
     activateBoost(BOOST_MIN);
   }, [activateBoost]);
 
@@ -494,6 +530,7 @@ export function useBrowserPlayer({
     boostSupported,
     boostPercent,
     boostActive,
+    boostPending,
     setBoost,
     resetBoost,
     retry,

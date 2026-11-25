@@ -34,6 +34,7 @@ import {
   SETTINGS_LABEL,
   SPEED_LABEL,
   VOLUME_BOOST_LABEL,
+  boostPendingText,
   boostValueText,
   openLocalLabel,
   playbackRateLabel,
@@ -135,6 +136,7 @@ export default function BrowserPlayer({
     elementKey,
     boostSupported,
     boostPercent,
+    boostPending,
     setBoost,
     resetBoost,
     retry,
@@ -530,10 +532,21 @@ export default function BrowserPlayer({
                   value={boostPercent}
                   aria-valuetext={boostValueText(boostPercent)}
                   onChange={(event) => setBoost(Number(event.target.value))}
+                  onClick={(event) => setBoost(Number(event.currentTarget.value))}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    setBoost(Number(event.currentTarget.value));
+                  }}
                 />
                 <output className="browser-player-boost-value">
                   {boostValueText(boostPercent)}
                 </output>
+                {boostPending ? (
+                  <span className="browser-player-boost-pending" role="status">
+                    {boostPendingText(boostPercent)}
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   data-reset-boost=""

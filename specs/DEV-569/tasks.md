@@ -85,12 +85,12 @@ Ordering per brief Task order / Q3–Q7 / Plan challenge decisions and prior ana
 
 ### Tests for User Story 2
 
-- [ ] T007 [US2] **Build lane**. After T006: Using `web-implement` test-first, extend `web/src/features/playback/BrowserPlayer.test.tsx` for restore of valid 100–300% with pending-activation indication when above 100%, apply-on-activation unless gesture sets/resets, invalid/missing/nonfinite/out-of-range → 100%, and throwing storage read/write leaving playback and in-session adjustment usable — following the existing `subtitlePreferences.ts` namespacing/error-isolation pattern **without modifying that file** (FR-008; SC-003; Q4; Plan challenge decision 4; Ledger F7). Not `[P]` — same test file as Phase 2/4.
+- [x] T007 [US2] **Build lane**. After T006: Using `web-implement` test-first, extend `web/src/features/playback/BrowserPlayer.test.tsx` for restore of valid 100–300% with pending-activation indication when above 100%, apply-on-activation unless gesture sets/resets, invalid/missing/nonfinite/out-of-range → 100%, and throwing storage read/write leaving playback and in-session adjustment usable — following the existing `subtitlePreferences.ts` namespacing/error-isolation pattern **without modifying that file** (FR-008; SC-003; Q4; Plan challenge decision 4; Ledger F7). Not `[P]` — same test file as Phase 2/4.
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] **Build lane**. After T007 authored: Implement one namespaced browser-only localStorage key plus pending-activation indication copy in `web/src/features/playback/useBrowserPlayer.ts` and, only as needed, `web/src/features/playback/playerCopy.ts` / `BrowserPlayer.tsx`, following the `subtitlePreferences.ts` namespacing/error-isolation pattern **without changing that file** (FR-008; `ASSUMPTIONS.md`; Plan challenge decision 4). Exact key string stays inside the playback seam. Make T007 pass.
-- [ ] T009 [US2] **Build lane**. After T008: Run the US2-focused web tests and record pass evidence (or explicit blocker distinct from a passed checkpoint). Confirm storage failure coverage still matches the `subtitlePreferences.ts` error-isolation pattern without editing that file.
+- [x] T008 [US2] **Build lane**. After T007 authored: Implement one namespaced browser-only localStorage key plus pending-activation indication copy in `web/src/features/playback/useBrowserPlayer.ts` and, only as needed, `web/src/features/playback/playerCopy.ts` / `BrowserPlayer.tsx`, following the `subtitlePreferences.ts` namespacing/error-isolation pattern **without changing that file** (FR-008; `ASSUMPTIONS.md`; Plan challenge decision 4). Exact key string stays inside the playback seam. Make T007 pass.
+- [x] T009 [US2] **Build lane**. After T008: Run the US2-focused web tests and record pass evidence (or explicit blocker distinct from a passed checkpoint). Confirm storage failure coverage still matches the `subtitlePreferences.ts` error-isolation pattern without editing that file.
 
 **Checkpoint**: US2 independently testable via persistence/pending web tests. Do not proceed to Phase 4 until this checkpoint **passes**. A recorded blocker is not a passed checkpoint.
 
