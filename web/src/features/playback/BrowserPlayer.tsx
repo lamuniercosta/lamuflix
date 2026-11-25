@@ -21,14 +21,20 @@ import {
 import { MediaPlaybackRateMenu, MediaSettingsMenuButton } from 'media-chrome/react/menu';
 import {
   AUTOPLAY_BLOCKED_COPY,
+  BOOST_MAX_PERCENT,
+  BOOST_MIN_PERCENT,
+  BOOST_STEP_PERCENT,
   ENDED_ANNOUNCEMENT,
   ERROR_COPY,
   LOADING_COPY,
   OPEN_LOCAL_COPY,
   PLAYBACK_RATE_OPTIONS,
+  RESET_BOOST_COPY,
   RETRY_COPY,
   SETTINGS_LABEL,
   SPEED_LABEL,
+  VOLUME_BOOST_LABEL,
+  boostValueText,
   openLocalLabel,
   playbackRateLabel,
   playerRegionLabel,
@@ -123,10 +129,19 @@ export default function BrowserPlayer({
   onOpenLocal,
   onDiagnostic,
 }: BrowserPlayerProps) {
-  const { status, videoRef, retry, togglePlay, seekBy, toggleMute } = useBrowserPlayer({
-    streamUrl,
-    onDiagnostic,
-  });
+  const {
+    status,
+    videoRef,
+    elementKey,
+    boostSupported,
+    boostPercent,
+    setBoost,
+    resetBoost,
+    retry,
+    togglePlay,
+    seekBy,
+    toggleMute,
+  } = useBrowserPlayer({ streamUrl, movieId, onDiagnostic });
   const regionRef = useRef<HTMLElement | null>(null);
   const ccTriggerRef = useRef<HTMLButtonElement | null>(null);
   const gearTriggerRef = useRef<HTMLElement | null>(null);
@@ -134,6 +149,7 @@ export default function BrowserPlayer({
   const panelId = useId();
   const gearId = useId();
   const speedMenuId = useId();
+  const boostRangeId = useId();
   const [ccSurface, setCcSurface] = useState<CcSurface>(() => freshSurface(movieId));
   const surface = ccSurface.movieId === movieId ? ccSurface : freshSurface(movieId);
   const ccOpen = surface.open;
@@ -470,7 +486,13 @@ export default function BrowserPlayer({
     >
       <div className="browser-player-frame">
         <MediaController ref={assignChrome} noHotkeys className="browser-player-chrome">
-          <video ref={assignVideo} slot="media" className="browser-player-video" playsInline>
+          <video
+            key={elementKey}
+            ref={assignVideo}
+            slot="media"
+            className="browser-player-video"
+            playsInline
+          >
             {tracks.map((track) => {
               const active = showTrack && selection?.trackId === track.id;
               return (
@@ -492,6 +514,36 @@ export default function BrowserPlayer({
             <MediaTimeDisplay showDuration noToggle />
             <MediaMuteButton />
             <MediaVolumeRange />
+            {boostSupported ? (
+              <span className="browser-player-boost">
+                <label className="browser-player-boost-label" htmlFor={boostRangeId}>
+                  {VOLUME_BOOST_LABEL}
+                </label>
+                <input
+                  id={boostRangeId}
+                  data-boost-range=""
+                  className="browser-player-boost-range"
+                  type="range"
+                  min={BOOST_MIN_PERCENT}
+                  max={BOOST_MAX_PERCENT}
+                  step={BOOST_STEP_PERCENT}
+                  value={boostPercent}
+                  aria-valuetext={boostValueText(boostPercent)}
+                  onChange={(event) => setBoost(Number(event.target.value))}
+                />
+                <output className="browser-player-boost-value">
+                  {boostValueText(boostPercent)}
+                </output>
+                <button
+                  type="button"
+                  data-reset-boost=""
+                  className="browser-player-trigger"
+                  onClick={resetBoost}
+                >
+                  {RESET_BOOST_COPY}
+                </button>
+              </span>
+            ) : null}
             <button
               ref={ccTriggerRef}
               type="button"
