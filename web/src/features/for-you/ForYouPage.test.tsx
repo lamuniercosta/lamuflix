@@ -668,6 +668,7 @@ describe('ForYouPage replacement', () => {
 
     // assert
     await findGrid(10);
+    await screen.findByRole('region', { name: 'Not in your library yet' });
     expect(renderedTitles()).toEqual(titles([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
     expect(requests[requests.length - 1].exclude).toEqual([]);
     vi.restoreAllMocks();

@@ -20,7 +20,8 @@
   },
   "Tmdb": {
     "Enabled": true,
-    "ApiKey": ""
+    "ApiKey": "",
+    "BaseUrl": "https://api.themoviedb.org/3/"
   },
   "Enrichment": {
     "SweepInterval": "00:01:00",

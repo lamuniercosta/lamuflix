@@ -17,6 +17,7 @@ import {
   FOR_YOU_CATALOG_MOVIES,
   generateFixtures,
   MANUAL_MATCH_MOVIES,
+  OUTSIDE_LIBRARY_FIXTURE,
   RESERVED_MOVIE,
   SEED_MOVIES,
   SUBTITLE_FIXTURES,
@@ -203,6 +204,11 @@ function buildSettings() {
       ApiKey: omdbApiKey,
       BaseUrl: providerBaseUrl(),
     },
+    Tmdb: {
+      Enabled: true,
+      ApiKey: rememberSecret(randomSecret(16)),
+      BaseUrl: providerBaseUrl(),
+    },
     Ollama: {
       Endpoint: providerBaseUrl(),
       ModelName: 'all-minilm',
@@ -336,6 +342,7 @@ function writeContext(fixture) {
       title: movie.title,
       relativePath: movie.relativePath,
     })),
+    outsideLibrary: OUTSIDE_LIBRARY_FIXTURE,
     manualMatchMovies,
     reservedMovie: { title: RESERVED_MOVIE.title, year: RESERVED_MOVIE.year },
     reservedFolders: { ...RESERVED_MOVIE.folders },
@@ -641,6 +648,47 @@ async function waitForSeededState() {
   }
 
   throw new Error('seeded movies and genres were not observable within the wait budget');
+}
+
+function sqlText(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+async function psql(statement) {
+  const result = await compose(
+    [
+      'exec',
+      '-T',
+      'postgres',
+      'psql',
+      '-U',
+      postgresUser,
+      '-d',
+      'lamuflix',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-c',
+      statement,
+    ],
+    { allowFailure: true },
+  );
+  if (result.code !== 0) {
+    throw new Error(`outside-library seed failed: ${sanitize(result.stderr || result.stdout)}`);
+  }
+  return result.stdout.trim();
+}
+
+async function seedOutsideLibraryRecommendations() {
+  const fixture = OUTSIDE_LIBRARY_FIXTURE;
+  const titles = SEED_MOVIES.map((movie) => sqlText(movie.title)).join(', ');
+  const statement = [
+    'INSERT INTO movie_recommendations (source_movie_id, recommended_tmdb_id, title, release_year, poster_path)',
+    `SELECT id, ${fixture.tmdbId}, ${sqlText(fixture.title)}, ${fixture.releaseYear}, NULL`,
+    `FROM movies WHERE title IN (${titles})`,
+    'ON CONFLICT (source_movie_id, recommended_tmdb_id) DO UPDATE',
+    'SET title = EXCLUDED.title, release_year = EXCLUDED.release_year, poster_path = EXCLUDED.poster_path;',
+  ].join('\n');
+  await psql(statement);
 }
 
 async function readStreamBytes(movieId, rangeHeader, { timeoutMs = WAIT_BUDGET_MS } = {}) {
@@ -955,7 +1003,9 @@ async function runStreamAcceptance() {
 }
 
 function selectSpecs() {
-  const specs = readdirSync(scriptDir).filter((name) => name.endsWith('.e2e.ts'));
+  const specs = readdirSync(scriptDir)
+    .filter((name) => name.endsWith('.e2e.ts'))
+    .sort((left, right) => left.localeCompare(right));
   return SMOKE_MODE
     ? specs.filter((name) => name === DEV471_SPEC)
     : specs.filter((name) => name !== DEV471_SPEC);
@@ -1116,6 +1166,7 @@ async function main() {
     await assertNoUnexpectedProviderRequests();
     await seedMovies();
     await waitForSeededState();
+    await seedOutsideLibraryRecommendations();
     await assertNoUnexpectedProviderRequests();
     await runStreamAcceptance();
     exitCode = await runPlaywright();

@@ -5,6 +5,7 @@ import { MovieCarousel } from '../../ui/MovieCarousel';
 import { RetryIcon } from '../../ui/icons';
 import { FOR_YOU_TAKE, fetchForYouSlice, type ForYouRecommendation } from './forYouApi';
 import { MORE_FOR_YOU_LABEL, groupForYou, type ForYouRow } from './forYouGrouping';
+import OutsideLibrarySection from './OutsideLibrarySection';
 import './ForYouPage.css';
 
 export interface ForYouPageProps {
@@ -365,6 +366,7 @@ export default function ForYouPage({ onOpenMovie }: ForYouPageProps) {
           </section>
         );
       })}
+      <OutsideLibrarySection />
     </section>
   );
 }
