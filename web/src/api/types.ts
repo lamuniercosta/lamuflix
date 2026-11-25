@@ -132,6 +132,10 @@ export interface paths {
     /** Get personalized recommendations from the taste profile */
     get: operations["GetForYouRecommendations"];
   };
+  "/api/version": {
+    /** Report the running release and commit metadata. */
+    get: operations["GetVersion"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -375,6 +379,10 @@ export interface components {
       label: string;
       language: string;
       isDefault: boolean;
+    };
+    VersionDto: {
+      release: null | string;
+      commit: string;
     };
   };
   responses: never;
@@ -1497,6 +1505,17 @@ export interface operations {
       422: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Report the running release and commit metadata. */
+  GetVersion: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["VersionDto"];
         };
       };
     };
