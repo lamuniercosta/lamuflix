@@ -261,6 +261,18 @@ const forYouRecommendationsData = {
   hasSeeds: true,
 } satisfies Schemas['ForYouRecommendationsPageDto'];
 
+const outsideLibraryRecommendationsData = [
+  {
+    tmdbId: 945961,
+    title: 'Outside Library Movie',
+    releaseYear: 1995,
+    posterPath: '/outside-library.jpg',
+    reason: 'Recommended for Heat and Collateral',
+  },
+] satisfies Schemas['OutsideLibraryRecommendation'][];
+
+export const outsideLibraryRecommendations = Object.freeze(outsideLibraryRecommendationsData);
+
 const genresData = [
   { id: 1, name: 'Action', movieCount: 10 },
   { id: 2, name: 'Sci-Fi', movieCount: 5 },
@@ -406,6 +418,7 @@ export const success = Object.freeze({
   GetMovieDetails: movieDetails,
   GetRecommendations: recommendations,
   GetForYouRecommendations: forYouRecommendations,
+  GetOutsideLibraryRecommendations: outsideLibraryRecommendations,
   GetGenres: genres,
   GetCollections: collections,
   GetPeople: people,

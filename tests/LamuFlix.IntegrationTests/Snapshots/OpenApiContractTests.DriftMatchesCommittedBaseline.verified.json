@@ -2199,6 +2199,30 @@
           }
         }
       }
+    },
+    "/api/recommendations/not-in-library": {
+      "get": {
+        "tags": [
+          "RecommendationEndpoints"
+        ],
+        "summary": "Get recommendations outside the library",
+        "operationId": "GetOutsideLibraryRecommendations",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OutsideLibraryRecommendation"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2740,6 +2764,47 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "OutsideLibraryRecommendation": {
+        "required": [
+          "tmdbId",
+          "title",
+          "releaseYear",
+          "posterPath",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "tmdbId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "title": {
+            "type": "string"
+          },
+          "releaseYear": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "posterPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": "string"
           }
         }
       },
