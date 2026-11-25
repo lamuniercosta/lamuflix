@@ -120,7 +120,7 @@ Ordering per brief Task order / Q3–Q7 / Plan challenge decisions and prior ana
 **Independent Test**: Temporary portal observer before activation + analyser connected to real compressor output when graph is created on activation + standalone unbound native reference + receipt artifacts.
 **Order**: After Phases 2–4 behaviour is green.
 
-- [ ] T012 [US4] **Build lane**. After Phase 4 checkpoint **passes**: Via the **Test URLs portal** in Chromium, using **temporary session-only page evaluation** (not a shipping module; not jsdom as the receipt driver), run the repeatable calibrated method from `plan.md` Verification Approach: (1) record the Q2 test tolerance **before** collecting results without changing Q2 bounds; (2) **install the temporary portal observer before activation**; (3) capture a **standalone unbound native reference without binding**; (4) on explicit activation, **connect the analyser to the real compressor output when the graph is created**; (5) same calibrated quiet stimulus below compression onset, fixed stock volume, stabilized measurement window; **explicitly record gain values and RMS ratios at 100% and 200%** (active 100%, reset 100%, 200%); check **audible unity as well as measured unity** (SC-001); capture before/during boost and mute readings; demonstrate limiting with loud material above unity; confirm mute silences boosted audio; (6) **clean up** the temporary observer/analyser afterwards (FR-011; SC-001–SC-002; Q2/Q6; Plan challenge decision 3). Pass only when retained ratios meet the pre-declared tolerance and audible unity holds at 100%. Preserve the evidence for review. Record pass evidence or an explicit blocker (blocker ≠ passed delivery checkpoint).
+- [x] T012 [US4] **Build lane**. After Phase 4 checkpoint **passes**: Via the **Test URLs portal** in Chromium, using **temporary session-only page evaluation** (not a shipping module; not jsdom as the receipt driver), run the repeatable calibrated method from `plan.md` Verification Approach: (1) record the Q2 test tolerance **before** collecting results without changing Q2 bounds; (2) **install the temporary portal observer before activation**; (3) capture a **standalone unbound native reference without binding**; (4) on explicit activation, **connect the analyser to the real compressor output when the graph is created**; (5) same calibrated quiet stimulus below compression onset, fixed stock volume, stabilized measurement window; **explicitly record gain values and RMS ratios at 100% and 200%** (active 100%, reset 100%, 200%); check **audible unity as well as measured unity** (SC-001); capture before/during boost and mute readings; demonstrate limiting with loud material above unity; confirm mute silences boosted audio; (6) **clean up** the temporary observer/analyser afterwards (FR-011; SC-001–SC-002; Q2/Q6; Plan challenge decision 3). Pass only when retained ratios meet the pre-declared tolerance and audible unity holds at 100%. Preserve the evidence for review. Record pass evidence or an explicit blocker (blocker ≠ passed delivery checkpoint).
   Executed on 2026-11-25 via Test URLs session-only evaluation at HEAD
   `d0c0509c`; receipts in `specs/DEV-569/PHASE5-EVIDENCE.md`. Unity at active
   100% (ratio 1.0010) and Reset 100% (ratio 1.0055), mute (RMS 0) and loud
@@ -137,7 +137,15 @@ Ordering per brief Task order / Q3–Q7 / Plan challenge decisions and prior ana
   was exactly 2x while Chromium added about +3.3 dB makeup at `threshold -6`.
   T012 remains unchecked because the blocker is not a passed checkpoint. No
   production edit made in the rerun.
-- [ ] T013 [US4] **Build lane**. After T012: Via the Test URLs portal in Chromium with the same temporary session-only technique, play a real library movie, install the temporary portal observer before activation, connect the analyser to the real compressor output when the graph is created on activation, boost to 200%, capture a screenshot of the visible control and an analyser level reading, check fullscreen and windowed operation, and **clean up** afterwards (FR-011; SC-005; SMOKE-001 alignment; Q6; Plan challenge decision 3). Preserve the evidence for review. Record either pass evidence or an explicit receipt blocker (blocker ≠ passed delivery checkpoint).
+  Rerun on 2026-11-25 at HEAD `605961fa` after Cog's threshold `0 dB` makeup
+  fix; tolerance re-declared before results in
+  `specs/DEV-569/PHASE5-EVIDENCE.md`. Observer before activation, independent
+  unbound native reference and real compressor-output analyser all receipted.
+  Active 100% ratio `1.0002`, Reset-from-200 ratio `0.9999`, quiet 200%
+  ratio to active 100% `1.9991` (and `1.9991` vs reference), mute RMS `0`,
+  loud limiting reduction `-4.565 dB` with ratio `1.185` — all inside the
+  pre-declared tolerances. Contexts closed, line 7 `true`. **T012 PASS.**
+- [x] T013 [US4] **Build lane**. After T012: Via the Test URLs portal in Chromium with the same temporary session-only technique, play a real library movie, install the temporary portal observer before activation, connect the analyser to the real compressor output when the graph is created on activation, boost to 200%, capture a screenshot of the visible control and an analyser level reading, check fullscreen and windowed operation, and **clean up** afterwards (FR-011; SC-005; SMOKE-001 alignment; Q6; Plan challenge decision 3). Preserve the evidence for review. Record either pass evidence or an explicit receipt blocker (blocker ≠ passed delivery checkpoint).
   Executed on 2026-11-25 via Test URLs session-only evaluation at HEAD
   `d0c0509c`; receipts and screenshot path in
   `specs/DEV-569/PHASE5-EVIDENCE.md`. Real movie 512 at gain 2 on the real
@@ -152,8 +160,20 @@ Ordering per brief Task order / Q3–Q7 / Plan challenge decisions and prior ana
   fullscreen and windowed DOM/analyser readings nonzero; context closed, boost
   restored to 100, viewport restored, line 7 `true`. T013 PASS on its own
   receipt.
+  Rerun at HEAD `605961fa`: real movie 512 bound at gain `2` / threshold `0`
+  with the analyser on the real compressor output; stabilized 25-sample mean
+  RMS `0.023759` with sink `none`; screenshot
+  `C:\Users\lamun\AppData\Local\Temp\DEV-569-T013-200pct-final.png`
+  at 1440x900 showing the visible `200%` control and live analyser reading;
+  fullscreen mean `0.039127` and windowed mean `0.043693`, sink `none`;
+  context closed, boost and stored value restored to 100, viewport restored,
+  line 7 `true`. **T013 PASS.**
 
-**Checkpoint**: US4 delivery checkpoint passes only with calibrated + real-library **pass** evidence. **NOT PASSED**: T013 real-library receipt passes, but T012's 200% compressor-output ratio still fails the pre-declared Q2 tolerance even after the `-12 -> -6` threshold fix (`4.2707` at `d0c0509c`, `2.9233` at `9be74d60` vs `1.80–2.20`); the blocker must be dispositioned before Phase 6 delivery clearance.
+**Checkpoint**: US4 delivery checkpoint **PASSES** at HEAD `605961fa` with both
+T012 calibrated and T013 real-library pass evidence (T012 200% ratio `1.9991`
+inside the pre-declared `1.80–2.20` tolerance; prior `4.2707` at
+`d0c0509c` and `2.9233` at `9be74d60` dispositioned by Cog's threshold
+`0 dB` fix). Phase 6 gates and review remain the delivery checkpoint.
 
 ---
 
