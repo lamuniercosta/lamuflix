@@ -162,3 +162,12 @@ Verdict: Reject `muted = true` + `captureStream()` and any `test-portal-policy:6
 
 
 - Phase 4 Ledger S2 (Medium, reviewed at 82daaaea1dab423e68bc79eb56ba4fdbc953ef91): noted, no ticket. A general extraction of the boost lifecycle into a sibling module is outside Q6 and FR-009. Keep behavior fixes within the approved player files.
+
+---
+
+## Phase 5 step 2 screenshot port-3000 ruling — Patron, 2026-11-25
+
+Verdict: (a) Approved — one-ticket exception for DEV-569 only: Rigger may temporarily run `docker compose -p lamuflix down` (no `-v`) so Gauge can run `Capture-WebScreenshots.ps1`, then Rigger must immediately restore the stack; not `blocked: owner` and not `blocked: structural`.
+- **No reuse path exists**: `Capture-WebScreenshots.ps1` hardcodes port 3000, requires it free, exits 2 on port-in-use, and declares no port/reuse parameter, so it cannot adopt `lamuflix-web-1` (`recon-DEV-569-2:7-8`); screenshots are mandatory at Phase 5 step 2 and Phase 6 check `d` allows no waiver (`task-pipeline:139-140,157`).
+- **Exact sequence**: Rigger runs `docker compose -p lamuflix down` (no `-v`, no volume deletion, no Docker Desktop restart, no touching `lamuflix-home-*`/kind); Gauge runs the capture at `ad7bcf3e`; Rigger then immediately runs, in `F:/Dev/LamuFlix.worktrees/DEV-569`, `docker compose -p lamuflix --env-file F:/Dev/LamuFlix/.env up -d --build --wait` plus the `http://localhost:3000` check and reports `OK stack: http://localhost:3000 200 @ ad7bcf3e` (`task-pipeline:48`); restore failure is `blocked: stack <first error>` (`task-pipeline:50`).
+- **No §2.3 escalation**: This transient operational swap changes no ticket Scope/Acceptance, dependency, schema, API, `Features:LocalPlay`, secret, or tracked file, and departs from no constitution provision; it suspends `task-pipeline:52` (stack stopped only when user asks) for this capture only and restores the same end state, so neither owner escalation in §2.3 applies.
