@@ -730,7 +730,12 @@ describe('App version line', () => {
 
     hold.resolve(new HttpResponse(null, { status: 500 }));
 
-    await waitFor(() => expect(screen.queryByText(versionPattern())).not.toBeInTheDocument());
+    await waitFor(() => {
+      const state = queryClient.getQueryState(['version']);
+      expect(state?.fetchStatus).toBe('idle');
+      expect(state?.status).toBe('error');
+    });
+    expect(screen.queryByText(versionPattern())).not.toBeInTheDocument();
     expect(document.body.textContent).not.toContain('unknown)');
   });
 
