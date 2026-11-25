@@ -27,6 +27,7 @@ env:
   IMAGE_API: ghcr.io/lamuniercosta/lamuflix-api
   IMAGE_WEB: ghcr.io/lamuniercosta/lamuflix-web
   OVERLAY: deploy/k8s/overlays/home
+  RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
 
 jobs:
   promote:
@@ -204,6 +205,28 @@ jobs:
             if ($refs.Count -ne 1 -or $refs[0] -ne "$name@$($target.Digest)") { throw "Rendered $name does not reference exactly the expected digest" }
           }
 
+          $release = $env:RELEASE_TAG
+          if ($release -match '[\r\n\u0000-\u001F]') { throw 'Release tag contains unsafe control characters' }
+          $serializedRelease = "'" + $release.Replace("'", "''") + "'"
+          $manifestLines = [System.Collections.Generic.List[string]]::new()
+          $manifestLines.AddRange([string[]](Get-Content -LiteralPath $manifestPath))
+          $releaseLines = [System.Collections.Generic.List[int]]::new()
+          for ($i = 0; $i -lt $manifestLines.Count; $i++) {
+            if ($manifestLines[$i] -match '^[ \t]*-[ \t]+name:[ \t]+LAMUFLIX_RELEASE[ \t]*$') { $releaseLines.Add($i) }
+          }
+          if ($releaseLines.Count -ne 2) { throw "Expected two LAMUFLIX_RELEASE entries, found $($releaseLines.Count)" }
+          foreach ($lineIndex in $releaseLines) {
+            $valueIndex = $lineIndex + 1
+            if ($valueIndex -ge $manifestLines.Count -or $manifestLines[$valueIndex] -notmatch '^[ \t]*value:[ \t]*') { throw "LAMUFLIX_RELEASE at line $($lineIndex + 1) has no value line" }
+            $indent = [regex]::Match($manifestLines[$valueIndex], '^[ \t]*').Value
+            $manifestLines[$valueIndex] = "${indent}value: $serializedRelease"
+          }
+          Set-Content -LiteralPath $manifestPath -Value $manifestLines -Encoding utf8
+          $content = Get-Content -LiteralPath $manifestPath -Raw
+          $releaseMatches = @([regex]::Matches($content, '(?m)^[ \t]*-[ \t]+name:[ \t]+LAMUFLIX_RELEASE[ \t]*\r?\n[ \t]*value:[ \t]*(?<value>.*)$') | ForEach-Object { $_.Groups['value'].Value.Trim() })
+          if ($releaseMatches.Count -ne 2 -or @($releaseMatches | Where-Object { $_ -ne $serializedRelease }).Count -ne 0) { throw 'Rendered LAMUFLIX_RELEASE values are not the serialized release tag' }
+          if (@([regex]::Matches($content, '(?m)^[ \t]*-[ \t]+name:[ \t]+LAMUFLIX_COMMIT[ \t]*$')).Count -ne 0) { throw 'Rendered manifests must not set LAMUFLIX_COMMIT' }
+
       - name: Update env/home
         id: publish
         shell: bash
@@ -213,7 +236,6 @@ jobs:
           WEB_DIGEST: ${{ steps.digests.outputs.web }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
         run: |
           set -euo pipefail
           home="$RUNNER_TEMP/env-home"

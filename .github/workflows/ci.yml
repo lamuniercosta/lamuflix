@@ -208,10 +208,10 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Build docker/Dockerfile.api
-        run: docker build -f docker/Dockerfile.api .
+        run: docker build --build-arg "LAMUFLIX_COMMIT=${{ github.sha }}" -f docker/Dockerfile.api .
 
       - name: Build docker/Dockerfile.web
-        run: docker build -f docker/Dockerfile.web .
+        run: docker build --build-arg "LAMUFLIX_COMMIT=${{ github.sha }}" -f docker/Dockerfile.web .
 
   deploy-parity:
     name: deploy-parity
@@ -365,6 +365,8 @@ jobs:
         with:
           context: .
           file: docker/Dockerfile.api
+          build-args: |
+            LAMUFLIX_COMMIT=${{ github.sha }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
@@ -387,6 +389,8 @@ jobs:
         with:
           context: .
           file: docker/Dockerfile.web
+          build-args: |
+            LAMUFLIX_COMMIT=${{ github.sha }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta-web.outputs.tags }}
