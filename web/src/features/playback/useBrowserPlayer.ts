@@ -312,6 +312,7 @@ export function useBrowserPlayer({
     if (element) writeBinding(element, null);
     void closeGraph(binding);
     setBoostActive(false);
+    setBoostPending(boostPercentRef.current > BOOST_MIN);
     recoverElement(element as HTMLVideoElement);
   }, [eligible, recoverElement, streamUrl, elementKey]);
 
@@ -358,13 +359,14 @@ export function useBrowserPlayer({
       if (!element) return;
       const generation = generationRef.current;
       const existing = readBinding(element);
-      setBoostPending(false);
+      setBoostPending(value > BOOST_MIN);
       if (existing && existing.generation === generation && existing.context.state !== 'closed') {
         applyBoost(existing, value);
         if (existing.context.state === 'suspended') {
           void existing.context.resume().catch(() => {});
         }
         setBoostActive(true);
+        setBoostPending(false);
         return;
       }
       if (activationStartingRef.current) return;
@@ -427,6 +429,7 @@ export function useBrowserPlayer({
           writeBinding(element, binding);
           applyBoost(binding, clampBoost(boostPercentRef.current));
           setBoostActive(true);
+          setBoostPending(false);
         } catch {
           if (createdSource) {
             try {
