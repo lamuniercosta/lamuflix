@@ -230,6 +230,42 @@ async function handleProvider(request, response, url, responses) {
   sendJson(response, 200, known.body);
 }
 
+function isTmdbPath(pathname) {
+  return (
+    pathname.startsWith('/find') ||
+    pathname.startsWith('/search/movie') ||
+    pathname.startsWith('/movie/')
+  );
+}
+
+function handleTmdb(request, response, url) {
+  if (request.method !== 'GET') {
+    rejectUnexpected(response, null, null, 'tmdb-method');
+    return;
+  }
+
+  if (url.pathname.startsWith('/find')) {
+    sendJson(response, 200, { movie_results: [] });
+    return;
+  }
+
+  if (url.pathname.startsWith('/search/movie')) {
+    sendJson(response, 200, {
+      page: 1,
+      results: [],
+      total_pages: 1,
+      total_results: 0,
+    });
+    return;
+  }
+
+  sendJson(response, 404, {
+    success: false,
+    status_code: 34,
+    status_message: 'The resource you requested could not be found.',
+  });
+}
+
 function embedVector() {
   return Array.from({ length: 384 }, () => 0.5);
 }
@@ -696,7 +732,9 @@ function serve() {
       ? handleControl(request, response, url, fixture)
       : url.pathname === '/api/embed' && request.method === 'POST'
         ? handleEmbed(request, response)
-        : handleProvider(request, response, url, fixture.responses);
+        : isTmdbPath(url.pathname)
+          ? handleTmdb(request, response, url)
+          : handleProvider(request, response, url, fixture.responses);
 
     Promise.resolve(handler).catch((error) => {
       log('request-error', { message: error.message });

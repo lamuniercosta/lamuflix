@@ -1,0 +1,102 @@
+.outside-library-section {
+  display: grid;
+  gap: var(--lamu-space-4);
+  min-width: 0;
+  padding: var(--lamu-space-4);
+  border: 1px solid var(--color-rule);
+  background-color: var(--color-reel);
+}
+
+.outside-library-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--lamu-space-3);
+}
+
+.outside-library-heading {
+  margin: 0;
+  color: var(--color-accent);
+  font-family: var(--font-wordmark);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.outside-library-credit {
+  max-width: 38rem;
+  margin: 0;
+  color: var(--color-dim);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.outside-library-credit a {
+  color: inherit;
+  text-underline-offset: 0.2em;
+}
+
+.outside-library-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--lamu-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.outside-library-card {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: var(--lamu-space-3);
+  min-width: 0;
+  padding: var(--lamu-space-3);
+  border: 1px solid var(--color-boundary);
+  background-color: var(--color-panel);
+}
+
+.outside-library-poster {
+  width: 5rem;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  background-color: var(--color-booth);
+}
+
+.outside-library-poster-fallback {
+  display: grid;
+  place-items: center;
+  padding: var(--lamu-space-1);
+  color: var(--color-muted);
+  font-size: 0.6875rem;
+  text-align: center;
+}
+
+.outside-library-card-body {
+  display: grid;
+  align-content: start;
+  gap: var(--lamu-space-2);
+  min-width: 0;
+}
+
+.outside-library-card-title,
+.outside-library-card-year,
+.outside-library-card-reason {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.outside-library-card-title {
+  color: var(--color-ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.outside-library-card-year,
+.outside-library-card-reason {
+  color: var(--color-dim);
+  font-size: 0.8125rem;
+}

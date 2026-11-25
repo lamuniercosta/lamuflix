@@ -44,6 +44,13 @@ export const FOR_YOU_CATALOG_MOVIES = Array.from({ length: 26 }, (_, index) => {
   };
 });
 
+export const OUTSIDE_LIBRARY_FIXTURE = {
+  tmdbId: 945961,
+  title: 'Outside Library Movie',
+  releaseYear: 1995,
+  reason: 'Recommended for Big Buck Bunny and Elephants Dream',
+};
+
 export const RESERVED_MOVIE = {
   source: 'Sintel (2010).mp4',
   title: 'Sintel',

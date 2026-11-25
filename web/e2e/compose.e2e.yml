@@ -2,7 +2,7 @@ services:
   api:
     environment:
       Ollama__Endpoint: http://127.0.0.1:${E2E_STUB_PORT}/
-      Tmdb__Enabled: 'false'
+      Tmdb__Enabled: 'true'
       SSL_CERT_FILE: /e2e/tls/cert.pem
     volumes:
       - ${LIBRARY_PATH}:/media/library
