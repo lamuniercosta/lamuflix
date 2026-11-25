@@ -74,6 +74,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "POST /api/movies/{id}/not-interested",
         "DELETE /api/movies/{id}/not-interested",
         "PUT /api/movies/{id}/review",
+        "GET /api/version",
     ];
 
     private static readonly string[] ExpectedSchemas =

@@ -977,6 +977,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 "GetMovieSubtitleContent",
                 "DownloadMovieSubtitle",
                 "GetMovieSubtitleSidecar",
+                "GetVersion",
             ],
             ignoreOrder: true);
         ShouldDescribe(endpoints["BrowseMovies"], BrowseResponseType, StatusCodes.Status422UnprocessableEntity);
