@@ -51,6 +51,8 @@ spec:
             - name: http
               containerPort: 8080
           env:
+            - name: LAMUFLIX_RELEASE
+              value: ""
             - name: Ollama__Endpoint
               value: http://ollama:11434/
             - name: OTEL_EXPORTER_OTLP_ENDPOINT

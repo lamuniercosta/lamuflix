@@ -21,6 +21,9 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+          env:
+            - name: LAMUFLIX_RELEASE
+              value: ""
           readinessProbe:
             httpGet:
               path: /

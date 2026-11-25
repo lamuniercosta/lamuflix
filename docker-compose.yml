@@ -58,9 +58,12 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
+      args:
+        LAMUFLIX_COMMIT: ${LAMUFLIX_COMMIT:-unknown}
     environment:
       Ollama__Endpoint: http://ollama:11434/
       Thumbnails__Enabled: "true"
+      LAMUFLIX_RELEASE: ""
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,6 +88,10 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.web
+      args:
+        LAMUFLIX_COMMIT: ${LAMUFLIX_COMMIT:-unknown}
+    environment:
+      LAMUFLIX_RELEASE: ""
     depends_on:
       api:
         condition: service_healthy
