@@ -12,6 +12,12 @@ Library view with synthetic sample data.
 
 This README describes the **2018 to 2026 modernization**: where the codebase started, where it is now, how the pieces fit together, and how to run and verify it.
 
+## Features
+
+- Library browsing, watchlist, and optional local playback.
+- Library recommendations on For You and Related.
+- A separate read-only **Not in your library yet** section on For You that surfaces movies outside the library ranked from locally stored recommendation links. It appears only when eligible candidates exist; the library For You grid and Related remain library-only.
+
 ## Modernization (2018 → 2026)
 
 The original stack was .NET Framework / .NET Core 2.1 with a WinForms worker, MySQL persistence, and server-rendered MVC. The modern stack is **.NET 10** with a headless worker, PostgreSQL, a Minimal API, and a React SPA. Each row below names the decision record behind it.
