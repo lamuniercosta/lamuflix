@@ -2292,6 +2292,9 @@ describe('BrowserPlayer Phase 2 volume boost', () => {
     expect(audio.sources).toHaveLength(0);
     expect(audio.sources.every((source) => source.element !== freshElement)).toBe(true);
     expect(media.calls).not.toContain('play');
+    expect(freshElement.currentTime).toBe(0);
+    media.setSeekable(freshElement, [[0, 120]]);
+    fireEvent(freshElement, new Event('loadedmetadata'));
     expectPlaybackContinuity(freshElement, continuity);
     expect(
       within(controlBar()).getByRole('slider', { name: VOLUME_BOOST_LABEL }),
@@ -2322,6 +2325,9 @@ describe('BrowserPlayer Phase 2 volume boost', () => {
     expect(audio.sources).toHaveLength(1);
     expect(audio.sources.every((source) => source.element !== freshElement)).toBe(true);
     expect(audio.contexts[0].closed).toBe(true);
+    expect(freshElement.currentTime).toBe(0);
+    media.setSeekable(freshElement, [[0, 120]]);
+    fireEvent(freshElement, new Event('loadedmetadata'));
     expectPlaybackContinuity(freshElement, continuity);
   });
 
@@ -2636,6 +2642,9 @@ describe('BrowserPlayer Phase 4 persistence and eligibility interaction', () => 
     expect(audio.sources).toHaveLength(0);
     expect(audio.contexts[0].closed).toBe(true);
     expect(media.calls).not.toContain('play');
+    expect(freshElement.currentTime).toBe(0);
+    media.setSeekable(freshElement, [[0, 120]]);
+    fireEvent(freshElement, new Event('loadedmetadata'));
     expectPlaybackContinuity(freshElement, continuity);
     expect(boostSlider()).toHaveValue('165');
     expect(within(region()).getByText(/165%.*activate/i)).toBeInTheDocument();
@@ -2668,6 +2677,9 @@ describe('BrowserPlayer Phase 4 persistence and eligibility interaction', () => 
     expect(audio.sources).toHaveLength(1);
     expect(audio.contexts[0].closed).toBe(true);
     expect(audio.sources.every((source) => source.element !== freshElement)).toBe(true);
+    expect(freshElement.currentTime).toBe(0);
+    media.setSeekable(freshElement, [[0, 120]]);
+    fireEvent(freshElement, new Event('loadedmetadata'));
     expectPlaybackContinuity(freshElement, continuity);
 
     rerender(<BrowserPlayer title="Dune" movieId={1} streamUrl={STREAM} />);
@@ -2682,5 +2694,165 @@ describe('BrowserPlayer Phase 4 persistence and eligibility interaction', () => 
     expect(audio.sources[1].element).toBe(video());
     expect(audio.contexts[1].gains[0].gain.value).toBe(1.9);
     expect(within(region()).queryByText(/saved.*activate/i)).toBeNull();
+  });
+});
+
+describe('BrowserPlayer Phase 4 remediation regressions', () => {
+  it('closes the live boost context on unmount with an active boost', async () => {
+    audio = installAudioStubs();
+    const first = renderPlayer();
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+
+    first.unmount();
+
+    await waitFor(() => expect(audio.contexts[0].closed).toBe(true));
+    expect(audio.contexts[0].state).toBe('closed');
+  });
+
+  it('holds the saved seek at zero until metadata, then restores it inside the seekable range', async () => {
+    audio = installAudioStubs();
+    audio.failSource();
+    renderPlayer();
+    const oldElement = video();
+    const continuity: PlaybackContinuity = {
+      time: 42,
+      paused: true,
+      volume: 0.6,
+      muted: true,
+      rate: 1.5,
+    };
+    setPlaybackContinuity(oldElement, continuity);
+    act(() => {
+      oldElement.pause();
+    });
+    media.calls.length = 0;
+
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(video()).not.toBe(oldElement));
+    const freshElement = video();
+
+    expect(freshElement.currentTime).toBe(0);
+    media.setSeekable(freshElement, [[0, 120]]);
+    fireEvent(freshElement, new Event('loadedmetadata'));
+    expectPlaybackContinuity(freshElement, continuity);
+    expect(media.calls).not.toContain('play');
+  });
+
+  it('leaves the native position alone when the saved seek falls outside the fresh seekable range', async () => {
+    audio = installAudioStubs();
+    audio.failSource();
+    renderPlayer();
+    const oldElement = video();
+    setPlaybackContinuity(oldElement, {
+      time: 200,
+      paused: true,
+      volume: 0.6,
+      muted: true,
+      rate: 1.5,
+    });
+    act(() => {
+      oldElement.pause();
+    });
+    media.calls.length = 0;
+
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(video()).not.toBe(oldElement));
+    const freshElement = video();
+
+    media.setSeekable(freshElement, [[0, 120]]);
+    fireEvent(freshElement, new Event('loadedmetadata'));
+
+    expect(freshElement.currentTime).toBe(0);
+    expect(freshElement.volume).toBe(0.6);
+    expect(media.calls).not.toContain('play');
+  });
+
+  it('retains the live binding across an eligible source change after a reload generation', async () => {
+    audio = installAudioStubs();
+    const { rerender } = renderPlayer();
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    const element = video();
+    const context = audio.contexts[0];
+    media.calls.length = 0;
+
+    act(() => {
+      element.dispatchEvent(new Event('error'));
+    });
+    fireEvent.click(await screen.findByRole('button', { name: retryLabel('Dune') }));
+    await waitFor(() => expect(media.calls).toContain(`src:${STREAM}`));
+    expect(video()).toBe(element);
+
+    rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
+    await waitFor(() => expect(media.calls).toContain('src:/api/movies/2/stream'));
+
+    expect(video(region('Heat'))).toBe(element);
+    expect(audio.contexts).toHaveLength(1);
+    expect(audio.sources).toHaveLength(1);
+    expect(context.closed).toBe(false);
+
+    fireEvent.change(boostSlider(region('Heat')), { target: { value: '220' } });
+    await waitFor(() => expect(context.gains[0].gain.value).toBe(2.2));
+    expect(audio.sources).toHaveLength(1);
+  });
+
+  it('keeps a live same-element binding when its hook reinitializes and unmounts', async () => {
+    audio = installAudioStubs();
+    renderPlayer();
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    const element = video();
+    const context = audio.contexts[0];
+    let fresh: ReturnType<typeof useBrowserPlayer> | null = null;
+
+    const harness = render(
+      <BoostHookHarness
+        element={element}
+        onReady={(controls) => {
+          fresh = controls;
+        }}
+      />,
+    );
+    await act(async () => {
+      expect(fresh).not.toBeNull();
+      await (fresh as ReturnType<typeof useBrowserPlayer>).setBoost(220);
+    });
+    expect(context.gains[0].gain.value).toBe(2.2);
+
+    harness.unmount();
+
+    expect(element.isConnected).toBe(true);
+    expect(context.closed).toBe(false);
+    fireEvent.change(boostSlider(), { target: { value: '230' } });
+    await waitFor(() => expect(context.gains[0].gain.value).toBe(2.3));
+    expect(audio.sources).toHaveLength(1);
+  });
+
+  it('resets position and resumes playback when recovery follows a different movie', async () => {
+    audio = installAudioStubs();
+    const { rerender } = renderPlayer();
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    const oldElement = video();
+    setPlaybackContinuity(oldElement, {
+      time: 73,
+      paused: false,
+      volume: 0.75,
+      muted: false,
+      rate: 1.25,
+    });
+    media.calls.length = 0;
+
+    rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl={UNVERIFIED_MATCHING_STREAM} />);
+    await waitFor(() => expect(video(region('Heat'))).not.toBe(oldElement));
+    const freshElement = video(region('Heat'));
+
+    expect(freshElement.currentTime).toBe(0);
+    media.setSeekable(freshElement, [[0, 120]]);
+    fireEvent(freshElement, new Event('loadedmetadata'));
+
+    expect(freshElement.currentTime).toBe(0);
+    expect(media.calls).toContain('play');
   });
 });

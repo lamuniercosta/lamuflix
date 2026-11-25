@@ -7,7 +7,12 @@ import {
   useState,
   type RefObject,
 } from 'react';
-import { PLAYBACK_SPEEDS, type PlaybackSpeed } from './playerCopy';
+import {
+  BOOST_MAX_PERCENT,
+  BOOST_MIN_PERCENT,
+  PLAYBACK_SPEEDS,
+  type PlaybackSpeed,
+} from './playerCopy';
 
 export type PlayerStatus =
   'loading' | 'playing' | 'paused' | 'buffering' | 'autoplay-blocked' | 'ended' | 'error';
@@ -30,6 +35,11 @@ interface PlaybackContinuity {
   volume: number;
   muted: boolean;
   rate: number;
+}
+
+interface ContinuitySnapshot {
+  continuity: PlaybackContinuity;
+  movieId: number | string | undefined;
 }
 
 interface AudioGraph {
@@ -61,8 +71,6 @@ export interface BrowserPlayerControls {
   setPlaybackRate: (rate: PlaybackSpeed) => void;
 }
 
-const BOOST_MIN = 100;
-const BOOST_MAX = 300;
 const BOOST_STORAGE_KEY = 'lamuflix:volume-boost:v1';
 const BOOST_INTEGER_PATTERN = /^\d+$/;
 const DIRECT_STREAM_PATH = /^\/api\/movies\/(\d+)\/stream\/?$/;
@@ -85,8 +93,8 @@ export function readDiagnostic(video: HTMLVideoElement | null): MediaDiagnostic 
 }
 
 function clampBoost(value: number): number {
-  if (!Number.isFinite(value)) return BOOST_MIN;
-  return Math.min(BOOST_MAX, Math.max(BOOST_MIN, Math.round(value)));
+  if (!Number.isFinite(value)) return BOOST_MIN_PERCENT;
+  return Math.min(BOOST_MAX_PERCENT, Math.max(BOOST_MIN_PERCENT, Math.round(value)));
 }
 
 function hasWebAudio(): boolean {
@@ -94,17 +102,17 @@ function hasWebAudio(): boolean {
 }
 
 function readRememberedBoost(): number {
-  if (typeof window === 'undefined') return BOOST_MIN;
+  if (typeof window === 'undefined') return BOOST_MIN_PERCENT;
   try {
     const raw = window.localStorage.getItem(BOOST_STORAGE_KEY);
-    if (raw === null) return BOOST_MIN;
+    if (raw === null) return BOOST_MIN_PERCENT;
     const trimmed = raw.trim();
-    if (!BOOST_INTEGER_PATTERN.test(trimmed)) return BOOST_MIN;
+    if (!BOOST_INTEGER_PATTERN.test(trimmed)) return BOOST_MIN_PERCENT;
     const parsed = Number(trimmed);
-    if (!Number.isSafeInteger(parsed) || parsed < BOOST_MIN || parsed > BOOST_MAX) return BOOST_MIN;
+    if (!Number.isSafeInteger(parsed) || parsed < BOOST_MIN_PERCENT || parsed > BOOST_MAX_PERCENT) return BOOST_MIN_PERCENT;
     return parsed;
   } catch {
-    return BOOST_MIN;
+    return BOOST_MIN_PERCENT;
   }
 }
 
@@ -150,7 +158,7 @@ function writeBinding(element: HTMLVideoElement, binding: BoostBinding | null): 
 }
 
 function applyBoost(graph: AudioGraph, percent: number): void {
-  const limiting = percent > BOOST_MIN;
+  const limiting = percent > BOOST_MIN_PERCENT;
   graph.gain.gain.value = percent / 100;
   graph.compressor.threshold.value = 0;
   graph.compressor.knee.value = 0;
@@ -204,7 +212,7 @@ export function useBrowserPlayer({
   const [attempt, setAttempt] = useState(0);
   const [boostPercent, setBoostPercent] = useState(readRememberedBoost);
   const [boostActive, setBoostActive] = useState(false);
-  const [boostPending, setBoostPending] = useState(() => boostPercent > BOOST_MIN);
+  const [boostPending, setBoostPending] = useState(() => boostPercent > BOOST_MIN_PERCENT);
   const [elementKey, setElementKey] = useState(0);
   const generationRef = useRef(0);
   const elementKeyRef = useRef(0);
@@ -214,7 +222,10 @@ export function useBrowserPlayer({
   const movieIdRef = useRef(movieId);
   const boostPercentRef = useRef(boostPercent);
   const activationStartingRef = useRef(false);
-  const continuityRef = useRef<PlaybackContinuity | null>(null);
+  const continuityRef = useRef<ContinuitySnapshot | null>(null);
+  const pendingContinuityRef = useRef<ContinuitySnapshot | null>(null);
+  const pendingSeekRef = useRef<{ time: number } | null>(null);
+  const ownedBindingRef = useRef<BoostBinding | null>(null);
   const pendingRecoveryRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -263,7 +274,10 @@ export function useBrowserPlayer({
 
   const recoverElement = useCallback((element: HTMLVideoElement) => {
     if (pendingRecoveryRef.current === element) return;
-    continuityRef.current = captureContinuity(element);
+    continuityRef.current = {
+      continuity: captureContinuity(element),
+      movieId: movieIdRef.current,
+    };
     pendingRecoveryRef.current = element;
     elementKeyRef.current += 1;
     setElementKey(elementKeyRef.current);
@@ -307,13 +321,17 @@ export function useBrowserPlayer({
   useLayoutEffect(() => {
     const element = videoRef.current;
     const binding = readBinding(element);
-    if (!binding) return;
-    if (eligible && binding.generation === generationRef.current) return;
-    if (element) writeBinding(element, null);
+    if (!binding || !element) return;
+    if (eligible && binding.context.state !== 'closed') {
+      ownedBindingRef.current = binding;
+      return;
+    }
+    if (readBinding(element) === binding) writeBinding(element, null);
+    if (ownedBindingRef.current === binding) ownedBindingRef.current = null;
     void closeGraph(binding);
     setBoostActive(false);
-    setBoostPending(boostPercentRef.current > BOOST_MIN);
-    recoverElement(element as HTMLVideoElement);
+    setBoostPending(boostPercentRef.current > BOOST_MIN_PERCENT);
+    recoverElement(element);
   }, [eligible, recoverElement, streamUrl, elementKey]);
 
   useEffect(() => {
@@ -325,11 +343,23 @@ export function useBrowserPlayer({
     const generation = generationRef.current;
     detachingRef.current = false;
     setStatus('loading');
-    const continuity = continuityRef.current;
+    const snapshot = continuityRef.current;
     continuityRef.current = null;
+    if (snapshot) {
+      pendingContinuityRef.current = snapshot.movieId === movieId ? snapshot : null;
+    } else {
+      const retained = pendingContinuityRef.current;
+      if (retained && retained.movieId !== movieId) pendingContinuityRef.current = null;
+    }
+    const continuity = pendingContinuityRef.current?.continuity;
     video.setAttribute('src', streamUrl);
     video.load();
-    video.currentTime = continuity?.canSeek ? continuity.time : 0;
+    if (continuity?.canSeek) {
+      pendingSeekRef.current = { time: continuity.time };
+    } else {
+      pendingSeekRef.current = null;
+      video.currentTime = 0;
+    }
     if (continuity) {
       video.volume = continuity.volume;
       video.muted = continuity.muted;
@@ -340,8 +370,28 @@ export function useBrowserPlayer({
     } else {
       requestPlay(video);
     }
+    const onMetadata = () => {
+      if (generation !== generationRef.current) return;
+      const pendingSeek = pendingSeekRef.current;
+      if (!pendingSeek) return;
+      pendingSeekRef.current = null;
+      pendingContinuityRef.current = null;
+      try {
+        const ranges = video.seekable;
+        if (!ranges || ranges.length === 0) return;
+        const start = ranges.start(0);
+        const end = ranges.end(0);
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+        if (pendingSeek.time < start || pendingSeek.time > end) return;
+        video.currentTime = pendingSeek.time;
+      } catch {
+        return;
+      }
+    };
+    video.addEventListener('loadedmetadata', onMetadata);
     return () => {
       detachingRef.current = true;
+      video.removeEventListener('loadedmetadata', onMetadata);
       if (generation === generationRef.current) {
         generationRef.current += 1;
       }
@@ -349,7 +399,7 @@ export function useBrowserPlayer({
       video.removeAttribute('src');
       video.load();
     };
-  }, [streamUrl, attempt, elementKey, requestPlay]);
+  }, [streamUrl, attempt, elementKey, requestPlay, movieId]);
 
   const activateBoost = useCallback(
     (requested?: number) => {
@@ -359,8 +409,10 @@ export function useBrowserPlayer({
       if (!element) return;
       const generation = generationRef.current;
       const existing = readBinding(element);
-      setBoostPending(value > BOOST_MIN);
-      if (existing && existing.generation === generation && existing.context.state !== 'closed') {
+      setBoostPending(value > BOOST_MIN_PERCENT);
+      if (existing && existing.context.state !== 'closed') {
+        existing.generation = generation;
+        ownedBindingRef.current = existing;
         applyBoost(existing, value);
         if (existing.context.state === 'suspended') {
           void existing.context.resume().catch(() => {});
@@ -427,6 +479,7 @@ export function useBrowserPlayer({
             generation: generationRef.current,
           };
           writeBinding(element, binding);
+          ownedBindingRef.current = binding;
           applyBoost(binding, clampBoost(boostPercentRef.current));
           setBoostActive(true);
           setBoostPending(false);
@@ -459,20 +512,20 @@ export function useBrowserPlayer({
   );
 
   const resetBoost = useCallback(() => {
-    boostPercentRef.current = BOOST_MIN;
-    setBoostPercent(BOOST_MIN);
-    writeRememberedBoost(BOOST_MIN);
-    activateBoost(BOOST_MIN);
+    boostPercentRef.current = BOOST_MIN_PERCENT;
+    setBoostPercent(BOOST_MIN_PERCENT);
+    writeRememberedBoost(BOOST_MIN_PERCENT);
+    activateBoost(BOOST_MIN_PERCENT);
   }, [activateBoost]);
 
   useEffect(
     () => () => {
-      const element = videoRef.current;
-      const binding = readBinding(element);
-      if (element && binding) {
-        writeBinding(element, null);
-        void closeGraph(binding);
-      }
+      const owned = ownedBindingRef.current;
+      ownedBindingRef.current = null;
+      if (!owned) return;
+      if (owned.element.isConnected) return;
+      if (readBinding(owned.element) === owned) writeBinding(owned.element, null);
+      void closeGraph(owned);
     },
     [],
   );
