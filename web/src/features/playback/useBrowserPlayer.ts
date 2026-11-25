@@ -225,7 +225,7 @@ export function useBrowserPlayer({
   const activationStartingRef = useRef(false);
   const continuityRef = useRef<ContinuitySnapshot | null>(null);
   const pendingContinuityRef = useRef<ContinuitySnapshot | null>(null);
-  const pendingSeekRef = useRef<{ time: number } | null>(null);
+  const pendingSeekRef = useRef<{ time: number; generation: number } | null>(null);
   const ownedBindingRef = useRef<BoostBinding | null>(null);
   const pendingRecoveryRef = useRef<HTMLVideoElement | null>(null);
 
@@ -352,11 +352,13 @@ export function useBrowserPlayer({
       const retained = pendingContinuityRef.current;
       if (retained && retained.movieId !== movieId) pendingContinuityRef.current = null;
     }
-    const continuity = pendingContinuityRef.current?.continuity;
+    const pending = pendingContinuityRef.current;
+    pendingContinuityRef.current = null;
+    const continuity = pending && pending.movieId === movieId ? pending.continuity : undefined;
     video.setAttribute('src', streamUrl);
     video.load();
     if (continuity?.canSeek) {
-      pendingSeekRef.current = { time: continuity.time };
+      pendingSeekRef.current = { time: continuity.time, generation };
     } else {
       pendingSeekRef.current = null;
       video.currentTime = 0;
@@ -374,16 +376,22 @@ export function useBrowserPlayer({
     const onMetadata = () => {
       if (generation !== generationRef.current) return;
       const pendingSeek = pendingSeekRef.current;
-      if (!pendingSeek) return;
+      if (!pendingSeek || pendingSeek.generation !== generation) return;
       pendingSeekRef.current = null;
-      pendingContinuityRef.current = null;
       try {
         const ranges = video.seekable;
         if (!ranges || ranges.length === 0) return;
-        const start = ranges.start(0);
-        const end = ranges.end(0);
-        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
-        if (pendingSeek.time < start || pendingSeek.time > end) return;
+        let inRange = false;
+        for (let index = 0; index < ranges.length; index += 1) {
+          const start = ranges.start(index);
+          const end = ranges.end(index);
+          if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+          if (pendingSeek.time >= start && pendingSeek.time <= end) {
+            inRange = true;
+            break;
+          }
+        }
+        if (!inRange) return;
         video.currentTime = pendingSeek.time;
       } catch {
         return;
@@ -393,6 +401,7 @@ export function useBrowserPlayer({
     return () => {
       detachingRef.current = true;
       video.removeEventListener('loadedmetadata', onMetadata);
+      if (pendingSeekRef.current?.generation === generation) pendingSeekRef.current = null;
       if (generation === generationRef.current) {
         generationRef.current += 1;
       }
