@@ -1,4 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { client } from './api/client';
 import {
   currentReturnUrl,
   libraryReturnSearch,
@@ -28,6 +30,46 @@ import { CloseIcon, RetryIcon, SearchIcon } from './ui/icons';
 
 function shellSearchId(prefix: string): string {
   return `${prefix}-shell-search`;
+}
+
+function formatVersionLine(version: { release: string | null; commit: string }): string {
+  const release = version.release ?? 'dev';
+  const commit = version.commit.trim() === '' ? 'unknown' : version.commit;
+  const shortCommit = commit === 'unknown' ? commit : commit.slice(0, 8);
+  return `${release} (${shortCommit})`;
+}
+
+function VersionLine() {
+  const { data } = useQuery({
+    queryKey: ['version'],
+    queryFn: async () => {
+      const { data: version, error } = await client.GET('/api/version');
+      if (error !== undefined || version === undefined) {
+        throw new Error('Version request did not return a body');
+      }
+      return version;
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  if (data === undefined) {
+    return null;
+  }
+
+  return (
+    <footer
+      className="lamu-app-footer"
+      style={{
+        padding: 'var(--lamu-space-6) var(--lamu-gutter) 0',
+        textAlign: 'right',
+        fontSize: '0.75rem',
+        opacity: 0.7,
+      }}
+    >
+      <span className="lamu-version-line">{formatVersionLine(data)}</span>
+    </footer>
+  );
 }
 
 function SearchField({
@@ -351,6 +393,7 @@ export default function App({ enrichmentStatus }: AppProps) {
                 </LibraryErrorBoundary>
               </main>
             )}
+            <VersionLine />
           </div>
         </div>
         <BulkImportDialog open={importOpen} onClose={closeImport} />
