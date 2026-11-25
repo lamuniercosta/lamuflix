@@ -2030,6 +2030,19 @@ describe('BrowserPlayer Phase 2 volume boost', () => {
     expect(audio.contexts[0].compressors[0].connections).toEqual([audio.contexts[0].destination]);
   });
 
+  it('keeps the 200 percent compressor onset above the boosted quiet stimulus', async () => {
+    audio = installAudioStubs();
+    renderPlayer();
+
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+
+    expect(audio.contexts[0].gains[0].gain.value).toBe(2);
+    expect(audio.contexts[0].compressors[0].threshold.value).toBe(-6);
+    expect(audio.contexts[0].compressors[0].knee.value).toBe(0);
+    expect(audio.contexts[0].compressors[0].ratio.value).toBe(12);
+  });
+
   it('keeps native playback with no boost control when Web Audio is missing', () => {
     renderPlayer();
 
