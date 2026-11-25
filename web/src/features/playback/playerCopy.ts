@@ -8,6 +8,16 @@ export const SPEED_LABEL = 'Playback speed';
 export const SETTINGS_LABEL = 'Settings';
 export const PLAYBACK_SPEEDS = [0.5, 1, 1.5, 2] as const;
 export const PLAYBACK_RATE_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+export const VOLUME_BOOST_LABEL = 'Volume boost';
+export const RESET_BOOST_COPY = 'Reset boost';
+export const BOOST_MIN_PERCENT = 100;
+export const BOOST_MAX_PERCENT = 300;
+export const BOOST_STEP_PERCENT = 1;
+export const BOOST_VALUE_SUFFIX = '%';
+
+export function boostValueText(percent: number): string {
+  return `${percent}${BOOST_VALUE_SUFFIX}`;
+}
 
 export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
 

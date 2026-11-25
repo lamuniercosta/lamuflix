@@ -1,18 +1,25 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { StrictMode, type ComponentProps } from 'react';
+import { StrictMode, useLayoutEffect, useRef, type ComponentProps } from 'react';
 import BrowserPlayer from './BrowserPlayer';
+import { useBrowserPlayer } from './useBrowserPlayer';
 import { createFakeCueList, fakeCues, type FakeCueList } from './subtitleTestDoubles';
 import { autoplayDenial, installMediaStubs, type MediaStubHandle } from '../../test/mediaElement';
 import { server } from '../../test/server';
 import {
   AUTOPLAY_BLOCKED_COPY,
+  BOOST_MAX_PERCENT,
+  BOOST_MIN_PERCENT,
+  BOOST_STEP_PERCENT,
+  BOOST_VALUE_SUFFIX,
   ENDED_ANNOUNCEMENT,
   ERROR_COPY,
   LOADING_COPY,
   OPEN_LOCAL_COPY,
   SETTINGS_LABEL,
+  RESET_BOOST_COPY,
+  VOLUME_BOOST_LABEL,
   playbackRateLabel,
   playerRegionLabel,
   playLabel,
@@ -38,7 +45,9 @@ import {
 import { SUBTITLE_DELAY_KEY_PREFIX, SUBTITLE_STYLE_KEY } from './subtitlePreferences';
 
 const STREAM = '/api/movies/1/stream';
+const UNVERIFIED_MATCHING_STREAM = '/api/movies/1/stream?via=unverified';
 let media: MediaStubHandle;
+let audio = null as unknown as BoostAudioHarness;
 
 function region(title = 'Dune'): HTMLElement {
   return screen.getByRole('region', { name: playerRegionLabel(title) });
@@ -131,6 +140,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  audio?.restore();
+  audio = null as unknown as BoostAudioHarness;
   media.restore();
   vi.restoreAllMocks();
   Reflect.deleteProperty(document, 'fullscreenElement');
@@ -1745,5 +1756,585 @@ describe('BrowserPlayer Options and selector coexistence', () => {
 
     fireEvent.click(within(back).getByRole('tab', { name: SUBTITLES_LABEL }));
     expect(await within(back).findByText(SUBTITLES_UNAVAILABLE_COPY)).toBeInTheDocument();
+  });
+});
+
+interface FakeParam {
+  value: number;
+}
+
+interface FakeAudioNode {
+  connections: FakeAudioNode[];
+  connect: (target: FakeAudioNode) => FakeAudioNode;
+  disconnect: () => void;
+}
+
+interface FakeGainNode extends FakeAudioNode {
+  gain: FakeParam;
+}
+
+interface FakeCompressorNode extends FakeAudioNode {
+  threshold: FakeParam;
+  knee: FakeParam;
+  ratio: FakeParam;
+  attack: FakeParam;
+  release: FakeParam;
+  reduction: number;
+}
+
+interface FakeSourceNode extends FakeAudioNode {
+  element: HTMLMediaElement;
+}
+
+interface FakeAudioContext {
+  state: string;
+  closed: boolean;
+  resumeCalls: number;
+  destination: FakeAudioNode;
+  gains: FakeGainNode[];
+  compressors: FakeCompressorNode[];
+  resume: () => Promise<void>;
+  close: () => Promise<void>;
+}
+
+interface DeferredResume {
+  promise: Promise<void>;
+  resolve: () => void;
+  reject: (error: unknown) => void;
+}
+
+interface BoostAudioHarness {
+  contexts: FakeAudioContext[];
+  sources: FakeSourceNode[];
+  deferResume: () => DeferredResume;
+  failResume: (error?: Error) => void;
+  failSource: (error?: Error) => void;
+  restore: () => void;
+}
+
+function installAudioStubs(): BoostAudioHarness {
+  const contexts: FakeAudioContext[] = [];
+  const sources: FakeSourceNode[] = [];
+  const resumePlans: Array<{ promise?: Promise<void>; error?: Error }> = [];
+  let sourceError: Error | null = null;
+
+  class FakeNode implements FakeAudioNode {
+    connections: FakeAudioNode[] = [];
+
+    connect(target: FakeAudioNode): FakeAudioNode {
+      this.connections.push(target);
+      return target;
+    }
+
+    disconnect(): void {
+      this.connections.length = 0;
+    }
+  }
+
+  class FakeGain extends FakeNode implements FakeGainNode {
+    gain: FakeParam = { value: 1 };
+  }
+
+  class FakeCompressor extends FakeNode implements FakeCompressorNode {
+    threshold: FakeParam = { value: 0 };
+    knee: FakeParam = { value: 0 };
+    ratio: FakeParam = { value: 1 };
+    attack: FakeParam = { value: 0.003 };
+    release: FakeParam = { value: 0.25 };
+    reduction = 0;
+  }
+
+  class FakeSource extends FakeNode implements FakeSourceNode {
+    constructor(readonly element: HTMLMediaElement) {
+      super();
+    }
+  }
+
+  class AudioContextDouble {
+    state = 'suspended';
+    closed = false;
+    resumeCalls = 0;
+    destination = new FakeNode();
+    gains: FakeGainNode[] = [];
+    compressors: FakeCompressorNode[] = [];
+
+    constructor() {
+      contexts.push(this as unknown as FakeAudioContext);
+    }
+
+    createGain(): FakeGainNode {
+      const node = new FakeGain();
+      this.gains.push(node);
+      return node;
+    }
+
+    createDynamicsCompressor(): FakeCompressorNode {
+      const node = new FakeCompressor();
+      this.compressors.push(node);
+      return node;
+    }
+
+    createMediaElementSource(element: HTMLMediaElement): FakeSourceNode {
+      if (sourceError) {
+        const error = sourceError;
+        sourceError = null;
+        throw error;
+      }
+      const node = new FakeSource(element);
+      sources.push(node);
+      return node;
+    }
+
+    resume(): Promise<void> {
+      this.resumeCalls += 1;
+      const plan = resumePlans.shift();
+      if (plan?.promise) {
+        return plan.promise.then(() => {
+          this.state = 'running';
+        });
+      }
+      if (plan?.error) {
+        this.state = 'suspended';
+        return Promise.reject(plan.error);
+      }
+      this.state = 'running';
+      return Promise.resolve();
+    }
+
+    close(): Promise<void> {
+      this.closed = true;
+      this.state = 'closed';
+      return Promise.resolve();
+    }
+  }
+
+  vi.stubGlobal('AudioContext', AudioContextDouble);
+
+  return {
+    contexts,
+    sources,
+    deferResume() {
+      let resolveFn: () => void = () => {};
+      let rejectFn: (error: unknown) => void = () => {};
+      const promise = new Promise<void>((resolve, reject) => {
+        resolveFn = resolve;
+        rejectFn = reject;
+      });
+      resumePlans.push({ promise });
+      return { promise, resolve: resolveFn, reject: rejectFn };
+    },
+    failResume(error = new Error('resume was denied')) {
+      resumePlans.push({ error });
+    },
+    failSource(error = new Error('source ownership is uncertain')) {
+      sourceError = error;
+    },
+    restore() {
+      vi.unstubAllGlobals();
+    },
+  };
+}
+
+function boostSlider(container: HTMLElement = region()): HTMLInputElement {
+  const element = container.querySelector<HTMLInputElement>('input[data-boost-range]');
+  if (!element) throw new Error('expected a Volume boost range inside the player');
+  return element;
+}
+
+function resetBoostButton(container: HTMLElement = region()): HTMLElement {
+  const element = container.querySelector<HTMLElement>('button[data-reset-boost]');
+  if (!element) throw new Error('expected a Reset boost button inside the player');
+  return element;
+}
+
+interface PlaybackContinuity {
+  time: number;
+  paused: boolean;
+  volume: number;
+  muted: boolean;
+  rate: number;
+}
+
+function setPlaybackContinuity(element: HTMLVideoElement, expected: PlaybackContinuity): void {
+  media.setSeekable(element, [[0, 120]]);
+  element.currentTime = expected.time;
+  element.volume = expected.volume;
+  element.muted = expected.muted;
+  element.playbackRate = expected.rate;
+}
+
+function expectPlaybackContinuity(element: HTMLVideoElement, expected: PlaybackContinuity): void {
+  expect(element.currentTime).toBe(expected.time);
+  expect(element.paused).toBe(expected.paused);
+  expect(element.volume).toBe(expected.volume);
+  expect(element.muted).toBe(expected.muted);
+  expect(element.playbackRate).toBe(expected.rate);
+}
+
+function BoostHookHarness({
+  element,
+  onReady,
+}: {
+  element: HTMLVideoElement;
+  onReady: (controls: ReturnType<typeof useBrowserPlayer>) => void;
+}) {
+  const controls = useBrowserPlayer({ streamUrl: STREAM, movieId: 1 });
+  const latest = useRef(controls);
+  const ready = useRef(onReady);
+
+  useLayoutEffect(() => {
+    latest.current = controls;
+    ready.current = onReady;
+  }, [controls, onReady]);
+
+  useLayoutEffect(() => {
+    const active = latest.current;
+    active.videoRef.current = element;
+    ready.current(active);
+  }, [element]);
+
+  return null;
+}
+
+describe('BrowserPlayer Phase 2 volume boost', () => {
+  it('maps 100, 200 and 300 percent to gain 1, 2 and 3 with unity reset', async () => {
+    audio = installAudioStubs();
+    renderPlayer();
+
+    const slider = boostSlider();
+    expect(slider).toHaveAttribute('min', String(BOOST_MIN_PERCENT));
+    expect(slider).toHaveAttribute('max', String(BOOST_MAX_PERCENT));
+    expect(slider).toHaveAttribute('step', String(BOOST_STEP_PERCENT));
+    expect(slider).toHaveAttribute('aria-valuetext', `100${BOOST_VALUE_SUFFIX}`);
+    expect(screen.getByText(`100${BOOST_VALUE_SUFFIX}`)).toBeInTheDocument();
+    expect(audio.sources).toHaveLength(0);
+
+    fireEvent.change(slider, { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    expect(audio.contexts).toHaveLength(1);
+    expect(audio.contexts[0].gains[0].gain.value).toBe(2);
+    expect(audio.contexts[0].compressors[0].ratio.value).toBeGreaterThan(1);
+    expect(audio.contexts[0].compressors[0].reduction).toBe(0);
+    expect(screen.getByText(`200${BOOST_VALUE_SUFFIX}`)).toBeInTheDocument();
+    expect(slider).toHaveValue('200');
+
+    fireEvent.change(slider, { target: { value: '300' } });
+    await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBe(3));
+
+    fireEvent.click(resetBoostButton());
+    await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBe(1));
+    expect(audio.contexts[0].compressors[0].ratio.value).toBe(1);
+    expect(slider).toHaveValue('100');
+    expect(audio.sources).toHaveLength(1);
+    expect(audio.contexts[0].gains[0].connections).toEqual([audio.contexts[0].compressors[0]]);
+    expect(audio.contexts[0].compressors[0].connections).toEqual([audio.contexts[0].destination]);
+  });
+
+  it('keeps native playback with no boost control when Web Audio is missing', () => {
+    renderPlayer();
+
+    expect(screen.queryByRole('slider', { name: VOLUME_BOOST_LABEL })).toBeNull();
+    expect(screen.queryByRole('button', { name: RESET_BOOST_COPY })).toBeNull();
+    expect(media.calls).toContain(`src:${STREAM}`);
+    expect(media.calls).toContain('play');
+  });
+
+  it.each([
+    ['a cross-origin URL with the library path', 'https://other.example/api/movies/1/stream'],
+    ['an indirect blob source', 'blob:http://localhost:3000/9f2d'],
+    ['a matching URL with an unverified delivery query', UNVERIFIED_MATCHING_STREAM],
+    ['a segmented path outside the verified class', '/api/movies/1/stream/segments/1.m4s'],
+  ])('hides boost and leaves native playback for %s', (_label, streamUrl) => {
+    audio = installAudioStubs();
+    renderPlayer({ streamUrl });
+
+    expect(screen.queryByRole('slider', { name: VOLUME_BOOST_LABEL })).toBeNull();
+    expect(screen.queryByRole('button', { name: RESET_BOOST_COPY })).toBeNull();
+    expect(media.calls).toContain(`src:${streamUrl}`);
+    expect(media.calls).toContain('play');
+    expect(audio.contexts).toHaveLength(0);
+    expect(audio.sources).toHaveLength(0);
+  });
+
+  it('does not activate on focus or keydown alone and keeps focused range keys native', async () => {
+    audio = installAudioStubs();
+    renderPlayer();
+
+    const slider = boostSlider();
+    slider.focus();
+    expect(audio.contexts).toHaveLength(0);
+    expect(audio.sources).toHaveLength(0);
+
+    media.setSeekable(video(), [[0, 60]]);
+    video().currentTime = 5;
+    expect(fireEvent.keyDown(slider, { key: 'ArrowRight' })).toBe(true);
+    expect(fireEvent.keyDown(slider, { key: 'Home' })).toBe(true);
+    expect(video().currentTime).toBe(5);
+    expect(audio.sources).toHaveLength(0);
+
+    fireEvent.change(slider, { target: { value: '101' } });
+    await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBeCloseTo(1.01));
+    expect(audio.sources).toHaveLength(1);
+
+    fireEvent.keyDown(region(), { key: 'ArrowRight' });
+    expect(video().currentTime).toBe(15);
+    fireEvent.keyDown(region(), { key: 'm' });
+    expect(video().muted).toBe(true);
+    fireEvent.keyDown(region(), { key: 'k' });
+    expect(media.calls.at(-1)).toBe('pause');
+  });
+
+  it('multiplies stock volume and mute without replacing them', async () => {
+    audio = installAudioStubs();
+    renderPlayer();
+
+    const element = video();
+    element.volume = 0.4;
+    element.muted = true;
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    expect(audio.sources[0].element).toBe(element);
+    expect(audio.contexts[0].gains[0].gain.value).toBe(2);
+    expect(element.volume).toBe(0.4);
+    expect(element.muted).toBe(true);
+
+    fireEvent.keyDown(region(), { key: 'm' });
+    expect(element.muted).toBe(false);
+    expect(audio.contexts[0].gains[0].gain.value).toBe(2);
+  });
+
+  it('keeps the boost controls in the control bar in windowed and fullscreen playback', () => {
+    audio = installAudioStubs();
+    renderPlayer();
+
+    expect(
+      within(controlBar()).getByRole('slider', { name: VOLUME_BOOST_LABEL }),
+    ).toBeInTheDocument();
+    const volumeRange = controlBar().querySelector('media-volume-range');
+    expect(volumeRange?.compareDocumentPosition(boostSlider())).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => region(),
+    });
+    fireEvent(document, new Event('fullscreenchange'));
+
+    expect(
+      within(controlBar()).getByRole('slider', { name: VOLUME_BOOST_LABEL }),
+    ).toBeInTheDocument();
+    expect(
+      within(controlBar()).getByRole('button', { name: RESET_BOOST_COPY }),
+    ).toBeInTheDocument();
+  });
+
+  it('binds once across repeated activation and re-render', async () => {
+    audio = installAudioStubs();
+    const { rerender } = renderPlayer();
+
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    const context = audio.contexts[0];
+
+    fireEvent.change(boostSlider(), { target: { value: '250' } });
+    await waitFor(() => expect(context.gains[0].gain.value).toBe(2.5));
+    rerender(<BrowserPlayer title="Dune" movieId={1} streamUrl={STREAM} />);
+
+    expect(audio.contexts).toHaveLength(1);
+    expect(audio.sources).toHaveLength(1);
+    expect(context.gains).toHaveLength(1);
+    expect(context.compressors).toHaveLength(1);
+    expect(context.closed).toBe(false);
+    expect(context.resumeCalls).toBeGreaterThanOrEqual(1);
+  });
+
+  it('binds the replacement element once after an actual remount', async () => {
+    audio = installAudioStubs();
+    const first = renderPlayer();
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    const firstVideo = video();
+
+    first.unmount();
+    renderPlayer();
+    const secondVideo = video();
+    expect(secondVideo).not.toBe(firstVideo);
+
+    fireEvent.change(boostSlider(), { target: { value: '180' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(2));
+    expect(audio.sources[1].element).toBe(secondVideo);
+    expect(audio.contexts).toHaveLength(2);
+    expect(audio.contexts[1].gains[0].gain.value).toBe(1.8);
+  });
+
+  it('reuses the live binding when the hook reinitializes on the same actual element', async () => {
+    audio = installAudioStubs();
+    renderPlayer();
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    const element = video();
+    const context = audio.contexts[0];
+    let fresh: ReturnType<typeof useBrowserPlayer> | null = null;
+
+    render(
+      <BoostHookHarness
+        element={element}
+        onReady={(controls) => {
+          fresh = controls;
+        }}
+      />,
+    );
+    await act(async () => {
+      expect(fresh).not.toBeNull();
+      await (fresh as ReturnType<typeof useBrowserPlayer>).setBoost(220);
+    });
+
+    expect(video()).toBe(element);
+    expect(audio.contexts).toHaveLength(1);
+    expect(audio.sources).toHaveLength(1);
+    expect(audio.sources[0].element).toBe(element);
+    expect(context.closed).toBe(false);
+    expect(context.gains[0].gain.value).toBe(2.2);
+  });
+
+  it('keeps a still-live unbound element when a resume attempt is rejected', async () => {
+    audio = installAudioStubs();
+    const pending = audio.deferResume();
+    renderPlayer();
+    const element = video();
+
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await act(async () => {
+      pending.reject(new Error('resume denied'));
+    });
+
+    expect(audio.sources).toHaveLength(0);
+    expect(audio.contexts[0].closed).toBe(true);
+    expect(video()).toBe(element);
+    expect(element.isConnected).toBe(true);
+    expect(media.calls).toContain(`src:${STREAM}`);
+  });
+
+  it('attaches to neither element when a resume completes after the source changed', async () => {
+    audio = installAudioStubs();
+    const pending = audio.deferResume();
+    const { rerender } = renderPlayer();
+    const oldElement = video();
+
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
+    await act(async () => {
+      pending.resolve();
+    });
+
+    expect(audio.sources).toHaveLength(0);
+    expect(audio.contexts[0].closed).toBe(true);
+    const heatVideo = video(region('Heat'));
+    expect(heatVideo).toBe(oldElement);
+    expect(audio.sources.every((source) => source.element !== heatVideo)).toBe(true);
+  });
+
+  it('attaches to nothing when a resume completes after unmount', async () => {
+    audio = installAudioStubs();
+    const pending = audio.deferResume();
+    const view = renderPlayer();
+    const oldElement = video();
+
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    view.unmount();
+    await act(async () => {
+      pending.resolve();
+    });
+
+    expect(audio.sources).toHaveLength(0);
+    expect(audio.contexts[0].closed).toBe(true);
+    expect(oldElement.isConnected).toBe(false);
+  });
+
+  it('recovers on a fresh native element with playback continuity after uncertain ownership', async () => {
+    audio = installAudioStubs();
+    audio.failSource();
+    renderPlayer();
+    const oldElement = video();
+    const continuity: PlaybackContinuity = {
+      time: 42,
+      paused: true,
+      volume: 0.6,
+      muted: true,
+      rate: 1.5,
+    };
+    setPlaybackContinuity(oldElement, continuity);
+    act(() => {
+      oldElement.pause();
+    });
+    media.calls.length = 0;
+
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(video()).not.toBe(oldElement));
+    const freshElement = video();
+
+    expect(audio.sources).toHaveLength(0);
+    expect(audio.sources.every((source) => source.element !== freshElement)).toBe(true);
+    expect(media.calls).not.toContain('play');
+    expectPlaybackContinuity(freshElement, continuity);
+    expect(
+      within(controlBar()).getByRole('slider', { name: VOLUME_BOOST_LABEL }),
+    ).toBeInTheDocument();
+  });
+
+  it('recovers on a fresh native element when a bound source becomes ineligible', async () => {
+    audio = installAudioStubs();
+    const { rerender } = renderPlayer();
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    const oldElement = video();
+    const continuity: PlaybackContinuity = {
+      time: 73,
+      paused: false,
+      volume: 0.75,
+      muted: false,
+      rate: 1.25,
+    };
+    setPlaybackContinuity(oldElement, continuity);
+
+    rerender(<BrowserPlayer title="Dune" movieId={1} streamUrl={UNVERIFIED_MATCHING_STREAM} />);
+    await waitFor(() => expect(video()).not.toBe(oldElement));
+    const freshElement = video();
+
+    expect(screen.queryByRole('slider', { name: VOLUME_BOOST_LABEL })).toBeNull();
+    expect(media.calls).toContain(`src:${UNVERIFIED_MATCHING_STREAM}`);
+    expect(audio.sources).toHaveLength(1);
+    expect(audio.sources.every((source) => source.element !== freshElement)).toBe(true);
+    expect(audio.contexts[0].closed).toBe(true);
+    expectPlaybackContinuity(freshElement, continuity);
+  });
+
+  it('carries caption selection and delay over to the fresh native element', async () => {
+    const cues = installCueTracks();
+    server.use(
+      http.get('*/api/movies/:id/subtitles', () =>
+        HttpResponse.json([{ id: 'f8a2c1', label: 'English', language: 'en', isDefault: true }]),
+      ),
+    );
+    audio = installAudioStubs();
+    const { rerender } = renderPlayer();
+    await selectTrack('English');
+    const options = await openOptions();
+    fireEvent.click(within(options).getByRole('button', { name: SUBTITLE_DELAY_LATER_LABEL }));
+    expect(delayValue(options)).toBe('+0.1 s');
+
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    const oldElement = video();
+
+    rerender(<BrowserPlayer title="Dune" movieId={1} streamUrl={UNVERIFIED_MATCHING_STREAM} />);
+    await waitFor(() => expect(video()).not.toBe(oldElement));
+
+    expect(video().querySelector('track[data-track-id="f8a2c1"]')).not.toBeNull();
+    const reopened = await openOptions();
+    expect(delayValue(reopened)).toBe('+0.1 s');
+    cues.restore();
   });
 });

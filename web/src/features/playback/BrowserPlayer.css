@@ -70,6 +70,36 @@
   outline-offset: 2px;
 }
 
+.browser-player-boost {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--lamu-space-1);
+  padding: 0 var(--lamu-space-1);
+}
+
+.browser-player-boost-label {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.browser-player-boost-range {
+  width: 6rem;
+  min-height: 2.5rem;
+  accent-color: var(--color-accent);
+}
+
+.browser-player-boost-range:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.browser-player-boost-value {
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .browser-player-chrome media-settings-menu-button,
 .browser-player-chrome media-settings-menu-button::part(button) {
   color: inherit;
