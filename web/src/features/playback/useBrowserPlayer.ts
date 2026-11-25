@@ -109,7 +109,8 @@ function readRememberedBoost(): number {
     const trimmed = raw.trim();
     if (!BOOST_INTEGER_PATTERN.test(trimmed)) return BOOST_MIN_PERCENT;
     const parsed = Number(trimmed);
-    if (!Number.isSafeInteger(parsed) || parsed < BOOST_MIN_PERCENT || parsed > BOOST_MAX_PERCENT) return BOOST_MIN_PERCENT;
+    if (!Number.isSafeInteger(parsed) || parsed < BOOST_MIN_PERCENT || parsed > BOOST_MAX_PERCENT)
+      return BOOST_MIN_PERCENT;
     return parsed;
   } catch {
     return BOOST_MIN_PERCENT;
