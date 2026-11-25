@@ -325,8 +325,8 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     ReviewRoute,
                     GetRecommendationsRoute,
                     ForYouRecommendationsRoute,
-                    VersionRoute,
                     NotInLibraryRecommendationsRoute,
+                    VersionRoute,
                 ]);
     }
 
