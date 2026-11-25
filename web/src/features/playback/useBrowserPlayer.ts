@@ -152,7 +152,7 @@ function writeBinding(element: HTMLVideoElement, binding: BoostBinding | null): 
 function applyBoost(graph: AudioGraph, percent: number): void {
   const limiting = percent > BOOST_MIN;
   graph.gain.gain.value = percent / 100;
-  graph.compressor.threshold.value = limiting ? -6 : 0;
+  graph.compressor.threshold.value = 0;
   graph.compressor.knee.value = 0;
   graph.compressor.ratio.value = limiting ? 12 : 1;
   graph.compressor.attack.value = 0.003;
