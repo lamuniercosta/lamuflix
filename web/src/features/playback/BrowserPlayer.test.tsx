@@ -2768,6 +2768,72 @@ describe('BrowserPlayer Phase 4 remediation regressions', () => {
     expect(media.calls).not.toContain('play');
   });
 
+  it('restores the saved seek when it falls inside a later replacement seekable range', async () => {
+    audio = installAudioStubs();
+    audio.failSource();
+    renderPlayer();
+    const oldElement = video();
+    const continuity: PlaybackContinuity = {
+      time: 42,
+      paused: true,
+      volume: 0.6,
+      muted: true,
+      rate: 1.5,
+    };
+    setPlaybackContinuity(oldElement, continuity);
+    act(() => {
+      oldElement.pause();
+    });
+    media.calls.length = 0;
+
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(video()).not.toBe(oldElement));
+    const freshElement = video();
+
+    expect(freshElement.currentTime).toBe(0);
+    media.setSeekable(freshElement, [
+      [0, 10],
+      [30, 120],
+    ]);
+    fireEvent(freshElement, new Event('loadedmetadata'));
+    expectPlaybackContinuity(freshElement, continuity);
+    expect(media.calls).not.toContain('play');
+  });
+
+  it('requests playback on Retry after a non-seekable paused recovery', async () => {
+    audio = installAudioStubs();
+    audio.failSource();
+    renderPlayer();
+    const oldElement = video();
+    setPlaybackContinuity(oldElement, {
+      time: 42,
+      paused: true,
+      volume: 0.6,
+      muted: true,
+      rate: 1.5,
+    });
+    act(() => {
+      oldElement.pause();
+    });
+    media.calls.length = 0;
+
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(video()).not.toBe(oldElement));
+    const freshElement = video();
+    media.setSeekable(freshElement, []);
+    fireEvent(freshElement, new Event('loadedmetadata'));
+    expect(freshElement.currentTime).toBe(0);
+    expect(media.calls).not.toContain('play');
+
+    act(() => {
+      freshElement.dispatchEvent(new Event('error'));
+    });
+    media.calls.length = 0;
+    fireEvent.click(await screen.findByRole('button', { name: retryLabel('Dune') }));
+    await waitFor(() => expect(media.calls).toContain('play'));
+    expect(video()).toBe(freshElement);
+  });
+
   it('retains the live binding across an eligible source change after a reload generation', async () => {
     audio = installAudioStubs();
     const { rerender } = renderPlayer();
@@ -2827,6 +2893,67 @@ describe('BrowserPlayer Phase 4 remediation regressions', () => {
     fireEvent.change(boostSlider(), { target: { value: '230' } });
     await waitFor(() => expect(context.gains[0].gain.value).toBe(2.3));
     expect(audio.sources).toHaveLength(1);
+  });
+
+  it('reuses the live binding when the hook module reloads on the same connected element', async () => {
+    audio = installAudioStubs();
+    renderPlayer();
+    fireEvent.change(boostSlider(), { target: { value: '200' } });
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    const element = video();
+    const context = audio.contexts[0];
+    media.calls.length = 0;
+
+    act(() => {
+      element.dispatchEvent(new Event('error'));
+    });
+    fireEvent.click(await screen.findByRole('button', { name: retryLabel('Dune') }));
+    await waitFor(() => expect(media.calls).toContain(`src:${STREAM}`));
+    expect(video()).toBe(element);
+
+    vi.resetModules();
+    const reloaded = await import('./useBrowserPlayer');
+    expect(reloaded.useBrowserPlayer).toBeDefined();
+    type ReloadedControls = ReturnType<typeof reloaded.useBrowserPlayer>;
+    let fresh: ReloadedControls | null = null;
+    function ReloadedHarness({
+      target,
+      onReady,
+    }: {
+      target: HTMLVideoElement;
+      onReady: (controls: ReloadedControls) => void;
+    }) {
+      const controls = reloaded.useBrowserPlayer({ streamUrl: STREAM, movieId: 1 });
+      const latest = useRef(controls);
+      const ready = useRef(onReady);
+      useLayoutEffect(() => {
+        latest.current = controls;
+        ready.current = onReady;
+      }, [controls, onReady]);
+      useLayoutEffect(() => {
+        latest.current.videoRef.current = target;
+        ready.current(latest.current);
+      }, [target]);
+      return null;
+    }
+    const harness = render(
+      <ReloadedHarness
+        target={element}
+        onReady={(controls) => {
+          fresh = controls;
+        }}
+      />,
+    );
+    await act(async () => {
+      expect(fresh).not.toBeNull();
+      await (fresh as ReloadedControls).setBoost(220);
+    });
+    expect(element.isConnected).toBe(true);
+    expect(audio.sources).toHaveLength(1);
+    expect(audio.contexts).toHaveLength(1);
+    expect(context.closed).toBe(false);
+    expect(context.gains[0].gain.value).toBe(2.2);
+    harness.unmount();
   });
 
   it('resets position and resumes playback when recovery follows a different movie', async () => {
