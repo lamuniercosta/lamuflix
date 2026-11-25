@@ -2178,6 +2178,27 @@
           }
         }
       }
+    },
+    "/api/version": {
+      "get": {
+        "tags": [
+          "LamuFlix.Api"
+        ],
+        "summary": "Report the running release and commit metadata.",
+        "operationId": "GetVersion",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionDto"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3244,6 +3265,24 @@
             "type": "boolean"
           }
         }
+      },
+      "VersionDto": {
+        "required": [
+          "release",
+          "commit"
+        ],
+        "type": "object",
+        "properties": {
+          "release": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "commit": {
+            "type": "string"
+          }
+        }
       }
     }
   },
@@ -3286,6 +3325,9 @@
     },
     {
       "name": "RecommendationEndpoints"
+    },
+    {
+      "name": "LamuFlix.Api"
     }
   ]
 }
