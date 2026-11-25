@@ -94,6 +94,12 @@
   outline-offset: 2px;
 }
 
+.browser-player-boost-pending {
+  color: var(--color-dim);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
 .browser-player-boost-value {
   min-width: 3ch;
   font-variant-numeric: tabular-nums;

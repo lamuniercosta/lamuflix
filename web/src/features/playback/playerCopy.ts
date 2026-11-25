@@ -19,6 +19,10 @@ export function boostValueText(percent: number): string {
   return `${percent}${BOOST_VALUE_SUFFIX}`;
 }
 
+export function boostPendingText(percent: number): string {
+  return `${boostValueText(percent)} boost saved. Use ${VOLUME_BOOST_LABEL} to activate.`;
+}
+
 export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
 
 export function playbackRateLabel(rate: number): string {

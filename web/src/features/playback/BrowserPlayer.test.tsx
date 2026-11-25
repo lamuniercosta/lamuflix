@@ -2338,3 +2338,180 @@ describe('BrowserPlayer Phase 2 volume boost', () => {
     cues.restore();
   });
 });
+
+const BOOST_STORAGE_KEY = 'lamuflix:volume-boost:v1';
+
+function rememberBoost(percent: number | string): void {
+  window.localStorage.setItem(BOOST_STORAGE_KEY, String(percent));
+}
+
+describe('BrowserPlayer Phase 3 remembered volume boost', () => {
+  it('restores a valid remembered boost with native playback and a pending indication', () => {
+    audio = installAudioStubs();
+    rememberBoost(150);
+
+    renderPlayer();
+
+    expect(boostSlider()).toHaveValue('150');
+    expect(within(region()).getByText('150%')).toBeInTheDocument();
+    expect(within(region()).getByText(/150%.*activate/i)).toBeInTheDocument();
+    expect(audio.contexts).toHaveLength(0);
+    expect(audio.sources).toHaveLength(0);
+    expect(media.calls).toContain(`src:${STREAM}`);
+    expect(media.calls).toContain('play');
+  });
+
+  it('applies the remembered boost on explicit pointer activation without changing the value', async () => {
+    audio = installAudioStubs();
+    rememberBoost(150);
+
+    renderPlayer();
+    fireEvent.click(boostSlider());
+
+    await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBe(1.5));
+    expect(audio.sources).toHaveLength(1);
+    expect(within(region()).queryByText(/saved.*activate/i)).toBeNull();
+  });
+
+  it('applies the remembered boost on explicit keyboard activation of the range', async () => {
+    audio = installAudioStubs();
+    rememberBoost(170);
+
+    renderPlayer();
+    const slider = boostSlider();
+    slider.focus();
+    expect(audio.contexts).toHaveLength(0);
+
+    fireEvent.keyDown(slider, { key: 'Enter' });
+
+    await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBe(1.7));
+    expect(audio.sources).toHaveLength(1);
+  });
+
+  it('applies the new value instead of the remembered one when the gesture adjusts boost', async () => {
+    audio = installAudioStubs();
+    rememberBoost(150);
+
+    renderPlayer();
+    fireEvent.change(boostSlider(), { target: { value: '220' } });
+
+    await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBe(2.2));
+    expect(boostSlider()).toHaveValue('220');
+    expect(within(region()).queryByText(/saved.*activate/i)).toBeNull();
+    expect(window.localStorage.getItem(BOOST_STORAGE_KEY)).toBe('220');
+  });
+
+  it('applies unity when the reset gesture clears a remembered boost', async () => {
+    audio = installAudioStubs();
+    rememberBoost(250);
+
+    renderPlayer();
+    fireEvent.click(resetBoostButton());
+
+    await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBe(1));
+    expect(audio.contexts[0].compressors[0].ratio.value).toBe(1);
+    expect(boostSlider()).toHaveValue('100');
+    expect(within(region()).queryByText(/saved.*activate/i)).toBeNull();
+    expect(window.localStorage.getItem(BOOST_STORAGE_KEY)).toBe('100');
+  });
+
+  it.each([
+    ['missing storage', null],
+    ['malformed text', 'two hundred'],
+    ['a serialized object', '{"percent":250}'],
+    ['a fractional percentage', '150.5'],
+    ['NaN', 'NaN'],
+    ['Infinity', 'Infinity'],
+    ['a value below range', '99'],
+    ['a value above range', '301'],
+    ['a negative value', '-150'],
+  ])('defaults %s to 100 percent with native playback', (_label, raw) => {
+    audio = installAudioStubs();
+    if (raw !== null) window.localStorage.setItem(BOOST_STORAGE_KEY, raw);
+
+    renderPlayer();
+
+    expect(boostSlider()).toHaveValue('100');
+    expect(within(region()).queryByText(/saved.*activate/i)).toBeNull();
+    expect(audio.contexts).toHaveLength(0);
+    expect(audio.sources).toHaveLength(0);
+    expect(media.calls).toContain('play');
+  });
+
+  it('restores a persisted adjustment as pending after a remount', async () => {
+    audio = installAudioStubs();
+    const first = renderPlayer();
+    fireEvent.change(boostSlider(), { target: { value: '180' } });
+    await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBe(1.8));
+    const oldElement = video();
+
+    first.unmount();
+    renderPlayer();
+
+    expect(video()).not.toBe(oldElement);
+    expect(boostSlider()).toHaveValue('180');
+    expect(within(region()).getByText(/180%.*activate/i)).toBeInTheDocument();
+    expect(audio.contexts).toHaveLength(1);
+    expect(audio.sources.every((source) => source.element !== video())).toBe(true);
+  });
+
+  it('stores adjusted boost in one namespaced browser-local key', async () => {
+    audio = installAudioStubs();
+    renderPlayer();
+
+    fireEvent.change(boostSlider(), { target: { value: '175' } });
+    await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBe(1.75));
+
+    expect(window.localStorage.getItem(BOOST_STORAGE_KEY)).toBe('175');
+    expect(Object.keys(window.localStorage).filter((key) => key.startsWith('lamuflix:'))).toEqual([
+      BOOST_STORAGE_KEY,
+    ]);
+
+    fireEvent.click(resetBoostButton());
+    expect(window.localStorage.getItem(BOOST_STORAGE_KEY)).toBe('100');
+  });
+
+  it('keeps playback and in-session adjustment usable when storage reads throw', async () => {
+    audio = installAudioStubs();
+    vi.spyOn(window.localStorage, 'getItem').mockImplementation(() => {
+      throw new Error('storage read denied');
+    });
+
+    renderPlayer();
+    expect(boostSlider()).toHaveValue('100');
+    fireEvent.change(boostSlider(), { target: { value: '190' } });
+
+    await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBe(1.9));
+    expect(media.calls).toContain(`src:${STREAM}`);
+    expect(media.calls).toContain('play');
+  });
+
+  it('keeps playback and in-session adjustment usable when storage writes throw', async () => {
+    audio = installAudioStubs();
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('storage write denied');
+    });
+
+    renderPlayer();
+    fireEvent.change(boostSlider(), { target: { value: '210' } });
+
+    await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBe(2.1));
+    expect(boostSlider()).toHaveValue('210');
+    expect(within(region()).getByText('210%')).toBeInTheDocument();
+    expect(media.calls).toContain('play');
+  });
+
+  it('keeps a remembered boost unapplied and hidden when delivery is unverified', () => {
+    audio = installAudioStubs();
+    rememberBoost(150);
+
+    renderPlayer({ streamUrl: UNVERIFIED_MATCHING_STREAM });
+
+    expect(screen.queryByRole('slider', { name: VOLUME_BOOST_LABEL })).toBeNull();
+    expect(within(region()).queryByText(/saved.*activate/i)).toBeNull();
+    expect(audio.contexts).toHaveLength(0);
+    expect(audio.sources).toHaveLength(0);
+    expect(media.calls).toContain(`src:${UNVERIFIED_MATCHING_STREAM}`);
+    expect(media.calls).toContain('play');
+  });
+});
