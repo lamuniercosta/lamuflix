@@ -24,6 +24,7 @@ import ForYouPage from './features/for-you/ForYouPage';
 import BulkImportDialog from './library/BulkImportDialog';
 import LibraryErrorBoundary from './library/LibraryErrorBoundary';
 import LibraryView from './library/LibraryView';
+import type { components } from './api/types';
 import type { EnrichmentStatusSubscription } from './library/useEnrichmentStatus';
 import { AmbientProvider } from './ui/AmbientProvider';
 import { CloseIcon, RetryIcon, SearchIcon } from './ui/icons';
@@ -32,15 +33,16 @@ function shellSearchId(prefix: string): string {
   return `${prefix}-shell-search`;
 }
 
-function formatVersionLine(version: { release: string | null; commit: string }): string {
+type VersionDto = components['schemas']['VersionDto'];
+
+function formatVersionLine(version: VersionDto): string {
   const release = version.release ?? 'dev';
-  const commit = version.commit.trim() === '' ? 'unknown' : version.commit;
-  const shortCommit = commit === 'unknown' ? commit : commit.slice(0, 8);
+  const shortCommit = version.commit === 'unknown' ? version.commit : version.commit.slice(0, 8);
   return `${release} (${shortCommit})`;
 }
 
 function VersionLine() {
-  const { data } = useQuery({
+  const { data, isError, isFetching } = useQuery({
     queryKey: ['version'],
     queryFn: async () => {
       const { data: version, error } = await client.GET('/api/version');
@@ -53,7 +55,7 @@ function VersionLine() {
     refetchOnWindowFocus: false,
   });
 
-  if (data === undefined) {
+  if (data === undefined || isError || isFetching) {
     return null;
   }
 

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { createOpenApiHttp } from 'openapi-msw';
 import type { ComponentType, ReactNode } from 'react';
@@ -702,6 +702,31 @@ describe('App version line', () => {
     renderApp();
     expect(await screen.findByText('Dune', {}, { timeout: 10_000 })).toBeInTheDocument();
     expect(screen.queryByText(versionPattern())).not.toBeInTheDocument();
+
+    hold.resolve(new HttpResponse(null, { status: 500 }));
+
+    await waitFor(() => expect(screen.queryByText(versionPattern())).not.toBeInTheDocument());
+    expect(document.body.textContent).not.toContain('unknown)');
+  });
+
+  it('hides the cached line when a background refetch fails after a success', async () => {
+    server.use(versionSuccess({ release: null, commit: fullSha }));
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function Wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    }
+    render(<App />, { wrapper: Wrapper });
+
+    expect(await screen.findByText('dev (8a2deb9b)')).toBeInTheDocument();
+
+    const hold = deferred<Response>();
+    server.use(http.get('/api/version', () => hold.promise));
+    act(() => {
+      void queryClient.invalidateQueries({ queryKey: ['version'] });
+    });
+
+    await waitFor(() => expect(screen.queryByText(versionPattern())).not.toBeInTheDocument());
 
     hold.resolve(new HttpResponse(null, { status: 500 }));
 
