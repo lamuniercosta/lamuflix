@@ -41,7 +41,31 @@ internal static class RecommendationEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        api.MapGet("/recommendations/not-in-library", GetOutsideLibraryRecommendationsAsync)
+            .WithName("GetOutsideLibraryRecommendations")
+            .WithSummary("Get recommendations outside the library")
+            .Produces<OutsideLibraryRecommendation[]>();
+
         return api;
+    }
+
+    private static async Task<Ok<OutsideLibraryRecommendation[]>> GetOutsideLibraryRecommendationsAsync(
+        IQueryHandler<GetOutsideLibraryRecommendationsQuery, IReadOnlyList<OutsideLibraryRecommendation>> handler,
+        IOptions<TmdbOptions> tmdb,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!tmdb.Value.Enabled || string.IsNullOrWhiteSpace(tmdb.Value.ApiKey))
+        {
+            return TypedResults.Ok<OutsideLibraryRecommendation[]>([]);
+        }
+
+        var cards = await handler.HandleAsync(
+            new GetOutsideLibraryRecommendationsQuery(), cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return TypedResults.Ok<OutsideLibraryRecommendation[]>([.. cards]);
     }
 
     private static async Task<Results<Ok<ForYouRecommendationsPageDto>, BadRequest>> GetForYouRecommendationsAsync(

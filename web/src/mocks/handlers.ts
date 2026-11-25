@@ -44,5 +44,6 @@ export const handlers = [
   http.put('*/api/movies/:id/review', () => new HttpResponse(null, { status: 204 })),
   http.get('*/api/movies/:id/recommendations', () => HttpResponse.json(success.GetRecommendations, { status: 200 })),
   http.get('*/api/recommendations/for-you', () => HttpResponse.json(success.GetForYouRecommendations, { status: 200 })),
+  http.get('*/api/recommendations/not-in-library', () => HttpResponse.json(success.GetOutsideLibraryRecommendations, { status: 200 })),
   http.get('*/api/version', () => HttpResponse.json(success.GetVersion, { status: 200 })),
 ];

@@ -53,6 +53,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "GET /api/movies/{id}/subtitles/sidecar",
         "GET /api/movies/{id}/recommendations",
         "GET /api/recommendations/for-you",
+        "GET /api/recommendations/not-in-library",
         "DELETE /api/movies/{id}",
         "POST /api/movies/import",
         "GET /api/movies/import/candidates",
@@ -85,6 +86,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "RecommendationSeedDto",
         "RecommendationSeedSignal",
         "RecommendationEvidenceDto",
+        "OutsideLibraryRecommendation",
         "GenreDto",
         "CollectionDto",
         "PersonDto",
@@ -872,6 +874,46 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
                 .GetProperty("application/problem+json").GetProperty("schema");
             problemSchema.GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ProblemDetails");
         }
+    }
+
+    [Fact]
+    public async Task Document_GetOutsideLibraryRecommendations_DocumentsCardArrayWithoutQueryParameters()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+
+        // assert
+        Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
+        var operation = parsed.RootElement.GetProperty("paths")
+            .GetProperty("/api/recommendations/not-in-library")
+            .GetProperty("get");
+        operation.GetProperty("operationId").GetString().ShouldBe("GetOutsideLibraryRecommendations");
+        operation.TryGetProperty("parameters", out _).ShouldBeFalse();
+        var successSchema = operation.GetProperty("responses").GetProperty("200")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        successSchema.GetProperty("type").GetString().ShouldBe("array");
+        successSchema.GetProperty("items").GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/OutsideLibraryRecommendation");
+
+        var dto = parsed.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("OutsideLibraryRecommendation");
+        dto.GetProperty("required").EnumerateArray().Select(property => property.GetString())
+            .ShouldBe(["tmdbId", "title", "releaseYear", "posterPath", "reason"], ignoreOrder: true);
+        var properties = dto.GetProperty("properties");
+        properties.EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["tmdbId", "title", "releaseYear", "posterPath", "reason"], ignoreOrder: true);
+        properties.GetProperty("title").GetProperty("type").GetString().ShouldBe("string");
+        properties.GetProperty("reason").GetProperty("type").GetString().ShouldBe("string");
+        properties.GetProperty("posterPath").GetProperty("type").EnumerateArray()
+            .Select(item => item.GetString()).ShouldBe(["null", "string"], ignoreOrder: true);
+        properties.GetProperty("releaseYear").GetProperty("type").EnumerateArray()
+            .Select(item => item.GetString()).ShouldContain("null");
+        properties.GetProperty("tmdbId").GetProperty("format").GetString().ShouldBe("int32");
     }
 
     [Fact]

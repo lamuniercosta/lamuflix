@@ -969,6 +969,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 "SetMovieReview",
                 "GetRecommendations",
                 "GetForYouRecommendations",
+                "GetOutsideLibraryRecommendations",
                 "GetMovieThumbnail",
                 "StreamMovie",
                 "ListSubtitleLanguages",

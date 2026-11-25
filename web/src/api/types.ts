@@ -132,6 +132,10 @@ export interface paths {
     /** Get personalized recommendations from the taste profile */
     get: operations["GetForYouRecommendations"];
   };
+  "/api/recommendations/not-in-library": {
+    /** Get recommendations outside the library */
+    get: operations["GetOutsideLibraryRecommendations"];
+  };
   "/api/version": {
     /** Report the running release and commit metadata. */
     get: operations["GetVersion"];
@@ -258,6 +262,15 @@ export interface components {
       review: string;
       failureCategory: null | string;
       failureMessage: null | string;
+    };
+    OutsideLibraryRecommendation: {
+      /** Format: int32 */
+      tmdbId: number | string;
+      title: string;
+      /** Format: int32 */
+      releaseYear: null | number | string;
+      posterPath: null | string;
+      reason: string;
     };
     PersonDto: {
       /** Format: int32 */
@@ -1505,6 +1518,17 @@ export interface operations {
       422: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Get recommendations outside the library */
+  GetOutsideLibraryRecommendations: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["OutsideLibraryRecommendation"][];
         };
       };
     };
