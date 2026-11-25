@@ -394,6 +394,13 @@ export const rescanMovie = Object.freeze(rescanMovieData);
 export const listImportCandidates = Object.freeze(listImportCandidatesData);
 export const importLibraryFolders = Object.freeze(importLibraryFoldersData);
 
+const versionData = {
+  release: null,
+  commit: 'unknown',
+} satisfies Schemas['VersionDto'];
+
+export const version = Object.freeze(versionData);
+
 export const success = Object.freeze({
   BrowseMovies: browseMovies,
   GetMovieDetails: movieDetails,
@@ -416,6 +423,7 @@ export const success = Object.freeze({
   RescanMovie: rescanMovie,
   ListImportCandidates: listImportCandidates,
   ImportLibraryFolders: importLibraryFolders,
+  GetVersion: version,
 });
 
 export const acceptedLocation = '/api/movies/1';

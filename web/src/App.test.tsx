@@ -4,7 +4,7 @@ import { HttpResponse } from 'msw';
 import { createOpenApiHttp } from 'openapi-msw';
 import type { ComponentType, ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { paths } from './api/types';
+import type { components, paths } from './api/types';
 import App from './App';
 import type { MovieDetailsViewProps } from './features/movie-details/MovieDetailsView';
 import type {
@@ -86,6 +86,24 @@ function detailsBackLink() {
     .find((element) => !element.closest('nav'));
   if (!link) throw new Error('Details back link not found');
   return link;
+}
+
+type VersionDto = components['schemas']['VersionDto'];
+
+function versionSuccess(payload: VersionDto) {
+  return http.get('/api/version', () => HttpResponse.json(payload, { status: 200 }));
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+function versionPattern() {
+  return /^(?:dev|v0\.1\.0(?:[-+][\w.]+)?) \((?:unknown|[0-9a-f]{8})\)$/;
 }
 
 afterEach(() => {
@@ -629,6 +647,76 @@ describe('App layout shell', () => {
       { timeout: 10_000 },
     );
     expect(new URLSearchParams(window.location.search).getAll('statuses')).toContain('Pending');
+  });
+});
+
+describe('App version line', () => {
+  const fullSha = '8a2deb9b4c5d6e7f8091a2b3c4d5e6f708192a3b';
+
+  it('shows a tagged release with an eight-character commit in the shell footer', async () => {
+    server.use(versionSuccess({ release: 'v0.1.0', commit: fullSha }));
+
+    renderApp();
+
+    expect(await screen.findByText('v0.1.0 (8a2deb9b)')).toBeInTheDocument();
+    expect(screen.queryByText('dev (8a2deb9b)')).not.toBeInTheDocument();
+  });
+
+  it('shows dev with an eight-character commit when release is null', async () => {
+    server.use(versionSuccess({ release: null, commit: fullSha }));
+
+    renderApp();
+
+    expect(await screen.findByText('dev (8a2deb9b)')).toBeInTheDocument();
+    expect(screen.queryByText(fullSha)).not.toBeInTheDocument();
+  });
+
+  it('renders unknown verbatim when release is null and commit is unknown', async () => {
+    server.use(versionSuccess({ release: null, commit: 'unknown' }));
+
+    renderApp();
+
+    expect(await screen.findByText('dev (unknown)')).toBeInTheDocument();
+  });
+
+  it('omits the line while the version request is held, then shows the settled line', async () => {
+    const hold = deferred<Response>();
+    server.use(http.get('/api/version', () => hold.promise));
+
+    renderApp();
+    expect(await screen.findByText('Dune', {}, { timeout: 10_000 })).toBeInTheDocument();
+    expect(screen.queryByText(versionPattern())).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('unknown)');
+
+    hold.resolve(
+      HttpResponse.json({ release: null, commit: fullSha } satisfies VersionDto, { status: 200 }),
+    );
+
+    expect(await screen.findByText('dev (8a2deb9b)')).toBeInTheDocument();
+  });
+
+  it('omits the line and any placeholder after a controlled failed response', async () => {
+    const hold = deferred<Response>();
+    server.use(http.get('/api/version', () => hold.promise));
+
+    renderApp();
+    expect(await screen.findByText('Dune', {}, { timeout: 10_000 })).toBeInTheDocument();
+    expect(screen.queryByText(versionPattern())).not.toBeInTheDocument();
+
+    hold.resolve(new HttpResponse(null, { status: 500 }));
+
+    await waitFor(() => expect(screen.queryByText(versionPattern())).not.toBeInTheDocument());
+    expect(document.body.textContent).not.toContain('unknown)');
+  });
+
+  it('shows exactly one version line in the shell footer when no status page is present', async () => {
+    server.use(versionSuccess({ release: null, commit: fullSha }));
+
+    renderApp();
+
+    const lines = await screen.findAllByText('dev (8a2deb9b)');
+    expect(lines).toHaveLength(1);
+    expect(lines[0].closest('footer')).not.toBeNull();
   });
 });
 
