@@ -796,6 +796,44 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
     }
 
     [Fact]
+    public async Task GetOutsideLibraryRecommendationsAsync_SetBasedRead_CarriesSeedAndCandidateMetadata()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Seed One", EnrichmentStatus.Enriched, tmdbId: 500),
+            Record(2, "Seed Two", EnrichmentStatus.Enriched));
+        await using (var writeDb = fixture.CreateMigratedContext())
+        {
+            writeDb.Set<MovieRecommendationRecord>().Add(new MovieRecommendationRecord
+            {
+                SourceMovieId = new MovieId(1),
+                RecommendedTmdbId = 900,
+                Title = "Outside",
+                ReleaseYear = 2001,
+                PosterPath = "/poster.jpg",
+            });
+            await writeDb.SaveChangesAsync(ct);
+        }
+
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+
+        // act
+        var snapshot = await source.GetOutsideLibraryRecommendationsAsync(ct);
+
+        // assert
+        var contribution = snapshot.Contributions.ShouldHaveSingleItem();
+        (contribution.SourceMovieId.Value, contribution.SeedTitle, contribution.TmdbId)
+            .ShouldBe((1, "Seed One", 900));
+        (contribution.CandidateTitle, contribution.CandidateReleaseYear, contribution.CandidatePosterPath)
+            .ShouldBe(("Outside", 2001, "/poster.jpg"));
+        snapshot.Library.Select(movie => movie.TmdbId).ShouldBe([500, null]);
+        snapshot.Library.Select(movie => movie.Title).ShouldBe(["Seed One", "Seed Two"]);
+    }
+
+    [Fact]
     public async Task GetCandidatesAsync_OutOfLibraryCrowdTarget_ReturnsOnlyLibraryMovies()
     {
         // arrange

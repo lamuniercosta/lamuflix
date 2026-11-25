@@ -53,6 +53,45 @@ public sealed class EfRecommendationCandidateSource(
         return new RecommendationLibrarySnapshot(entries, ResolveCrowdLinks(rows, pairs));
     }
 
+    public async Task<OutsideLibraryRecommendationSnapshot> GetOutsideLibraryRecommendationsAsync(
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var contributions = await (
+                from recommendation in db.Set<MovieRecommendationRecord>().AsNoTracking()
+                join movie in db.Movies.AsNoTracking()
+                    on recommendation.SourceMovieId equals movie.Id
+                select new OutsideLibraryContributionRow(
+                    recommendation.SourceMovieId,
+                    movie.Title,
+                    movie.Review,
+                    movie.IsWatched,
+                    movie.IsInWatchlist,
+                    recommendation.RecommendedTmdbId,
+                    recommendation.Title,
+                    recommendation.ReleaseYear,
+                    recommendation.PosterPath))
+            .ToListAsync(ct);
+
+        ct.ThrowIfCancellationRequested();
+
+        var library = await db.Movies
+            .AsNoTracking()
+            .Select(movie => new OutsideLibraryIdentityRow(
+                movie.TmdbId,
+                movie.Title,
+                movie.ReleaseYear,
+                movie.ParsedReleaseYear))
+            .ToListAsync(ct);
+
+        ct.ThrowIfCancellationRequested();
+
+        return new OutsideLibraryRecommendationSnapshot(
+            [.. contributions.Select(ToContribution)],
+            [.. library.Select(ToIdentity)]);
+    }
+
     public async Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(
         MovieId selectedMovieId,
         int? collectionId,
@@ -92,6 +131,38 @@ public sealed class EfRecommendationCandidateSource(
             .OrderByDescending(candidate => candidate.CosineSimilarity)
             .ThenBy(candidate => candidate.Library.Id.Value)];
     }
+
+    private sealed record OutsideLibraryContributionRow(
+        MovieId? SourceMovieId,
+        string SeedTitle,
+        Review SeedReview,
+        bool SeedWatched,
+        bool SeedWatchlist,
+        int RecommendedTmdbId,
+        string? Title,
+        int? ReleaseYear,
+        string? PosterPath);
+
+    private sealed record OutsideLibraryIdentityRow(
+        int? TmdbId,
+        string Title,
+        ReleaseYear? ReleaseYear,
+        ReleaseYear? ParsedReleaseYear);
+
+    private static OutsideLibraryRecommendationContribution ToContribution(OutsideLibraryContributionRow row) =>
+        new(
+            row.SourceMovieId ?? throw new InvalidOperationException("A recommendation has no source movie."),
+            row.SeedTitle,
+            row.SeedReview,
+            row.SeedWatched,
+            row.SeedWatchlist,
+            row.RecommendedTmdbId,
+            row.Title,
+            row.ReleaseYear,
+            row.PosterPath);
+
+    private static OutsideLibraryMovieIdentity ToIdentity(OutsideLibraryIdentityRow row) =>
+        new(row.TmdbId, row.Title, row.ReleaseYear?.Value ?? row.ParsedReleaseYear?.Value);
 
     private static IQueryable<MovieRecord> Traversable(IQueryable<MovieRecord> query) =>
         query

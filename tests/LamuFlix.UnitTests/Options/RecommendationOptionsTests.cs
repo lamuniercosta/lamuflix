@@ -79,6 +79,52 @@ public sealed class RecommendationOptionsTests
         options.MaxExcludeCount.ShouldBe(50);
     }
 
+    [Fact]
+    public void Defaults_DiscoveryWeights_AreLikedTwoAndWatchedOne()
+    {
+        // arrange
+        var options = new RecommendationOptions();
+
+        // act
+        var weights = (options.DiscoveryWeightLiked, options.DiscoveryWeightWatched);
+
+        // assert
+        weights.ShouldBe((2, 1));
+    }
+
+    [Theory]
+    [InlineData(5, 3, true)]
+    [InlineData(1, 1, false)]
+    [InlineData(1, 2, false)]
+    [InlineData(0, 1, false)]
+    [InlineData(2, 0, false)]
+    [InlineData(-2, -3, false)]
+    public void Validate_DiscoveryWeights_RequireLikedGreaterThanWatchedGreaterThanZero(
+        int liked,
+        int watched,
+        bool expectedValid)
+    {
+        // arrange
+        var options = new RecommendationOptions
+        {
+            DiscoveryWeightLiked = liked,
+            DiscoveryWeightWatched = watched,
+        };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        if (expectedValid)
+        {
+            results.ShouldBeEmpty();
+            return;
+        }
+
+        results.SelectMany(result => result.MemberNames).ShouldContain(
+            nameof(RecommendationOptions.DiscoveryWeightLiked));
+    }
+
     [Theory]
     [InlineData(1, 1, 0)]
     public void TryValidateObject_RecommendationCapBoundaries_AreAccepted(

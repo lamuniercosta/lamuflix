@@ -17,6 +17,10 @@ public sealed record RecommendationOptions : IValidatableObject
 
     private const int DefaultMaxExcludeCount = 50;
 
+    private const int DefaultDiscoveryWeightLiked = 2;
+
+    private const int DefaultDiscoveryWeightWatched = 1;
+
     public const double DefaultSeedWeightLiked = 1.0;
 
     public const double DefaultSeedWeightWatched = 0.6;
@@ -84,6 +88,10 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public double AlreadyWatchedPenalty { get; init; } = 0.25;
 
+    public int DiscoveryWeightLiked { get; init; } = DefaultDiscoveryWeightLiked;
+
+    public int DiscoveryWeightWatched { get; init; } = DefaultDiscoveryWeightWatched;
+
     [Range(0.0, double.MaxValue)]
     public double SeedWeightLiked { get; init; } = DefaultSeedWeightLiked;
 
@@ -124,6 +132,31 @@ public sealed record RecommendationOptions : IValidatableObject
         {
             yield return result;
         }
+
+        foreach (var result in ValidateDiscoveryWeights())
+        {
+            yield return result;
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateDiscoveryWeights()
+    {
+        if (DiscoveryWeightLiked > 0
+            && DiscoveryWeightWatched > 0
+            && DiscoveryWeightLiked > DiscoveryWeightWatched)
+        {
+            yield break;
+        }
+
+        yield return new ValidationResult(
+            string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} and {1} must satisfy {0} > {1} > 0; got {2} and {3}.",
+                nameof(DiscoveryWeightLiked),
+                nameof(DiscoveryWeightWatched),
+                DiscoveryWeightLiked,
+                DiscoveryWeightWatched),
+            [nameof(DiscoveryWeightLiked), nameof(DiscoveryWeightWatched)]);
     }
 
     private IEnumerable<ValidationResult> ValidateNearestSeed()

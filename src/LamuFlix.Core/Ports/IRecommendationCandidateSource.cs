@@ -14,4 +14,6 @@ public interface IRecommendationCandidateSource
         CancellationToken ct);
 
     Task<RecommendationLibrarySnapshot> GetLibraryFeaturesAsync(CancellationToken ct);
+
+    Task<OutsideLibraryRecommendationSnapshot> GetOutsideLibraryRecommendationsAsync(CancellationToken ct);
 }
