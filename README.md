@@ -4,6 +4,8 @@
 
 LamuFlix is a personal streaming and media library platform. It scans a local movie library, enriches each title with metadata from OMDb, and serves browsing, watchlist, and playback through a React single-page application backed by a .NET API.
 
+Release history: [CHANGELOG.md](CHANGELOG.md).
+
 ![LamuFlix dark-glass library with poster grid and filters](docs/images/library.png)
 
 Library view with synthetic sample data.
