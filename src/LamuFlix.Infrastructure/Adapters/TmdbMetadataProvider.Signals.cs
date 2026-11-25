@@ -58,9 +58,12 @@ public sealed partial class TmdbMetadataProvider
         return new RecommendationSignal(ids);
     }
 
-    private static bool TryMapRecommendations(Response body, int movieId, out IReadOnlyList<int> ids)
+    private static bool TryMapRecommendations(
+        Response body,
+        int movieId,
+        out IReadOnlyList<RecommendedTmdbMovie> movies)
     {
-        ids = [];
+        movies = [];
         if (body.Success == false
             || (body.Id is { } echoedSourceId && echoedSourceId != movieId)
             || body.Results is not { } results
@@ -69,7 +72,7 @@ public sealed partial class TmdbMetadataProvider
             return false;
         }
 
-        var mapped = new List<int>(results.Count);
+        var mapped = new List<RecommendedTmdbMovie>(results.Count);
         var seen = new HashSet<int>();
         foreach (var hit in results)
         {
@@ -80,11 +83,15 @@ public sealed partial class TmdbMetadataProvider
 
             if (seen.Add(id))
             {
-                mapped.Add(id);
+                mapped.Add(new RecommendedTmdbMovie(
+                    id,
+                    string.IsNullOrWhiteSpace(hit.Title) ? null : hit.Title.Trim(),
+                    ResponseMapper.MapYear(hit.ReleaseDate),
+                    ResponseMapper.MapRecommendationPosterPath(hit.PosterPath)));
             }
         }
 
-        ids = mapped;
+        movies = mapped;
         return true;
     }
 
@@ -215,7 +222,7 @@ public sealed partial class TmdbMetadataProvider
     private static ImmutableHashSet<string> EmptyCast() =>
         ImmutableHashSet.Create<string>(StringComparer.OrdinalIgnoreCase);
 
-    private readonly record struct RecommendationSignal(IReadOnlyList<int>? Values);
+    private readonly record struct RecommendationSignal(IReadOnlyList<RecommendedTmdbMovie>? Values);
 
     private readonly record struct SignalBundle(
         MovieSignalSnapshot Snapshot,
