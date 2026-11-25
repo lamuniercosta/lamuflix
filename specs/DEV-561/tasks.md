@@ -48,7 +48,7 @@ Work inside the file boundaries in `plan.md` and `brief.md`. Follow phase order.
 
 ## Phase 6: Docs and home-library evidence (US5)
 
-- [ ] T018 [P] [US5] After T001, in the introducing delivery PR add a focused Positioning subsection to `specs/PRODUCT.md`, update the root `CONTEXT.md` Recommendation entry, define **Outside-library recommendation** with `_Avoid_: wanted movie`, and list the feature in `README.md` without taking DEV-559 provider attribution.
+- [X] T018 [P] [US5] After T001, in the introducing delivery PR add a focused Positioning subsection to `specs/PRODUCT.md`, update the root `CONTEXT.md` Recommendation entry, define **Outside-library recommendation** with `_Avoid_: wanted movie`, and list the feature in `README.md` without taking DEV-559 provider attribution.
 - [ ] T019 [US5] After T006/T009/T010 (hydration plus completed reason/response assembly) and production ranking on the home library, publish unique titled out-of-library ≥1-seed and ≥2-seed pre-cap counts under the same Option A exclusion as the live query, plus ranked top 10 (or all if fewer) with actual owner good-pick/not verdicts on the delivery PR. Document Option A misses possible with missing years or variant titles on library records without TMDb IDs. Keep raw viewing/seed data local. Report sparse results as observed.
 
 ## Phase 7: Gates, Size L review, ship, and mergeability

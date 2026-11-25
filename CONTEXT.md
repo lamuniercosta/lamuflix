@@ -135,7 +135,11 @@ A record of a play launch.
 _Avoid_: watch log, history entry
 
 **Recommendation**
-A suggested library movie from the details page.
+A suggested library movie from the details page, the library For You grid, or Related. The separate read-only **Not in your library yet** section is discovery, not a library recommendation.
+
+**Outside-library recommendation**
+A movie outside the library surfaced in the dedicated read-only For You row from TMDb recommendations contributed by eligible library seeds.
+_Avoid_: wanted movie
 
 **Reason**
 A caller-safe explanation attached to a recommendation. For you places the best strong seed line first in the existing `reasons` list, followed by that pair's shared-similarity evidence. The seed templates are constants in `RecommendationReasonBuilder` and mirror this table:

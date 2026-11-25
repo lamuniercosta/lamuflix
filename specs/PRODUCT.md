@@ -11,6 +11,10 @@ LamuFlix is a high-performance, personal streaming platform for movies and TV se
 - **Frontend**: Fast, responsive Single Page Application (`web/`) built with React 19, TypeScript, and Vite.
 - **Reliability & Quality**: Central Package Management (CPM), zero compiler warnings (`TreatWarningsAsErrors=true`), mandatory static analysis gates (Roslyn, Cyclomatic Complexity <= 15/6, InspectCode), mutation testing (Stryker >= 80%), and contract drift enforcement (OpenAPI -> TypeScript).
 
+### Positioning
+
+For You and Related remain library-only recommendation surfaces. A separate, read-only **Not in your library yet** section may surface movies outside the library, ranked locally from TMDb recommendation links contributed by liked or watched library movies. It is discovery only: no Play, library details, Not interested, requests, or Wanted-list behavior ([ADR 0049](../docs/adr/0049-for-you-outside-library-discovery.md)).
+
 ## 2. Non-Goals & Sequencing
 
 - **Epic 8 (Ops / Docker / Compose)**: Scheduled as slack permits ("by pick").
