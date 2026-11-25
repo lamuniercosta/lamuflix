@@ -240,6 +240,10 @@ public sealed class HiddenSeedEvaluationCopy
             return Task.FromResult(new RecommendationLibrarySnapshot(entries, snapshot.CrowdLinks));
         }
 
+        public Task<OutsideLibraryRecommendationSnapshot> GetOutsideLibraryRecommendationsAsync(
+            CancellationToken ct) =>
+            throw new NotSupportedException("The evaluation snapshot candidate source serves library features only.");
+
         public Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(
             MovieId selectedMovieId,
             int? collectionId,
