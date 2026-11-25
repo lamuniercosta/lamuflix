@@ -37,3 +37,54 @@ Verdict: Approved as recommended by Keel, with the clarifications below; no disa
 - Contract regeneration and locks: T001 stays strictly read-only: it verifies and records the exact sanctioned .NET export command `$env:LAMUFLIX_REGENERATE_OPENAPI='true'; dotnet test tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj --filter OpenApiRegeneration_OptInEnabled_WritesTheBaselineAndDerivedSnapshotTogether` without running it (the opt-in run writes the committed `web/src/api/openapi.json` baseline and Verify snapshot). T004 runs that exact command after the T003 DTO projection, clearing the variable afterward including on failure, then pins `npm run generate:api` and requires `npm run check:api` at T005. `handlers.ts` is generator-owned: T001 verifies that ownership at pickup, it changes only via `npm run generate:api`, and any hand edit to it needs a fresh Patron ruling. T002/T004 must assert `collectionName` is in the schema `required` list and nullable, endpoint JSON emits explicit `null`, and no `WhenWritingNull` is applied to the new property. Basis: `OpenApiContractTests.cs` regeneration switch and `/openapi/v1.json`; `web/package.json` `generate:api`/`check:api`; Sentry F5; Ledger Medium 2.
 - Regressions, visuals, and records: T009 must name parser tests plus the existing LocalPlay-gated suites (`MovieDetailsView.bsPlayer.test.tsx` and launch tests) as required pass evidence, without touching LocalPlay execution. Grey/white token verification moves from jsdom assertions to Chromium receipt/review inspection. Record (without code change) the inherited exact-normalized name-matching collision and the SMOKE-002 runtime seed precondition (enriched movie with mapped cast in the Test portal seed). Basis: Sentry F4, F6-F8; Ledger Low 4; PRODUCT section 5 item 5 is not engaged because no LocalPlay execution changes.
 - Property tests: DEV-570 is eligible for `propertyTests` opt-out because the DTO projection and About presentation introduce no domain invariant; an exit 2 remains blocking until Bernstein records `propertyTests: opt-out - DTO projection and About presentation add no domain invariant` in the DEV-570 task note under task-pipeline. Patron does not write that Conductor-owned note. Basis: Ledger Low 6; plan.md property-test standing rule.
+
+### Finding dispositions
+
+The three challenge notes reviewed the pre-adjudication plan at adc31200. The rulings above and the updated brief, spec, plan and tasks implement these dispositions against recon-DEV-570, ticket Scope and Acceptance (lines 49–68), PRODUCT §§1 and 3–5, and the standing pipeline.
+
+| Finding | Disposition | Resolution |
+|---|---|---|
+| Sentry F1 | Accepted | Preserve strict validation and test both malformed and missing keys through the existing error path (T006, T007, T009). |
+| Sentry F2 | Accepted | Filter blank list members in About only. Base labels on displayed count and test blank-only and mixed lists (FR-004, FR-009, T006, T008). |
+| Sentry F3 | Accepted | Place About after existing browser player and launch feedback, before trailer (FR-004, T006, T008). |
+| Sentry F4 | Accepted | T009 requires BS.Player and existing LocalPlay launch regression evidence. T001 identifies the launch suites. |
+| Sentry F5 | Accepted | Require and test schema nullability and presence separately. Verify explicit null JSON and preserve its serialization (T002–T005). |
+| Sentry F6 | Clear, clarification recorded | Keep plain text when people lookup is pending or failed. The existing trust and execution boundaries apply (FR-007, edge cases). |
+| Sentry F7 | Record only | Equal normalized names share the existing selection path. The ticket calls for preserving that path. |
+| Sentry F8 | Record only | T010 needs an enriched seed movie with mapped cast. Report a receipt blocker if the seed lacks one. |
+| Ledger 1 | Accepted within Q4 bounds | Inventory all typed consumers. Permit demonstrated additive fixture updates and scoped About CSS. Keep generator-owned outputs generated and obtain a fresh ruling for other production edits. |
+| Ledger 2 | Accepted with phase split | Verify exact commands read-only at T001. Export paired artifacts after projection at T004 and require check:api at T005. Full lint follows with existing web gates. |
+| Ledger 3 | Partially accepted | Use one focused AboutSection. Leave row-builder extraction up to Build and share CastSection rendering only for real reuse. |
+| Ledger 4 | Accepted | Component tests cover semantics. Chromium and review verify token use and Chromium verifies phone-width wrapping (T006, T010). |
+| Ledger 5 | Partially accepted | Consolidate downstream verdict definitions in plan Verification Approach and reference them from spec and tasks. Keep the existing FR/SC traceability for the closing bar. |
+| Ledger 6 | Accepted | Patron determined opt-out eligibility. Exit 2 requires the separate Bernstein-owned task-note record. |
+| Compass | Clear | Zero Spec-axis findings. All product scope and acceptance stay aligned with the ticket. |
+
+## PLAN FROZEN — 2026-11-25
+
+Phase 2 step 6 complete. Reviewed all three axes at adc31200 and recorded all 14 findings above (Sentry 8, Ledger 6, Compass 0). The adjudication records nine accepted findings including bounded fixes, two partial acceptances, two record-only observations and one cleared item with a clarification. No structural owner checkbox arose. Patron recorded the rulings at b983c14a and 52500bc1.
+
+Read-only /speckit-analyze after repairs with PYTHONUTF8=1: prerequisites resolved DEV-570 and both private mirrors. No residual findings or constitution conflicts. All 12 FRs and six SCs have coverage across T000–T010 and the Conductor-owned downstream review and gates.
+
+| Coverage | Tasks and evidence |
+|---|---|
+| FR-001–FR-003, SC-003 | T002–T005 wire assertions, paired export, regenerated contract and drift. |
+| FR-004–FR-007, SC-001–SC-002 | T006–T009 About semantics, placement, strict parsing and existing selection. T010 verifies styling, wrapping and browser smoke. |
+| FR-008 | T001 envelope and consumer inventory, T002–T009 bounded edits. |
+| FR-009, SC-004 | T002–T005 API/contract evidence and T006–T009 semantic and parser regressions. |
+| FR-010, SC-005 | T010 same-movie screenshots and SMOKE-001–003 observations. |
+| FR-011–FR-012, SC-006 | Conductor-owned Cog refactor, Gauge gates, three-axis review, Keel adjudication and rebased gate rerun. |
+
+Canonical and prerequisite-resolved private files were byte-identical:
+
+- plan.md SHA-256: 652B2DDB197AE78FC49290BD1EAE2C332EC45D8772982D77F0D3C89345F3E9AD
+- tasks.md SHA-256: A2DD5A5062A42F2AE1C3F5CEFE7094F4E9CA8B29D770855C2DBC07EA2CEB4E40
+
+Ordinary Gate 1 requires the owner’s Spec Kit PR merge and verified T000 receipt. Phase B pickup, implementation, gates and Chromium acceptance remain pending. Under the standing property-test rule, the DEV-570 task note must carry Bernstein’s opt-out record before Gauge may accept a property-test exit 2.
+
+## Phase 2 step 7 — gate1: provisional
+
+Verdict: `gate1: provisional` set on `specs/DEV-570/spec.md`; no structural owner checkbox.
+- Basis: PLAN FROZEN receipt above (14 plan-challenge findings adjudicated; read-only `/speckit-analyze` clean, no residual findings or constitution conflicts) and `checklists/requirements.md` User-Visible Outcome items ticked.
+- Basis: `spec.md` Owner question — Gate 1 records no ticket contradiction or constitution departure (`brief.md`; `PRODUCT.md` §5), so no `blocked: structural` checkbox is carried to the Spec Kit PR.
+- Effect: Gate 1 completes only on owner merge of the Spec Kit PR and verified T000 receipt; Phase B remains gated on that merge.
