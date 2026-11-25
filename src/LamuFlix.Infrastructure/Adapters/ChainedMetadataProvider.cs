@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -82,7 +83,10 @@ public sealed class ChainedMetadataProvider : IMetadataProvider
             .WithSignals(supplement.Signals)
             .WithCollection(supplement.CollectionId, supplement.CollectionName)
             .WithTrailerKey(supplement.TrailerKey ?? primary.TrailerKey)
-            .WithTmdbIdentity(supplement.TmdbId, supplement.RecommendedTmdbIds);
+            .WithTmdbIdentity(
+                supplement.TmdbId,
+                supplement.RecommendedTmdbMovies
+                    ?? supplement.RecommendedTmdbIds?.Select(RecommendedTmdbMovie.FromId).ToArray());
 
     private static MetadataLookupResult? ResolveImmediate(MetadataLookupResult result, ref MetadataLookupResult? rememberedFailure)
     {

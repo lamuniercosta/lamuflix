@@ -261,6 +261,15 @@ public sealed class MovieRecommendationConfiguration : IEntityTypeConfiguration<
             .HasColumnName("recommended_tmdb_id")
             .HasColumnType("integer")
             .IsRequired();
+        builder.Property(recommendation => recommendation.Title)
+            .HasColumnName("title")
+            .HasColumnType("text");
+        builder.Property(recommendation => recommendation.ReleaseYear)
+            .HasColumnName("release_year")
+            .HasColumnType("integer");
+        builder.Property(recommendation => recommendation.PosterPath)
+            .HasColumnName("poster_path")
+            .HasColumnType("text");
     }
 
     private static void ConfigureSourceOwner(EntityTypeBuilder<MovieRecommendationRecord> builder) =>

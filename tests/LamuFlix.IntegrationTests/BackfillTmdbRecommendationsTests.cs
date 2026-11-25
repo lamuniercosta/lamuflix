@@ -305,6 +305,61 @@ public sealed class BackfillTmdbRecommendationsTests(
         (await RecordAsync(pending, ct)).TmdbId.ShouldBe(FailedTmdbId);
     }
 
+    [Fact]
+    public async Task RunAsync_LegacyTitlelessRows_HydratesTheWholeSetAndSkipsOnRerun()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var seed = fixture.CreateMigratedContext();
+        var legacy = await SeedLegacyRowsAsync(seed, "Legacy Matrix", MatchImdb, MatchTmdbId);
+        StubMatch(MatchImdb, MatchTmdbId, [802, 803]);
+        await using var services = BuildServices(probe, seed);
+
+        // act
+        var firstOutput = new StringWriter();
+        (await BackfillOperatorMode.RunAsync(services, firstOutput, ct)).ShouldBe(0);
+        var firstRunRequests = RecommendationsRequests(MatchTmdbId);
+        await probe.ResetAsync(ct);
+        StubMatch(MatchImdb, MatchTmdbId, [802, 803]);
+        await using var rerunServices = BuildServices(probe, seed);
+        var rerunOutput = new StringWriter();
+        (await BackfillOperatorMode.RunAsync(rerunServices, rerunOutput, ct)).ShouldBe(0);
+
+        // assert
+        firstOutput.ToString().Trim().ShouldBe("tmdb-backfill: imdb-eligible=1 matched=1 unmatched=0 skipped=0 failures=0");
+        rerunOutput.ToString().Trim().ShouldBe("tmdb-backfill: imdb-eligible=1 matched=0 unmatched=0 skipped=1 failures=0");
+        await using var verify = fixture.CreateMigratedContext();
+        var rows = await verify.Movies
+            .AsNoTracking()
+            .Include(movie => movie.Recommendations)
+            .SingleAsync(movie => movie.Id == legacy, ct);
+        rows.Recommendations.Select(row => row.RecommendedTmdbId).Order().ToArray().ShouldBe([802, 803]);
+        rows.Recommendations.ShouldAllBe(row => row.Title == "Related");
+        firstRunRequests.ShouldBe(1);
+        RecommendationsRequests(MatchTmdbId).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_LegacyTitlelessRows_FailedFetchRetainsThePriorSet()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var seed = fixture.CreateMigratedContext();
+        var legacy = await SeedLegacyRowsAsync(seed, "Legacy Matrix", MatchImdb, MatchTmdbId);
+        StubMatch(MatchImdb, MatchTmdbId, recommendations: null, statusCode: 400);
+        await using var services = BuildServices(probe, seed);
+
+        // act
+        var output = new StringWriter();
+        (await BackfillOperatorMode.RunAsync(services, output, ct)).ShouldBe(0);
+
+        // assert
+        output.ToString().Trim().ShouldBe("tmdb-backfill: imdb-eligible=1 matched=0 unmatched=0 skipped=0 failures=1");
+        var state = await RecordAsync(legacy, ct);
+        state.TmdbId.ShouldBe(MatchTmdbId);
+        state.Recommendations.ShouldBe([9001]);
+    }
+
     private static ServiceProvider BuildServices(
         SecondaryMetadataProviderProbe probe,
         LamuFlixDbContext db,
@@ -373,7 +428,9 @@ public sealed class BackfillTmdbRecommendationsTests(
                 title,
                 imdbId: imdbId,
                 tmdbId: tmdbId,
-                recommendedTmdbIds: tmdbId is null ? null : [9001]),
+                recommendedTmdbMovies: tmdbId is null
+                    ? null
+                    : [new RecommendedTmdbMovie(9001, "Stored related", null, null)]),
             Now);
         await repository.SaveChangesAsync(TestContext.Current.CancellationToken);
         return id;
@@ -385,6 +442,31 @@ public sealed class BackfillTmdbRecommendationsTests(
         string imdbId,
         int? tmdbId = null) =>
         SeedMovieAsync(db, title, new ImdbId(imdbId), tmdbId);
+
+    private static async Task<MovieId> SeedLegacyRowsAsync(
+        LamuFlixDbContext db,
+        string title,
+        string imdbId,
+        int tmdbId)
+    {
+        var repository = Repository(db);
+        var id = await repository.NextIdentityAsync(TestContext.Current.CancellationToken);
+        await repository.AddAsync(
+            Movie.Create(id, title, new LibraryPath($"C:/library/{Guid.NewGuid():N}/movie.mkv"), new MediaFormat("mkv")),
+            TestContext.Current.CancellationToken);
+        await repository.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var movie = await repository.GetAsync(id, TestContext.Current.CancellationToken);
+        movie.ShouldNotBeNull();
+        movie.MarkEnriched(
+            new MovieMetadata(
+                title,
+                imdbId: new ImdbId(imdbId),
+                tmdbId: tmdbId,
+                recommendedTmdbIds: [9001]),
+            Now);
+        await repository.SaveChangesAsync(TestContext.Current.CancellationToken);
+        return id;
+    }
 
     private async Task<MovieRecordState> RecordAsync(MovieId id, CancellationToken ct)
     {

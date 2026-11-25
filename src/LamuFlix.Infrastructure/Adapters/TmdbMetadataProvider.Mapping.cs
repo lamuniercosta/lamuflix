@@ -26,6 +26,9 @@ public sealed partial class TmdbMetadataProvider
         public static int? MapYear(string? releaseDate) =>
             TryLeadingDigits(releaseDate, out var value) ? value : null;
 
+        public static string? MapRecommendationPosterPath(string? posterPath) =>
+            IsUsablePosterPath(posterPath) ? posterPath : null;
+
         public static bool IsMalformedCollection(Response response) =>
             response.BelongsToCollection is { } collection
             && (collection.Id is not { } id || id <= 0 || string.IsNullOrWhiteSpace(collection.Name));
@@ -383,5 +386,9 @@ public sealed partial class TmdbMetadataProvider
         // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("release_date")]
         public string? ReleaseDate { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("poster_path")]
+        public string? PosterPath { get; init; }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +12,7 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
@@ -45,15 +47,27 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
           "total_pages": 4,
           "total_results": 80,
           "results": [
-            { "id": 604, "title": "The Matrix Reloaded" },
-            { "id": 605, "title": "The Matrix Revolutions" },
-            { "id": 606, "title": "The Animatrix" }
+            { "id": 604, "title": "The Matrix Reloaded", "release_date": "2003-05-15", "poster_path": "/reloaded.jpg" },
+            { "id": 605, "title": "The Matrix Revolutions", "release_date": "2003-11-05" },
+            { "id": 606, "title": "The Animatrix", "poster_path": "../secret.jpg" },
+            { "id": 604, "title": "Duplicate", "release_date": "1999-01-01" }
           ]
         }
         """;
 
     private const string EmptyPageBody = """
         { "page": 1, "total_pages": 1, "total_results": 0, "results": [] }
+        """;
+
+    private const string ReplacementPageBody = """
+        {
+          "page": 1,
+          "total_pages": 1,
+          "results": [
+            { "id": 701, "title": "Replacement one", "release_date": "2001-01-01" },
+            { "id": 702, "title": "Replacement two", "poster_path": "/two.jpg" }
+          ]
+        }
         """;
 
     private const string MalformedPageBody = """
@@ -104,6 +118,12 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
         // assert
         metadata.TmdbId.ShouldBe(603);
         metadata.RecommendedTmdbIds.ShouldBe([604, 605, 606]);
+        metadata.RecommendedTmdbMovies.ShouldBe(
+        [
+            new RecommendedTmdbMovie(604, "The Matrix Reloaded", 2003, "/reloaded.jpg"),
+            new RecommendedTmdbMovie(605, "The Matrix Revolutions", 2003, null),
+            new RecommendedTmdbMovie(606, "The Animatrix", null, null),
+        ]);
         probe.RequestPaths.ShouldContain(RecommendationsPath);
         probe.RequestPaths.Count(path => path == RecommendationsPath).ShouldBe(1);
         probe.QueryValues("page").ShouldBe(["1"]);
@@ -117,6 +137,14 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
         record.TmdbId.ShouldBe(603);
         record.Recommendations.Select(recommendation => recommendation.RecommendedTmdbId).Order().ToArray()
             .ShouldBe([604, 605, 606]);
+        var reloaded = record.Recommendations.Single(recommendation => recommendation.RecommendedTmdbId == 604);
+        reloaded.Title.ShouldBe("The Matrix Reloaded");
+        reloaded.ReleaseYear.ShouldBe(2003);
+        reloaded.PosterPath.ShouldBe("/reloaded.jpg");
+        var animatrix = record.Recommendations.Single(recommendation => recommendation.RecommendedTmdbId == 606);
+        animatrix.Title.ShouldBe("The Animatrix");
+        animatrix.ReleaseYear.ShouldBeNull();
+        animatrix.PosterPath.ShouldBeNull();
     }
 
     [Fact]
@@ -273,6 +301,70 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
         record.Recommendations.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task SaveChanges_ReplacementPausedBeforeCommit_SeparateReaderSeesTheOldSetThenTheNewSet()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var original = await FirstPageMetadataAsync(ct);
+        var id = await PersistEnrichmentAsync(original, ct);
+        await probe.ResetAsync(ct);
+        var replacement = await FindWithRecommendationsAsync(ReplacementPageBody, ct);
+        var gate = new RecommendationWriteGateInterceptor();
+
+        // act
+        await using var db = OpenInstrumentedContext(gate);
+        var store = Repository(db);
+        var movie = await store.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.RequestEnrichment();
+        movie.MarkEnriched(replacement, Now.AddMinutes(1));
+        var save = store.SaveChangesAsync(ct);
+        await gate.Arrived.WaitAsync(TimeSpan.FromSeconds(30), ct);
+
+        // assert
+        await using (var reader = fixture.CreateMigratedContext())
+        {
+            var during = await LoadRecordAsync(reader, id, ct);
+            during.Recommendations.Select(row => row.RecommendedTmdbId).Order().ToArray().ShouldBe([604, 605, 606]);
+            during.Recommendations.ShouldAllBe(row => row.Title != null);
+        }
+
+        gate.Release();
+        await save.WaitAsync(TimeSpan.FromSeconds(30), ct);
+        await using (var after = fixture.CreateMigratedContext())
+        {
+            var committed = await LoadRecordAsync(after, id, ct);
+            committed.Recommendations.Select(row => row.RecommendedTmdbId).Order().ToArray().ShouldBe([701, 702]);
+            committed.Recommendations.ShouldAllBe(row => row.Title != null);
+        }
+    }
+
+    [Fact]
+    public async Task SaveChanges_ReplacementWriteFails_PriorLinksRemain()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var id = await PersistEnrichmentAsync(await FirstPageMetadataAsync(ct), ct);
+        await probe.ResetAsync(ct);
+        var replacement = await FindWithRecommendationsAsync(ReplacementPageBody, ct);
+
+        // act
+        await using var db = OpenInstrumentedContext(new FailingRecommendationWriteInterceptor());
+        var store = Repository(db);
+        var movie = await store.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.RequestEnrichment();
+        movie.MarkEnriched(replacement, Now.AddMinutes(1));
+        await Should.ThrowAsync<DbUpdateException>(() => store.SaveChangesAsync(ct));
+
+        // assert
+        await using var verify = fixture.CreateMigratedContext();
+        var record = await LoadRecordAsync(verify, id, ct);
+        record.Recommendations.Select(row => row.RecommendedTmdbId).Order().ToArray().ShouldBe([604, 605, 606]);
+        record.Recommendations.ShouldAllBe(row => row.Title != null);
+    }
+
     private async Task<MovieMetadata> FirstPageMetadataAsync(CancellationToken ct)
     {
         probe.StubFoundLookup();
@@ -341,6 +433,15 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
         return id;
     }
 
+    private LamuFlixDbContext OpenInstrumentedContext(DbCommandInterceptor interceptor)
+    {
+        var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
+            .UseNpgsql(fixture.ConnectionString, npgsql => npgsql.UseVector())
+            .AddInterceptors(interceptor)
+            .Options;
+        return new LamuFlixDbContext(options);
+    }
+
     private static EfMovieRepository Repository(LamuFlixDbContext db) =>
         new(
             db,
@@ -349,6 +450,71 @@ public sealed class EfMovieRepositoryTmdbRecommendationTests(PostgresFixture fix
                 new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
             new RecordingEnrichmentStatusNotifier(),
             NullLogger<EfMovieRepository>.Instance);
+
+    private sealed class RecommendationWriteGateInterceptor : DbCommandInterceptor
+    {
+        private readonly TaskCompletionSource arrived = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Arrived => arrived.Task;
+
+        public void Release() => released.TrySetResult();
+
+        public override async ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            await GateAsync(command, cancellationToken);
+            return result;
+        }
+
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            await GateAsync(command, cancellationToken);
+            return result;
+        }
+
+        private async Task GateAsync(DbCommand command, CancellationToken cancellationToken)
+        {
+            if (command.CommandText.Contains("movie_recommendations", StringComparison.Ordinal)
+                && command.CommandText.Contains("INSERT INTO", StringComparison.Ordinal))
+            {
+                arrived.TrySetResult();
+                await released.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            }
+        }
+    }
+
+    private sealed class FailingRecommendationWriteInterceptor : DbCommandInterceptor
+    {
+        public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default) =>
+            IsRecommendationInsert(command)
+                ? ValueTask.FromException<InterceptionResult<int>>(new InvalidOperationException("write failed"))
+                : ValueTask.FromResult(result);
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default) =>
+            IsRecommendationInsert(command)
+                ? ValueTask.FromException<InterceptionResult<DbDataReader>>(new InvalidOperationException("write failed"))
+                : ValueTask.FromResult(result);
+
+        private static bool IsRecommendationInsert(DbCommand command) =>
+            command.CommandText.Contains("movie_recommendations", StringComparison.Ordinal)
+            && command.CommandText.Contains("INSERT INTO", StringComparison.Ordinal);
+    }
 
     private string LogCorpus(int start) =>
         string.Join("\n", probe.Logs.Entries.Skip(start).SelectMany(LogFragments));

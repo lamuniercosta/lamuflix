@@ -53,7 +53,7 @@ public sealed class BackfillTmdbRecommendationsCommandHandler(
         }
 
         counts.ImdbEligible++;
-        if (movie.TmdbId is not null)
+        if (movie.TmdbId is not null && !movie.HasUntitledRecommendations)
         {
             counts.Skipped++;
             return null;
@@ -114,7 +114,7 @@ public sealed class BackfillTmdbRecommendationsCommandHandler(
         BackfillCounts counts,
         CancellationToken cancellationToken)
     {
-        if (found?.Metadata.TmdbId is not { } tmdbId || found.Metadata.RecommendedTmdbIds is not { } recommended)
+        if (found?.Metadata.TmdbId is not { } tmdbId || found.Metadata.RecommendedTmdbMovies is not { } recommended)
         {
             counts.Failures++;
             Log(movie.Id, "failed", EnrichmentFailureCategory.InvalidResponse);

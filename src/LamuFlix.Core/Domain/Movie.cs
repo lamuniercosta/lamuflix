@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace LamuFlix.Core.Domain;
 
@@ -61,7 +62,13 @@ public sealed class Movie
 
     public int? TmdbId { get; private set; }
 
-    public IReadOnlyList<int>? RecommendedTmdbIds { get; private set; }
+    public IReadOnlyList<int>? RecommendedTmdbIds =>
+        RecommendedTmdbMovies?.Select(movie => movie.TmdbId).ToArray();
+
+    public IReadOnlyList<RecommendedTmdbMovie>? RecommendedTmdbMovies { get; private set; }
+
+    public bool HasUntitledRecommendations =>
+        RecommendedTmdbMovies?.Any(movie => !movie.HasTitle) == true;
 
     public static Movie Create(
         MovieId id,
@@ -92,7 +99,8 @@ public sealed class Movie
         Review? review = null,
         DateTimeOffset? enrichmentDeferredUntil = null,
         int? tmdbId = null,
-        IReadOnlyList<int>? recommendedTmdbIds = null)
+        IReadOnlyList<int>? recommendedTmdbIds = null,
+        IReadOnlyList<RecommendedTmdbMovie>? recommendedTmdbMovies = null)
     {
         RequireTitle(title);
         return new Movie(id, title, path, format, parsedReleaseYear)
@@ -109,7 +117,9 @@ public sealed class Movie
             ManualImdbId = manualImdbId,
             EnrichmentDeferredUntil = enrichmentDeferredUntil,
             TmdbId = tmdbId,
-            RecommendedTmdbIds = recommendedTmdbIds is null ? null : [.. recommendedTmdbIds],
+            RecommendedTmdbMovies = recommendedTmdbMovies is { } movies
+                ? [.. movies]
+                : recommendedTmdbIds?.Select(RecommendedTmdbMovie.FromId).ToArray(),
         };
     }
 
@@ -120,35 +130,45 @@ public sealed class Movie
         EnrichedAt = now;
         Metadata = metadata;
         TmdbId = metadata.TmdbId;
-        RecommendedTmdbIds = metadata.RecommendedTmdbIds;
+        RecommendedTmdbMovies = metadata.RecommendedTmdbMovies;
         LastFailureCategory = null;
         Status = EnrichmentStatus.Enriched;
     }
 
     public void RecordBackfilledTmdbIdentity(int tmdbId, IReadOnlyList<int> recommendedTmdbIds)
     {
+        ArgumentNullException.ThrowIfNull(recommendedTmdbIds);
+        RecordBackfilledTmdbIdentity(
+            tmdbId,
+            recommendedTmdbIds.Select(RecommendedTmdbMovie.FromId).ToArray());
+    }
+
+    public void RecordBackfilledTmdbIdentity(
+        int tmdbId,
+        IReadOnlyList<RecommendedTmdbMovie> recommendedTmdbMovies)
+    {
         if (tmdbId <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(tmdbId), tmdbId, "TMDb id must be positive.");
         }
 
-        ArgumentNullException.ThrowIfNull(recommendedTmdbIds);
-        var ids = new List<int>(recommendedTmdbIds.Count);
-        foreach (var recommendedTmdbId in recommendedTmdbIds)
+        ArgumentNullException.ThrowIfNull(recommendedTmdbMovies);
+        var movies = new List<RecommendedTmdbMovie>(recommendedTmdbMovies.Count);
+        foreach (var movie in recommendedTmdbMovies)
         {
-            if (recommendedTmdbId <= 0)
+            if (movie.TmdbId <= 0)
             {
                 throw new ArgumentOutOfRangeException(
-                    nameof(recommendedTmdbIds),
-                    recommendedTmdbId,
+                    nameof(recommendedTmdbMovies),
+                    movie.TmdbId,
                     "Recommended TMDb id must be positive.");
             }
 
-            ids.Add(recommendedTmdbId);
+            movies.Add(movie);
         }
 
         TmdbId = tmdbId;
-        RecommendedTmdbIds = ids;
+        RecommendedTmdbMovies = movies;
     }
 
     public void MarkNotFound(DateTimeOffset now)

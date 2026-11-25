@@ -163,6 +163,18 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("recommended_tmdb_id");
 
+                    b.Property<string>("PosterPath")
+                        .HasColumnType("text")
+                        .HasColumnName("poster_path");
+
+                    b.Property<int?>("ReleaseYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("release_year");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
                     b.HasKey("SourceMovieId", "RecommendedTmdbId");
 
                     b.HasIndex("RecommendedTmdbId");

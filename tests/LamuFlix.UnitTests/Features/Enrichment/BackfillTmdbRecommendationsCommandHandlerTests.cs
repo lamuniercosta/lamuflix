@@ -49,10 +49,12 @@ public sealed class BackfillTmdbRecommendationsCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_StoredTmdbId_SkipsWithoutLookup()
+    public async Task HandleAsync_StoredTmdbIdWithTitledRows_SkipsWithoutLookup()
     {
         // arrange
-        var movie = EnrichedMovie(tmdbId: 603, recommended: [604]);
+        var movie = EnrichedMovie(
+            tmdbId: 603,
+            recommendedMovies: [new RecommendedTmdbMovie(604, "Titled", null, null)]);
         Snapshot(movie);
 
         // act
@@ -62,6 +64,43 @@ public sealed class BackfillTmdbRecommendationsCommandHandlerTests
         result.ShouldBe(new BackfillTmdbRecommendationsResult(1, 0, 0, 1, 0));
         await provider.DidNotReceive().FindAsync(Arg.Any<MetadataLookup>(), Arg.Any<CancellationToken>());
         movie.TmdbId.ShouldBe(603);
+    }
+
+    [Fact]
+    public async Task HandleAsync_StoredTmdbIdWithTitlelessRows_RetriesAndReplacesTheSet()
+    {
+        // arrange
+        var movie = EnrichedMovie(tmdbId: 603, recommended: [604, 605]);
+        Snapshot(movie);
+        Found(MetadataWithRecommendations(603, [606]));
+
+        // act
+        var result = await handler.HandleAsync(new BackfillTmdbRecommendationsCommand(), CancellationToken.None);
+
+        // assert
+        result.ShouldBe(new BackfillTmdbRecommendationsResult(1, 1, 0, 0, 0));
+        movie.RecommendedTmdbIds.ShouldBe([606]);
+        await provider.Received(1).FindAsync(Arg.Any<MetadataLookup>(), Arg.Any<CancellationToken>());
+        await movies.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_StoredTmdbIdWithTitlelessRows_FailedLookupRetainsThePriorSet()
+    {
+        // arrange
+        var movie = EnrichedMovie(tmdbId: 603, recommended: [604]);
+        Snapshot(movie);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), Arg.Any<CancellationToken>())
+            .Returns(new MetadataLookupResult.Failed(EnrichmentFailureCategory.ProviderUnavailable));
+
+        // act
+        var result = await handler.HandleAsync(new BackfillTmdbRecommendationsCommand(), CancellationToken.None);
+
+        // assert
+        result.ShouldBe(
+            new BackfillTmdbRecommendationsResult(1, 0, 0, 0, 1, BackfillStopReason.ProviderUnavailable));
+        movie.RecommendedTmdbIds.ShouldBe([604]);
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -280,9 +319,13 @@ public sealed class BackfillTmdbRecommendationsCommandHandlerTests
             "Solaris",
             imdbId: new ImdbId(ImdbIdValue),
             tmdbId: tmdbId,
-            recommendedTmdbIds: recommended);
+            recommendedTmdbMovies:
+            [.. recommended.Select(id => new RecommendedTmdbMovie(id, "Related", null, null))]);
 
-    private static Movie EnrichedMovie(int? tmdbId, IReadOnlyList<int>? recommended = null) =>
+    private static Movie EnrichedMovie(
+        int? tmdbId,
+        IReadOnlyList<int>? recommended = null,
+        IReadOnlyList<RecommendedTmdbMovie>? recommendedMovies = null) =>
         Movie.Rehydrate(
             NewId(),
             "Solaris",
@@ -296,7 +339,8 @@ public sealed class BackfillTmdbRecommendationsCommandHandlerTests
             null,
             null,
             tmdbId: tmdbId,
-            recommendedTmdbIds: recommended);
+            recommendedTmdbIds: recommended,
+            recommendedTmdbMovies: recommendedMovies);
 
     private static MovieId NewId() => new(Interlocked.Increment(ref nextId));
 }

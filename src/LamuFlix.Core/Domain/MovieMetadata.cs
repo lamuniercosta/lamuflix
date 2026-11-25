@@ -28,7 +28,8 @@ public sealed record MovieMetadata
         MovieSignalSnapshot? signals = null,
         string? trailerKey = null,
         int? tmdbId = null,
-        IEnumerable<int>? recommendedTmdbIds = null)
+        IEnumerable<int>? recommendedTmdbIds = null,
+        IEnumerable<RecommendedTmdbMovie>? recommendedTmdbMovies = null)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -57,6 +58,8 @@ public sealed record MovieMetadata
         TrailerKey = trailerKey;
         TmdbId = tmdbId;
         RecommendedTmdbIds = CopyRecommendedTmdbIds(recommendedTmdbIds);
+        RecommendedTmdbMovies = CopyRecommendedMovies(recommendedTmdbMovies, RecommendedTmdbIds);
+        RecommendedTmdbIds ??= RecommendedTmdbMovies?.Select(movie => movie.TmdbId).ToArray();
     }
 
     public static bool IsValidTrailerKey(string? candidate)
@@ -122,6 +125,33 @@ public sealed record MovieMetadata
         {
             throw new ArgumentOutOfRangeException(parameterName, tmdbId, "TMDb id must be positive.");
         }
+    }
+
+    private static IReadOnlyList<RecommendedTmdbMovie>? CopyRecommendedMovies(
+        IEnumerable<RecommendedTmdbMovie>? source,
+        IReadOnlyList<int>? ids)
+    {
+        if (source is null)
+        {
+            return ids?.Select(RecommendedTmdbMovie.FromId).ToArray();
+        }
+
+        var movies = new List<RecommendedTmdbMovie>();
+        var seen = new HashSet<int>();
+        foreach (var movie in source)
+        {
+            if (movie.TmdbId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(source), movie.TmdbId, "Recommended TMDb id must be positive.");
+            }
+
+            if (seen.Add(movie.TmdbId))
+            {
+                movies.Add(movie);
+            }
+        }
+
+        return movies;
     }
 
     private static IReadOnlyList<int>? CopyRecommendedTmdbIds(IEnumerable<int>? source)
@@ -193,6 +223,8 @@ public sealed record MovieMetadata
 
     public IReadOnlyList<int>? RecommendedTmdbIds { get; }
 
+    public IReadOnlyList<RecommendedTmdbMovie>? RecommendedTmdbMovies { get; }
+
     public MovieMetadata WithSignals(MovieSignalSnapshot? signals) =>
         new(
             Title,
@@ -213,7 +245,8 @@ public sealed record MovieMetadata
             signals,
             TrailerKey,
             TmdbId,
-            RecommendedTmdbIds);
+            RecommendedTmdbIds,
+            RecommendedTmdbMovies);
 
     public MovieMetadata WithTrailerKey(string? trailerKey) =>
         new(
@@ -235,9 +268,13 @@ public sealed record MovieMetadata
             Signals,
             trailerKey,
             TmdbId,
-            RecommendedTmdbIds);
+            RecommendedTmdbIds,
+            RecommendedTmdbMovies);
 
     public MovieMetadata WithTmdbIdentity(int? tmdbId, IReadOnlyList<int>? recommendedTmdbIds) =>
+        WithTmdbIdentity(tmdbId, recommendedTmdbIds?.Select(RecommendedTmdbMovie.FromId).ToArray());
+
+    public MovieMetadata WithTmdbIdentity(int? tmdbId, IReadOnlyList<RecommendedTmdbMovie>? recommendedTmdbMovies) =>
         new(
             Title,
             Synopsis,
@@ -257,7 +294,8 @@ public sealed record MovieMetadata
             Signals,
             TrailerKey,
             tmdbId,
-            recommendedTmdbIds);
+            recommendedTmdbIds: null,
+            recommendedTmdbMovies: recommendedTmdbMovies);
 
     public MovieMetadata WithCollection(int? collectionId, string? collectionName) =>
         new(
@@ -279,7 +317,8 @@ public sealed record MovieMetadata
             Signals,
             TrailerKey,
             TmdbId,
-            RecommendedTmdbIds);
+            RecommendedTmdbIds,
+            RecommendedTmdbMovies);
 
     public bool Equals(MovieMetadata? other) =>
         other is not null
@@ -316,9 +355,11 @@ public sealed record MovieMetadata
 
     private static bool SameTmdbIdentity(MovieMetadata left, MovieMetadata right) =>
         left.TmdbId == right.TmdbId
-        && SameRecommendedTmdbIds(left.RecommendedTmdbIds, right.RecommendedTmdbIds);
+        && SameRecommendedTmdbMovies(left.RecommendedTmdbMovies, right.RecommendedTmdbMovies);
 
-    private static bool SameRecommendedTmdbIds(IReadOnlyList<int>? left, IReadOnlyList<int>? right) =>
+    private static bool SameRecommendedTmdbMovies(
+        IReadOnlyList<RecommendedTmdbMovie>? left,
+        IReadOnlyList<RecommendedTmdbMovie>? right) =>
         left is null ? right is null : right is not null && left.SequenceEqual(right);
 
     public override int GetHashCode()
@@ -355,9 +396,14 @@ public sealed record MovieMetadata
             return;
         }
 
-        foreach (var recommendedTmdbId in RecommendedTmdbIds)
+        if (RecommendedTmdbMovies is null)
         {
-            hash.Add(recommendedTmdbId);
+            return;
+        }
+
+        foreach (var movie in RecommendedTmdbMovies)
+        {
+            hash.Add(movie);
         }
     }
 
