@@ -2953,6 +2953,9 @@ describe('BrowserPlayer Phase 4 remediation regressions', () => {
     expect(audio.contexts).toHaveLength(1);
     expect(context.closed).toBe(false);
     expect(context.gains[0].gain.value).toBe(2.2);
+    expect(audio.sources[0].connections).toEqual([context.gains[0]]);
+    expect(context.gains[0].connections).toEqual([context.compressors[0]]);
+    expect(context.compressors[0].connections).toEqual([context.destination]);
     harness.unmount();
   });
 
