@@ -111,8 +111,8 @@ Ordering per brief Task ordering / Q4–Q5. No dependency cycle. Live release ex
 **Independent Test**: File exists with required sections/topics; README has one new link line.
 **Order**: T011–T012 after T001; parallel with Phases 2–4.
 
-- [ ] T011 [P] [US4] **Build lane**. After T001: Create root `CHANGELOG.md` in Keep a Changelog format with `Unreleased` and `v0.1.0`. Author the `v0.1.0` entry for the home-cluster owner from the merged source for the frozen topic list (library browse and filters, movie details, watchlist, OMDb and TMDb enrichment, recommendations, in-browser playback, subtitles, LocalPlay, and home deployment). Parallel with other delivery stories is allowed; **before pre-merge gates**, verify the entry against merged behaviour and correct any drift (FR-009; Wanted 2; brief decision 5). Do not invent behaviour that is not in merged code.
-- [ ] T012 [P] [US4] **Build lane**. After T001: Add exactly one new line in `README.md` linking to `CHANGELOG.md` (FR-009; Done when 1). Parallel with T011; subject to the same pre-gate validation stop if the link drifts.
+- [X] T011 [P] [US4] **Build lane**. After T001: Create root `CHANGELOG.md` in Keep a Changelog format with `Unreleased` and `v0.1.0`. Author the `v0.1.0` entry for the home-cluster owner from the merged source for the frozen topic list (library browse and filters, movie details, watchlist, OMDb and TMDb enrichment, recommendations, in-browser playback, subtitles, LocalPlay, and home deployment). Parallel with other delivery stories is allowed; **before pre-merge gates**, verify the entry against merged behaviour and correct any drift (FR-009; Wanted 2; brief decision 5). Do not invent behaviour that is not in merged code.
+- [X] T012 [P] [US4] **Build lane**. After T001: Add exactly one new line in `README.md` linking to `CHANGELOG.md` (FR-009; Done when 1). Parallel with T011; subject to the same pre-gate validation stop if the link drifts.
 
 **Checkpoint**: US4 independently reviewable in the delivery diff after pre-gate merged-behaviour validation.
 
