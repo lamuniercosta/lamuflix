@@ -52,9 +52,7 @@ internal static class OutsideLibraryRanking
                 continue;
             }
 
-            var seeds = contributors
-                .OrderByDescending(contribution => contribution.Weight)
-                .ThenBy(contribution => contribution.SourceMovieId)
+            var seeds = ByPreference(contributors)
                 .DistinctBy(contribution => contribution.SourceMovieId)
                 .ToArray();
             if (seeds.Length < 2)
@@ -89,17 +87,12 @@ internal static class OutsideLibraryRanking
 
         foreach (var contribution in contributions)
         {
-            if (contribution.Review.IsDisliked
-                || (contribution.IsInWatchlist
-                    && !contribution.IsWatched
-                    && !contribution.Review.IsLiked))
+            if (IsSuppressed(contribution))
             {
                 continue;
             }
 
-            var weight = contribution.Review.IsLiked
-                ? options.DiscoveryWeightLiked
-                : contribution.IsWatched ? options.DiscoveryWeightWatched : 0;
+            var weight = WeightFor(contribution, options);
             if (weight <= 0 || string.IsNullOrWhiteSpace(contribution.CandidateTitle))
             {
                 continue;
@@ -124,12 +117,28 @@ internal static class OutsideLibraryRanking
         return eligible;
     }
 
-    private static OutsideLibraryEligibleContribution Canonical(
-        IReadOnlyList<OutsideLibraryEligibleContribution> contributors) =>
+    private static bool IsSuppressed(OutsideLibraryRecommendationContribution contribution) =>
+        contribution.Review.IsDisliked
+            || (contribution.IsInWatchlist
+                && !contribution.IsWatched
+                && !contribution.Review.IsLiked);
+
+    private static long WeightFor(
+        OutsideLibraryRecommendationContribution contribution,
+        RecommendationOptions options) =>
+        contribution.Review.IsLiked
+            ? options.DiscoveryWeightLiked
+            : contribution.IsWatched ? options.DiscoveryWeightWatched : 0;
+
+    private static IOrderedEnumerable<OutsideLibraryEligibleContribution> ByPreference(
+        IEnumerable<OutsideLibraryEligibleContribution> contributors) =>
         contributors
             .OrderByDescending(contribution => contribution.Weight)
-            .ThenBy(contribution => contribution.SourceMovieId)
-            .First();
+            .ThenBy(contribution => contribution.SourceMovieId);
+
+    private static OutsideLibraryEligibleContribution Canonical(
+        IReadOnlyList<OutsideLibraryEligibleContribution> contributors) =>
+        ByPreference(contributors).First();
 
     private static bool IsInLibrary(
         IReadOnlyList<OutsideLibraryMovieIdentity> library,
@@ -143,21 +152,29 @@ internal static class OutsideLibraryRanking
                 return true;
             }
 
-            if (movie.TmdbId is not null
-                || movie.ReleaseYear is not { } movieYear
-                || candidate.CandidateReleaseYear is not { } candidateYear)
-            {
-                continue;
-            }
-
-            if (movieYear == candidateYear
-                && string.Equals(NormalizeTitle(movie.Title), title, StringComparison.OrdinalIgnoreCase))
+            if (MatchesTitleYear(movie, candidate, title))
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private static bool MatchesTitleYear(
+        OutsideLibraryMovieIdentity movie,
+        OutsideLibraryEligibleContribution candidate,
+        string title)
+    {
+        if (movie.TmdbId is not null
+            || movie.ReleaseYear is not { } movieYear
+            || candidate.CandidateReleaseYear is not { } candidateYear)
+        {
+            return false;
+        }
+
+        return movieYear == candidateYear
+            && string.Equals(NormalizeTitle(movie.Title), title, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeTitle(string? value)
