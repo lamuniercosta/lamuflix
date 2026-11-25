@@ -1,0 +1,93 @@
+# DEV-561 — Outside-library discovery on For You
+
+## Phase 2 handoff
+
+Quill drafts the size-L spec, plan, tasks, clarify and checklist from this brief. The recorded decisions are in [CONCLUSIONS.md](CONCLUSIONS.md), with taste decisions in [ASSUMPTIONS.md](ASSUMPTIONS.md). Evidence comes from the DEV-561 task note and recon-DEV-561, including the ticket text, the candidate identity addendum, and the product-document addendum.
+
+The owner approved Q3 Option A on PR #492. Treat that as the controlling amendment to Wanted 3 and Done when 2. The spec PR merge remains Gate 1. Implementation begins after Gate 1 and Phase B pickup. Confirm DEV-539 is Done and ADR 0049 is Accepted before implementation. Complete spec analysis and size-L plan challenge before provisional Gate 1.
+
+## Grill answers
+
+1. **ADR boundary.** [ADR 0049](../../docs/adr/0049-for-you-outside-library-discovery.md) amends ADR-0011 decision 2 for one separate read-only row. Main For You and Related stay library-only. Use only the first-page TMDb recommendation lists already fetched for library movies. The route reads local data and viewing history and taste data stay on the machine.
+2. **Storage.** Add nullable title, release_year and poster_path to the existing DEV-539 link table and record via an additive EF migration. Preserve the composite key, cascade and ID-only Crowd behavior. Existing enrichment stores the full metadata. The existing backfill can hydrate rows lacking titles for source movies that already have a TMDb ID.
+3. **Owner-approved library exclusion.** Exclude matches by TMDb ID and apply normalized title plus release year to library movies without a TMDb ID. All candidate identity comes from local data and the already-fetched list. Candidate IMDb lookup and blanket suppression for IMDb-only library records are outside the approved approach.
+4. **Read contract.** GET /api/recommendations/not-in-library uses RecommendationEndpoints and the existing /api authorization convention. A 200 response is an array of tmdbId, title, nullable releaseYear, nullable posterPath and reason. Return [] for disabled TMDb, blank API key or no eligible candidates. Keep the existing For You API contract. Generate OpenAPI and TypeScript from the C# DTO.
+5. **Seeds and score.** Reject disliked sources first. A source contributes once at Liked weight (default 2) when liked, otherwise at Watched weight (default 1) when watched. Watchlist alone is ineligible. Bind weights in RecommendationOptions. Deduplicate source/candidate pairs and group by recommended TMDb ID. Require two distinct contributing sources, sort by summed weight descending and TMDb ID ascending, and cap at 20.
+6. **Candidate identity and metadata.** Count titled links only. Select one metadata tuple from the highest-weight contributing library seed, breaking ties by lowest library MovieId. Normalize titles with NFC, trimming, collapsed whitespace and ordinal case-insensitive comparison while preserving punctuation and accents. Both years must be known and equal for the fallback. A missing year can leave an otherwise eligible card visible.
+7. **Reason.** Use the two highest-weight contributing seeds ordered by descending weight and ascending library MovieId. Format “Recommended for {seed title} and {seed title}” using the existing display-safe sanitization style. Both distinct contributors remain in the reason when their display titles coincide.
+8. **Positioning and glossary.** Add a focused Positioning subsection to specs/PRODUCT.md. Update the Recommendation entry in root CONTEXT.md and define **Outside-library recommendation** as a movie outside the library surfaced in the dedicated read-only For You row from TMDb recommendations contributed by eligible library seeds. Add _Avoid_: wanted movie. Patron dispatched Rigger to record the corrected product-document reference in YouTrack.
+9. **Web and credit.** Add a visually distinct, independently fetched **Not in your library yet** section below the library grid. Display only a successful nonempty result. Keep the grid usable during loading, errors and empty results. Use title, reason, optional year and a poster or fallback. Link to the TMDb movie page with an accessible new-tab link and rel="noopener noreferrer". The row has no Play, library details or Not interested control. Display day-verified official TMDb attribution beside the visible row. List the feature in README.md and leave README provider attribution to DEV-559.
+10. **Acceptance evidence.** Cover mapping, real EF migration/backfill, local ranking, zero-HTTP and configuration-off cases, library parity, web and local E2E. On the home library, report the pre-cutoff unique candidate count, the passing pre-cap count and actual owner verdicts on the ranked top 10 or all if fewer, after legacy hydration.
+11. **Implementation order.** Verify prerequisites and pickup facts first. Sequence additive persistence and existing ingest/backfill before the set-based query, the generated contract before web, then documentation, E2E, home acceptance and delivery gates.
+12. **Closing bar and caps.** Resolve all confirmed actionable in-scope findings, including Low, and satisfy the required gates and acceptance evidence. Cap the delivery loop at two review rounds and two fix commits per round. Apply Charter §2.3 to out-of-scope observations.
+
+## Frozen scope and review terms
+
+- **Scope.** Deliver Q1–Q11 only: the compatible DEV-539 link metadata, existing first-page enrichment and backfill, isolated local discovery route and For You row, required positioning/glossary/README/attribution and acceptance evidence. The main For You and Related stay library-only. The row is read-only. Requests, downloads, purchases, Wanted lists, alerts, Not interested, new provider lists and calls, peer-history filtering, and outside-movie overview embeddings are outside scope. Use existing dependencies and layers. The only schema change is the three nullable columns on movie_recommendations. LocalPlay, secrets and Process.Start are outside scope.
+- **Closing bar.** Zero open confirmed actionable in-scope findings at Critical, High, Medium or Low across Risk, Standards, Spec and ship review. Meet the Phase 3 and rebased-head gates and attach all Done when evidence to the delivery PR, including owner home-library verdicts. Report scope-empty SKIPPED, mutation N/A and any harness-disabled SKIP on their own terms. Failed or unrunnable required gates block clearance. The owner merges after awaiting-merge.
+- **Round cap.** Two review rounds maximum, with at most two fix commits per round. Put any third-round findings and remaining blockers on the PR for the owner without declaring clearance.
+- **Follow-up disposition.** Out-of-scope Critical or High findings, broken behavior, and owner-requested items qualify for a follow-up after checking for an existing open ticket. Patron rules and Rigger records. Log other out-of-scope observations in CONCLUSIONS.md as “noted, no ticket.” Anything else is a follow-up issue, not a finding in this round.
+
+## Planned touchpoints
+
+| Area | Files and ownership |
+|---|---|
+| Architecture and product | Accepted ADR 0049 in docs/adr/. Update Positioning in specs/PRODUCT.md, Recommendation and glossary in root CONTEXT.md, and the feature list in README.md. |
+| Provider and enrichment | TmdbMetadataProvider.Signals.cs and TmdbMetadataProvider.Mapping.cs under src/LamuFlix.Infrastructure/Adapters/. Carry the existing first-page recommendation data through the enrichment contract and BackfillTmdbRecommendationsCommandHandler.cs under src/LamuFlix.Core/Features/Enrichment/. |
+| Persistence | src/LamuFlix.Infrastructure/Persistence/Records/MovieRecommendationRecord.cs, its existing EF mapping and repository read/write path, and the additive migration and generated snapshot. Preserve DEV-539's binary link consumers. |
+| Recommendation and endpoint | src/LamuFlix.Core/Features/Recommendations/ for the new local query, scoring, reason formatting and response DTO. Use existing RecommendationOptions and registration seams. Register in src/LamuFlix.Api/Endpoints/RecommendationEndpoints.cs. |
+| Generated contract and web | Regenerate web/src/api/openapi.json and web/src/api/types.ts. Update web/src/features/for-you/ForYouPage.tsx and forYouApi.ts and add the discovery section and card there. Use generated types. |
+| Tests and evidence | Extend the existing provider, Core, EF/PostgreSQL, API, web and E2E test locations identified at pickup. Attach the acceptance and gate receipts to the delivery PR. |
+
+## Test strategy and acceptance evidence
+
+- Provider fixture proves that the existing first page supplies candidate ID, title, release year and poster, including optional fields and ID deduplication. Keep the production fetch path at its existing request count.
+- Real PostgreSQL EF/Testcontainers cases cover migration from the ID-only schema, preservation of keys, cascade and binary Crowd behavior, ingest and hydration of already-matched source movies, and retry/failure behavior. Prove stored rows survive an unsuccessful fetch.
+- Domain tests cover TMDb ID exclusion, normalized-title/year matching only for library movies without TMDb ID, unknown year and same-title/different-year cases, blank-title links, distinct-source counting, disliked and watchlist exclusions, Liked precedence, configured weighted score, metadata choice, stable sort, output cap and reason formatting. Use property tests for deduplication, order invariance and bounded results.
+- API integration tests assert actual JSON, authorization convention, all empty conditions, and zero outside HTTP using a handler that fails any request. Pin For You's movie IDs and their order against the existing behavior. Verify Related stays library-only and DEV-539 Crowd links still work.
+- Web tests cover visible, empty, loading and error behavior, independence of the main library grid, nullable metadata, visible credit, distinct read-only cards, and the new-tab link. Exercise both configuration-off cases through the API empty response and hidden web section. A local seeded E2E opens For You and sees the row. Use the connected Test URLs portal for browser test work.
+- After hydration, use the production ranking logic on the home library. Report unique titled out-of-library candidates with at least one eligible seed and those with at least two before the return cap. Record the ranked top 10 or all if fewer, with the actual human owner's good-pick/not verdict on each. Publish these acceptance results in the delivery PR and keep raw viewing and seed data local. Report sparse results as observed and preserve the quality bar.
+
+## Task ordering and gates
+
+1. Complete the size-L spec artifacts, read-only analysis, and plan-plus-ADR challenge. Obtain the spec PR merge for Gate 1. Phase B then checks drift, the DEV-539 Done prerequisite, the Accepted ADR and the current implementation seams.
+2. Land EF compatibility and mapping/ingest/backfill tests before relying on hydrated metadata. Refresh legacy links through the explicit backfill. Keep existing list fetching, use atomic per-source updates, and retain prior links when the provider fetch fails.
+3. Implement the local discovery query and deterministic ranking against set-based persisted projections. Verify existing library paths and configuration behavior. Wire the endpoint and validate the C# DTO and actual HTTP response. Regenerate OpenAPI and TypeScript before web composition.
+4. Implement the independent For You section and its card and test coverage. Complete the scoped docs. Record the official TMDb terms source and date before shipping the credit. Run the local E2E and collect the separate hydrated home-library receipt.
+5. Apply the Phase 3 refactor and changed-diff gates: Roslyn, cyclomatic complexity, InspectCode, mutation, property tests, vulnerable packages, formatting, .NET tests and web gates. Keep gate thresholds intact. Report exit-2 statuses as defined by the harness and task-pipeline. Attach rebased-head gate results and all Risk, Standards and Spec reports before the L-tier ship signoff. Preserve the owner-only merge boundary.
+
+## Phase 2 step 6 adjudication
+
+Reviewed `8c7a3720b661f6ff069196a35d9ce93994146c31` using the Sentry (4 Medium, 5 Low), Ledger (4 Medium, 7 Low), and Compass (0) reports. Pinned ticket and implementation evidence is in Maestri `recon-DEV-561` lines 23–100. The ticket has Wanted, Done when, Out of scope, and Open points sections. The Q3 owner amendment governs Wanted 3 and the corresponding identity acceptance test.
+
+### Sentry — Risk and Security
+
+| Finding | Disposition and basis |
+|---|---|
+| M1 | **Partially accepted.** T019 documents that Option A can miss records without a known year or with variant titles. The alternate loose-match audit would add an unapproved comparison with false positives and no ground truth. Keep the Q3/Q6 identity rule and Q10 home-library evidence bar. |
+| M2 | **Closed by existing design and tests.** Q6 deliberately couples display and fallback to the winning atomic tuple. T011 covers losing and ineligible tuples. Conflict-frequency measurement adds a new receipt outside Q10. |
+| M3 | **Accepted.** Clarify Q11: publish each successful source refresh in one transaction after fetching. Readers see a complete old or new source link set. A failed fetch or write preserves prior links. T007 must use real PostgreSQL and a separate reader during a controlled uncommitted replacement. |
+| M4 | **Accepted.** Wanted 5 requires Liked to count more than Watched. Reject discovery weights unless they are integers satisfying Liked > Watched > 0, with defaults 2 and 1 under Q5. T008/T011 validate invalid configurations and valid overrides. Accumulate in a range sufficient for the allowed weights and source count. |
+| L1 | **Accepted.** Q6 non-blank means neither null, empty, nor whitespace-only. T011 covers all three. |
+| L2 | **Accepted.** Under Q9, the API carries the nullable provider poster path, while web accepts a single safe filename segment, encodes it and appends it to the configured TMDb image base and size. Malformed values use the fallback. T016 covers traversal, query delimiters and whitespace. |
+| L3 | **Accepted.** Under Q7/Q9 the server formats plain display-safe text. React renders titles and reasons as text. T016 covers markup-bearing input. |
+| L4 | **Partially accepted.** Q1/Q11 require the existing first-page fetch and typed client resilience for operator reruns. Preserve the existing bounded policy rather than adding another retry loop or budget. T007 separates first-page calls per attempt from retries already configured by the client and proves a later eligible run can succeed. |
+| L5 | **Accepted.** Preserve the existing candidate-ID index evidenced in recon line 99. T001 verifies index and set-based query shape at pickup. T013 pins unauthenticated HTTP 401 before empty-result branches under Q4's route-group authorization. |
+
+### Ledger — Standards
+
+| Finding | Disposition and basis |
+|---|---|
+| M1 | **Accepted.** The task notes explicitly apply AGENTS.md's comment rule and exemptions. |
+| M2 | **Accepted.** Recon lines 95–100 identify `IRecommendationCandidateSource` and its EF implementation. Extend that existing port with one set-based read returning the Core-owned `OutsideLibraryRecommendationSnapshot`. Include source ID, seed state and title, candidate ID and metadata tuple, and whole-library TMDb ID/title/year identities. The existing library-only Crowd read stays separate. This implements Q11 on the existing port with Infrastructure owning EF and Core owning ranking. |
+| M3 | **Accepted.** The handler orchestrates the read and calls cohesive pure ranking operations in Core. Preserve the ordering in data-model.md and apply the harness complexity and mutation initialisation rules. |
+| M4 | **Accepted.** ADR 0049 records the scoped hydration exception to ADR 0048's skip-on-rerun behavior and the added nullable metadata with ID-only Crowd compatibility (Q2/Q11). |
+| L1 | **Accepted.** Record rejected candidate IMDb lookup, blanket IMDb-only suppression, and additional TMDb list fetches under Q1/Q3. Add ticket and adjudication date to the ADR header. |
+| L2 | **Accepted.** Record the separate read-only row in ADR 0049. The heading remains in Q9 and ticket Wanted 8. |
+| L3 | **Accepted.** Reference the configured harness refactor threshold without duplicating its current value. |
+| L4 | **Accepted.** Use `OutsideLibraryRecommendation`, `GetOutsideLibraryRecommendationsQuery` and `GetOutsideLibraryRecommendationsQueryHandler` under the Q8 glossary term. Keep the route and heading from Q4 and Wanted 8. |
+| L5 | **Accepted.** Constitution VIII governs CONTEXT.md. Q8 and Wanted 2 govern product positioning. |
+| L6 | **Accepted.** The Q4 query is parameterless. Register the normal Validation decorator and omit an empty validator class. |
+| L7 | **Accepted.** Use TanStack Query, the generated openapi-fetch client, and MSW. Record the TMDb terms URL and verification date in the delivery PR and CONCLUSIONS.md. Confirm the Verify OpenAPI snapshot test and CI drift verification at pickup. If either is absent, bring the gap to Patron before expanding scope. Give TMDb movie-page URL construction one tested home and use data-model.md as the canonical ranking sequence. |
+
+Compass reported zero findings. These dispositions refine implementation and evidence under the approved ticket, constitution and Patron rulings. The Q3 owner amendment and Q10 evidence requirements govern delivery.
