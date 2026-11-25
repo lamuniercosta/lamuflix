@@ -128,15 +128,32 @@ Ordering per brief Task order / Q3–Q7 / Plan challenge decisions and prior ana
   RMS ratio to active 100% was `4.2707` against the pre-declared `1.80–2.20`
   Q2 tolerance; the gain-node output tap was 2x, so the excess is compressor
   makeup/upward gain. No production edit made.
-- [ ] T013 [US4] **Build lane**. After T012: Via the Test URLs portal in Chromium with the same temporary session-only technique, play a real library movie, install the temporary portal observer before activation, connect the analyser to the real compressor output when the graph is created on activation, boost to 200%, capture a screenshot of the visible control and an analyser level reading, check fullscreen and windowed operation, and **clean up** afterwards (FR-011; SC-005; SMOKE-001 alignment; Q6; Plan challenge decision 3). Preserve the evidence for review. Record either pass evidence or an explicit receipt blocker (blocker ≠ passed delivery checkpoint).
+  Rerun on 2026-11-25 at HEAD `9be74d60` after the Cog threshold `-12 -> -6`
+  fix; tolerance re-declared before results in
+  `specs/DEV-569/PHASE5-EVIDENCE.md`. Active 100% ratio `0.9999` and Reset
+  100% ratio `0.9999`, mute RMS `0`, and loud limiting (reduction `-9.995 dB`,
+  ratio `0.928`) PASS. **BLOCKER (not a pass) persists:** 200% compressor-output
+  RMS ratio to active 100% was `2.9233` against `1.80–2.20`; a gain-output tap
+  was exactly 2x while Chromium added about +3.3 dB makeup at `threshold -6`.
+  T012 remains unchecked because the blocker is not a passed checkpoint. No
+  production edit made in the rerun.
+- [x] T013 [US4] **Build lane**. After T012: Via the Test URLs portal in Chromium with the same temporary session-only technique, play a real library movie, install the temporary portal observer before activation, connect the analyser to the real compressor output when the graph is created on activation, boost to 200%, capture a screenshot of the visible control and an analyser level reading, check fullscreen and windowed operation, and **clean up** afterwards (FR-011; SC-005; SMOKE-001 alignment; Q6; Plan challenge decision 3). Preserve the evidence for review. Record either pass evidence or an explicit receipt blocker (blocker ≠ passed delivery checkpoint).
   Executed on 2026-11-25 via Test URLs session-only evaluation at HEAD
   `d0c0509c`; receipts and screenshot path in
   `specs/DEV-569/PHASE5-EVIDENCE.md`. Real movie 512 at gain 2 on the real
   compressor output, visible 200% control screenshot, fullscreen and windowed
   DOM readings, and cleanup all recorded; both contexts reported
   `sinkId.type = none` and line 7 printed `true`.
+  Rerun at HEAD `9be74d60`: real movie 512 bound at gain 2 / threshold `-6`
+  with the analyser on the real compressor output; 25-sample mean RMS
+  `0.027759` with sink `none`; screenshot
+  `C:\Users\lamun\AppData\Local\Temp\DEV-569-T013-200pct-windowed-rerun.png`
+  at 1440x900 showing the visible `200%` control and live analyser reading;
+  fullscreen and windowed DOM/analyser readings nonzero; context closed, boost
+  restored to 100, viewport restored, line 7 `true`. T013 PASS on its own
+  receipt.
 
-**Checkpoint**: US4 delivery checkpoint passes only with calibrated + real-library **pass** evidence. **NOT PASSED**: T013 real-library receipt is recorded, but T012's 200% compressor-output ratio failed the pre-declared Q2 tolerance; the blocker must be dispositioned before Phase 6 delivery clearance.
+**Checkpoint**: US4 delivery checkpoint passes only with calibrated + real-library **pass** evidence. **NOT PASSED**: T013 real-library receipt passes, but T012's 200% compressor-output ratio still fails the pre-declared Q2 tolerance even after the `-12 -> -6` threshold fix (`4.2707` at `d0c0509c`, `2.9233` at `9be74d60` vs `1.80–2.20`); the blocker must be dispositioned before Phase 6 delivery clearance.
 
 ---
 

@@ -2,11 +2,147 @@
 
 Session: `Test URLs` portal at `http://localhost:3000/movies/512`, worktree
 `F:/Dev/LamuFlix.worktrees/DEV-569`, branch `feature/DEV-569`, HEAD `d0c0509c`
-(no production code edits in this phase). All measurements are session-only
-page evaluation; no shipping instrumentation, exports or globals are used by
-the application.
+for the original run and HEAD `9be74d60` for the T012–T013 rerun below (no
+production code edits in either). All measurements are session-only page
+evaluation; no shipping instrumentation, exports or globals are used by the
+application.
 
-## Q2 tolerance — declared BEFORE any result was collected (2026-11-25T19:51:55Z)
+## Rerun @ 9be74d60 — Q2 tolerance declared BEFORE any result was collected (2026-11-25T20:17:04Z)
+
+- Rerun scope: T012–T013 only, at HEAD `9be74d60` after the Cog threshold fix
+  (`threshold = -6 dB` when limiting, unchanged `ratio = 12` and `knee = 0`);
+  no production code edits in this session. The tolerance below was written
+  into this file before the first measurement of the rerun was taken.
+- Q2 bounds unchanged: boost 100–300%, gain = percent/100, 100% including
+  Reset measurably and audibly unity, limiting only above 100%, about 2x output
+  at 200% on the same calibrated quiet stimulus below compression onset
+  (`specs/DEV-569/CONCLUSIONS.md` Q2 / Patron 922d0753).
+- Pre-declared pass tolerance for the retained ratios:
+  - active 100% / independent native reference: 0.90–1.10;
+  - Reset 100% / independent native reference: 0.90–1.10;
+  - active 200% / active 100%: 1.80–2.20;
+  - quiet-signal compressor reduction at 100%: 0 dB (transparent);
+  - loud stimulus above unity at 200%: compressor reduction < -3 dB and RMS
+    <= 1.35x the 100% loud RMS (limiting engaged);
+  - mute at 200%: RMS <= 0.001 (silenced).
+- Under `test-portal-policy:6`, audible unity is evidenced silently through
+  gain exactly 1, 0 dB quiet reduction and an RMS match to the independent
+  unbound native reference at stock element volume 1; no audio to speakers.
+
+### Rerun portal safety receipts
+
+- Navigated `Test URLs` to `http://localhost:3000/movies/512` before any
+  override or measurement; the player was found already playing by the
+  inherited session and was paused immediately, before any measurement.
+- Applied the `test-portal-policy:6` override while preserving the literal
+  sink string with `String.fromCharCode(110,111,110,101)`; it printed
+  `patched: true`. A probe `new AudioContext()` returned
+  `probeSinkIdType: none`, `probeState: running`, and was closed before any
+  media played. The capability probe from the first evaluation was created
+  with the same silent sink, carried no media source, and was discarded on
+  the subsequent page reload.
+- T012 used two unmuted (`muted = false`) elements at `volume = 1`: a
+  measurement element wired into the real app graph by redirecting
+  `createMediaElementSource`, and an independent reference element connected
+  directly `createMediaElementSource -> AnalyserNode -> destination` in an
+  isolated `sinkId.type = none` context with no gain or compressor
+  (Patron 922d0753). The player `<video>` stayed unbound. The app context also
+  reported `sinkId.type = none`.
+- The exact `test-portal-policy:7` stop-media command printed `true` after T012
+  cleanup, again after the reload before T013 activation, and finally after
+  T013 cleanup. Every tracked Web Audio context was explicitly closed; both
+  session-only state objects, prototype hooks, analysers, Blob URLs and the
+  screenshot overlay were removed before reporting. No audio was played to
+  speakers during any measured run.
+
+### Rerun T012 calibrated portal receipt (session-only)
+
+- Observer installed before any activation with `appContextCount: 0` and the
+  reference context reporting `refSink: none`, `refState: running`; both
+  measurement elements were unmuted at `volume = 1`. The calibrated stimulus
+  was a generated 4 s, 44.1 kHz, mono, 440 Hz PCM16 WAV (amplitude `0.1` quiet,
+  `0.9` loud); stabilized windows were 12 samples after 1.6 s.
+- Activation at 100%: gain `1`, threshold `0`, ratio `1`, quiet reduction
+  `-0.0001342038594884798 dB`; compressor-output RMS
+  `0.07073229599279808`, independent native reference RMS
+  `0.07073683848256222`, ratio `0.9999357832515336`. PASS against 0.90–1.10.
+- Activation at 200%: gain `2`, threshold `-6`, ratio `12`, quiet reduction
+  `-0.0001342038594884798 dB`; compressor-output RMS `0.206773570324056`,
+  reference RMS `0.0707270789441088`, ratio to active 100%
+  `2.923326147155036`, ratio to the same-window native reference
+  `2.923541780757781`. **FAIL** against the pre-declared 1.80–2.20 tolerance.
+- Diagnostic gain-output tap (session-only): gain 1 produced gain-output RMS
+  `0.0706983640668832` and compressor-output RMS `0.10337942284269663`
+  (`1.462260466803673x`); gain 2 produced `0.1414550660765062` and
+  `0.20673565778502795` (`1.4614934870781837x`). The gain mapping is exactly
+  2x; Chromium's `DynamicsCompressorNode` adds about +3.3 dB of makeup gain at
+  `threshold = -6 dB`, `knee = 0`, `ratio = 12` even while the quiet signal is
+  below onset (`reduction` stays about 0 dB). The Cog change from `-12 dB` to
+  `-6 dB` reduced the excess (prior `4.2707x`) but did not bring the retained
+  compressor-output ratio inside 1.80–2.20. No production code was changed in
+  this rerun.
+- Reset 100% via the visible `Reset boost` DOM click: gain `1`, threshold `0`,
+  ratio `1`, reduction `-0.0001342038594884798 dB`; compressor-output RMS
+  `0.07069930296112006`, reference `0.0707088470219026`, ratio
+  `0.9998650231027021`. PASS.
+- Mute at 200%: RMS `0` while muted, with both elements unmuted again
+  afterwards. PASS against <= 0.001.
+- Loud limiting above unity: at 100% (gain `1`, threshold `0`, ratio `1`)
+  RMS `0.6364579896875243`, reduction `-0.0001342038594884798 dB`; at 200%
+  (gain `2`, threshold `-6`, ratio `12`) RMS `0.5906857401806759`, reduction
+  `-9.99451200167338 dB`, ratio `0.9280828424680145`. PASS against < -3 dB and
+  <= 1.35x.
+- Cleanup: both contexts reported `sinkId.type = none` before closing and
+  `state = closed` after; hooks restored to the original prototypes, Blob
+  URLs revoked, measurement elements removed, remembered boost restored to
+  `100`, all media paused, line 7 `true`.
+- **T012 verdict: BLOCKED at `9be74d60`** — active 200% / active 100% is
+  `2.9233` against the pre-declared `1.80–2.20` tolerance. The execution is
+  receipted, but this is not a passed delivery checkpoint and T012 stays
+  unchecked in `tasks.md`.
+
+### Rerun T013 real-library movie 512 receipt (session-only)
+
+- Page reloaded at `http://localhost:3000/movies/512` with remembered boost
+  `200`; media was paused and the line 6 override re-applied immediately with
+  the same literal-preserving form, returning `probeSink: none` before
+  activation. Autoplay resumed buffering once before activation; it was paused
+  and verified `playerPaused: true` with the app still unbound and the player
+  unmuted at `volume = 1`, `currentSrc`
+  `http://localhost:3000/api/movies/512/stream`, UI `200%`. No measured
+  playback occurred before the override was active.
+- Pre-activation observer installed with `appContextsBeforeActivation: 0`;
+  activation was a session DOM change of the visible boost range to 200, which
+  bound the real player element with gain `2`, threshold `-6`, ratio `12`, one
+  analyser on the real compressor output and app context
+  `sinkId.type = none`; the player was still paused at bind time.
+- Playback via a DOM click on `media-play-button`: 25 samples over ~2.5 s from
+  the real compressor output gave mean `0.027758530544200837`, max
+  `0.04376243278528866`, last `0.024506079099951443`; sink `none`, gain `2`,
+  player `muted = false`, `volume = 1`, stream URL unchanged.
+- Screenshot: viewport temporarily `1440x900`, controls shown by hovering the
+  visible boost range, session-only overlay reading `RMS 0.036543`, mean
+  `0.027759`, gain `2`, sink `none`, `muted false`, `volume 1`. Saved to
+  `C:\Users\lamun\AppData\Local\Temp\DEV-569-T013-200pct-windowed-rerun.png`.
+  The 1440x900 viewport was needed because at `980x488` the boost row is
+  clipped below the `media-controller` and Media Chrome hides controls until
+  hover. Viewport restored to `980x488` afterwards.
+- Fullscreen: portal click on `enter fullscreen mode` gave
+  `fullscreenElement = MEDIA-CONTROLLER`, boost range rect
+  `x 1044.56, y 858, 96x40`, 10 analyser samples mean `0.04587963473062895`,
+  last `0.04421930157606567`, sink `none`. Portal click on `exit fullscreen
+  mode` returned `fullscreenElement = null`, `aria-valuetext = 200%`, rect
+  `x 989.56, y 604.59, 96x40`, mean `0.05075365970267805`, last
+  `0.042374057068383535`, sink `none`. Fullscreen and windowed PASS; the
+  portal screenshot in fullscreen does not render the DOM overlay, so those
+  receipts are DOM/analyser readings.
+- Cleanup: app context reported `sinkId.type = none` before close and
+  `state = closed` after; analyser/hook/overlay/timer removed, remembered boost
+  restored to `100`, viewport restored, all media paused, line 7 `true`.
+- **T013 verdict: PASS on its own receipt**; the Phase 5 delivery checkpoint
+  remains blocked by the T012 200% ratio.
+
+## Prior run Q2 tolerance — declared BEFORE any result was collected (2026-11-25T19:51:55Z)
 
 - Q2 bounds are unchanged: boost 100–300%, gain = percent/100, 100% including
   Reset must be audibly and measurably unity, limiting only above 100%, about
