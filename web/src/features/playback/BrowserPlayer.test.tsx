@@ -2515,3 +2515,158 @@ describe('BrowserPlayer Phase 3 remembered volume boost', () => {
     expect(media.calls).toContain('play');
   });
 });
+
+describe('BrowserPlayer Phase 4 persistence and eligibility interaction', () => {
+  it.each([
+    ['a matching URL with unverified delivery', UNVERIFIED_MATCHING_STREAM],
+    ['a cross-origin URL with the library path', 'https://other.example/api/movies/1/stream'],
+  ])(
+    'keeps a remembered above-unity setting native through %s and back to eligible',
+    async (_label, ineligibleStream) => {
+      audio = installAudioStubs();
+      rememberBoost(220);
+      const { rerender } = renderPlayer();
+
+      expect(boostSlider()).toHaveValue('220');
+      expect(within(region()).getByText(/220%.*activate/i)).toBeInTheDocument();
+      expect(audio.contexts).toHaveLength(0);
+      expect(audio.sources).toHaveLength(0);
+
+      rerender(<BrowserPlayer title="Dune" movieId={1} streamUrl={ineligibleStream} />);
+
+      expect(screen.queryByRole('slider', { name: VOLUME_BOOST_LABEL })).toBeNull();
+      expect(within(region()).queryByText(/saved.*activate/i)).toBeNull();
+      expect(media.calls).toContain(`src:${ineligibleStream}`);
+      expect(audio.contexts).toHaveLength(0);
+      expect(audio.sources).toHaveLength(0);
+
+      rerender(<BrowserPlayer title="Dune" movieId={1} streamUrl={STREAM} />);
+
+      expect(boostSlider()).toHaveValue('220');
+      expect(within(region()).getByText(/220%.*activate/i)).toBeInTheDocument();
+      expect(audio.contexts).toHaveLength(0);
+      expect(audio.sources).toHaveLength(0);
+
+      fireEvent.click(boostSlider());
+      await waitFor(() => expect(audio.contexts[0].gains[0].gain.value).toBe(2.2));
+      expect(audio.sources).toHaveLength(1);
+      expect(within(region()).queryByText(/saved.*activate/i)).toBeNull();
+    },
+  );
+
+  it('keeps a remembered setting pending and native after a rejected resume on the same element', async () => {
+    audio = installAudioStubs();
+    const pending = audio.deferResume();
+    rememberBoost(155);
+    renderPlayer();
+    const element = video();
+
+    fireEvent.click(boostSlider());
+    await act(async () => {
+      pending.reject(new Error('resume denied'));
+    });
+
+    expect(audio.sources).toHaveLength(0);
+    expect(audio.contexts[0].closed).toBe(true);
+    expect(video()).toBe(element);
+    expect(element.isConnected).toBe(true);
+    expect(media.calls).toContain(`src:${STREAM}`);
+    expect(boostSlider()).toHaveValue('155');
+    expect(within(region()).getByText(/155%.*activate/i)).toBeInTheDocument();
+  });
+
+  it('keeps a remembered setting pending when a stale completion attaches to neither element', async () => {
+    audio = installAudioStubs();
+    const pending = audio.deferResume();
+    rememberBoost(175);
+    const { rerender } = renderPlayer();
+
+    fireEvent.click(boostSlider());
+    rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
+    await act(async () => {
+      pending.resolve();
+    });
+
+    expect(audio.sources).toHaveLength(0);
+    expect(audio.contexts[0].closed).toBe(true);
+    const heatVideo = video(region('Heat'));
+    expect(audio.sources.every((source) => source.element !== heatVideo)).toBe(true);
+    expect(boostSlider(region('Heat'))).toHaveValue('175');
+    expect(within(region('Heat')).getByText(/175%.*activate/i)).toBeInTheDocument();
+    expect(audio.contexts).toHaveLength(1);
+  });
+
+  it('keeps a remembered setting pending after uncertain ownership recovers on a fresh element', async () => {
+    audio = installAudioStubs();
+    audio.failSource();
+    rememberBoost(165);
+    renderPlayer();
+    const oldElement = video();
+    const continuity: PlaybackContinuity = {
+      time: 37,
+      paused: true,
+      volume: 0.55,
+      muted: true,
+      rate: 1.25,
+    };
+    setPlaybackContinuity(oldElement, continuity);
+    act(() => {
+      oldElement.pause();
+    });
+    media.calls.length = 0;
+
+    fireEvent.click(boostSlider());
+    await waitFor(() => expect(video()).not.toBe(oldElement));
+    const freshElement = video();
+
+    expect(audio.sources).toHaveLength(0);
+    expect(audio.contexts[0].closed).toBe(true);
+    expect(media.calls).not.toContain('play');
+    expectPlaybackContinuity(freshElement, continuity);
+    expect(boostSlider()).toHaveValue('165');
+    expect(within(region()).getByText(/165%.*activate/i)).toBeInTheDocument();
+  });
+
+  it('restores pending activation after a bound ineligible transition with same-media continuity', async () => {
+    audio = installAudioStubs();
+    rememberBoost(190);
+    const { rerender } = renderPlayer();
+    fireEvent.click(boostSlider());
+    await waitFor(() => expect(audio.sources).toHaveLength(1));
+    const oldElement = video();
+    const continuity: PlaybackContinuity = {
+      time: 64,
+      paused: true,
+      volume: 0.5,
+      muted: true,
+      rate: 1.5,
+    };
+    setPlaybackContinuity(oldElement, continuity);
+    act(() => {
+      oldElement.pause();
+    });
+
+    rerender(<BrowserPlayer title="Dune" movieId={1} streamUrl={UNVERIFIED_MATCHING_STREAM} />);
+    await waitFor(() => expect(video()).not.toBe(oldElement));
+    const freshElement = video();
+
+    expect(screen.queryByRole('slider', { name: VOLUME_BOOST_LABEL })).toBeNull();
+    expect(audio.sources).toHaveLength(1);
+    expect(audio.contexts[0].closed).toBe(true);
+    expect(audio.sources.every((source) => source.element !== freshElement)).toBe(true);
+    expectPlaybackContinuity(freshElement, continuity);
+
+    rerender(<BrowserPlayer title="Dune" movieId={1} streamUrl={STREAM} />);
+
+    expect(boostSlider()).toHaveValue('190');
+    expect(within(region()).getByText(/190%.*activate/i)).toBeInTheDocument();
+    expect(audio.contexts).toHaveLength(1);
+    expect(audio.sources).toHaveLength(1);
+
+    fireEvent.click(boostSlider());
+    await waitFor(() => expect(audio.sources).toHaveLength(2));
+    expect(audio.sources[1].element).toBe(video());
+    expect(audio.contexts[1].gains[0].gain.value).toBe(1.9);
+    expect(within(region()).queryByText(/saved.*activate/i)).toBeNull();
+  });
+});
