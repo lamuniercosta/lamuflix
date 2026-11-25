@@ -71,6 +71,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string GetDirectorsRoute = "/api/directors";
     private const string GetRecommendationsRoute = "/api/movies/{id:int}/recommendations";
     private const string ForYouRecommendationsRoute = "/api/recommendations/for-you";
+    private const string VersionRoute = "/api/version";
 
     public static TheoryData<Type, Type, Type> ManifestContracts =>
         new()
@@ -323,6 +324,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     ReviewRoute,
                     GetRecommendationsRoute,
                     ForYouRecommendationsRoute,
+                    VersionRoute,
                 ]);
     }
 

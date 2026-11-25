@@ -27,7 +27,7 @@ Evidence: `DEV-547` note, `recon-DEV-547` (especially lines 51–76), `specs/PRO
 | Area | Files and approach |
 | --- | --- |
 | Release documentation | Add root `CHANGELOG.md` and a one-line link in `README.md`. |
-| API and integration tests | Add the version DTO and endpoint under `src/LamuFlix.Api`, wired through `Endpoints/ApiEndpoints.cs`. Add endpoint integration coverage in `tests/LamuFlix.IntegrationTests` using the existing host conventions. |
+| API and integration tests | Add the version DTO and endpoint under `src/LamuFlix.Api`, wired through `Endpoints/ApiEndpoints.cs`. Add endpoint integration coverage in `tests/LamuFlix.IntegrationTests` using the existing host conventions. Update only the three existing exact inventories named in the [Phase B ruling](CONCLUSIONS.md#phase-b--charter-23-exact-inventory-test-file-scope-and-t005t006-ordering) for the new route, endpoint name, and OpenAPI operation. |
 | Web and contract | Regenerate the four generator-only contract outputs through the export, Verify, and npm steps in decision 7. Implement and test the single version line under `web/src`, using the Q3 pickup rule for its location. |
 | CI and images | Update `.github/workflows/ci.yml` jobs `container-build` and `publish-images`, plus `docker/Dockerfile.api` and `docker/Dockerfile.web`, so the exact source SHA reaches the final images. |
 | Home deployment and Compose | Update `.github/workflows/promote-home.yml`, relevant manifests under `deploy/k8s/base` and `deploy/k8s/overlays/home`, and `docker-compose.yml` for the Q2 contract. Render release beside existing digest pins. Reuse current promotion and release reporting. |
@@ -42,7 +42,7 @@ Evidence: `DEV-547` note, `recon-DEV-547` (especially lines 51–76), `specs/PRO
 ## Task ordering and release acceptance
 
 1. Complete DEV-546 first and require Gate 1 before build implementation. At Phase B pickup, select one display location using Q3.
-2. Develop the endpoint and its tests, then generate OpenAPI and TypeScript before wiring the web client. CI/image metadata and home/Compose propagation can advance in parallel against the Q2 contract. Draft the changelog and README link in parallel.
+2. Complete the endpoint and inventory changes, then require the focused version HTTP checks, ArchitectureTests, and three T005 static gates to pass. Run T006 OpenAPI/Verify regeneration and check for unrelated drift, then finish T005 with the complete integration project. Require both T005 and T006 green before T007 TypeScript/MSW generation and web wiring (Phase B ruling). CI/image metadata and home/Compose propagation can advance in parallel against the Q2 contract. Draft the changelog and README link in parallel.
 3. Complete the pre-merge test matrix and Size M review on the delivery head. The user merges the delivery PR.
 4. Verify the nightly gate passed on the exact `main` target containing both tickets before the authorized release operator pushes `v0.1.0`.
 5. Read back the green tag-triggered `promote-home` run and GitHub Release. Verify `RELEASE.json` on `env/home` records `"release": "v0.1.0"`, the target commit, and the deployed image digests. Verify the app at `http://127.0.0.1:3100` displays `v0.1.0` and the matching short commit. Rigger posts the tag-run link and the version-line screenshot to DEV-547 before closure.
