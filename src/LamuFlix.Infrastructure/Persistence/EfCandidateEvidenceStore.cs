@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LamuFlix.Infrastructure.Persistence;
 
-internal interface ICandidateEvidenceStore
+public interface ICandidateEvidenceStore
 {
     Task<CandidateImdbEvidence?> ReadAsync(int tmdbId, CancellationToken cancellationToken);
 

@@ -175,3 +175,13 @@ Compass reported zero findings. Total **20 accepted, 0 rejected, 0 deferred**. G
 Keel independently checked Quill's repaired artifacts and private plan/tasks mirrors after both Phase 2 read-backs. Read-only `speckit-analyze` prerequisites exited 0 with `PYTHONUTF8=1`. All 15 functional requirements and 8 success criteria map to the 21 tasks, and all named dependencies point to earlier tasks in execution order. The plan and task mirrors match byte for byte. The three-axis challenge closes with 20 accepted, 0 rejected, and 0 deferred findings.
 
 The draft Spec Kit PR may be prepared with the exact unchecked owner checkbox in `spec.md`. Principle VII remains **blocked: structural**. Gate 1 and T000 remain closed until the owner answers affirmatively and merges the Spec Kit PR carrying the actual narrow constitution amendment. T000 records the verified merge and amendment commit. An owner rejection stops this draft for re-planning.
+
+### T000 Gate 1 receipt
+
+Verified at pre-Build HEAD `3496308bd128e9215ac6c90d1d23ac0bb17405d0` on `feature/dev-571`.
+
+- The [Spec Kit PR #504](https://github.com/lamuniercosta/lamuflix/pull/504) is merged at `1aa1d5762e5c4fdccf60924b3377ece2f225f5d0`. That commit is an ancestor of the rebased feature HEAD.
+- The [governance PR #508](https://github.com/lamuniercosta/lamuflix/pull/508) carries the checked affirmative owner Gate 1 checkbox and is merged at `9e94faa16358ffeefdd0c76a75a79264ee7486bc`. That commit is the worktree's `origin/main` and its merge base with the feature HEAD.
+- [Constitution 2.1.0](../../.specify/memory/constitution.md) carries the sync-impact record and the narrow Principle VII exception at that commit. The worktree copy matches the merged text. The exception normalizes only the raw `Omdb:Quota:DailyLimit` key. A disabled allowance keeps the host and cached or confirmed-absence evaluation available, with zero live OMDb sends for discovery and enrichment. Other startup validation and enrichment quota settlement are preserved. Q4 requires provisioning and reading back a positive allowance before deploying the revised guard where OMDb is already in use.
+
+Gate 1 is verified and T000 is complete. T001-T020 are unlocked in the frozen task order.

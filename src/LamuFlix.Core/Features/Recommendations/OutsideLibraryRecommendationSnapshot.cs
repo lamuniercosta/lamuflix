@@ -24,16 +24,20 @@ public sealed record OutsideLibraryRecommendationSnapshot
 {
     public OutsideLibraryRecommendationSnapshot(
         IReadOnlyList<OutsideLibraryRecommendationContribution> contributions,
-        IReadOnlyList<OutsideLibraryMovieIdentity> library)
+        IReadOnlyList<OutsideLibraryMovieIdentity> library,
+        IReadOnlyList<OutsideLibraryRecommendation>? admittedCards = null)
     {
         ArgumentNullException.ThrowIfNull(contributions);
         ArgumentNullException.ThrowIfNull(library);
 
         Contributions = contributions;
         Library = library;
+        AdmittedCards = admittedCards;
     }
 
     public IReadOnlyList<OutsideLibraryRecommendationContribution> Contributions { get; init; }
 
     public IReadOnlyList<OutsideLibraryMovieIdentity> Library { get; init; }
+
+    public IReadOnlyList<OutsideLibraryRecommendation>? AdmittedCards { get; init; }
 }

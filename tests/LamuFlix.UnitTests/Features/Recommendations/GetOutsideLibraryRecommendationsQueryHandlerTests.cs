@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -46,6 +47,30 @@ public sealed class GetOutsideLibraryRecommendationsQueryHandlerTests
 
         // assert
         result.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleAsync_SnapshotWithAdmittedCards_ReturnsThemInSnapshotOrder()
+    {
+        // arrange
+        OutsideLibraryRecommendation[] admitted =
+        [
+            new(300, "Third", 2003, null, "Recommended for Seed 2"),
+            new(200, "Second", 2002, null, "Recommended for Seed 1"),
+        ];
+        var snapshot = new OutsideLibraryRecommendationSnapshot([], [], admitted);
+        var source = Substitute.For<IRecommendationCandidateSource>();
+        source.GetOutsideLibraryRecommendationsAsync(Arg.Any<CancellationToken>())
+            .Returns(snapshot);
+        var handler = Handler(source);
+
+        // act
+        var result = await handler.HandleAsync(
+            new GetOutsideLibraryRecommendationsQuery(),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.Select(card => card.TmdbId).ShouldBe([300, 200]);
     }
 
     [Fact]
