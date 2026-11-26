@@ -78,7 +78,7 @@ public sealed class SystemProcessRunner : IProcessRunner
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executable);
         ArgumentNullException.ThrowIfNull(arguments);
-        if (timeout <= TimeSpan.Zero)
+        if (timeout != Timeout.InfiniteTimeSpan && timeout <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(timeout), "Timeout must be greater than zero.");
         }
@@ -107,6 +107,21 @@ public sealed class SystemProcessRunner : IProcessRunner
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
+        if (timeout == Timeout.InfiniteTimeSpan)
+        {
+            try
+            {
+                await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                return false;
+            }
+            catch (OperationCanceledException)
+            {
+                job?.Terminate();
+                KillTree(process);
+                throw;
+            }
+        }
+
         using var timeoutSource = new CancellationTokenSource(timeout, timeProvider);
         using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,

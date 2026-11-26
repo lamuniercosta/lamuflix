@@ -815,6 +815,8 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
         unsatisfiable.StatusCode.ShouldBe(HttpStatusCode.RequestedRangeNotSatisfiable);
         unsatisfiable.Content.Headers.ContentRange.ShouldNotBeNull().ToString().ShouldBe("bytes */4096");
         NoSniff(unsatisfiable).ShouldBeNull();
+        reader.OpenedStreams.Count.ShouldBe(3);
+        reader.OpenedStreams.ShouldAllBe(stream => stream.Disposed);
     }
 
     [Fact]

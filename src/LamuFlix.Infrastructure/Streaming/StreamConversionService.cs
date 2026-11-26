@@ -94,6 +94,14 @@ public sealed partial class StreamConversionService : IStreamConversionService
         int audioOrdinal,
         CancellationToken cancellationToken)
     {
+        var reused = TryReuseCompleted(version);
+        if (reused is not null)
+        {
+            return reused;
+        }
+
+        RemoveExpiredAssets();
+        EnforceSizeLimit();
         var flight = GetOrCreateFlight(movieId, version, sourcePath, audioOrdinal);
         try
         {
@@ -102,6 +110,31 @@ public sealed partial class StreamConversionService : IStreamConversionService
         finally
         {
             ReleaseWaiter(flight);
+        }
+    }
+
+    private StreamConversionResult? TryReuseCompleted(SourceVersion version)
+    {
+        CompletedAsset? candidate;
+        lock (gate)
+        {
+            assets.TryGetValue(version, out candidate);
+        }
+
+        if (candidate is null || !IsCurrentVersion(version))
+        {
+            return null;
+        }
+
+        lock (gate)
+        {
+            if (!assets.TryGetValue(version, out var current) || !ReferenceEquals(current, candidate))
+            {
+                return null;
+            }
+
+            current.LastAccess = timeProvider.GetUtcNow();
+            return new StreamConversionResult(current.Path, true);
         }
     }
 
@@ -279,7 +312,7 @@ public sealed partial class StreamConversionService : IStreamConversionService
         return asset;
     }
 
-    private static TimeSpan ConversionRunnerTimeout => TimeSpan.FromHours(1);
+    private static TimeSpan ConversionRunnerTimeout => Timeout.InfiniteTimeSpan;
 
     private static string VersionFileName(SourceVersion version)
     {

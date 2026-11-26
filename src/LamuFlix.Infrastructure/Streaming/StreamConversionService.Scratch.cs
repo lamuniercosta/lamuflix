@@ -17,16 +17,18 @@ public sealed partial class StreamConversionService
         ArgumentNullException.ThrowIfNull(prepared);
         cancellationToken.ThrowIfCancellationRequested();
 
+        CompletedAsset? pinned = null;
         Action? release = null;
         lock (gate)
         {
-            var asset = assets.Values.FirstOrDefault(candidate =>
+            pinned = assets.Values.FirstOrDefault(candidate =>
                 string.Equals(candidate.Path, prepared.Path, StringComparison.Ordinal));
-            if (asset is not null)
+            if (pinned is not null)
             {
-                asset.Readers++;
-                asset.LastAccess = timeProvider.GetUtcNow();
-                release = () => ReleaseReader(asset);
+                pinned.Readers++;
+                pinned.LastAccess = timeProvider.GetUtcNow();
+                var captured = pinned;
+                release = () => ReleaseReader(captured);
             }
         }
 
@@ -48,6 +50,28 @@ public sealed partial class StreamConversionService
         {
             release?.Invoke();
             throw;
+        }
+
+        lock (gate)
+        {
+            var current = assets.Values.FirstOrDefault(candidate =>
+                string.Equals(candidate.Path, prepared.Path, StringComparison.Ordinal));
+            if (current is null)
+            {
+                release?.Invoke();
+                stream.Dispose();
+                throw new FileNotFoundException("Converted asset was evicted before the reader was acquired.", prepared.Path);
+            }
+
+            if (!ReferenceEquals(current, pinned))
+            {
+                release?.Invoke();
+                current.Readers++;
+                var captured = current;
+                release = () => ReleaseReader(captured);
+            }
+
+            current.LastAccess = timeProvider.GetUtcNow();
         }
 
         return Task.FromResult(new StreamReaderLease(stream, release));
@@ -184,24 +208,62 @@ public sealed partial class StreamConversionService
             return;
         }
 
-        HashSet<string> active;
+        HashSet<string> retained;
         lock (gate)
         {
-            active = inFlight.Values
+            retained = inFlight.Values
                 .Select(flight => Path.GetFileName(flight.PartialPath))
+                .Concat(assets.Values.Select(asset => Path.GetFileName(asset.Path)))
                 .ToHashSet(StringComparer.Ordinal);
         }
 
         foreach (var file in Directory.EnumerateFiles(scratchRoot))
         {
             var name = Path.GetFileName(file);
-            if (name.StartsWith(OwnedPrefix, StringComparison.Ordinal)
-                && (name.EndsWith(".partial.mp4", StringComparison.Ordinal) || name.EndsWith(".tmp", StringComparison.Ordinal))
-                && !active.Contains(name))
+            if (IsOwnedOrphanName(name) && !retained.Contains(name))
             {
                 DeleteQuietly(file);
             }
         }
+    }
+
+    private static bool IsOwnedOrphanName(string name)
+    {
+        if (!name.StartsWith(OwnedPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (name.EndsWith(".partial.mp4", StringComparison.Ordinal) || name.EndsWith(".tmp", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return IsOwnedFinalName(name);
+    }
+
+    private static bool IsOwnedFinalName(string name)
+    {
+        const int HexLength = 16;
+        var stem = OwnedPrefix.Length + HexLength;
+        if (name.Length != stem + ".mp4".Length || !name.EndsWith(".mp4", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        for (var index = OwnedPrefix.Length; index < stem; index++)
+        {
+            var digit = name[index];
+            var isHex = (digit >= '0' && digit <= '9')
+                || (digit >= 'a' && digit <= 'f')
+                || (digit >= 'A' && digit <= 'F');
+            if (!isHex)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static IReadOnlyList<string> ConversionArguments(

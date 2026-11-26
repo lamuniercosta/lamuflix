@@ -77,6 +77,7 @@ internal static class StreamEndpoints
                 if (prepared.Converted)
                 {
                     lease = await conversionService.OpenReadAsync(prepared, cancellationToken).ConfigureAwait(false);
+                    await raw.DisposeAsync();
                     delivery = new StreamDelivery(lease.Stream, movieId.Value, logger, lease);
                     contentType = Mp4ContentType;
                 }
