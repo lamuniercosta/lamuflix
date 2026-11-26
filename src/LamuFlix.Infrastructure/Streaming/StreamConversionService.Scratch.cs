@@ -73,20 +73,9 @@ public sealed partial class StreamConversionService
 
     private void RemoveExpiredAssets()
     {
-        List<CompletedAsset> expired;
-        lock (gate)
-        {
-            var now = timeProvider.GetUtcNow();
-            expired =
-            [
-                .. assets.Values.Where(asset => asset.Readers == 0
-                    && (now - asset.LastAccess >= options.IdleExpiry || !IsCurrentVersion(asset.Version))),
-            ];
-            foreach (var asset in expired)
-            {
-                assets.Remove(asset.Version);
-            }
-        }
+        var now = timeProvider.GetUtcNow();
+        var expired = TakeAssets(asset => asset.Readers == 0
+            && (now - asset.LastAccess >= options.IdleExpiry || !IsCurrentVersion(asset.Version)));
 
         foreach (var asset in expired)
         {
@@ -98,22 +87,44 @@ public sealed partial class StreamConversionService
     {
         while (GetTotalAssetLength() > options.ScratchSizeLimitBytes)
         {
-            CompletedAsset? victim;
-            lock (gate)
+            var victim = TakeOldestIdle();
+            if (victim is null)
             {
-                victim = assets.Values
-                    .Where(asset => asset.Readers == 0)
-                    .OrderBy(asset => asset.LastAccess)
-                    .FirstOrDefault();
-                if (victim is null)
-                {
-                    return;
-                }
-
-                assets.Remove(victim.Version);
+                return;
             }
 
             DeleteQuietly(victim.Path);
+        }
+    }
+
+    private List<CompletedAsset> TakeAssets(Func<CompletedAsset, bool> predicate)
+    {
+        lock (gate)
+        {
+            var taken = assets.Values.Where(predicate).ToList();
+            foreach (var asset in taken)
+            {
+                assets.Remove(asset.Version);
+            }
+
+            return taken;
+        }
+    }
+
+    private CompletedAsset? TakeOldestIdle()
+    {
+        lock (gate)
+        {
+            var victim = assets.Values
+                .Where(static asset => asset.Readers == 0)
+                .OrderBy(static asset => asset.LastAccess)
+                .FirstOrDefault();
+            if (victim is not null)
+            {
+                assets.Remove(victim.Version);
+            }
+
+            return victim;
         }
     }
 
@@ -127,17 +138,11 @@ public sealed partial class StreamConversionService
 
     private void RemoveStaleAssets(string sourcePath, SourceVersion version)
     {
-        List<CompletedAsset> stale;
-        lock (gate)
-        {
-            stale = [.. assets.Values.Where(asset => asset.Version.Path == sourcePath && asset.Version != version)];
-            foreach (var asset in stale.Where(asset => asset.Readers == 0))
-            {
-                assets.Remove(asset.Version);
-            }
-        }
+        var stale = TakeAssets(asset => asset.Version.Path == sourcePath
+            && asset.Version != version
+            && asset.Readers == 0);
 
-        foreach (var asset in stale.Where(asset => asset.Readers == 0))
+        foreach (var asset in stale)
         {
             DeleteQuietly(asset.Path);
         }
@@ -145,23 +150,14 @@ public sealed partial class StreamConversionService
 
     private void Invalidate(SourceVersion version)
     {
-        CompletedAsset? asset;
         lock (gate)
         {
             probes.Remove(version);
             inFlight.Remove(version);
-            asset = assets.GetValueOrDefault(version);
-            if (asset is { Readers: 0 })
-            {
-                assets.Remove(version);
-            }
-            else
-            {
-                asset = null;
-            }
         }
 
-        if (asset is not null)
+        var removed = TakeAssets(asset => asset.Version == version && asset.Readers == 0);
+        foreach (var asset in removed)
         {
             DeleteQuietly(asset.Path);
         }
