@@ -17,8 +17,14 @@ public sealed class EfMetadataRequestGate(
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        var quota = quotaOptions.Value;
+        if (!quota.IsEnabled)
+        {
+            return false;
+        }
+
         var usageDate = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
-        var dailyLimit = quotaOptions.Value.DailyLimit;
+        var dailyLimit = quota.DailyLimit;
 
         var admitted = await db.Database.ExecuteSqlInterpolatedAsync(
             $"""

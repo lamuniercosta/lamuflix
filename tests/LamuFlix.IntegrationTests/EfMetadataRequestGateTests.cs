@@ -187,6 +187,25 @@ public sealed class EfMetadataRequestGateTests(PostgresFixture fixture) : IAsync
         (await ReadUsageAsync(fixture, cancellationToken)).ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task TryAcquireAsync_DisabledAllowance_DeniesWithoutChargingUsage()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = fixture.CreateMigratedContext();
+        var gate = new EfMetadataRequestGate(
+            context,
+            new FixedTimeProvider(BeforeMidnight),
+            Options.Create(new OmdbQuotaOptions()));
+
+        // act
+        var admitted = await gate.TryAcquireAsync(cancellationToken);
+
+        // assert
+        admitted.ShouldBeFalse();
+        (await ReadUsageAsync(fixture, cancellationToken)).ShouldBeEmpty();
+    }
+
     private static EfMetadataRequestGate CreateGate(LamuFlixDbContext context, DateTimeOffset now, int dailyLimit) =>
         new(context, new FixedTimeProvider(now), Options.Create(new OmdbQuotaOptions { DailyLimit = dailyLimit }));
 

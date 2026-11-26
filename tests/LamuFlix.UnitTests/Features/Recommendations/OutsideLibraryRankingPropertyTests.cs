@@ -5,6 +5,7 @@ using FsCheck.Xunit;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
+using Contribution = LamuFlix.Core.Features.Recommendations.OutsideLibraryRecommendationContribution;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 
@@ -61,6 +62,104 @@ public sealed class OutsideLibraryRankingPropertyTests
             .Select(candidate => candidate.Card);
         return cards.Count <= 20 && cards.SequenceEqual(expected);
     }
+
+    [Fact]
+    public void Rank_LikedAndWatchedSeeds_UseTwoAndOneWeights()
+    {
+        // arrange
+        Contribution[] contributions =
+        [
+            Contribution(1, 100, liked: true),
+            Contribution(2, 100, liked: true),
+            Contribution(3, 101, liked: false),
+            Contribution(4, 101, liked: false),
+        ];
+
+        // act
+        var ranked = OutsideLibraryRanking.RankAll(Snapshot(contributions), Options());
+
+        // assert
+        ranked.Select(candidate => candidate.TmdbId).ShouldBe([100, 101]);
+        ranked.Select(candidate => candidate.Score).ShouldBe([4L, 2L]);
+        ranked.Select(candidate => candidate.SeedCount).ShouldBe([2, 2]);
+    }
+
+    [Fact]
+    public void Rank_EqualScores_OrdersByAscendingTmdbId()
+    {
+        // arrange
+        Contribution[] contributions =
+        [
+            Contribution(1, 300, liked: true),
+            Contribution(2, 300, liked: true),
+            Contribution(3, 200, liked: true),
+            Contribution(4, 200, liked: true),
+        ];
+
+        // act
+        var cards = OutsideLibraryRanking.Rank(Snapshot(contributions), Options());
+
+        // assert
+        cards.Select(card => card.TmdbId).ShouldBe([200, 300]);
+    }
+
+    [Fact]
+    public void RankAll_LibraryIdentityAndSingleSeedCandidates_AreExcluded()
+    {
+        // arrange
+        Contribution[] contributions =
+        [
+            Contribution(1, 100, liked: true),
+            Contribution(2, 100, liked: true),
+            Contribution(3, 101, liked: true),
+            Contribution(4, 101, liked: true),
+            Contribution(5, 102, liked: true),
+        ];
+        var snapshot = new OutsideLibraryRecommendationSnapshot(
+            contributions,
+            [new OutsideLibraryMovieIdentity(101, "Other", null)]);
+
+        // act
+        var ranked = OutsideLibraryRanking.RankAll(snapshot, Options());
+
+        // assert
+        ranked.Select(candidate => candidate.TmdbId).ShouldBe([100]);
+    }
+
+    [Fact]
+    public void Rank_MoreThanTwentyEligibleCandidates_ReturnsTopTwenty()
+    {
+        // arrange
+        var contributions = Enumerable.Range(1, 50)
+            .SelectMany(source => new[]
+            {
+                Contribution(source, 100 + source, liked: true),
+                Contribution(100 + source, 100 + source, liked: true),
+            })
+            .ToArray();
+
+        // act
+        var cards = OutsideLibraryRanking.Rank(Snapshot(contributions), Options());
+
+        // assert
+        cards.Count.ShouldBe(20);
+        cards.Select(card => card.TmdbId).ShouldBe(Enumerable.Range(101, 20));
+    }
+
+    private static OutsideLibraryRecommendationContribution Contribution(
+        int sourceId,
+        int tmdbId,
+        bool liked) =>
+        new(
+            new MovieId(sourceId),
+            $"Seed {sourceId}",
+            liked ? Review.Liked : Review.None,
+            IsWatched: !liked,
+            IsInWatchlist: false,
+            tmdbId,
+            $"Candidate {tmdbId}",
+            2001,
+            null);
 
     private static IEnumerable<OutsideLibraryRecommendationContribution> BuildContributions(
         int[] sourceSeeds,

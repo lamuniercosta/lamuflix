@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
 using System.Reflection;
 using LamuFlix.Core.Options;
 
@@ -8,7 +5,7 @@ namespace LamuFlix.UnitTests.Options;
 
 public sealed class OmdbQuotaOptionsTests
 {
-    public static TheoryData<int, bool> DailyLimitEdges =>
+    public static TheoryData<int, bool> DailyLimitStates =>
         new()
         {
             { 1, true },
@@ -18,7 +15,7 @@ public sealed class OmdbQuotaOptionsTests
         };
 
     [Fact]
-    public void Defaults_DailyLimit_IsOneThousand()
+    public void Defaults_DailyLimit_IsAbsent()
     {
         // arrange
         var options = new OmdbQuotaOptions();
@@ -27,7 +24,8 @@ public sealed class OmdbQuotaOptionsTests
         var dailyLimit = options.DailyLimit;
 
         // assert
-        dailyLimit.ShouldBe(1000);
+        dailyLimit.ShouldBe(0);
+        options.IsEnabled.ShouldBeFalse();
     }
 
     [Fact]
@@ -52,29 +50,16 @@ public sealed class OmdbQuotaOptionsTests
     }
 
     [Theory]
-    [MemberData(nameof(DailyLimitEdges))]
-    public void TryValidateObject_DailyLimit_AtEachEdge_MatchesTheRange(int dailyLimit, bool expectedValid)
+    [MemberData(nameof(DailyLimitStates))]
+    public void IsEnabled_IsTrueOnlyForAPositiveAllowance(int dailyLimit, bool expected)
     {
         // arrange
         var options = new OmdbQuotaOptions { DailyLimit = dailyLimit };
 
         // act
-        var results = Validate(options);
+        var enabled = options.IsEnabled;
 
         // assert
-        if (expectedValid)
-        {
-            results.ShouldBeEmpty();
-            return;
-        }
-
-        results.SelectMany(result => result.MemberNames).ShouldContain(nameof(OmdbQuotaOptions.DailyLimit));
-    }
-
-    private static IReadOnlyList<ValidationResult> Validate(OmdbQuotaOptions options)
-    {
-        var results = new List<ValidationResult>();
-        Validator.TryValidateObject(options, new ValidationContext(options), results, validateAllProperties: true);
-        return results;
+        enabled.ShouldBe(expected);
     }
 }

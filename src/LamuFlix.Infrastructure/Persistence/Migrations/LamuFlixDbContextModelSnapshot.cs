@@ -43,6 +43,46 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.ToTable("actors", (string)null);
                 });
 
+            modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.CandidateEvidenceRecord", b =>
+                {
+                    b.Property<int>("TmdbId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tmdb_id");
+
+                    b.Property<int?>("CollectionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("collection_id");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<string>("ImdbId")
+                        .HasColumnType("text")
+                        .HasColumnName("imdb_id");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("outcome");
+
+                    b.Property<decimal?>("Rating")
+                        .HasColumnType("numeric")
+                        .HasColumnName("rating");
+
+                    b.Property<int?>("Votes")
+                        .HasColumnType("integer")
+                        .HasColumnName("votes");
+
+                    b.HasKey("TmdbId")
+                        .HasName("PK_outside_library_candidate_evidence");
+
+                    b.ToTable("outside_library_candidate_evidence", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_candidate_evidence_durable_outcome", "outcome in ('Complete', 'ConfirmedAbsence')");
+                        });
+                });
+
             modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.CollectionRecord", b =>
                 {
                     b.Property<int>("Id")
