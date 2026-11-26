@@ -130,3 +130,9 @@ Verdict: `gate1: provisional` confirmed for DEV-572 on `feature/572-spec` with z
 - **Analyze clean and plan challenge adjudicated**: `/speckit-analyze` clean across 17 FRs / 8 SCs / T000–T012 (note `DEV-572` line 21); all 20 Sentry/Ledger/Compass findings disposed and Keel's `PLAN FROZEN` receipt at ruling HEAD `315a0e46` (this file, Step 6 and PLAN FROZEN sections; note `DEV-572` line 31).
 - **User-visible outcome verified**: `checklists/requirements.md` lines 36–38 ticked `[x]`, matching `spec.md` `What the User Will See` (lines 23–29).
 - **Scope**: within ticket AC1–8 (`recon-DEV-572` lines 31–39), brief Q1–Q7 and the F1/R1 rulings; the Principle I amendment is a conforming amendment delivered in the Build PR, not a §2.3(b) departure. The Spec Kit PR is `specs/DEV-572/` only: untracked `docs/adr/0050-*.md` is not staged there (Build PR envelope). The `spec.md` Status line edit changes its frozen SHA-256 by design.
+
+## T000 — Owner Gate 1 merge receipt
+
+Gate 1 completed when [Spec Kit PR #505](https://github.com/lamuniercosta/lamuflix/pull/505) merged into `main` at `2026-11-26T08:34:23Z`. GitHub reports `MERGED` with merge commit `6fe4efcd571dc0e9151ee9fed4114e7f080ca143`, which matches the verified pickup HEAD of `feature/DEV-572` before this receipt.
+
+T001 pickup recon and read-only reanalysis may proceed. T002 feasibility proof and the Build and delivery gates retain their recorded prerequisites.
