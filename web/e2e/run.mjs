@@ -14,6 +14,8 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import {
+  BASELINE_OUTSIDE_LIBRARY_EVIDENCE,
+  DEV571_OUTSIDE_LIBRARY_EVIDENCE,
   FOR_YOU_CATALOG_MOVIES,
   generateFixtures,
   MANUAL_MATCH_MOVIES,
@@ -44,6 +46,7 @@ const WAIT_BUDGET_MS = 120_000;
 const STACK_START_TIMEOUT_MS = 1_800_000;
 const TEARDOWN_TIMEOUT_MS = 180_000;
 const STUB_SERVICE = 'omdb-stub';
+const DAILY_ALLOWANCE = 100;
 const STUB_PORT = 18080;
 const STUB_TLS_PORT = 18443;
 const BASE_URL = 'http://localhost:3000';
@@ -147,6 +150,10 @@ function validateProviderSettings(settings) {
     throw new Error('Omdb:BaseUrl must be http on the literal host 127.0.0.1');
   }
 
+  if (settings.Omdb.Quota?.DailyLimit !== DAILY_ALLOWANCE) {
+    throw new Error('generated settings must provision a positive Omdb:Quota:DailyLimit');
+  }
+
   if (!String(settings.Thumbnails?.CacheDirectory ?? '').startsWith('/')) {
     throw new Error('generated settings must set an absolute Thumbnails:CacheDirectory');
   }
@@ -203,6 +210,7 @@ function buildSettings() {
     Omdb: {
       ApiKey: omdbApiKey,
       BaseUrl: providerBaseUrl(),
+      Quota: { DailyLimit: DAILY_ALLOWANCE },
     },
     Tmdb: {
       Enabled: true,
@@ -343,6 +351,7 @@ function writeContext(fixture) {
       relativePath: movie.relativePath,
     })),
     outsideLibrary: OUTSIDE_LIBRARY_FIXTURE,
+    outsideLibraryEvidence: [BASELINE_OUTSIDE_LIBRARY_EVIDENCE, ...DEV571_OUTSIDE_LIBRARY_EVIDENCE],
     manualMatchMovies,
     reservedMovie: { title: RESERVED_MOVIE.title, year: RESERVED_MOVIE.year },
     reservedFolders: { ...RESERVED_MOVIE.folders },
@@ -654,7 +663,7 @@ function sqlText(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-async function psql(statement) {
+async function psql(statement, tuplesOnly = false) {
   const result = await compose(
     [
       'exec',
@@ -665,6 +674,7 @@ async function psql(statement) {
       postgresUser,
       '-d',
       'lamuflix',
+      ...(tuplesOnly ? ['-t', '-A'] : []),
       '-v',
       'ON_ERROR_STOP=1',
       '-c',
@@ -679,16 +689,77 @@ async function psql(statement) {
 }
 
 async function seedOutsideLibraryRecommendations() {
-  const fixture = OUTSIDE_LIBRARY_FIXTURE;
   const titles = SEED_MOVIES.map((movie) => sqlText(movie.title)).join(', ');
-  const statement = [
-    'INSERT INTO movie_recommendations (source_movie_id, recommended_tmdb_id, title, release_year, poster_path)',
-    `SELECT id, ${fixture.tmdbId}, ${sqlText(fixture.title)}, ${fixture.releaseYear}, NULL`,
-    `FROM movies WHERE title IN (${titles})`,
-    'ON CONFLICT (source_movie_id, recommended_tmdb_id) DO UPDATE',
-    'SET title = EXCLUDED.title, release_year = EXCLUDED.release_year, poster_path = EXCLUDED.poster_path;',
-  ].join('\n');
-  await psql(statement);
+  const context = JSON.parse(readFileSync(contextFile, 'utf8'));
+  for (const fixture of context.outsideLibraryEvidence) {
+    const recommendation = [
+      'INSERT INTO movie_recommendations (source_movie_id, recommended_tmdb_id, title, release_year, poster_path)',
+      `SELECT id, ${fixture.tmdbId}, ${sqlText(fixture.title)}, ${fixture.releaseYear}, NULL`,
+      `FROM movies WHERE title IN (${titles})`,
+      'ON CONFLICT (source_movie_id, recommended_tmdb_id) DO UPDATE',
+      'SET title = EXCLUDED.title, release_year = EXCLUDED.release_year, poster_path = EXCLUDED.poster_path;',
+    ].join('\n');
+    await psql(recommendation);
+
+    const evidence = [
+      'INSERT INTO outside_library_candidate_evidence',
+      '  (tmdb_id, imdb_id, collection_id, rating, votes, outcome, expires_at_utc)',
+      'VALUES (',
+      `  ${fixture.tmdbId},`,
+      `  ${fixture.imdbId === null ? 'NULL' : sqlText(fixture.imdbId)},`,
+      `  ${fixture.collectionId === null ? 'NULL' : fixture.collectionId},`,
+      `  ${fixture.rating === null ? 'NULL' : fixture.rating},`,
+      `  ${fixture.votes === null ? 'NULL' : fixture.votes},`,
+      `  ${sqlText(fixture.outcome)},`,
+      "  now() + interval '30 days')",
+      'ON CONFLICT (tmdb_id) DO UPDATE SET',
+      '  imdb_id = EXCLUDED.imdb_id,',
+      '  collection_id = EXCLUDED.collection_id,',
+      '  rating = EXCLUDED.rating,',
+      '  votes = EXCLUDED.votes,',
+      '  outcome = EXCLUDED.outcome,',
+      '  expires_at_utc = EXCLUDED.expires_at_utc;',
+    ].join('\n');
+    await psql(evidence);
+  }
+}
+
+async function captureRolloutReadback() {
+  const settings = JSON.parse(readFileSync(settingsFile, 'utf8'));
+  const configured = settings.Omdb?.Quota?.DailyLimit;
+  if (configured !== DAILY_ALLOWANCE || configured <= 0) {
+    throw new Error('provisioned daily allowance is missing from generated settings');
+  }
+
+  const usage = Number(
+    await psql(
+      'select coalesce(sum(request_count), 0) from omdb_daily_usage where usage_date = current_date;',
+      true,
+    ),
+  );
+  if (!Number.isFinite(usage) || usage <= 0 || usage > configured) {
+    throw new Error(`charged OMDb usage ${usage} is outside the provisioned allowance`);
+  }
+
+  const evidenceCount = Number(
+    await psql('select count(*) from outside_library_candidate_evidence;', true),
+  );
+  const receipt = {
+    generatedAt: new Date().toISOString(),
+    commit: gitHead(),
+    migration: 'outside_library_candidate_evidence present and seeded',
+    candidateEvidenceRows: evidenceCount,
+    configuredDailyAllowance: configured,
+    chargedUsageUtcDate: usage,
+  };
+  mkdirSync(evidenceDir, { recursive: true });
+  writeFileSync(
+    path.join(evidenceDir, 'q4-rollout-receipt.json'),
+    `${JSON.stringify(receipt, null, 2)}\n`,
+  );
+  log(
+    `Q4 readback: candidate evidence rows ${evidenceCount}, charged OMDb usage ${usage}/${configured}`,
+  );
 }
 
 async function readStreamBytes(movieId, rangeHeader, { timeoutMs = WAIT_BUDGET_MS } = {}) {
@@ -1169,6 +1240,7 @@ async function main() {
     await seedOutsideLibraryRecommendations();
     await assertNoUnexpectedProviderRequests();
     await runStreamAcceptance();
+    await captureRolloutReadback();
     exitCode = await runPlaywright();
     await assertNoUnexpectedProviderRequests();
   } catch (error) {

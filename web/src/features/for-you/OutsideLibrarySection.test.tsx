@@ -103,6 +103,31 @@ describe('OutsideLibrarySection', () => {
     expect(item.querySelector('img, b')).toBeNull();
   });
 
+  it('renders only the API-admitted survivors in their delivered order', async () => {
+    // arrange
+    const survivors: OutsideLibraryCard[] = [
+      { ...card, tmdbId: 945961 },
+      { ...card, tmdbId: 945971, title: 'Next Eligible Survivor', posterPath: null },
+      { ...card, tmdbId: 945972, title: 'Collection Representative' },
+    ];
+    server.use(
+      http.get('*/api/recommendations/not-in-library', () => HttpResponse.json(survivors)),
+    );
+
+    // act
+    renderWithQuery(<OutsideLibrarySection />);
+    const section = await screen.findByRole('region', { name: 'Not in your library yet' });
+
+    // assert
+    expect(
+      within(section)
+        .getAllByRole('listitem')
+        .map((item) => within(item).getByRole('heading', { level: 3 }).textContent),
+    ).toEqual(survivors.map((survivor) => survivor.title));
+    expect(within(section).queryByText('Below Floor Contender')).not.toBeInTheDocument();
+    expect(within(section).queryByText('Collection Follow-up')).not.toBeInTheDocument();
+  });
+
   it.each(['Tmdb Enabled false', 'blank Tmdb ApiKey'])(
     'stays hidden for the %s API 200 [] response',
     async () => {

@@ -1,12 +1,17 @@
 using System;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using Shouldly;
@@ -188,6 +193,39 @@ public sealed class EfMetadataRequestGateTests(PostgresFixture fixture) : IAsync
     }
 
     [Fact]
+    public async Task TryAcquireAsync_TwoConsumers_SharePoolAndChargeFailedAttemptsPerConsumer()
+    {
+        // arrange
+        const int limit = 3;
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var firstContext = fixture.CreateMigratedContext();
+        await using var secondContext = fixture.CreateMigratedContext();
+        var firstGate = CreateGate(firstContext, BeforeMidnight, limit);
+        var secondGate = CreateGate(secondContext, BeforeMidnight, limit);
+        var firstTransport = new FailingHandler();
+        var secondTransport = new FailingHandler();
+        using var discovery = Consumer(firstGate, firstTransport);
+        using var enrichment = Consumer(secondGate, secondTransport);
+
+        // act
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            await discovery.GetAsync(new Uri("https://example.test/?i=tt9459701"), cancellationToken);
+        }
+
+        await enrichment.GetAsync(new Uri("https://example.test/?t=Big%20Buck%20Bunny"), cancellationToken);
+        var denial = await Should.ThrowAsync<MetadataQuotaExhaustedException>(
+            () => enrichment.GetAsync(new Uri("https://example.test/?t=Elephants%20Dream"), cancellationToken));
+
+        // assert
+        denial.InnerException.ShouldBeNull();
+        firstTransport.Calls.ShouldBe(2);
+        secondTransport.Calls.ShouldBe(1);
+        (await ReadUsageAsync(fixture, cancellationToken))
+            .ShouldHaveSingleItem().RequestCount.ShouldBe(limit);
+    }
+
+    [Fact]
     public async Task TryAcquireAsync_DisabledAllowance_DeniesWithoutChargingUsage()
     {
         // arrange
@@ -204,6 +242,29 @@ public sealed class EfMetadataRequestGateTests(PostgresFixture fixture) : IAsync
         // assert
         admitted.ShouldBeFalse();
         (await ReadUsageAsync(fixture, cancellationToken)).ShouldBeEmpty();
+    }
+
+    private static HttpClient Consumer(IOmdbRequestGate gate, HttpMessageHandler transport)
+    {
+        var services = new ServiceCollection()
+            .AddSingleton(gate)
+            .BuildServiceProvider();
+        return new HttpClient(new MetadataQuotaHandler(
+            services.GetRequiredService<IServiceScopeFactory>())
+        { InnerHandler = transport });
+    }
+
+    private sealed class FailingHandler : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        }
     }
 
     private static EfMetadataRequestGate CreateGate(LamuFlixDbContext context, DateTimeOffset now, int dailyLimit) =>
