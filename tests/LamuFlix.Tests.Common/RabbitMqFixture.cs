@@ -145,7 +145,9 @@ public sealed class RabbitMqFixture : IAsyncLifetime
                 return;
             }
             catch (Exception failure)
-                when (attempt < MaxTopologyAttempts && !cancellationToken.IsCancellationRequested)
+                when (attempt < MaxTopologyAttempts
+                    && !RabbitMqTopology.IsClusterNotFormed(failure)
+                    && !cancellationToken.IsCancellationRequested)
             {
                 lastFailure = failure;
                 await Task.Delay(RetryDelays[attempt - 1], cancellationToken);
@@ -196,36 +198,44 @@ public sealed class RabbitMqFixture : IAsyncLifetime
 
     private static async Task DeleteTopologyOnceAsync(IConnection connection, CancellationToken cancellationToken)
     {
-        await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
-        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.RequestedQueue, cancellationToken);
-        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.RetryQueue, cancellationToken);
-        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.DeadLetterQueue, cancellationToken);
-        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.QuotaDeferredQueue, cancellationToken);
-        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.FeaturesRequestedQueue, cancellationToken);
-        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.FeaturesRetryQueue, cancellationToken);
-        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.FeaturesDeadLetterQueue, cancellationToken);
-        try
-        {
-            await channel.ExchangeDeleteAsync(RabbitMqTopology.ExchangeName, cancellationToken: cancellationToken);
-        }
-        catch (OperationInterruptedException failure) when (failure.ShutdownReason is { ReplyCode: 404 })
-        {
-            // Deliberately empty: a retried delete reruns after a partial pass, so a missing exchange is expected.
-        }
+        await DeleteQueueIfPresentAsync(connection, RabbitMqTopology.RequestedQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(connection, RabbitMqTopology.RetryQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(connection, RabbitMqTopology.DeadLetterQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(connection, RabbitMqTopology.QuotaDeferredQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(connection, RabbitMqTopology.FeaturesRequestedQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(connection, RabbitMqTopology.FeaturesRetryQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(connection, RabbitMqTopology.FeaturesDeadLetterQueue, cancellationToken);
+        await DeleteExchangeIfPresentAsync(connection, cancellationToken);
     }
 
     private static async Task DeleteQueueIfPresentAsync(
-        IChannel channel,
+        IConnection connection,
         string queue,
         CancellationToken cancellationToken)
     {
         try
         {
+            await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
             await channel.QueueDeleteAsync(queue, cancellationToken: cancellationToken);
         }
-        catch (OperationInterruptedException failure) when (failure.ShutdownReason is { ReplyCode: 404 })
+        catch (OperationInterruptedException failure) when (RabbitMqTopology.IsNotFound(failure))
         {
             // Deliberately empty: a retried delete reruns after a partial pass, so a missing queue is expected.
+        }
+    }
+
+    private static async Task DeleteExchangeIfPresentAsync(
+        IConnection connection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+            await channel.ExchangeDeleteAsync(RabbitMqTopology.ExchangeName, cancellationToken: cancellationToken);
+        }
+        catch (OperationInterruptedException failure) when (RabbitMqTopology.IsNotFound(failure))
+        {
+            // Deliberately empty: a retried delete reruns after a partial pass, so a missing exchange is expected.
         }
     }
 

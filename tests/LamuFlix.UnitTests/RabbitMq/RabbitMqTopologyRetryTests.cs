@@ -2,6 +2,9 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Infrastructure.RabbitMq;
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
+using RabbitMQ.Client.Exceptions;
 
 namespace LamuFlix.UnitTests.RabbitMq;
 
@@ -132,6 +135,73 @@ public sealed class RabbitMqTopologyRetryTests
     }
 
     [Fact]
+    public void IsNotFound_QueueMissing404_ReturnsTrue()
+    {
+        // arrange
+        var failure = NotFoundFailure();
+
+        // act
+        var result = RabbitMqTopology.IsNotFound(failure);
+
+        // assert
+        result.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsNotFound_AlreadyClosedCarrying404_ReturnsTrue()
+    {
+        // arrange
+        var failure = new AlreadyClosedException(
+            new ShutdownEventArgs(ShutdownInitiator.Peer, 404, "NOT_FOUND - no queue 'enrichment.requested'"));
+
+        // act
+        var result = RabbitMqTopology.IsNotFound(failure);
+
+        // assert
+        result.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsNotFound_WrappedInInnerException_ReturnsTrue()
+    {
+        // arrange
+        var failure = new InvalidOperationException("channel error", NotFoundFailure());
+
+        // act
+        var result = RabbitMqTopology.IsNotFound(failure);
+
+        // assert
+        result.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsNotFound_Non404ReplyCode_ReturnsFalse()
+    {
+        // arrange
+        var failure = new OperationInterruptedException(
+            new ShutdownEventArgs(ShutdownInitiator.Peer, 406, "PRECONDITION_FAILED - inequivalent arg 'x-queue-type'"));
+
+        // act
+        var result = RabbitMqTopology.IsNotFound(failure);
+
+        // assert
+        result.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IsNotFound_UnrelatedFailure_ReturnsFalse()
+    {
+        // arrange
+        var failure = new InvalidOperationException("inequivalent arg 'x-queue-type'");
+
+        // act
+        var result = RabbitMqTopology.IsNotFound(failure);
+
+        // assert
+        result.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task ExecuteWithClusterRetryAsync_ClusterNeverForms_ThrowsAfterExhaustingDelays()
     {
         // arrange
@@ -151,4 +221,7 @@ public sealed class RabbitMqTopologyRetryTests
         // assert
         calls.ShouldBe(TestDelays.Length + 1);
     }
+
+    private static OperationInterruptedException NotFoundFailure() =>
+        new(new ShutdownEventArgs(ShutdownInitiator.Peer, 404, "NOT_FOUND - no queue 'enrichment.requested'"));
 }
