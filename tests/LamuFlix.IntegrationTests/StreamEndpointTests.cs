@@ -16,11 +16,14 @@ using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Playback;
+using LamuFlix.Infrastructure.Streaming;
+using LamuFlix.Infrastructure.Thumbnails;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -48,6 +51,7 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
     private readonly IMediaLibraryScanner scanner = Substitute.For<IMediaLibraryScanner>();
     private readonly IPlaybackHistory history = Substitute.For<IPlaybackHistory>();
     private readonly IProcessStarter starter = Substitute.For<IProcessStarter>();
+    private readonly IStreamConversionService conversion = Substitute.For<IStreamConversionService>();
     private readonly CaptureLog log = new();
 
     [Fact]
@@ -279,6 +283,7 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
         problem.GetProperty("status").GetInt32().ShouldBe(400);
         reader.FolderAuthorizations.ShouldBeEmpty();
         reader.Opens.ShouldBe(0);
+        NoConversionInvocations();
     }
 
     [Fact]
@@ -300,6 +305,7 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
         body.ShouldNotContain(nameof(NotFoundException));
         reader.FolderAuthorizations.ShouldBeEmpty();
         reader.Opens.ShouldBe(0);
+        NoConversionInvocations();
     }
 
     [Fact]
@@ -322,6 +328,7 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
         body.ShouldNotContain(nameof(NotFoundException));
         reader.Opens.ShouldBe(1);
+        NoConversionInvocations();
     }
 
     [Fact]
@@ -460,6 +467,7 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
         scanner.DidNotReceive().ResolvePrimaryVideo(Arg.Any<LibraryPath>());
         reader.Opens.ShouldBe(0);
         reader.Sequence.ShouldBe(["authorize-folder"]);
+        NoConversionInvocations();
     }
 
     [Fact]
@@ -695,6 +703,450 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
         reader.OpenedStreams.ShouldHaveSingleItem().Disposed.ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task Get_ConvertedFixture_StreamsAacWithCopiedVideoFromAbsoluteScratch()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var ffmpeg = FindExecutable("ffmpeg");
+        var ffprobe = FindExecutable("ffprobe");
+        if (ffmpeg is null || ffprobe is null)
+        {
+            Assert.Skip("DEV-572 blocker: ffmpeg and ffprobe must be installed for AC3 fixture metadata evidence.");
+        }
+        using var temporary = new TemporaryDirectory("dev572-ac3-");
+        var source = Path.Combine(temporary.Path, "stream-ac3.mkv");
+        var scratch = Path.Combine(temporary.Path, "scratch");
+        Directory.CreateDirectory(scratch);
+        var runner = new SystemProcessRunner();
+        var generated = await runner.RunAsync(
+            ffmpeg,
+            [
+                "-nostdin", "-y",
+                "-f", "lavfi", "-i", "color=c=black:s=160x90:r=10:d=2",
+                "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000:duration=2",
+                "-map", "0:v:0", "-map", "1:a:0",
+                "-c:v", "mpeg4", "-q:v", "5",
+                "-c:a", "ac3", "-b:a", "96k",
+                "-shortest", source,
+            ],
+            TimeSpan.FromMinutes(1),
+            ct);
+        Assert.SkipUnless(generated.Success,
+            $"DEV-572 blocker: named AC3 fixture generation failed ({generated.FailureReason}).");
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(Arg.Any<LibraryPath>())
+            .Returns(new PrimaryVideo(new LibraryPath(source), new MediaFormat("mkv")));
+        var reader = new RecordingReader(source);
+        await using var host = WithRealConversion(factory, reader, scratch, ffmpeg);
+        // ReSharper disable once UseAwaitUsing -- HttpClient is IDisposable only on this target.
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(StreamRoute(KnownId), ct);
+        var body = await response.Content.ReadAsByteArrayAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(Mp4MediaType);
+        NoSniff(response).ShouldBe(NoSniffValue);
+        body.Length.ShouldBeGreaterThan(0);
+        var published = Directory.GetFiles(scratch, "lfstream-*.mp4").ShouldHaveSingleItem();
+        Path.GetDirectoryName(published).ShouldBe(scratch);
+        var videoCodec = (await RunToolAsync(runner, ffprobe,
+            ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name", "-of", "default=nw=1:nk=1", published], ct))
+            .Trim();
+        videoCodec.ShouldBe("mpeg4");
+        using var audio = JsonDocument.Parse(await RunToolAsync(runner, ffprobe,
+            ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=codec_name,channels", "-of", "json", published], ct));
+        audio.RootElement.GetProperty("streams")[0].GetProperty("codec_name").GetString().ShouldBe("aac");
+        audio.RootElement.GetProperty("streams")[0].GetProperty("channels").GetInt32().ShouldBe(2);
+        var sourceVideoHash = (await RunToolAsync(runner, ffmpeg,
+            ["-v", "error", "-i", source, "-map", "0:v:0", "-c", "copy", "-f", "md5", "-"], ct)).Trim();
+        var outputVideoHash = (await RunToolAsync(runner, ffmpeg,
+            ["-v", "error", "-i", published, "-map", "0:v:0", "-c", "copy", "-f", "md5", "-"], ct)).Trim();
+        outputVideoHash.ShouldBe(sourceVideoHash);
+    }
+
+    [Fact]
+    public async Task Get_ConvertedContent_SupportsFullAndRangeResponsesWithMp4ContentType()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var payload = Payload(4096);
+        using var library = new TemporaryLibraryFile(payload);
+        using var converted = new TemporaryLibraryFile(Payload(4096, 37));
+        DetailsReturning(KnownDetails("mp4"));
+        scanner.ResolvePrimaryVideo(Arg.Any<LibraryPath>()).Returns(Resolved("mp4"));
+        var reader = new RecordingReader(library.Path);
+        conversion.PrepareAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new StreamConversionResult(converted.Path, true)));
+        conversion.OpenReadAsync(Arg.Any<StreamConversionResult>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(new StreamReaderLease(new FileStream(
+                call.ArgAt<StreamConversionResult>(0).Path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete))));
+        await using var host = CreateHost(reader, setupRawConversion: false);
+        // ReSharper disable once UseAwaitUsing -- HttpClient is IDisposable only on this target.
+        using var client = host.CreateClient();
+
+        // act
+        var full = await client.GetAsync(StreamRoute(KnownId), ct);
+        var fullBody = await full.Content.ReadAsByteArrayAsync(ct);
+        var rangeRequest = new HttpRequestMessage(HttpMethod.Get, StreamRoute(KnownId));
+        rangeRequest.Headers.Range = new RangeHeaderValue(100, 199);
+        var range = await client.SendAsync(rangeRequest, ct);
+        var rangeBody = await range.Content.ReadAsByteArrayAsync(ct);
+        var unsatisfiableRequest = new HttpRequestMessage(HttpMethod.Get, StreamRoute(KnownId));
+        unsatisfiableRequest.Headers.Range = new RangeHeaderValue(99999, null);
+        var unsatisfiable = await client.SendAsync(unsatisfiableRequest, ct);
+
+        // assert
+        full.StatusCode.ShouldBe(HttpStatusCode.OK);
+        full.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(Mp4MediaType);
+        (await AcceptRangesAsync(full)).ShouldBe("bytes");
+        NoSniff(full).ShouldBe(NoSniffValue);
+        fullBody.ShouldBe(await File.ReadAllBytesAsync(converted.Path, ct));
+        range.StatusCode.ShouldBe(HttpStatusCode.PartialContent);
+        range.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(Mp4MediaType);
+        range.Content.Headers.ContentRange.ShouldNotBeNull().ToString().ShouldBe("bytes 100-199/4096");
+        rangeBody.ShouldBe((await File.ReadAllBytesAsync(converted.Path, ct))[100..200]);
+        unsatisfiable.StatusCode.ShouldBe(HttpStatusCode.RequestedRangeNotSatisfiable);
+        unsatisfiable.Content.Headers.ContentRange.ShouldNotBeNull().ToString().ShouldBe("bytes */4096");
+        NoSniff(unsatisfiable).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Get_KnownConversionFailure_UsesExistingErrorPathWithoutRawFallbackOrRedirect()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var payload = Payload(256);
+        using var library = new TemporaryLibraryFile(payload);
+        DetailsReturning(KnownDetails("mp4"));
+        scanner.ResolvePrimaryVideo(Arg.Any<LibraryPath>()).Returns(Resolved("mp4"));
+        var reader = new RecordingReader(library.Path);
+        conversion.PrepareAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Throws(new InvalidOperationException("conversion exploded"));
+        await using var host = CreateHost(reader, setupRawConversion: false);
+        // ReSharper disable once UseAwaitUsing -- HttpClient is IDisposable only on this target.
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(StreamRoute(KnownId), ct);
+        var body = await response.Content.ReadAsByteArrayAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        response.Headers.Location.ShouldBeNull();
+        body.ShouldNotBe(payload);
+        System.Text.Encoding.UTF8.GetString(body).ShouldNotContain("conversion exploded");
+        log.Entries.ShouldContain(entry => entry.Level == LogLevel.Error
+            && entry.State.Any(pair => pair.Key == "MovieId" && Equals(pair.Value, KnownId)));
+    }
+
+    [Fact]
+    public async Task Get_ConcurrentSameSource_SharesOneConversion()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory("dev572-concurrent-");
+        var source = temporary.WriteSource("movie.mkv", "source");
+        var scratch = Path.Combine(temporary.Path, "scratch");
+        var converted = Payload(256);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<ProcessResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var runner = new ScriptedRunner
+        {
+            Handler = async (executable, arguments, token) =>
+            {
+                if (executable == "ffprobe")
+                {
+                    return Ac3Probe();
+                }
+
+                await File.WriteAllBytesAsync(arguments[^1], converted, token);
+                started.TrySetResult();
+                return await release.Task.WaitAsync(token);
+            },
+        };
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(Arg.Any<LibraryPath>())
+            .Returns(new PrimaryVideo(new LibraryPath(source), new MediaFormat("mkv")));
+        var reader = new RecordingReader(source);
+        await using var baseFactory = new ApiHostFactory();
+        await using var host = WithRealConversion(baseFactory, reader, scratch, "ffmpeg", runner);
+        // ReSharper disable once UseAwaitUsing -- HttpClient is IDisposable only on this target.
+        using var client = host.CreateClient();
+
+        // act
+        var first = client.GetAsync(StreamRoute(KnownId), ct);
+        await WaitForSignalAsync(started.Task, ct);
+        var second = client.GetAsync(StreamRoute(KnownId), ct);
+        await Task.Delay(50, ct);
+        release.TrySetResult(Succeeded());
+        var responses = await Task.WhenAll(first, second);
+
+        // assert
+        responses.ShouldAllBe(response => response.StatusCode == HttpStatusCode.OK);
+        runner.Count("ffmpeg").ShouldBe(1);
+        foreach (var response in responses)
+        {
+            (await response.Content.ReadAsByteArrayAsync(ct)).ShouldBe(converted);
+        }
+    }
+
+    [Fact]
+    public async Task Get_DisconnectThenReattachWithinGrace_ReusesTheInFlightConversion()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory("dev572-reattach-");
+        var source = temporary.WriteSource("movie.mkv", "source");
+        var scratch = Path.Combine(temporary.Path, "scratch");
+        var converted = Payload(256);
+        var time = new LamuFlix.UnitTests.ManualTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<ProcessResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var childCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var runner = new ScriptedRunner
+        {
+            Handler = async (executable, arguments, token) =>
+            {
+                if (executable == "ffprobe")
+                {
+                    return Ac3Probe();
+                }
+
+                await using var registration = token.Register(() => childCancelled.TrySetResult());
+                await File.WriteAllBytesAsync(arguments[^1], converted, token);
+                started.TrySetResult();
+                return await release.Task.WaitAsync(token);
+            },
+        };
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(Arg.Any<LibraryPath>())
+            .Returns(new PrimaryVideo(new LibraryPath(source), new MediaFormat("mkv")));
+        var reader = new RecordingReader(source);
+        await using var baseFactory = new ApiHostFactory(false, timeProvider: time);
+        await using var host = WithRealConversion(baseFactory, reader, scratch, "ffmpeg", runner);
+        var service = host.Services.GetRequiredService<IStreamConversionService>();
+        using var firstWaiter = new CancellationTokenSource();
+
+        // act
+        var first = service.PrepareAsync(KnownId, source, firstWaiter.Token);
+        await WaitForSignalAsync(started.Task, ct);
+        await firstWaiter.CancelAsync();
+        await Should.ThrowAsync<OperationCanceledException>(async () => await first);
+        await WaitForSignalAsync(time.WaitForPendingTimerAsync(ct), ct);
+        var second = service.PrepareAsync(KnownId, source, ct);
+        time.Advance(TimeSpan.FromSeconds(2));
+        childCancelled.Task.IsCompleted.ShouldBeFalse();
+        release.TrySetResult(Succeeded());
+
+        // assert
+        (await second).Converted.ShouldBeTrue();
+        runner.Count("ffmpeg").ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Get_GraceExpiryAtZeroWaiters_CancelsChildAndDeletesPartialThenReconverts()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory("dev572-expiry-");
+        var source = temporary.WriteSource("movie.mkv", "source");
+        var scratch = Path.Combine(temporary.Path, "scratch");
+        var converted = Payload(256);
+        var time = new LamuFlix.UnitTests.ManualTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var childCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var conversions = 0;
+        var partialPath = string.Empty;
+        var runner = new ScriptedRunner
+        {
+            Handler = async (executable, arguments, token) =>
+            {
+                if (executable == "ffprobe")
+                {
+                    return Ac3Probe();
+                }
+
+                var index = Interlocked.Increment(ref conversions);
+                if (index == 1)
+                {
+                    partialPath = arguments[^1];
+                    await using var registration = token.Register(() => childCancelled.TrySetResult());
+                    await File.WriteAllBytesAsync(partialPath, Payload(64), token);
+                    started.TrySetResult();
+                    await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                }
+
+                await File.WriteAllBytesAsync(arguments[^1], converted, token);
+                return Succeeded();
+            },
+        };
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(Arg.Any<LibraryPath>())
+            .Returns(new PrimaryVideo(new LibraryPath(source), new MediaFormat("mkv")));
+        var reader = new RecordingReader(source);
+        await using var baseFactory = new ApiHostFactory(false, timeProvider: time);
+        await using var host = WithRealConversion(baseFactory, reader, scratch, "ffmpeg", runner);
+        var service = host.Services.GetRequiredService<IStreamConversionService>();
+        using var firstWaiter = new CancellationTokenSource();
+
+        // act
+        var first = service.PrepareAsync(KnownId, source, firstWaiter.Token);
+        await WaitForSignalAsync(started.Task, ct);
+        await firstWaiter.CancelAsync();
+        await Should.ThrowAsync<OperationCanceledException>(async () => await first);
+        await WaitForSignalAsync(time.WaitForPendingTimerAsync(ct), ct);
+        time.Advance(TimeSpan.FromSeconds(2));
+        await WaitForSignalAsync(childCancelled.Task, ct);
+        await WaitUntilAsync(() => !File.Exists(partialPath), ct);
+        var second = await service.PrepareAsync(KnownId, source, ct);
+
+        // assert
+        second.Converted.ShouldBeTrue();
+        (await File.ReadAllBytesAsync(second.Path, ct)).ShouldBe(converted);
+        runner.Count("ffmpeg").ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task CompletedAsset_UnderSizePressure_IsNotDeletedWhileAReaderHoldsIt()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory("dev572-reader-");
+        var source = temporary.WriteSource("movie.mkv", "source");
+        var scratch = Path.Combine(temporary.Path, "scratch");
+        var runner = new ScriptedRunner
+        {
+            Handler = (executable, arguments, _) => Task.FromResult(executable == "ffprobe"
+                ? Ac3Probe()
+                : WriteConversion(arguments[^1])),
+        };
+        var environment = Substitute.For<IHostEnvironment>();
+        environment.ContentRootPath.Returns(temporary.Path);
+        var service = new StreamConversionService(
+            Microsoft.Extensions.Options.Options.Create(new StreamConversionOptions
+            {
+                ScratchDirectory = scratch,
+                ScratchSizeLimitBytes = 1,
+            }),
+            Microsoft.Extensions.Options.Options.Create(new ThumbnailOptions { FfmpegPath = "ffmpeg" }),
+            runner,
+            environment,
+            Substitute.For<ILogger<StreamConversionService>>());
+        var prepared = await service.PrepareAsync(KnownId, source, ct);
+        var lease = await service.OpenReadAsync(prepared, ct);
+
+        // act
+        await service.CleanupAsync(ct);
+        var held = File.Exists(prepared.Path);
+        lease.Dispose();
+        await service.CleanupAsync(ct);
+
+        // assert
+        held.ShouldBeTrue();
+        File.Exists(prepared.Path).ShouldBeFalse();
+    }
+
+    private void NoConversionInvocations() =>
+        conversion.DidNotReceive().PrepareAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+
+    private WebApplicationFactory<Program> WithRealConversion(
+        WebApplicationFactory<Program> baseFactory,
+        RecordingReader reader,
+        string scratch,
+        string ffmpegPath,
+        IProcessRunner? runner = null) =>
+        baseFactory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["Features:LocalPlay"] = "false",
+                    [$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.FfmpegPath)}"] = ffmpegPath,
+                    [$"{StreamConversionOptions.SectionName}:{nameof(StreamConversionOptions.ScratchDirectory)}"] = scratch,
+                }));
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddSingleton(catalog);
+                services.AddSingleton(scanner);
+                services.AddSingleton<ILibraryFileReader>(reader);
+                services.AddSingleton(starter);
+                services.AddSingleton(history);
+                services.AddSingleton<ILoggerProvider>(new CaptureLoggerProvider(log));
+                if (runner is not null)
+                {
+                    services.RemoveAll<IProcessRunner>();
+                    services.AddSingleton(runner);
+                }
+            });
+        });
+
+    private static string? FindExecutable(string name)
+    {
+        var extension = OperatingSystem.IsWindows() ? ".exe" : string.Empty;
+        var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        foreach (var directory in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var candidate = Path.Combine(directory, name + extension);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static async Task<string> RunToolAsync(
+        IProcessRunner runner,
+        string executable,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken)
+    {
+        var result = await runner.RunAsync(executable, arguments, TimeSpan.FromMinutes(1), cancellationToken);
+        result.Success.ShouldBeTrue($"{executable} failed with {result.FailureReason}: {result.StandardError}");
+        return result.StandardOutput;
+    }
+
+    private static async Task WaitForSignalAsync(Task signal, CancellationToken cancellationToken)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, cancellationToken);
+        await signal.WaitAsync(linked.Token);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken cancellationToken)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, cancellationToken);
+        while (!condition())
+        {
+            await Task.Delay(10, linked.Token);
+        }
+    }
+
+    private static ProcessResult Ac3Probe() => new(
+        true,
+        0,
+        "{\"streams\":[{\"codec_type\":\"audio\",\"codec_name\":\"ac3\",\"disposition\":{\"default\":1}}]}",
+        string.Empty,
+        null);
+
+    private static ProcessResult Succeeded() => new(true, 0, string.Empty, string.Empty, null);
+
+    private static ProcessResult WriteConversion(string outputPath)
+    {
+        File.WriteAllBytes(outputPath, Payload(256));
+        return Succeeded();
+    }
+
     private static string RouteOf(Microsoft.AspNetCore.Routing.RouteEndpoint endpoint) =>
         endpoint.RoutePattern.RawText ?? string.Empty;
 
@@ -779,7 +1231,8 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
     private static PrimaryVideo Resolved(string extension) =>
         new(new LibraryPath(ResolvedPath(extension)), new MediaFormat(extension));
 
-    private static byte[] Payload(int length) => [.. Enumerable.Range(0, length).Select(index => (byte)(index % 251))];
+    private static byte[] Payload(int length, int offset = 0) =>
+        [.. Enumerable.Range(0, length).Select(index => (byte)((index + offset) % 251))];
 
     private static Task<string?> AcceptRangesAsync(HttpResponseMessage response) =>
         Task.FromResult(response.Headers.TryGetValues(AcceptRangesHeader, out var values) ? values.Single() : null);
@@ -790,8 +1243,14 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
     private void DetailsReturning(MovieDetails details) =>
         catalog.GetDetailsAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(details);
 
-    private WebApplicationFactory<Program> CreateHost(RecordingReader reader) =>
-        factory.WithWebHostBuilder(builder =>
+    private WebApplicationFactory<Program> CreateHost(RecordingReader reader, bool setupRawConversion = true)
+    {
+        if (setupRawConversion)
+        {
+            conversion.PrepareAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(call => Task.FromResult(new StreamConversionResult(call.ArgAt<string>(1), false)));
+        }
+        return factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
                 new Dictionary<string, string?>
@@ -805,9 +1264,11 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
                 services.AddSingleton<ILibraryFileReader>(reader);
                 services.AddSingleton(starter);
                 services.AddSingleton(history);
+                services.AddSingleton(conversion);
                 services.AddSingleton<ILoggerProvider>(new CaptureLoggerProvider(log));
             });
         });
+    }
 
     private sealed class RecordingReader(string streamPath) : ILibraryFileReader
     {
@@ -1004,6 +1465,68 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
             }
 
             log.Add(new LogRecord(logLevel, pairs, formatter(state, exception)));
+        }
+    }
+
+    private sealed class ScriptedRunner : IProcessRunner
+    {
+        private readonly Lock gate = new();
+
+        private readonly List<(string Executable, IReadOnlyList<string> Arguments)> invocations = [];
+
+        public Func<string, IReadOnlyList<string>, CancellationToken, Task<ProcessResult>> Handler { get; set; } =
+            (_, _, _) => Task.FromResult(new ProcessResult(false, null, string.Empty, string.Empty, "NonZeroExit"));
+
+        public Task<ProcessResult> RunAsync(
+            string executable,
+            IReadOnlyList<string> arguments,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            lock (gate)
+            {
+                invocations.Add((executable, arguments));
+            }
+
+            return Handler(executable, arguments, cancellationToken);
+        }
+
+        public int Count(string executable)
+        {
+            lock (gate)
+            {
+                return invocations.Count(invocation => invocation.Executable == executable);
+            }
+        }
+    }
+
+    private sealed class TemporaryDirectory(string prefix) : IDisposable
+    {
+        public string Path { get; } = System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(),
+            prefix + Guid.NewGuid().ToString("N"));
+
+        public string WriteSource(string name, string content)
+        {
+            Directory.CreateDirectory(Path);
+            var path = System.IO.Path.Combine(Path, name);
+            File.WriteAllText(path, content);
+            return path;
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (Directory.Exists(Path))
+                {
+                    Directory.Delete(Path, recursive: true);
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // Best-effort test cleanup.
+            }
         }
     }
 

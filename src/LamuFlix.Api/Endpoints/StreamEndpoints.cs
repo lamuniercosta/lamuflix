@@ -19,6 +19,7 @@ internal static class StreamEndpoints
     private const string ContentTypeOptionsHeader = "X-Content-Type-Options";
     private const string NoSniffValue = "nosniff";
     private const string BinaryContentType = "application/octet-stream";
+    private const string Mp4ContentType = "video/mp4";
     private const string ForbiddenTitle = "Forbidden";
     private const string ForbiddenType = "https://tools.ietf.org/html/rfc9110#section-15.5.4";
     private const string LoggerCategory = "LamuFlix.Api.Endpoints.StreamEndpoints";
@@ -45,6 +46,7 @@ internal static class StreamEndpoints
         IQueryHandler<GetMovieDetailsQuery, MovieDetails> handler,
         IMediaLibraryScanner scanner,
         ILibraryFileReader reader,
+        IStreamConversionService conversionService,
         FileExtensionContentTypeProvider contentTypeProvider,
         ILoggerFactory loggerFactory,
         HttpContext httpContext,
@@ -63,18 +65,41 @@ internal static class StreamEndpoints
             reader.AuthorizeFolder(details.Path);
             var primary = scanner.ResolvePrimaryVideo(details.Path);
             var contentType = ResolveContentType(contentTypeProvider, primary.Format);
-            var stream = reader.OpenRead(primary.Path);
+            var raw = reader.OpenRead(primary.Path);
+            StreamReaderLease? lease = null;
+            StreamDelivery? delivery = null;
             try
             {
+                var prepared = await conversionService.PrepareAsync(
+                    movieId.Value,
+                    primary.Path.Value,
+                    cancellationToken).ConfigureAwait(false);
+                if (prepared.Converted)
+                {
+                    lease = await conversionService.OpenReadAsync(prepared, cancellationToken).ConfigureAwait(false);
+                    delivery = new StreamDelivery(lease.Stream, movieId.Value, logger, lease);
+                    contentType = Mp4ContentType;
+                }
+                else
+                {
+                    delivery = new StreamDelivery(raw, movieId.Value, logger);
+                }
+
                 httpContext.Response.OnStarting(AddNoSniffOnBinarySuccessAsync, httpContext);
-                return TypedResults.Stream(
-                    new StreamDelivery(stream, movieId.Value, logger),
-                    contentType,
-                    enableRangeProcessing: true);
+                return TypedResults.Stream(delivery, contentType, enableRangeProcessing: true);
             }
             catch
             {
-                await stream.DisposeAsync();
+                if (delivery is not null)
+                {
+                    await delivery.DisposeAsync();
+                }
+                else
+                {
+                    lease?.Dispose();
+                    await raw.DisposeAsync();
+                }
+
                 throw;
             }
         }
@@ -100,6 +125,14 @@ internal static class StreamEndpoints
                 exception.GetType().Name);
             throw;
         }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        {
+            logger.LogError(
+                exception,
+                "Stream conversion for movie {MovieId} failed before the response started.",
+                movieId.Value);
+            throw;
+        }
     }
 
     private static Task AddNoSniffOnBinarySuccessAsync(object state)
@@ -116,7 +149,7 @@ internal static class StreamEndpoints
     private static string ResolveContentType(FileExtensionContentTypeProvider provider, MediaFormat format) =>
         provider.TryGetContentType("." + format.Extension, out var contentType) ? contentType : BinaryContentType;
 
-    private sealed class StreamDelivery(Stream inner, int movieId, ILogger logger) : Stream
+    private sealed class StreamDelivery(Stream inner, int movieId, ILogger logger, IDisposable? owned = null) : Stream
     {
         public override bool CanRead => inner.CanRead;
 
@@ -183,7 +216,14 @@ internal static class StreamEndpoints
         {
             if (disposing)
             {
-                inner.Dispose();
+                try
+                {
+                    inner.Dispose();
+                }
+                finally
+                {
+                    owned?.Dispose();
+                }
             }
 
             base.Dispose(disposing);
