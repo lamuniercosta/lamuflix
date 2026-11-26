@@ -17,7 +17,7 @@ public sealed partial class StreamConversionService
         ArgumentNullException.ThrowIfNull(prepared);
         cancellationToken.ThrowIfCancellationRequested();
 
-        CompletedAsset? pinned = null;
+        CompletedAsset? pinned;
         Action? release = null;
         lock (gate)
         {
