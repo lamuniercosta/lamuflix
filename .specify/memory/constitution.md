@@ -1,6 +1,51 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 2.0.0 → 2.1.0 (MINOR: Principle VII OmdbQuotaOptions daily allowance
+owner-approved startup-validation exception; DEV-571)
+
+Amendment 2.1.0 (2026-11-26), DEV-571 governance lane after owner Gate 1 approval on PR #508:
+  Authority: owner affirmative answer on the Principle VII OmdbQuotaOptions checkbox on
+    draft Spec Kit PR #508 (merge-reconcile 2026-11-26); specs/DEV-571/CONCLUSIONS.md
+    Q3/Q4 narrow update, H1 constitution amendment ruling, Phase 2 plan-challenge M1/M3;
+    FR-011; Conductor instruction to execute governance amendment on feature/dev-571.
+  ADR: no new ADR and no ADR supersession (OmdbQuotaOptions daily-allowance normalization
+    is configuration validation scope under existing IOmdbRequestGate / ADR-0031, not an
+    architectural choice change).
+  Modified principles:
+    VII. Configuration Isolation and Deterministic Time (title unchanged): general
+       startup-validation rule now references both narrowly scoped exceptions (subtitle
+       acquisition and OmdbQuotaOptions daily allowance). Append only the owner-approved
+       OmdbQuotaOptions daily-allowance exception: normalize raw `Omdb:Quota:DailyLimit`
+       within existing binding before typed conversion to a positive enabled allowance or
+       explicit disabled/no-allowance state for absent, zero, negative, or invalid input
+       including malformed nonnumeric values; host stays up; shared gate denies all live
+       OMDb discovery and enrichment sends while disabled; cached and confirmed-absence
+       evaluation continues; retain enrichment settlement and startup validation for all
+       other Omdb keys and options; no default/fallback/bypass allowance. Q4 requires
+       migration and positive allowance provision/readback within the provider plan before
+       revised-guard rollout where OMDb is already in use.
+    Pull Request Quality Gates: reference OmdbQuotaOptions daily allowance under
+       Principle VII on the startup-validation checkbox.
+  Added sections: none
+  Removed sections: none
+  Templates reviewed (no updates required):
+    .specify/templates/constitution-template.md — Governance placeholder; no allowance rule.
+    .specify/templates/plan-template.md — Constitution Check derives current principles.
+    .specify/templates/spec-template.md — no options inventory or startup-validation rule.
+    .specify/templates/tasks-template.md — generic ADR/constitution tasks only.
+    .specify/templates/checklist-template.md — no OMDb quota rule.
+    .specify/templates/commands/ — absent; no command templates to synchronize.
+  Runtime guidance reviewed (no updates in this amendment):
+    README.md, AGENTS.md, and specs/PRODUCT.md — no duplicated Principle VII allowance rule.
+    ADR-0031 — no ADR text requires edit or supersession.
+  Migration / follow-up:
+    Q4 rollout order per specs/DEV-571/CONCLUSIONS.md Q4 and brief.md: environments with
+    OMDb in use apply candidate-evidence migration, provision and read back a positive daily
+    allowance, then deploy the revised guard. This amendment alone claims no implementation,
+    gate, or runtime PASS.
+  Deferred placeholders / template follow-up: none
+
 Version change: 1.16.0 → 2.0.0 (MAJOR: Principle VII container configuration transport
 replaced by mounted API settings for Compose and the Kubernetes home cluster; owner-approved
 DEV-565 Q9 amendment; no new ADR)
@@ -709,8 +754,9 @@ for connection strings, API keys, library roots, or player paths.
 - All configuration is bound to options records (`LibraryOptions`, `PlaybackOptions`,
   `OmdbOptions`, `OmdbQuotaOptions`, `TmdbOptions`, `RabbitMqOptions`, `EnrichmentOptions`, `FeatureOptions`,
   `RecommendationOptions`, `ThumbnailOptions`, `SubtitlesOptions`, `SubtitleProviderOptions`)
-  with data-annotation validation and `ValidateOnStart()`, except for subtitle acquisition
-  settings under the narrowly scoped rule below. Reading
+  with data-annotation validation and `ValidateOnStart()`, except for the two narrowly
+  scoped rules below (subtitle acquisition settings and `OmdbQuotaOptions` daily
+  allowance). Reading
   `IConfiguration` by magic string outside options binding is forbidden, except for the
   narrowly scoped owner-approved reader in `LocalPlayListenerValidationHostedService`
   (`LamuFlix.Api`), which may inspect `Kestrel:Endpoints` section presence and endpoint `Url`
@@ -730,7 +776,24 @@ for connection strings, API keys, library roots, or player paths.
   configuration, not an acquisition failure. No guessed numeric safety defaults are
   allowed; `SaveEnabled` defaults false and language preferences default empty. Secret
   isolation remains mandatory. This exception applies only to subtitle acquisition
-  validation; all other options retain their startup-validation requirements.
+  validation.
+- **OmdbQuotaOptions daily allowance exception (DEV-571 owner Gate 1 approval on PR #508;
+  H1 / Q3 / Q4 / FR-011):**
+  `OmdbQuotaOptions` MUST remain typed options within existing configuration binding.
+  Only the raw `Omdb:Quota:DailyLimit` key MUST be normalized before typed conversion to
+  either a positive enabled daily allowance or an explicit disabled state with no usable
+  allowance when the value is absent, zero, negative, or otherwise invalid, including
+  malformed nonnumeric input. Absent, zero, negative, or invalid daily allowance MUST NOT
+  fail host startup via `ValidateOnStart()` for this allowance field. While disabled, the
+  shared `IOmdbRequestGate` MUST deny all live outbound OMDb work for discovery and
+  enrichment; live OMDb sends are zero. Cached candidate evidence and confirmed-absence
+  evaluation MUST continue. Landed enrichment quota settlement and every other `Omdb:*` key
+  and every other options record retain startup validation. No guessed numeric defaults and
+  no default, fallback, or bypass allowance in code or configuration. Environments that
+  already use OMDb MUST apply migration and provision/read back a positive allowance at or
+  below the provider plan limit from shared use before deploying the revised guard. This
+  exception applies only to `OmdbQuotaOptions` daily allowance normalization; all other
+  options retain their startup-validation requirements.
 - Local `dotnet run` values live in `dotnet user-secrets` or git-ignored
   `appsettings.Development.json`; containerized Compose and Kubernetes home-cluster
   deployments receive API settings and provider API keys via the mounted git-ignored
@@ -853,8 +916,8 @@ Every PR MUST satisfy all of the following before merging:
 - [ ] New external dependencies register a health check and telemetry names in
       `TelemetryConstants`
 - [ ] No secrets, machine paths, or `IConfiguration` magic strings; new options records are
-      validated at startup, except subtitle acquisition search/download settings under
-      Principle VII
+      validated at startup, except subtitle acquisition search/download settings and
+      `OmdbQuotaOptions` daily allowance normalization under Principle VII
 - [ ] No `DateTime.Now`-family calls; `TimeProvider` injected
 - [ ] `CancellationToken` flows through every async path; no sync-over-async
 - [ ] New domain terms added to `CONTEXT.md`; no Portuguese identifiers introduced
@@ -1028,4 +1091,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 2.0.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-24
+**Version**: 2.1.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-26
