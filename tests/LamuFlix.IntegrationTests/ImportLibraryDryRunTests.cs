@@ -194,9 +194,25 @@ public sealed class ImportLibraryDryRunTests(PostgresFixture postgres) : IAsyncL
 
     private static void DeleteLibrary(string root)
     {
-        if (Directory.Exists(root))
+        for (var attempt = 0; attempt < 10; attempt++)
         {
-            Directory.Delete(root, recursive: true);
+            try
+            {
+                if (Directory.Exists(root))
+                {
+                    Directory.Delete(root, recursive: true);
+                }
+
+                return;
+            }
+            catch (IOException) when (attempt < 9)
+            {
+                Thread.Sleep(100);
+            }
+            catch (UnauthorizedAccessException) when (attempt < 9)
+            {
+                Thread.Sleep(100);
+            }
         }
     }
 
