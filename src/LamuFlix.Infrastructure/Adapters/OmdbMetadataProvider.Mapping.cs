@@ -179,6 +179,9 @@ public sealed partial class OmdbMetadataProvider
         [JsonPropertyName("imdbRating")]
         public string? Rating { get; set; }
 
+        [JsonPropertyName("imdbVotes")]
+        public string? Votes { get; set; }
+
         [JsonPropertyName("imdbID")]
         public string? Identifier { get; set; }
 

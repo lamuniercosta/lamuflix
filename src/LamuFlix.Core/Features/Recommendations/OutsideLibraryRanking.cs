@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 
 namespace LamuFlix.Core.Features.Recommendations;
@@ -46,6 +48,28 @@ public static class OutsideLibraryRanking
             new OutsideLibraryEvidenceLookup(
                 evidenceByTmdbId,
                 (timeProvider ?? TimeProvider.System).GetUtcNow()));
+    }
+
+    public static async Task<IReadOnlyList<OutsideLibraryRecommendation>> RankAdmittedAsync(
+        OutsideLibraryRecommendationSnapshot snapshot,
+        RecommendationOptions options,
+        IReadOnlyDictionary<int, CandidateImdbEvidence> evidenceByTmdbId,
+        Func<int, CancellationToken, ValueTask<CandidateImdbEvidence?>>? resolveEvidenceAsync,
+        CancellationToken ct,
+        TimeProvider? timeProvider = null,
+        IReadOnlyDictionary<int, CandidateImdbEvidence>? fresherEvidence = null)
+    {
+        ArgumentNullException.ThrowIfNull(evidenceByTmdbId);
+
+        return await OutsideLibraryCollectionSelection.AdmitAsync(
+            snapshot,
+            options,
+            new OutsideLibraryEvidenceLookup(
+                evidenceByTmdbId,
+                (timeProvider ?? TimeProvider.System).GetUtcNow(),
+                fresherEvidence: fresherEvidence,
+                resolveEvidenceAsync: resolveEvidenceAsync),
+            ct);
     }
 
     internal static IOrderedEnumerable<OutsideLibraryRankedCandidate> Ranked(

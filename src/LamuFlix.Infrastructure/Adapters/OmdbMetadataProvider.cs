@@ -65,6 +65,44 @@ public sealed partial class OmdbMetadataProvider(
         }
     }
 
+    public async Task<CandidateEvidenceLookupResult> GetCandidateEvidenceAsync(
+        string? imdbId,
+        CancellationToken ct)
+    {
+        if (!ImdbId.TryCreate(imdbId, out var id))
+        {
+            return CandidateEvidenceLookupResult.Invalid;
+        }
+
+        var fetch = await FetchAsync(BuildIdUri(id), ct);
+        if (fetch is Fetch.Rejected rejected)
+        {
+            return rejected.Failure is MetadataLookupResult.Failed failed
+                && failed.Category == EnrichmentFailureCategory.QuotaExhausted
+                    ? CandidateEvidenceLookupResult.QuotaDenied
+                    : CandidateEvidenceLookupResult.Unresolved;
+        }
+
+        var body = ((Fetch.Succeeded)fetch).Body;
+        if (ResponseMapper.IsMovieNotFound(body))
+        {
+            return CandidateEvidenceLookupResult.ConfirmedAbsence;
+        }
+
+        if (!ResponseMapper.IsFound(body) || ResponseMapper.MapIdentifier(body.Identifier) is not { } resolvedId)
+        {
+            return CandidateEvidenceLookupResult.Unresolved;
+        }
+
+        return CandidateEvidenceLookupResult.For(
+            new CandidateEvidencePayload(
+                ProviderConfirmedAbsent: false,
+                resolvedId.Value,
+                body.Rating,
+                body.Votes,
+                CollectionId: null));
+    }
+
     private async Task<MetadataLookupResult> ExecuteAsync(MetadataLookup stored, CancellationToken ct)
     {
         if (stored.ManualImdbId is { } manualId)
