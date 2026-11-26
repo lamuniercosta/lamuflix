@@ -60,7 +60,7 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         body.GetProperty("path").GetString().ShouldBe("library-details.mkv");
         body.GetProperty("format").GetString().ShouldBe("mkv");
         var metadata = body.GetProperty("metadata");
-        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");
+        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "writers", "genres", "collectionName", "trailerKey");
         metadata.GetProperty("title").GetString().ShouldBe("Heat");
         metadata.GetProperty("synopsis").GetString().ShouldBe("A thief steals the negatives.");
         metadata.GetProperty("releaseYear").GetInt32().ShouldBe(1995);
@@ -89,7 +89,7 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "review", "enrichmentStatus", "failureCategory", "failureMessage");
         var metadata = body.GetProperty("metadata");
-        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");
+        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "writers", "genres", "collectionName", "trailerKey");
         metadata.GetProperty("trailerKey").ValueKind.ShouldBe(JsonValueKind.String);
         metadata.GetProperty("trailerKey").GetString().ShouldBe(TrailerKey);
     }
@@ -112,7 +112,7 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var metadata = body.GetProperty("metadata");
-        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");
+        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "writers", "genres", "collectionName", "trailerKey");
         metadata.TryGetProperty("trailerKey", out var trailerKey).ShouldBeTrue();
         trailerKey.ValueKind.ShouldBe(JsonValueKind.Null);
     }
