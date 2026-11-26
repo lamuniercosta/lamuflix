@@ -28,36 +28,30 @@ public static class OutsideLibraryRanking
     internal static IReadOnlyList<OutsideLibraryRecommendation> Rank(
         OutsideLibraryRecommendationSnapshot snapshot,
         RecommendationOptions options) =>
-        [.. Ordered(RankAll(snapshot, options))
+        [.. Ranked(snapshot, options)
             .Take(MaxCards)
             .Select(candidate => candidate.Card)];
 
     public static IReadOnlyList<OutsideLibraryRecommendation> RankAdmitted(
         OutsideLibraryRecommendationSnapshot snapshot,
         RecommendationOptions options,
-        IReadOnlyDictionary<int, CandidateImdbEvidence> evidenceByTmdbId)
+        IReadOnlyDictionary<int, CandidateImdbEvidence> evidenceByTmdbId,
+        TimeProvider? timeProvider = null)
     {
-        ArgumentNullException.ThrowIfNull(snapshot);
-        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(evidenceByTmdbId);
 
-        var admitted = new List<OutsideLibraryRecommendation>(MaxCards);
-        foreach (var candidate in Ordered(RankAll(snapshot, options)))
-        {
-            if (admitted.Count == MaxCards)
-            {
-                break;
-            }
-
-            var evidence = evidenceByTmdbId.GetValueOrDefault(candidate.TmdbId);
-            if (OutsideLibraryEligibility.Evaluate(evidence) == OutsideLibraryVerdict.Admit)
-            {
-                admitted.Add(candidate.Card);
-            }
-        }
-
-        return admitted;
+        return OutsideLibraryCollectionSelection.Admit(
+            snapshot,
+            options,
+            new OutsideLibraryEvidenceLookup(
+                evidenceByTmdbId,
+                (timeProvider ?? TimeProvider.System).GetUtcNow()));
     }
+
+    internal static IOrderedEnumerable<OutsideLibraryRankedCandidate> Ranked(
+        OutsideLibraryRecommendationSnapshot snapshot,
+        RecommendationOptions options) =>
+        Ordered(RankAll(snapshot, options));
 
     internal static IReadOnlyList<OutsideLibraryRankedCandidate> RankAll(
         OutsideLibraryRecommendationSnapshot snapshot,
