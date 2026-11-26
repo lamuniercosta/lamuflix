@@ -155,7 +155,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             detailsBody.GetProperty("path").GetString().ShouldBe(relativeFolder);
             detailsBody.GetProperty("format").GetString().ShouldBe(ExpectedFormat);
             var metadata = detailsBody.GetProperty("metadata");
-            ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");
+            ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "writers", "genres", "collectionName", "trailerKey");
             metadata.GetProperty("title").GetString().ShouldBe(FolderTitle);
             metadata.GetProperty("synopsis").GetString().ShouldBe(ExpectedSynopsis);
             metadata.GetProperty("releaseYear").GetInt32().ShouldBe(ExpectedYear);
