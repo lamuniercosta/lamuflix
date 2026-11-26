@@ -63,6 +63,50 @@ public sealed class EfRecommendationCandidateSourceBudgetTests(PostgresFixture f
     }
 
     [Fact]
+    public async Task GetOutsideLibraryRecommendationsAsync_DisabledAllowance_CachedNextSurvivorFillsTheRow()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedCandidatesAsync(ct);
+        await using (var writeDb = fixture.CreateMigratedContext())
+        {
+            var store = new EfCandidateEvidenceStore(writeDb, new FixedTimeProvider(Now));
+            await store.WriteAsync(
+                901,
+                new CandidateImdbEvidence(
+                    "tt9010001",
+                    null,
+                    5.9m,
+                    2500,
+                    CandidateEvidenceOutcome.Complete,
+                    Now.AddDays(30)),
+                ct);
+            await store.WriteAsync(
+                902,
+                new CandidateImdbEvidence(
+                    null,
+                    null,
+                    null,
+                    null,
+                    CandidateEvidenceOutcome.ConfirmedAbsence,
+                    Now.AddDays(7)),
+                ct);
+        }
+
+        var harness = new Harness(HttpStatusCode.OK, """{ "imdb_id": "tt0111161" }""");
+        await using var db = fixture.CreateMigratedContext();
+
+        // act
+        var snapshot = await harness.Source(db, dailyLimit: 0).GetOutsideLibraryRecommendationsAsync(ct);
+
+        // assert
+        snapshot.AdmittedCards.ShouldNotBeNull();
+        snapshot.AdmittedCards.Select(card => card.TmdbId).ShouldBe([902]);
+        harness.TmdbHandler.Requests.ShouldBeEmpty();
+        harness.OmdbHandler.GateAttempts.ShouldBe(0);
+    }
+
+    [Fact]
     public async Task GetOutsideLibraryRecommendationsAsync_ResolvedEvidence_IsReusedByALaterScope()
     {
         // arrange

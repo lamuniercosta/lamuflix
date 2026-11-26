@@ -51,6 +51,58 @@ export const OUTSIDE_LIBRARY_FIXTURE = {
   reason: 'Recommended for Big Buck Bunny and Elephants Dream',
 };
 
+export const DEV571_OUTSIDE_LIBRARY_EVIDENCE = [
+  {
+    tmdbId: 945970,
+    title: 'Below Floor Contender',
+    releaseYear: 1996,
+    imdbId: 'tt9459701',
+    outcome: 'Complete',
+    rating: 5.9,
+    votes: 2500,
+    collectionId: null,
+  },
+  {
+    tmdbId: 945971,
+    title: 'Next Eligible Survivor',
+    releaseYear: 1997,
+    imdbId: 'tt9459711',
+    outcome: 'Complete',
+    rating: 7.4,
+    votes: 4200,
+    collectionId: null,
+  },
+  {
+    tmdbId: 945972,
+    title: 'Collection Representative',
+    releaseYear: 1998,
+    imdbId: 'tt9459721',
+    outcome: 'Complete',
+    rating: 7.8,
+    votes: 5100,
+    collectionId: 777001,
+  },
+  {
+    tmdbId: 945973,
+    title: 'Collection Follow-up',
+    releaseYear: 1999,
+    imdbId: 'tt9459731',
+    outcome: 'Complete',
+    rating: 8.1,
+    votes: 6200,
+    collectionId: 777001,
+  },
+];
+
+export const BASELINE_OUTSIDE_LIBRARY_EVIDENCE = {
+  ...OUTSIDE_LIBRARY_FIXTURE,
+  imdbId: null,
+  outcome: 'ConfirmedAbsence',
+  rating: null,
+  votes: null,
+  collectionId: null,
+};
+
 export const RESERVED_MOVIE = {
   source: 'Sintel (2010).mp4',
   title: 'Sintel',

@@ -75,6 +75,35 @@ public sealed class OutsideLibraryRecommendationEndpointTests(ApiHostFactory fac
     }
 
     [Fact]
+    public async Task GetNotInLibrary_FilteredShortRow_PreservesStatusOrderAndCardFieldSet()
+    {
+        // arrange
+        OutsideHandlerReturns(
+            new OutsideLibraryRecommendation(945971, "Next Eligible Survivor", 1997, null, "Recommended for Alien and Heat"),
+            new OutsideLibraryRecommendation(945972, "Collection Representative", 1998, null, "Recommended for Alien and Heat"));
+        await using var host = CreateHost(tmdbEnabled: true, apiKey: "configured-key");
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(Route, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        body.ValueKind.ShouldBe(JsonValueKind.Array);
+        body.GetArrayLength().ShouldBe(2);
+        body.EnumerateArray().Select(card => card.GetProperty("tmdbId").GetInt32()).ShouldBe([945971, 945972]);
+        foreach (var card in body.EnumerateArray())
+        {
+            card.EnumerateObject().Select(property => property.Name).ShouldBe(
+                ["tmdbId", "title", "releaseYear", "posterPath", "reason"],
+                ignoreOrder: true);
+            card.GetProperty("posterPath").ValueKind.ShouldBe(JsonValueKind.Null);
+        }
+    }
+
+    [Fact]
     public async Task GetNotInLibrary_ChallengesUnauthenticatedBeforeAnyEmptyOrHandlerBranch()
     {
         // arrange
