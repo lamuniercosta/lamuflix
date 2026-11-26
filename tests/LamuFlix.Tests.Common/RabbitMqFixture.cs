@@ -5,6 +5,7 @@ using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
 using Testcontainers.RabbitMq;
 using Xunit;
 
@@ -14,7 +15,7 @@ public sealed class RabbitMqFixture : IAsyncLifetime
 {
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
 
-    private static readonly TimeSpan[] TopologyRetryDelays =
+    private static readonly TimeSpan[] RetryDelays =
     [
         TimeSpan.FromSeconds(2),
         TimeSpan.FromSeconds(4),
@@ -32,13 +33,6 @@ public sealed class RabbitMqFixture : IAsyncLifetime
         RabbitMqTopology.FeaturesRequestedQueue,
         RabbitMqTopology.DeadLetterQueue,
         RabbitMqTopology.FeaturesDeadLetterQueue,
-    ];
-
-    private static readonly TimeSpan[] StartRetryDelays =
-    [
-        TimeSpan.FromSeconds(2),
-        TimeSpan.FromSeconds(4),
-        TimeSpan.FromSeconds(8),
     ];
 
     private const int MaxStartAttempts = 4;
@@ -74,7 +68,7 @@ public sealed class RabbitMqFixture : IAsyncLifetime
                 // occasional create or start with a transient 500 under that load.
                 lastFailure = failure;
                 await DiscardAsync();
-                await Task.Delay(StartRetryDelays[attempt - 1], cancellationToken);
+                await Task.Delay(RetryDelays[attempt - 1], cancellationToken);
             }
             catch
             {
@@ -154,7 +148,7 @@ public sealed class RabbitMqFixture : IAsyncLifetime
                 when (attempt < MaxTopologyAttempts && !cancellationToken.IsCancellationRequested)
             {
                 lastFailure = failure;
-                await Task.Delay(TopologyRetryDelays[attempt - 1], cancellationToken);
+                await Task.Delay(RetryDelays[attempt - 1], cancellationToken);
             }
         }
 
@@ -195,15 +189,44 @@ public sealed class RabbitMqFixture : IAsyncLifetime
 
     private static async Task DeleteTopologyAsync(IConnection connection, CancellationToken cancellationToken)
     {
+        await RabbitMqTopology.ExecuteWithClusterRetryAsync(
+            token => DeleteTopologyOnceAsync(connection, token),
+            cancellationToken);
+    }
+
+    private static async Task DeleteTopologyOnceAsync(IConnection connection, CancellationToken cancellationToken)
+    {
         await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
-        await channel.QueueDeleteAsync(RabbitMqTopology.RequestedQueue, cancellationToken: cancellationToken);
-        await channel.QueueDeleteAsync(RabbitMqTopology.RetryQueue, cancellationToken: cancellationToken);
-        await channel.QueueDeleteAsync(RabbitMqTopology.DeadLetterQueue, cancellationToken: cancellationToken);
-        await channel.QueueDeleteAsync(RabbitMqTopology.QuotaDeferredQueue, cancellationToken: cancellationToken);
-        await channel.QueueDeleteAsync(RabbitMqTopology.FeaturesRequestedQueue, cancellationToken: cancellationToken);
-        await channel.QueueDeleteAsync(RabbitMqTopology.FeaturesRetryQueue, cancellationToken: cancellationToken);
-        await channel.QueueDeleteAsync(RabbitMqTopology.FeaturesDeadLetterQueue, cancellationToken: cancellationToken);
-        await channel.ExchangeDeleteAsync(RabbitMqTopology.ExchangeName, cancellationToken: cancellationToken);
+        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.RequestedQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.RetryQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.DeadLetterQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.QuotaDeferredQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.FeaturesRequestedQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.FeaturesRetryQueue, cancellationToken);
+        await DeleteQueueIfPresentAsync(channel, RabbitMqTopology.FeaturesDeadLetterQueue, cancellationToken);
+        try
+        {
+            await channel.ExchangeDeleteAsync(RabbitMqTopology.ExchangeName, cancellationToken: cancellationToken);
+        }
+        catch (OperationInterruptedException failure) when (failure.ShutdownReason is { ReplyCode: 404 })
+        {
+            // Deliberately empty: a retried delete reruns after a partial pass, so a missing exchange is expected.
+        }
+    }
+
+    private static async Task DeleteQueueIfPresentAsync(
+        IChannel channel,
+        string queue,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await channel.QueueDeleteAsync(queue, cancellationToken: cancellationToken);
+        }
+        catch (OperationInterruptedException failure) when (failure.ShutdownReason is { ReplyCode: 404 })
+        {
+            // Deliberately empty: a retried delete reruns after a partial pass, so a missing queue is expected.
+        }
     }
 
     private RabbitMqTopology NewTopology(RabbitMqConnectionOwner owner) =>
