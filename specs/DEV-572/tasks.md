@@ -111,7 +111,7 @@ Ordering per brief Task order, Q6, and Step 6. No dependency cycle. Do not start
 **Goal**: Record automated test pass evidence for FR-016 before downstream gates/acceptance.
 **Independent Test**: `dotnet test` filter evidence for new/changed tests.
 
-- [ ] T012 **Build lane**. After T011: Run the unit, `StreamEndpointTests`, and `LamuFlix.ArchitectureTests` suites covering T004–T011 scope; ArchitectureTests MUST be green for `IStreamConversionService` after the atomic Principle I / `PortWhitelistPattern` / ADR 0050 Accepted delivery; record pass evidence or an explicit blocker distinct from a passed checkpoint. Do **not** assert hosted merge readiness or Chromium acceptance here.
+- [X] T012 **Build lane**. After T011: Run the unit, `StreamEndpointTests`, and `LamuFlix.ArchitectureTests` suites covering T004–T011 scope; ArchitectureTests MUST be green for `IStreamConversionService` after the atomic Principle I / `PortWhitelistPattern` / ADR 0050 Accepted delivery; record pass evidence or an explicit blocker distinct from a passed checkpoint. Do **not** assert hosted merge readiness or Chromium acceptance here.
 
 **Checkpoint**: Local Build ends. Downstream Cog/Gauge/review/acceptance follow — not Anvil.
 
