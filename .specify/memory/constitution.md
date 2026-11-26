@@ -44,6 +44,34 @@ Amendment 2.1.0 (2026-11-26), DEV-571 governance lane after owner Gate 1 approva
     OMDb in use apply candidate-evidence migration, provision and read back a positive daily
     allowance, then deploy the revised guard. This amendment alone claims no implementation,
     gate, or runtime PASS.
+
+Version change: 2.0.0 → 2.1.0 (MINOR: Principle I named-port enumeration adds
+IStreamConversionService for DEV-572 browser stream audio conversion; ADR 0050 Accepted)
+
+Amendment 2.1.0 (2026-11-26), DEV-572 scoped Principle I application:
+  Authority: Patron F1 ruling in specs/DEV-572/CONCLUSIONS.md (Step 6 F1 / R1),
+    frozen grill Q1-Q5 and Gate 1 owner merge of spec PR #505. Patron ruled
+    this a conforming amendment with no owner checkbox.
+  ADR: docs/adr/0050-browser-stream-audio-conversion-port.md is Accepted by
+    this amendment and delivered atomically with the port definition and the
+    ArchitectureTests whitelist entry.
+  Modified principles:
+    I. Ports and Adapters: append IStreamConversionService to the closed
+       named-port enumeration; retain every existing port, the BCL/M.E.AI
+       abstractions and the ADR requirement.
+  Added sections: none
+  Removed sections: none
+  Templates reviewed (no updates required):
+    .specify/templates/constitution-template.md — Governance placeholder; no port list.
+    .specify/templates/plan-template.md — Constitution Check derives current principles.
+    .specify/templates/spec-template.md — no named-port inventory.
+    .specify/templates/tasks-template.md — generic ADR/constitution tasks only.
+    .specify/templates/checklist-template.md — no port enumeration.
+  Runtime guidance reviewed: README.md and AGENTS.md do not duplicate the
+    closed port list; no edit required by this amendment.
+  Migration / follow-up: no schema or data migration. The Core port, ADR
+    status, this version change and the matching PortWhitelistPattern entry ship
+    in one Build delivery. This amendment alone claims no gate or runtime PASS.
   Deferred placeholders / template follow-up: none
 
 Version change: 1.16.0 → 2.0.0 (MAJOR: Principle VII container configuration transport
@@ -612,8 +640,8 @@ Project reference rules are strict and unidirectional:
   `IMovieFolderImporter`, `IMediaPlayerLauncher`,
   `IRecommendationCandidateSource`, `IRecommendationProfileSource`, `IPlaybackHistory`, `IMovieFeaturesRepository`,
   `IEnrichmentOutbox`, `IEnrichmentStatusNotifier`, `IOmdbRequestGate`, `IThumbnailGenerator`,
-  `ISubtitleProvider`, `ISubtitleSidecarStore`, and the BCL/M.E.AI abstractions `TimeProvider` and
-  `IEmbeddingGenerator<string, Embedding<float>>`. Adding a port requires an ADR.
+  `ISubtitleProvider`, `ISubtitleSidecarStore`, `IStreamConversionService`, and the BCL/M.E.AI
+  abstractions `TimeProvider` and `IEmbeddingGenerator<string, Embedding<float>>`. Adding a port requires an ADR.
 - These rules MUST be enforced by `LamuFlix.ArchitectureTests`; a violation fails the build.
 
 **Rationale**: One aggregate with eight use cases is the right size for feature folders, and the
