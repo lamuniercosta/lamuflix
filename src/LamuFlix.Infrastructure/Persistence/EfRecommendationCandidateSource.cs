@@ -18,9 +18,12 @@ namespace LamuFlix.Infrastructure.Persistence;
 public sealed class EfRecommendationCandidateSource(
     LamuFlixDbContext db,
     ICandidateEvidenceStore? evidenceStore = null,
-    IOptions<RecommendationOptions>? options = null) : IRecommendationCandidateSource
+    IOptions<RecommendationOptions>? options = null,
+    TimeProvider? timeProvider = null) : IRecommendationCandidateSource
 {
     private readonly LamuFlixDbContext db = db ?? throw new ArgumentNullException(nameof(db));
+
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
 
     public async Task<RecommendationLibrarySnapshot> GetLibraryFeaturesAsync(CancellationToken ct)
     {
@@ -113,7 +116,11 @@ public sealed class EfRecommendationCandidateSource(
 
         return snapshot with
         {
-            AdmittedCards = OutsideLibraryRanking.RankAdmitted(snapshot, options.Value, evidence),
+            AdmittedCards = OutsideLibraryRanking.RankAdmitted(
+                snapshot,
+                options.Value,
+                evidence,
+                clock),
         };
     }
 
