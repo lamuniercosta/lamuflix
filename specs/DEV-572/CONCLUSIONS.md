@@ -73,7 +73,7 @@ Reviewed base b435b3c7 and HEAD 79c86dc4 with all three challenge notes, the DEV
 
 | Finding | Disposition | Basis and closure |
 | --- | --- | --- |
-| Sentry R1 · High | Accepted, ruling pending | Q4 and FR-007 require cleanup on last-waiter disconnect. Q4 and FR-008 separately retain completed output across Range aborts. T005 and T011 cover overlapping waiters, leaving an abort followed by later reattachment unspecified. Ask Patron to settle how a zero-waiter transition distinguishes a brief replacement request from abandonment under AC4/AC6. Carry the chosen rule into a deterministic in-flight reattachment and genuine disconnect case. |
+| Sentry R1 · High | Accepted, Patron ruled | Q4 and FR-007 distinguish overlapping waiters, a same-source reattachment during the internal 1 s grace, and zero waiters at expiry. Patron authorized the grace in 315a0e46 under AC4/AC6. Check the deterministic reattachment and expiry cases at T005 and route behavior at T011. |
 | Sentry R2 · High | Accepted, repair and pre-build proof pending | Preserve the analyze ruling and the Q6 sample timing bar. T001 must establish the runner cancellation contract. T002 must demonstrate a deliberately long-running child and partial output are both removed after last-waiter disconnect through the proposed cancellation path. If that path cannot meet AC6, stop before production conversion and return with evidence for the authorized runner-change or return-ruling path. A still-attached hung child remains a risk under the settled lifetime policy. |
 | Sentry R3 · Medium | Accepted for pickup | Q4 and the scratch assumptions scope caps to an API instance. T001 should record the deployment replica and scratch ownership topology and derive aggregate limits from the evidence. Require exclusive owned cleanup domains if storage is shared before AC7 cluster acceptance. No claim about current topology. |
 | Sentry R4 · Medium | Accepted for task repair | FR-005/007/008 use path, size and last-write time. Recheck that tuple at conversion start and before publication, discard the stale result on a mismatch, and cover a detected mid-flight replacement. A same-tuple rewrite is outside the frozen identity guarantee. |
@@ -84,7 +84,7 @@ Reviewed base b435b3c7 and HEAD 79c86dc4 with all three challenge notes, the DEV
 | Sentry R9 · Low | Noted, no ticket | Q4 caps per-instance conversion. Build must preserve request cancellation and avoid unbounded queued work within the existing error contract. No additional public status or separate feature. |
 | Sentry R10 · Low | Accepted as evidence bookkeeping | Record selected input codecs in the existing three-sample Q6 tables. AC1 names that sample set and AC8 already maps E-AC3 to automated codec coverage. The codec of movie 959 remains unverified here. |
 | Sentry R11 · Low | Noted, no ticket | T009 already protects raw response and Range parity and converted range status. A new converted validator contract has no Q1 basis. |
-| Ledger F1 · High | Blocking, recon and Patron ruling pending | The plan requires green ArchitectureTests but does not mandate a whitelist change. Ledger cites a closed Principle I list and a matching enforcement check. The named recon has no receipt for either. Confirm the exact baseline policy and enforcement in recon before asking Patron to rule on the constitution amendment, its delivery ordering, and the ArchitectureTests edit under Q5 and charter §2.3. If Patron judges the path a constitution departure, record the owner escalation as blocked: structural. No owner checkbox is established by this review. |
+| Ledger F1 · High | Accepted, Patron ruled | Recon lines 50–66 verify closed Principle I and its ArchitectureTests enforcement at base and reviewed head. Patron ruled in 315a0e46 that the Build PR must introduce IStreamConversionService, ADR 0050, the Principle I amendment and matching whitelist edit atomically. The conforming amendment requires no structural owner checkbox. |
 | Ledger F2 · Medium | Accepted in part | Tighten the ADR to the architectural decision and durable references. Record its draft status and transition at formal acceptance. A dated plan-review endorsement depends on the challenge outcome. |
 | Ledger F3 · Medium, Compass · Low | Accepted, Quill repair pending | Replace the pre-ADR language with the ADR 0050 path in plan/spec/tasks, checklists and the applicable mirrors. Keep the Spec Kit PR and ADR delivery sequencing explicit. |
 | Ledger F4 · Medium | Accepted in part for pickup and task repair | Q5 authorizes DI and FR-008 requires owned-orphan startup cleanup. Name instance-scoped state and startup cleanup in the plan. Confirm the exact composition site at T001, with a Q5 return ruling if outside the authorized envelope. No dedicated hosted-service type is required by the settled contract. |
@@ -93,7 +93,7 @@ Reviewed base b435b3c7 and HEAD 79c86dc4 with all three challenge notes, the DEV
 | Ledger F7 · Low | Accepted for task repair | Keep mutable lifecycle state on the API instance under the existing mutation rules. |
 | Ledger F8 · Low | Accepted in part | Retain the single port and adapter under Q5 in Infrastructure/Streaming, separate from LocalPlay. Set the exact port name with the F1 ruling so the whitelist and ADR can name the same contract. |
 
-Freeze is pending. The first required recon is the pinned Principle I wording and corresponding ArchitectureTests enforcement for adding one new named Core port. Runner behavior, deployment topology, and tooling are separately scoped to T001 or the feasibility tasks unless Patron requires earlier evidence.
+Runner behavior, deployment topology and tooling remain T001 or feasibility evidence. The verified whitelist evidence is in recon lines 50–66.
 
 ## Step 6 — F1 Core port amendment and R1 reattachment grace
 
@@ -108,3 +108,25 @@ Freeze is pending. The first required recon is the pinned Principle I wording an
 - Basis: refines my Q4 last-waiter rule, it does not change AC6: on grace expiry with zero waiters the child is killed and partials deleted, so no process or partial file is left after a disconnect. It serves AC4 seek continuity (Chromium abort-plus-new-range, recon 35). Same-source-version arrival within the grace reuses the in-flight work (Q4 key: path plus size plus last-write time).
 - The grace is an internal constant, not an options key or config default (consistent with the no-timeout ruling, which stands); the 1 s value is taste and logged [assumed].
 - Tests: deterministic unit tests for reattach-within-grace and expiry-kills-and-deletes, plus the forced-hang cancellation proof. Post-build AC6 disconnect checks observe after the grace has elapsed.
+
+## PLAN FROZEN — Phase 2 step 6
+
+All 20 findings from Sentry, Ledger and Compass have dispositions. Wisp verified the whitelist at the reviewed revisions in recon lines 50–66. Patron resolved Ledger F1 and Sentry R1 in commit `315a0e46`. Quill repaired the Spec Kit drafts. The independent read-only recheck covered 17 functional requirements, 8 success criteria and T000–T012. T002 requires the Sentry R2 forced-hang cleanup proof before production conversion. T005 and T011 cover the reattachment boundary. T006 groups ADR 0050, the constitution amendment and its ArchitectureTests whitelist entry with the port definition. The draft ADR remains Proposed and is staged for handoff via the private ticket artifact directory.
+
+Verified artifact SHA-256 values:
+
+- `spec.md` — `83EBE64522189457D40B62B30702FE581FFD2B434AC067B4F467F794D5D6E8A2`
+- `plan.md` and its private mirror — `CC457C942F477D6FCD00E1496405E01EC5EFC8F6E71BB621207AE517FCB01EC7`
+- `tasks.md` and its private mirror — `25643D1A1B6A011B2477192B8090647E317CE50B80C53056FF55B0B7C4F1C10B`
+- ADR 0050 and its copy in `PRIVATE_TICKET_DIR` — `D20B7C05CB1CF993D13CBE30E8A28EEACE5F25F22CCE7AC81880C60CA329D41C`
+
+Reviewed base `b435b3c76905283c3dd63bfef434232d33af8de4`. Working-tree freeze recorded on `feature/572-spec` at ruling HEAD `315a0e46ddbff87dd7429442db9adc7df6a8c2ce`. The frozen Spec Kit PR commit SHA is assigned by Rigger in Phase 2 step 7. That commit contains only `specs/DEV-572/`. There is no structural owner checkbox. Gate 1, the T001 pickup receipt, feasibility proof and delivery gates remain pending.
+
+---
+
+## Gate 1 provisional ruling — Patron, 2026-11-26
+
+Verdict: `gate1: provisional` confirmed for DEV-572 on `feature/572-spec` with zero §2.3 structural owner checkboxes; ordinary owner Gate 1 remains pending user merge of the `DEV-572 - spec` PR.
+- **Analyze clean and plan challenge adjudicated**: `/speckit-analyze` clean across 17 FRs / 8 SCs / T000–T012 (note `DEV-572` line 21); all 20 Sentry/Ledger/Compass findings disposed and Keel's `PLAN FROZEN` receipt at ruling HEAD `315a0e46` (this file, Step 6 and PLAN FROZEN sections; note `DEV-572` line 31).
+- **User-visible outcome verified**: `checklists/requirements.md` lines 36–38 ticked `[x]`, matching `spec.md` `What the User Will See` (lines 23–29).
+- **Scope**: within ticket AC1–8 (`recon-DEV-572` lines 31–39), brief Q1–Q7 and the F1/R1 rulings; the Principle I amendment is a conforming amendment delivered in the Build PR, not a §2.3(b) departure. The Spec Kit PR is `specs/DEV-572/` only: untracked `docs/adr/0050-*.md` is not staged there (Build PR envelope). The `spec.md` Status line edit changes its frozen SHA-256 by design.
