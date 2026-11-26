@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using LamuFlix.Core.Options;
 using LamuFlix.ServiceDefaults;
@@ -166,7 +165,7 @@ public sealed class OptionsStartupValidationTests
     }
 
     [Fact]
-    public void DefaultOmdbDailyLimit_BindsTo1000AndPassesValidation()
+    public void MissingOmdbDailyLimit_LeavesAllowanceDisabledAndHostUp()
     {
         using var provider = Build(ValidRequired());
 
@@ -175,14 +174,18 @@ public sealed class OptionsStartupValidationTests
             validator.Validate();
         }
 
-        provider.GetRequiredService<IOptions<OmdbQuotaOptions>>().Value.DailyLimit.ShouldBe(1000);
+        var options = provider.GetRequiredService<IOptions<OmdbQuotaOptions>>().Value;
+        options.DailyLimit.ShouldBe(0);
+        options.IsEnabled.ShouldBeFalse();
     }
 
-    [Fact]
-    public void OmdbDailyLimitOne_PassesValidation()
+    [Theory]
+    [InlineData("1", 1)]
+    [InlineData("2147483647", int.MaxValue)]
+    public void PositiveOmdbDailyLimit_BindsBeforeStartup(string raw, int expected)
     {
         var values = ValidRequired();
-        values[$"{OmdbQuotaOptions.SectionName}:{nameof(OmdbQuotaOptions.DailyLimit)}"] = "1";
+        values[$"{OmdbQuotaOptions.SectionName}:{nameof(OmdbQuotaOptions.DailyLimit)}"] = raw;
         using var provider = Build(values);
 
         foreach (var validator in provider.GetServices<IStartupValidator>())
@@ -190,21 +193,32 @@ public sealed class OptionsStartupValidationTests
             validator.Validate();
         }
 
-        provider.GetRequiredService<IOptions<OmdbQuotaOptions>>().Value.DailyLimit.ShouldBe(1);
+        var options = provider.GetRequiredService<IOptions<OmdbQuotaOptions>>().Value;
+        options.DailyLimit.ShouldBe(expected);
+        options.IsEnabled.ShouldBeTrue();
     }
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    public void NonPositiveOmdbDailyLimit_FailsValidation(int dailyLimit)
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("not-a-number")]
+    [InlineData("2147483648")]
+    [InlineData("1.5")]
+    [InlineData(" 5")]
+    public void UnusableOmdbDailyLimit_DisablesAllowanceWithoutFailingStartup(string raw)
     {
         var values = ValidRequired();
-        values[$"{OmdbQuotaOptions.SectionName}:{nameof(OmdbQuotaOptions.DailyLimit)}"] =
-            dailyLimit.ToString(CultureInfo.InvariantCulture);
+        values[$"{OmdbQuotaOptions.SectionName}:{nameof(OmdbQuotaOptions.DailyLimit)}"] = raw;
+        using var provider = Build(values);
 
-        var exception = Validate(values);
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
 
-        exception.Message.ShouldContain(nameof(OmdbQuotaOptions.DailyLimit));
+        var options = provider.GetRequiredService<IOptions<OmdbQuotaOptions>>().Value;
+        options.DailyLimit.ShouldBe(0);
+        options.IsEnabled.ShouldBeFalse();
     }
 
     [Fact]

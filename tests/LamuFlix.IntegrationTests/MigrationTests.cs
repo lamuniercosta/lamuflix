@@ -40,8 +40,11 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         "movie_keywords",
         "movie_tmdb_cast",
         "omdb_daily_usage",
-        "movie_recommendations"
+        "movie_recommendations",
+        "outside_library_candidate_evidence"
     ];
+
+    private const string LatestMigrationSuffix = "_AddOutsideLibraryCandidateEvidence";
 
     private static readonly string[] NullableMoviesColumns =
     [
@@ -92,7 +95,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(20);
+        migrations.Length.ShouldBe(21);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -113,6 +116,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         migrations[17].ShouldEndWith("_AddManualImdbIdUniqueIndex");
         migrations[18].ShouldEndWith("_AddCrowdRecommendations");
         migrations[19].ShouldEndWith("_AddTmdbRecommendationMetadata");
+        migrations[20].ShouldEndWith(LatestMigrationSuffix);
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -147,7 +151,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddTmdbRecommendationMetadata");
+        applied[^1].ShouldEndWith(LatestMigrationSuffix);
         var rows = await catalog.ListLegacyMoviesAsync(cancellationToken);
         rows.Count.ShouldBe(priorCount);
         foreach (var movie in seeded)
@@ -316,7 +320,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         await migrator.MigrateAsync(null, cancellationToken);
 
         (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last()
-            .ShouldEndWith("_AddTmdbRecommendationMetadata");
+            .ShouldEndWith(LatestMigrationSuffix);
     }
 
     [Fact]
@@ -559,7 +563,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         // assert
         (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last()
-            .ShouldEndWith("_AddTmdbRecommendationMetadata");
+            .ShouldEndWith(LatestMigrationSuffix);
         await AssertCrowdRecommendationSchemaAsync(catalog, cancellationToken);
         (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(3);
 
@@ -620,7 +624,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         // assert
         (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last()
-            .ShouldEndWith("_AddTmdbRecommendationMetadata");
+            .ShouldEndWith(LatestMigrationSuffix);
         var recommendationColumns = await catalog.ListColumnDetailsAsync("movie_recommendations", cancellationToken);
         recommendationColumns.ShouldContain(("title", "text", true, false));
         recommendationColumns.ShouldContain(("release_year", "integer", true, false));

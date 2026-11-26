@@ -1,10 +1,12 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -84,7 +86,7 @@ public static class ServiceDefaultsExtensions
         services.AddSingleton<IValidateOptions<LibraryOptions>, LibraryOptionsValidator>();
         BindAndValidate<PlaybackOptions>(services, PlaybackOptions.SectionName);
         BindAndValidate<OmdbOptions>(services, OmdbOptions.SectionName);
-        BindAndValidate<OmdbQuotaOptions>(services, OmdbQuotaOptions.SectionName);
+        BindOmdbQuotaOptions(services);
         BindAndValidate<TmdbOptions>(services, TmdbOptions.SectionName);
         BindAndValidate<MetadataProviderResilienceOptions>(services, MetadataProviderResilienceOptions.SectionName);
         BindAndValidate<RabbitMqOptions>(services, RabbitMqOptions.SectionName);
@@ -97,6 +99,24 @@ public static class ServiceDefaultsExtensions
         BindAndValidate<ThumbnailOptions>(services, ThumbnailOptions.SectionName);
         services.AddSingleton<IValidateOptions<ThumbnailOptions>, ThumbnailOptionsValidator>();
         return services;
+    }
+
+    private static void BindOmdbQuotaOptions(IServiceCollection services)
+    {
+        services.AddOptions<OmdbQuotaOptions>()
+            .Configure<IConfiguration>((options, configuration) =>
+            {
+                var raw = configuration["Omdb:Quota:DailyLimit"];
+                options.DailyLimit = int.TryParse(
+                        raw,
+                        NumberStyles.None,
+                        CultureInfo.InvariantCulture,
+                        out var dailyLimit)
+                    && dailyLimit > 0
+                        ? dailyLimit
+                        : 0;
+            })
+            .ValidateOnStart();
     }
 
     private static void BindAndValidate<TOptions>(IServiceCollection services, string sectionName)

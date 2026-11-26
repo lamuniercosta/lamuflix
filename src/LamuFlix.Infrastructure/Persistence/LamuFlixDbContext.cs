@@ -29,6 +29,8 @@ public sealed class LamuFlixDbContext(DbContextOptions<LamuFlixDbContext> option
 
     public DbSet<DailyRequestUsageRecord> DailyRequestUsages => Set<DailyRequestUsageRecord>();
 
+    public DbSet<CandidateEvidenceRecord> CandidateEvidences => Set<CandidateEvidenceRecord>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("vector");

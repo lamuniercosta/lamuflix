@@ -4,6 +4,7 @@ using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.Adapters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
@@ -87,6 +88,8 @@ public static class PersistenceServiceCollectionExtensions
             provider => provider.GetRequiredService<HybridCachedRecommendationProfileSource>());
         services.AddScoped<IMovieFeaturesRepository, EfMovieFeaturesRepository>();
         services.AddScoped<IOmdbRequestGate, EfMetadataRequestGate>();
+        services.TryAddScoped<ICandidateEvidenceStore, EfCandidateEvidenceStore>();
+        services.TryAddScoped<ICandidateEvidenceWriter, CandidateEvidenceWriter>();
         services.AddScoped<MovieLibraryPathMigrationGate>();
 
         return services;

@@ -67,6 +67,43 @@ public sealed partial class TmdbMetadataProvider(
         }
     }
 
+    public async Task<ImdbId?> GetExternalIdsAsync(int tmdbId, CancellationToken ct)
+    {
+        if (!IsConfigured() || tmdbId <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var response = await httpClient.GetAsync(BuildExternalIdsUri(tmdbId), ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var stream = await response.Content.ReadAsStreamAsync(ct);
+            var body = await JsonSerializer.DeserializeAsync<ExternalIdsResponse>(stream, SerializerOptions, ct);
+            return ResponseMapper.MapExternalId(body?.ImdbId);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException
+            or TimeoutRejectedException
+            or BrokenCircuitException
+            or JsonException
+            or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     private async Task<MetadataLookupResult> ExecuteAsync(MetadataLookup stored, CancellationToken ct)
     {
         if (!IsConfigured())
@@ -468,6 +505,14 @@ public sealed partial class TmdbMetadataProvider(
     private Uri BuildFindUri(ImdbId imdbId) =>
         ComposeUri(
             string.Concat("find/", Uri.EscapeDataString(imdbId.Value), QueryKey(), "&external_source=imdb_id"));
+
+    private Uri BuildExternalIdsUri(int movieId) =>
+        ComposeUri(
+            string.Concat(
+                "movie/",
+                movieId.ToString(CultureInfo.InvariantCulture),
+                "/external_ids",
+                QueryKey()));
 
     private Uri BuildKeywordsUri(int movieId) =>
         ComposeUri(string.Concat("movie/", movieId.ToString(CultureInfo.InvariantCulture), "/keywords", QueryKey()));

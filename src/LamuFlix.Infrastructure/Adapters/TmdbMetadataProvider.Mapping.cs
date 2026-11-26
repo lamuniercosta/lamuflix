@@ -23,6 +23,9 @@ public sealed partial class TmdbMetadataProvider
         public static bool IsFailed(Response response) =>
             response.Success == false && !IsNoResult(response);
 
+        public static ImdbId? MapExternalId(string? value) =>
+            ImdbId.TryCreate(value, out var parsed) ? parsed : null;
+
         public static int? MapYear(string? releaseDate) =>
             TryLeadingDigits(releaseDate, out var value) ? value : null;
 
@@ -297,6 +300,13 @@ public sealed partial class TmdbMetadataProvider
         // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("status_code")]
         public int? StatusCode { get; init; }
+    }
+
+    private sealed class ExternalIdsResponse
+    {
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("imdb_id")]
+        public string? ImdbId { get; init; }
     }
 
     private sealed class KeywordPayload
