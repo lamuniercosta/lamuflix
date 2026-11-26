@@ -136,3 +136,13 @@ Verdict: `gate1: provisional` confirmed for DEV-572 on `feature/572-spec` with z
 Gate 1 completed when [Spec Kit PR #505](https://github.com/lamuniercosta/lamuflix/pull/505) merged into `main` at `2026-11-26T08:34:23Z`. GitHub reports `MERGED` with merge commit `6fe4efcd571dc0e9151ee9fed4114e7f080ca143`, which matches the verified pickup HEAD of `feature/DEV-572` before this receipt.
 
 T001 pickup recon and read-only reanalysis may proceed. T002 feasibility proof and the Build and delivery gates retain their recorded prerequisites.
+
+---
+
+## Q1 reopened — T002 cold-prep miss (272.786 s) — Patron, 2026-11-26
+
+Verdict: Q1 delivery model and the 120 s Q6 bar (e) both stand; no owner escalation; T002 runs one bounded diagnostic re-proof before any bar or model change is considered.
+
+- **No §2.3 owner escalation**: the 120 s cap is Patron's Q6 feasibility bar (`spec.md` FR-014/SC-005), not a ticket acceptance criterion — ticket AC1–8 set no cold-prep limit — so revisiting it is Patron scope, neither a §2.3(a) ticket change nor a constitution departure (`PRODUCT.md` §5).
+- **The miss indicts the invocation, not yet the model**: Anvil's single run used `-movflags +faststart`, whose moov relocation rewrites the whole 2.3 GB output after conversion; Q2 ruled an ordinary completed non-fragmented MP4 and never mandated faststart. Anvil re-runs movie 959 and the real AC3 sample without `+faststart`, recording elapsed time and ffmpeg `speed=`, and confirms Chromium audible start, full duration, and ±10 s seek with the moov atom at the end served via Range (bars a–d). No production code edits.
+- **Return conditions**: if the largest sample is ≤ 120 s with bars (a)–(d) green, T002 continues its remaining bars with faststart dropped and the numbers recorded in `plan.md`; if it still exceeds 120 s, Anvil stops and returns both runs' numbers to Patron, who then rules raise-the-bar versus progressive delivery — progressive delivery would amend Q1/Q2, `spec.md` FR-001/FR-002, and require a new spec PR and Gate 1, never a silent in-build switch.
