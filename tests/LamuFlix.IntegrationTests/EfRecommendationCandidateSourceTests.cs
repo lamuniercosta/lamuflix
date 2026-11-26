@@ -834,6 +834,68 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
     }
 
     [Fact]
+    public async Task GetOutsideLibraryRecommendationsAsync_CachedEvidence_CarriesAdmittedCardsInDev561Order()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var firstSeed = Record(1, "Seed One", EnrichmentStatus.Enriched, tmdbId: 500);
+        var secondSeed = Record(2, "Seed Two", EnrichmentStatus.Enriched);
+        firstSeed.IsWatched = true;
+        secondSeed.IsWatched = true;
+        await SeedRecordsAsync(ct, firstSeed, secondSeed);
+        await using (var writeDb = fixture.CreateMigratedContext())
+        {
+            foreach (var (sourceId, tmdbId, title) in new[]
+            {
+                (1, 900, "Below Floor"),
+                (2, 900, "Below Floor"),
+                (1, 901, "Above Floor"),
+                (2, 901, "Above Floor"),
+                (1, 902, "Unresolved"),
+                (2, 902, "Unresolved"),
+            })
+            {
+                writeDb.Set<MovieRecommendationRecord>().Add(new MovieRecommendationRecord
+                {
+                    SourceMovieId = new MovieId(sourceId),
+                    RecommendedTmdbId = tmdbId,
+                    Title = title,
+                    ReleaseYear = 2001,
+                });
+            }
+
+            await writeDb.SaveChangesAsync(ct);
+        }
+
+        await using (var writeDb = fixture.CreateMigratedContext())
+        {
+            var store = new EfCandidateEvidenceStore(writeDb, new FixedTimeProvider(Now));
+            await store.WriteAsync(
+                900,
+                new CandidateImdbEvidence("tt0000001", null, 3.0m, 5000, CandidateEvidenceOutcome.Complete, Now.AddDays(30)),
+                ct);
+            await store.WriteAsync(
+                901,
+                new CandidateImdbEvidence("tt0000002", null, 8.0m, 5000, CandidateEvidenceOutcome.Complete, Now.AddDays(30)),
+                ct);
+        }
+
+        await using var db = fixture.CreateMigratedContext();
+        var source = new EfRecommendationCandidateSource(
+            db,
+            new EfCandidateEvidenceStore(db, new FixedTimeProvider(Now)),
+            Microsoft.Extensions.Options.Options.Create(new RecommendationOptions()));
+
+        // act
+        var snapshot = await source.GetOutsideLibraryRecommendationsAsync(ct);
+
+        // assert
+        snapshot.AdmittedCards.ShouldNotBeNull();
+        snapshot.AdmittedCards.Select(card => card.TmdbId).ShouldBe([901]);
+        snapshot.Contributions.Count.ShouldBe(6);
+    }
+
+    [Fact]
     public async Task GetCandidatesAsync_OutOfLibraryCrowdTarget_ReturnsOnlyLibraryMovies()
     {
         // arrange

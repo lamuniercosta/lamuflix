@@ -22,6 +22,6 @@ public sealed class GetOutsideLibraryRecommendationsQueryHandler(
         var snapshot = await candidates.GetOutsideLibraryRecommendationsAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        return OutsideLibraryRanking.Rank(snapshot, options.Value);
+        return snapshot.AdmittedCards ?? OutsideLibraryRanking.Rank(snapshot, options.Value);
     }
 }

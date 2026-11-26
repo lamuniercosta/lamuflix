@@ -6,15 +6,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
+using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Pgvector;
 
 namespace LamuFlix.Infrastructure.Persistence;
 
 public sealed class EfRecommendationCandidateSource(
-    LamuFlixDbContext db) : IRecommendationCandidateSource
+    LamuFlixDbContext db,
+    ICandidateEvidenceStore? evidenceStore = null,
+    IOptions<RecommendationOptions>? options = null) : IRecommendationCandidateSource
 {
     private readonly LamuFlixDbContext db = db ?? throw new ArgumentNullException(nameof(db));
 
@@ -87,9 +91,30 @@ public sealed class EfRecommendationCandidateSource(
 
         ct.ThrowIfCancellationRequested();
 
-        return new OutsideLibraryRecommendationSnapshot(
+        var snapshot = new OutsideLibraryRecommendationSnapshot(
             [.. contributions.Select(ToContribution)],
             [.. library.Select(ToIdentity)]);
+        if (evidenceStore is null || options is null)
+        {
+            return snapshot;
+        }
+
+        var evidence = new Dictionary<int, CandidateImdbEvidence>();
+        foreach (var tmdbId in contributions
+            .Select(contribution => contribution.RecommendedTmdbId)
+            .Distinct())
+        {
+            ct.ThrowIfCancellationRequested();
+            if (await evidenceStore.ReadAsync(tmdbId, ct) is { } found)
+            {
+                evidence[tmdbId] = found;
+            }
+        }
+
+        return snapshot with
+        {
+            AdmittedCards = OutsideLibraryRanking.RankAdmitted(snapshot, options.Value, evidence),
+        };
     }
 
     public async Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(
