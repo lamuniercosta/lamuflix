@@ -107,11 +107,11 @@ public sealed partial class StreamConversionService
         }
     }
 
-    private void EnforceSizeLimit()
+    private void EnforceSizeLimit(SourceVersion? except = null)
     {
         while (GetTotalAssetLength() > options.ScratchSizeLimitBytes)
         {
-            var victim = TakeOldestIdle();
+            var victim = TakeOldestIdle(except);
             if (victim is null)
             {
                 return;
@@ -135,12 +135,12 @@ public sealed partial class StreamConversionService
         }
     }
 
-    private CompletedAsset? TakeOldestIdle()
+    private CompletedAsset? TakeOldestIdle(SourceVersion? except = null)
     {
         lock (gate)
         {
             var victim = assets.Values
-                .Where(static asset => asset.Readers == 0)
+                .Where(asset => asset.Readers == 0 && asset.Version != except)
                 .OrderBy(static asset => asset.LastAccess)
                 .FirstOrDefault();
             if (victim is not null)

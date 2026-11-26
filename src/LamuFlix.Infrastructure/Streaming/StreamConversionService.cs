@@ -94,13 +94,14 @@ public sealed partial class StreamConversionService : IStreamConversionService
         int audioOrdinal,
         CancellationToken cancellationToken)
     {
+        RemoveExpiredAssets();
         var reused = TryReuseCompleted(version);
         if (reused is not null)
         {
+            EnforceSizeLimit(version);
             return reused;
         }
 
-        RemoveExpiredAssets();
         EnforceSizeLimit();
         var flight = GetOrCreateFlight(movieId, version, sourcePath, audioOrdinal);
         try
@@ -129,6 +130,12 @@ public sealed partial class StreamConversionService : IStreamConversionService
         lock (gate)
         {
             if (!assets.TryGetValue(version, out var current) || !ReferenceEquals(current, candidate))
+            {
+                return null;
+            }
+
+            if (current.Readers == 0
+                && timeProvider.GetUtcNow() - current.LastAccess >= options.IdleExpiry)
             {
                 return null;
             }
@@ -277,6 +284,7 @@ public sealed partial class StreamConversionService : IStreamConversionService
         }
 
         var asset = Publish(flight);
+        EnforceSizeLimit(asset.Version);
         flight.Completion.TrySetResult(new StreamConversionResult(asset.Path, true));
     }
 

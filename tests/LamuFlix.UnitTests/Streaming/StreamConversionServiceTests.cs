@@ -939,6 +939,67 @@ public sealed class StreamConversionServiceTests
         File.Exists(foreign).ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task PrepareAsync_SameSourceAfterIdleExpiry_ReconvertsInsteadOfRevivingExpiredAsset()
+    {
+        // arrange
+        using var temporary = new TemporaryDirectory();
+        var source = temporary.WriteSource("movie.mkv");
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        var runner = new ScriptedRunner
+        {
+            Responder = (invocation, _) => invocation.Executable == "ffprobe"
+                ? Task.FromResult(Succeeded(Probe(("ac3", true))))
+                : Task.FromResult(WriteConversion(invocation)),
+        };
+        var options = new StreamConversionOptions
+        {
+            ScratchDirectory = Path.Combine(temporary.Path, "scratch"),
+            IdleExpiry = TimeSpan.FromMinutes(5),
+        };
+        var service = CreateService(temporary, runner, timeProvider: time, options: options);
+        var first = await service.PrepareAsync(71, source, TestContext.Current.CancellationToken);
+        time.Advance(TimeSpan.FromMinutes(6));
+
+        // act
+        var second = await service.PrepareAsync(71, source, TestContext.Current.CancellationToken);
+
+        // assert
+        second.Converted.ShouldBeTrue();
+        File.Exists(first.Path).ShouldBeTrue();
+        File.Exists(second.Path).ShouldBeTrue();
+        runner.Snapshot().Count(invocation => invocation.Executable == "ffmpeg").ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task PrepareAsync_PublishOverCap_EvictsIdleAssetsWithoutExplicitCleanup()
+    {
+        // arrange
+        using var temporary = new TemporaryDirectory();
+        var firstSource = temporary.WriteSource("first.mkv");
+        var secondSource = temporary.WriteSource("second.mkv");
+        var runner = new ScriptedRunner
+        {
+            Responder = (invocation, _) => invocation.Executable == "ffprobe"
+                ? Task.FromResult(Succeeded(Probe(("ac3", true))))
+                : Task.FromResult(WriteConversion(invocation)),
+        };
+        var options = new StreamConversionOptions
+        {
+            ScratchDirectory = Path.Combine(temporary.Path, "scratch"),
+            ScratchSizeLimitBytes = 8,
+        };
+        var service = CreateService(temporary, runner, options: options);
+        var first = await service.PrepareAsync(72, firstSource, TestContext.Current.CancellationToken);
+
+        // act
+        var second = await service.PrepareAsync(72, secondSource, TestContext.Current.CancellationToken);
+
+        // assert
+        File.Exists(first.Path).ShouldBeFalse();
+        File.Exists(second.Path).ShouldBeTrue();
+    }
+
     private static StreamConversionService CreateService(
         TemporaryDirectory temporary,
         ScriptedRunner runner,
