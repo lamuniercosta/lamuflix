@@ -58,7 +58,7 @@ public sealed class StreamConversionServiceTests
         result.Converted.ShouldBeTrue();
         var conversion = runner.Snapshot().Single(invocation => invocation.Executable == "ffmpeg");
         conversion.Arguments.ShouldContain("0:a:2");
-        conversion.Timeout.ShouldBe(TimeSpan.FromHours(1));
+        conversion.Timeout.ShouldBe(Timeout.InfiniteTimeSpan);
         runner.Snapshot().Single(invocation => invocation.Executable == "ffprobe").Timeout
             .ShouldBe(TimeSpan.FromSeconds(30));
     }
@@ -691,8 +691,8 @@ public sealed class StreamConversionServiceTests
         };
         var service = CreateService(temporary, runner, options: options);
         var first = await service.PrepareAsync(66, firstSource, TestContext.Current.CancellationToken);
-        await service.PrepareAsync(66, secondSource, TestContext.Current.CancellationToken);
         var lease = await service.OpenReadAsync(first, TestContext.Current.CancellationToken);
+        await service.PrepareAsync(66, secondSource, TestContext.Current.CancellationToken);
 
         // act
         await service.CleanupAsync(TestContext.Current.CancellationToken);
@@ -702,6 +702,133 @@ public sealed class StreamConversionServiceTests
         lease.Dispose();
         await service.CleanupAsync(TestContext.Current.CancellationToken);
         File.Exists(first.Path).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task PrepareAsync_ProductionPath_EvictsIdleAssetsUnderSizePressureButKeepsHeldReaders()
+    {
+        // arrange
+        using var temporary = new TemporaryDirectory();
+        var firstSource = temporary.WriteSource("first.mkv");
+        var secondSource = temporary.WriteSource("second.mkv");
+        var thirdSource = temporary.WriteSource("third.mkv");
+        var runner = new ScriptedRunner
+        {
+            Responder = (invocation, _) => invocation.Executable == "ffprobe"
+                ? Task.FromResult(Succeeded(Probe(("ac3", true))))
+                : Task.FromResult(WriteConversion(invocation)),
+        };
+        var options = new StreamConversionOptions
+        {
+            ScratchDirectory = Path.Combine(temporary.Path, "scratch"),
+            ScratchSizeLimitBytes = 4,
+        };
+        var service = CreateService(temporary, runner, options: options);
+        var first = await service.PrepareAsync(66, firstSource, TestContext.Current.CancellationToken);
+
+        // act
+        var second = await service.PrepareAsync(66, secondSource, TestContext.Current.CancellationToken);
+
+        // assert
+        File.Exists(first.Path).ShouldBeFalse();
+        File.Exists(second.Path).ShouldBeTrue();
+        var lease = await service.OpenReadAsync(second, TestContext.Current.CancellationToken);
+        var third = await service.PrepareAsync(66, thirdSource, TestContext.Current.CancellationToken);
+        File.Exists(second.Path).ShouldBeTrue();
+        File.Exists(third.Path).ShouldBeTrue();
+        lease.Dispose();
+    }
+
+    [Fact]
+    public async Task PrepareAsync_SecondConvertedRequest_ReusesCompletedAssetWithoutNewConversion()
+    {
+        // arrange
+        using var temporary = new TemporaryDirectory();
+        var source = temporary.WriteSource("movie.mkv");
+        var runner = new ScriptedRunner
+        {
+            Responder = (invocation, _) => invocation.Executable == "ffprobe"
+                ? Task.FromResult(Succeeded(Probe(("ac3", true))))
+                : Task.FromResult(WriteConversion(invocation)),
+        };
+        var service = CreateService(temporary, runner);
+        var first = await service.PrepareAsync(67, source, TestContext.Current.CancellationToken);
+        var lease = await service.OpenReadAsync(first, TestContext.Current.CancellationToken);
+        lease.Dispose();
+
+        // act
+        var second = await service.PrepareAsync(67, source, TestContext.Current.CancellationToken);
+
+        // assert
+        second.Converted.ShouldBeTrue();
+        second.Path.ShouldBe(first.Path);
+        runner.Snapshot().Count(invocation => invocation.Executable == "ffmpeg").ShouldBe(1);
+        var reopened = await service.OpenReadAsync(second, TestContext.Current.CancellationToken);
+        reopened.Dispose();
+        File.Exists(second.Path).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task PrepareAsync_ProductionPath_EnforcesIdleExpiryWithoutExplicitCleanup()
+    {
+        // arrange
+        using var temporary = new TemporaryDirectory();
+        var firstSource = temporary.WriteSource("first.mkv");
+        var secondSource = temporary.WriteSource("second.mkv");
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        var runner = new ScriptedRunner
+        {
+            Responder = (invocation, _) => invocation.Executable == "ffprobe"
+                ? Task.FromResult(Succeeded(Probe(("ac3", true))))
+                : Task.FromResult(WriteConversion(invocation)),
+        };
+        var options = new StreamConversionOptions
+        {
+            ScratchDirectory = Path.Combine(temporary.Path, "scratch"),
+            IdleExpiry = TimeSpan.FromMinutes(5),
+        };
+        var service = CreateService(temporary, runner, timeProvider: time, options: options);
+        var first = await service.PrepareAsync(68, firstSource, TestContext.Current.CancellationToken);
+        time.Advance(TimeSpan.FromMinutes(6));
+
+        // act
+        var second = await service.PrepareAsync(68, secondSource, TestContext.Current.CancellationToken);
+
+        // assert
+        File.Exists(first.Path).ShouldBeFalse();
+        File.Exists(second.Path).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task OpenReadAsync_EvictedAsset_ThrowsNotFoundInsteadOfServingUntrackedStream()
+    {
+        // arrange
+        using var temporary = new TemporaryDirectory();
+        var source = temporary.WriteSource("movie.mkv");
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        var runner = new ScriptedRunner
+        {
+            Responder = (invocation, _) => invocation.Executable == "ffprobe"
+                ? Task.FromResult(Succeeded(Probe(("ac3", true))))
+                : Task.FromResult(WriteConversion(invocation)),
+        };
+        var options = new StreamConversionOptions
+        {
+            ScratchDirectory = Path.Combine(temporary.Path, "scratch"),
+            IdleExpiry = TimeSpan.FromMinutes(5),
+        };
+        var service = CreateService(temporary, runner, timeProvider: time, options: options);
+        var prepared = await service.PrepareAsync(69, source, TestContext.Current.CancellationToken);
+        time.Advance(TimeSpan.FromMinutes(6));
+        await service.CleanupAsync(TestContext.Current.CancellationToken);
+        File.WriteAllBytes(prepared.Path, [0x09]);
+
+        // act
+        var exception = await Record.ExceptionAsync(() =>
+            service.OpenReadAsync(prepared, TestContext.Current.CancellationToken));
+
+        // assert
+        exception.ShouldBeOfType<FileNotFoundException>();
     }
 
     [Fact]
@@ -758,6 +885,58 @@ public sealed class StreamConversionServiceTests
         File.Exists(owned).ShouldBeFalse();
         File.Exists(foreign).ShouldBeTrue();
         File.Exists(completed).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Constructor_RemovesOwnedFinalOrphans_AndKeepsNonConformingOwnedNames()
+    {
+        // arrange
+        using var temporary = new TemporaryDirectory();
+        var scratch = Path.Combine(temporary.Path, "scratch");
+        Directory.CreateDirectory(scratch);
+        var orphan = Path.Combine(scratch, "lfstream-0123456789ABCDEF.mp4");
+        var nonConforming = Path.Combine(scratch, "lfstream-completed.mp4");
+        var foreign = Path.Combine(scratch, "foreign.mp4");
+        File.WriteAllText(orphan, "orphan");
+        File.WriteAllText(nonConforming, "completed");
+        File.WriteAllText(foreign, "foreign");
+        var runner = new ScriptedRunner();
+
+        // act
+        _ = CreateService(temporary, runner);
+
+        // assert
+        File.Exists(orphan).ShouldBeFalse();
+        File.Exists(nonConforming).ShouldBeTrue();
+        File.Exists(foreign).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Constructor_Restart_RemovesOrphanedCompletedFinalAndKeepsForeignFiles()
+    {
+        // arrange
+        using var temporary = new TemporaryDirectory();
+        var source = temporary.WriteSource("movie.mkv");
+        var scratch = Path.Combine(temporary.Path, "scratch");
+        var runner = new ScriptedRunner
+        {
+            Responder = (invocation, _) => invocation.Executable == "ffprobe"
+                ? Task.FromResult(Succeeded(Probe(("ac3", true))))
+                : Task.FromResult(WriteConversion(invocation)),
+        };
+        var options = new StreamConversionOptions { ScratchDirectory = scratch };
+        var first = CreateService(temporary, runner, options: options);
+        var prepared = await first.PrepareAsync(70, source, TestContext.Current.CancellationToken);
+        File.Exists(prepared.Path).ShouldBeTrue();
+        var foreign = Path.Combine(scratch, "foreign.mp4");
+        File.WriteAllText(foreign, "foreign");
+
+        // act
+        _ = CreateService(temporary, runner, options: options);
+
+        // assert
+        File.Exists(prepared.Path).ShouldBeFalse();
+        File.Exists(foreign).ShouldBeTrue();
     }
 
     private static StreamConversionService CreateService(
