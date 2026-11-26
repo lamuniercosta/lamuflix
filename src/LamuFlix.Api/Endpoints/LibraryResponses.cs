@@ -45,6 +45,9 @@ internal sealed record MovieMetadataResponse(
     short? MetaScore,
     IReadOnlyList<string> Directors,
     IReadOnlyList<string> Actors,
+    IReadOnlyList<string> Writers,
+    IReadOnlyList<string> Genres,
+    string? CollectionName,
     string? TrailerKey)
 {
     public static MovieMetadataResponse From(MovieMetadata metadata) =>
@@ -60,6 +63,9 @@ internal sealed record MovieMetadataResponse(
             metadata.MetaScore,
             [.. metadata.Directors],
             [.. metadata.Actors],
+            [.. metadata.Writers],
+            [.. metadata.Genres],
+            metadata.CollectionName,
             metadata.TrailerKey);
 }
 // ReSharper restore NotAccessedPositionalProperty.Global

@@ -596,6 +596,39 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task Document_MovieMetadataResponse_RequiresAboutFieldsWithTheQ2Shape()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+
+        // assert
+        var schema = parsed.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("MovieMetadataResponse");
+        var required = schema.GetProperty("required").EnumerateArray()
+            .Select(item => item.GetString())
+            .ToList();
+        required.ShouldContain("writers");
+        required.ShouldContain("genres");
+        required.ShouldContain("collectionName");
+        var properties = schema.GetProperty("properties");
+        foreach (var name in new[] { "writers", "genres" })
+        {
+            properties.TryGetProperty(name, out var field).ShouldBeTrue($"MovieMetadataResponse must document {name}.");
+            SchemaTypes(ResolveSchema(parsed.RootElement, field)).ShouldContain("array");
+            field.GetProperty("items").GetProperty("type").GetString().ShouldBe("string");
+        }
+
+        properties.TryGetProperty("collectionName", out var collection).ShouldBeTrue(
+            "MovieMetadataResponse must document collectionName.");
+        SchemaTypes(ResolveSchema(parsed.RootElement, collection)).ShouldBe(["null", "string"], ignoreOrder: true);
+    }
+
+    [Fact]
     public async Task Document_SetMovieReview_DocumentsRawStringBodyAndTheFrozenStatusMatrix()
     {
         // arrange
