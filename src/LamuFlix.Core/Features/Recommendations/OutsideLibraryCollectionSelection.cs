@@ -35,21 +35,12 @@ public static class OutsideLibraryCollectionSelection
             }
 
             var resolved = evidence.Resolve(candidate.TmdbId);
-            if (IsRepresented(resolved, represented))
+            if (IsSkipped(resolved, represented))
             {
                 continue;
             }
 
-            if (OutsideLibraryEligibility.Evaluate(resolved) != OutsideLibraryVerdict.Admit)
-            {
-                continue;
-            }
-
-            admitted.Add(candidate.Card);
-            if (resolved?.CollectionId is { } collectionId && collectionId > 0)
-            {
-                represented.Add(collectionId);
-            }
+            TrackAdmission(admitted, represented, candidate, resolved);
         }
 
         return admitted;
@@ -81,24 +72,34 @@ public static class OutsideLibraryCollectionSelection
             }
 
             var resolved = await evidence.ResolveAsync(candidate.TmdbId, ct);
-            if (IsRepresented(resolved, represented))
+            if (IsSkipped(resolved, represented))
             {
                 continue;
             }
 
-            if (OutsideLibraryEligibility.Evaluate(resolved) != OutsideLibraryVerdict.Admit)
-            {
-                continue;
-            }
-
-            admitted.Add(candidate.Card);
-            if (resolved?.CollectionId is { } collectionId && collectionId > 0)
-            {
-                represented.Add(collectionId);
-            }
+            TrackAdmission(admitted, represented, candidate, resolved);
         }
 
         return admitted;
+    }
+
+    private static bool IsSkipped(
+        CandidateImdbEvidence? resolved,
+        HashSet<int> represented) =>
+        IsRepresented(resolved, represented)
+        || OutsideLibraryEligibility.Evaluate(resolved) != OutsideLibraryVerdict.Admit;
+
+    private static void TrackAdmission(
+        List<OutsideLibraryRecommendation> admitted,
+        HashSet<int> represented,
+        OutsideLibraryRankedCandidate candidate,
+        CandidateImdbEvidence? resolved)
+    {
+        admitted.Add(candidate.Card);
+        if (resolved?.CollectionId is { } collectionId && collectionId > 0)
+        {
+            represented.Add(collectionId);
+        }
     }
 
     private static bool IsRepresented(
