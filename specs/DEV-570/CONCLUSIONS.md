@@ -88,3 +88,13 @@ Verdict: `gate1: provisional` set on `specs/DEV-570/spec.md`; no structural owne
 - Basis: PLAN FROZEN receipt above (14 plan-challenge findings adjudicated; read-only `/speckit-analyze` clean, no residual findings or constitution conflicts) and `checklists/requirements.md` User-Visible Outcome items ticked.
 - Basis: `spec.md` Owner question — Gate 1 records no ticket contradiction or constitution departure (`brief.md`; `PRODUCT.md` §5), so no `blocked: structural` checkbox is carried to the Spec Kit PR.
 - Effect: Gate 1 completes only on owner merge of the Spec Kit PR and verified T000 receipt; Phase B remains gated on that merge.
+
+## T000 — Gate 1 merge receipt
+
+The owner merged Spec Kit PR [#502](https://github.com/lamuniercosta/lamuflix/pull/502) at `a862b353`. Phase A started from `ef6dd3e694aa82d3bddd7effe3e31f96b5289a75`. The eight files under `specs/DEV-570/` are on `main`. Rigger verified that DEV-570 was `Ready to build` in YouTrack before Phase B intake moved it to `In Progress`. Evidence is in `DEV-570` lines 4–5 and `recon-DEV-570` lines 3–9 and 20–23. Gate 1 is complete.
+
+## T001 — Phase B pickup reanalysis READY
+
+Keel's read-only reanalysis at `feature/DEV-570` commit `9529c9794d8c6ec867467a763486e2a70aa4897f` agreed with the brief, spec, plan, tasks and Wisp's pickup recon. The delta from the Phase A base to `origin/main` comprised eight DEV-570 spec files across nine commits. The frozen FR-008 envelope stands without amendment or a new Patron ruling. Evidence is in `DEV-570` lines 7–11 and `recon-DEV-570` lines 8–29.
+
+Wisp recorded the typed consumers and fixture updates, generator ownership, the sanctioned OpenAPI export and npm commands, and the existing T009 LocalPlay launch suites. The two E2E consumers use generated response types and require a fresh Patron ruling if a source edit proves necessary. Command verification was read-only. Evidence is in `recon-DEV-570` lines 32–54. T001 is complete and T002 is next.
