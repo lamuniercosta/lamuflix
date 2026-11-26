@@ -39,6 +39,12 @@ function renderView(movieId: number | string = 1) {
   return renderWith(new QueryClient({ defaultOptions: { queries: { retry: false } } }), movieId);
 }
 
+async function heroActorButton(name: string) {
+  await screen.findByRole('heading', { name: 'Dune', level: 1 });
+  const hero = document.querySelector('.details-hero') as HTMLElement;
+  return within(hero).findByRole('button', { name });
+}
+
 const fullMovie = {
   ...movieDetails,
   metadata: {
@@ -78,8 +84,44 @@ describe('MovieDetailsView', () => {
     expect(screen.getByText(/Rotten Tomatoes/)).toBeInTheDocument();
     expect(screen.getByText(/Metacritic/)).toBeInTheDocument();
     expect(screen.getByText(/Denis Villeneuve, Jon Spaihts/)).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Timothée Chalamet' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Rebecca Ferguson' })).toBeInTheDocument();
+    expect(await heroActorButton('Timothée Chalamet')).toBeInTheDocument();
+    expect(await heroActorButton('Rebecca Ferguson')).toBeInTheDocument();
+  });
+
+  it('renders About rows alongside the existing metadata', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () =>
+        HttpResponse.json({
+          ...fullMovie,
+          metadata: {
+            ...fullMovie.metadata,
+            writers: ['Frank Herbert'],
+            genres: ['Science fiction'],
+            collectionName: 'Dune Saga',
+          },
+        }),
+      ),
+    );
+    renderView();
+
+    const about = await screen.findByRole('region', { name: 'About Dune' });
+    expect(within(about).getByRole('heading', { name: 'About Dune' })).toBeInTheDocument();
+    expect(
+      within(about)
+        .getAllByRole('term')
+        .map((term) => term.textContent),
+    ).toEqual(['Directors', 'Cast', 'Writer', 'Genres', 'Collection']);
+    expect(about).toHaveTextContent('Frank Herbert');
+    expect(about).toHaveTextContent('Science fiction');
+    expect(about).toHaveTextContent('Dune Saga');
+  });
+
+  it('shows no About section when metadata is null', async () => {
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(movieDetailsNullMetadata)));
+    renderView();
+
+    expect(await screen.findByText('No metadata available yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'About Dune' })).not.toBeInTheDocument();
   });
 
   it('renders partial/null metadata', async () => {
@@ -405,7 +447,7 @@ describe('MovieDetailsView cast and more-with', () => {
     );
     renderView();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    fireEvent.click(await heroActorButton('Timothée Chalamet'));
     expect(
       await screen.findByRole('heading', { name: 'More with Timothée Chalamet in your library' }),
     ).toBeInTheDocument();
@@ -420,8 +462,10 @@ describe('MovieDetailsView cast and more-with', () => {
     );
     renderView();
 
-    expect(await screen.findByRole('button', { name: 'Timothée Chalamet' })).toBeInTheDocument();
-    expect(screen.getByText('Unknown Actor')).toBeInTheDocument();
+    expect(await heroActorButton('Timothée Chalamet')).toBeInTheDocument();
+    expect(
+      within(document.querySelector('.details-hero') as HTMLElement).getByText('Unknown Actor'),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Unknown Actor' })).not.toBeInTheDocument();
   });
 
@@ -433,7 +477,7 @@ describe('MovieDetailsView cast and more-with', () => {
     window.history.replaceState({}, '', '/movies/1');
     renderView();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    fireEvent.click(await heroActorButton('Timothée Chalamet'));
     fireEvent.click(await screen.findByRole('link', { name: 'Arrival' }));
 
     expect(screen.queryByRole('link', { name: 'Dune' })).not.toBeInTheDocument();
@@ -449,7 +493,7 @@ describe('MovieDetailsView cast and more-with', () => {
     window.history.replaceState({ libraryReturnUrl: '/?genreIds=1' }, '', '/movies/1');
     renderView();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    fireEvent.click(await heroActorButton('Timothée Chalamet'));
     fireEvent.click(await screen.findByRole('link', { name: 'Arrival' }));
 
     expect(window.location.pathname).toBe('/movies/2');
@@ -463,7 +507,7 @@ describe('MovieDetailsView cast and more-with', () => {
     );
     window.history.replaceState({ libraryReturnUrl: '/?genreIds=1' }, '', '/movies/1');
     renderView();
-    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    fireEvent.click(await heroActorButton('Timothée Chalamet'));
     const row = await screen.findByRole('link', { name: 'Arrival' });
     const dispatch = vi.spyOn(window, 'dispatchEvent');
 
@@ -490,7 +534,7 @@ describe('MovieDetailsView cast and more-with', () => {
     );
     renderView();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    fireEvent.click(await heroActorButton('Timothée Chalamet'));
     expect(
       await screen.findByText('No other movies with Timothée Chalamet in your library yet.'),
     ).toBeInTheDocument();
@@ -502,7 +546,7 @@ describe('MovieDetailsView cast and more-with', () => {
     );
     renderView();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    fireEvent.click(await heroActorButton('Timothée Chalamet'));
     const link = await screen.findByRole('link', {
       name: 'See all with Timothée Chalamet in Library',
     });
@@ -519,7 +563,7 @@ describe('MovieDetailsView cast and more-with', () => {
     );
     renderView();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    fireEvent.click(await heroActorButton('Timothée Chalamet'));
     const link = await screen.findByRole('link', {
       name: 'See all with Timothée Chalamet in Library',
     });
@@ -670,7 +714,7 @@ describe('MovieDetailsView related movies integration', () => {
     );
     const { container } = renderView();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    fireEvent.click(await heroActorButton('Timothée Chalamet'));
     expect(
       await screen.findByRole('heading', { name: 'More with Timothée Chalamet in your library' }),
     ).toBeInTheDocument();
@@ -680,6 +724,7 @@ describe('MovieDetailsView related movies integration', () => {
       container.querySelectorAll('.details > .details-section'),
     ).map((section) => section.className);
     expect(sectionClasses).toEqual([
+      'details-section details-about',
       'details-section details-more',
       'details-section details-trailer',
       'details-section related-movies',

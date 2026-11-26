@@ -62,6 +62,9 @@ const movieDetailsData = {
     metaScore: null,
     directors: [],
     actors: [],
+    writers: [],
+    genres: [],
+    collectionName: null,
     trailerKey: 'dQw4w9WgXcQ',
   },
 } satisfies Schemas['MovieDetailsResponse'];
@@ -90,6 +93,9 @@ const movieDetailsNoTrailerData = {
     metaScore: null,
     directors: [],
     actors: [],
+    writers: [],
+    genres: [],
+    collectionName: null,
     trailerKey: null,
   },
 } satisfies Schemas['MovieDetailsResponse'];

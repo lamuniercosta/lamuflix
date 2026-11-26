@@ -36,6 +36,7 @@ import {
   useRequestEnrichment,
   type EnrichmentStatus,
 } from './movieDetailsQueries';
+import AboutSection from './AboutSection';
 import CastSection from './CastSection';
 import FileSection from './FileSection';
 import ManualMatchControl from './ManualMatchControl';
@@ -442,6 +443,16 @@ function MovieDetailsViewInner({
           )}
         </div>
       </div>
+
+      {metadata && (
+        <AboutSection
+          title={movie.title}
+          metadata={metadata}
+          people={peopleList}
+          selected={selectedActor}
+          onSelect={toggleActor}
+        />
+      )}
 
       {selectedActor && selectedIds.length > 0 && (
         <MoreWithPanel

@@ -162,6 +162,36 @@
   padding: var(--lamu-space-1) 0;
 }
 
+.details-about-list {
+  display: grid;
+  gap: var(--lamu-space-3);
+  min-width: 0;
+  margin: 0;
+}
+
+.details-about-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, max-content) minmax(0, 1fr);
+  gap: var(--lamu-space-3);
+  min-width: 0;
+}
+
+.details-about-row dt {
+  color: var(--color-dim);
+  font-weight: 600;
+}
+
+.details-about-row dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.details-about-row dd .lamu-chip {
+  vertical-align: baseline;
+}
+
 .details-synopsis {
   max-width: 62ch;
   margin: 0;
@@ -386,6 +416,11 @@
   .details-cast-list {
     flex-wrap: nowrap;
     overflow-x: auto;
+  }
+
+  .details-about-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--lamu-space-1);
   }
 
   .details-cast-list > li {
