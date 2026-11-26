@@ -23,14 +23,13 @@ function displayed(values: readonly string[]): string[] {
   return values.filter((value) => value.trim().length > 0);
 }
 
-export function AboutSection({ title, metadata, people, selected, onSelect }: AboutSectionProps) {
-  const headingId = useId();
-  const directors = displayed(metadata.directors);
-  const actors = displayed(metadata.actors);
-  const writers = displayed(metadata.writers);
-  const genres = displayed(metadata.genres);
-  const collection = metadata.collectionName?.trim() ? metadata.collectionName : null;
-
+function buildAboutRows(
+  directors: string[],
+  actors: string[],
+  writers: string[],
+  genres: string[],
+  collection: string | null,
+): AboutRow[] {
   const rows: AboutRow[] = [];
   if (directors.length > 0) {
     rows.push({
@@ -50,6 +49,18 @@ export function AboutSection({ title, metadata, people, selected, onSelect }: Ab
   if (collection !== null) {
     rows.push({ label: 'Collection', values: [collection] });
   }
+  return rows;
+}
+
+export function AboutSection({ title, metadata, people, selected, onSelect }: AboutSectionProps) {
+  const headingId = useId();
+  const rows = buildAboutRows(
+    displayed(metadata.directors),
+    displayed(metadata.actors),
+    displayed(metadata.writers),
+    displayed(metadata.genres),
+    metadata.collectionName?.trim() ? metadata.collectionName : null,
+  );
   if (rows.length === 0) return null;
 
   return (
