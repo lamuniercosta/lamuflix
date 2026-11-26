@@ -26,7 +26,7 @@ When the browser cannot decode the movie’s selected audio track (AC3, E-AC3, D
 
 **Project Type**: Existing minimal API stream slice + Infrastructure/Core conversion service inside current layers (Core port `IStreamConversionService` with ADR 0050 Accepted in Build).
 
-**Performance Goals**: Cold converted preparation ≤ 120 s on largest proof sample; raw cold probe ≤ 300 ms; raw warm Range with no repeatable baseline difference (Q6). Seek resume ≤ 3 s on converted (Q6 bar c). No additional home-cluster cold timing threshold beyond the one recorded pre-build measurement.
+**Performance Goals**: Cold preparation to audible start ≤ 300 s on the largest Compose proof sample; raw cold probe ≤ 300 ms; raw warm Range with no repeatable baseline difference (Q6). Seek resume ≤ 3 s on converted (Q6 bar c). No additional home-cluster cold timing threshold beyond the one recorded pre-build measurement.
 
 **Constraints**: Charter §2.3 / PRODUCT §5 items deliberately ruled in Q1–Q5 (Process.Start allowed for server-side conversion; no LocalPlay read/change; no new API shape beyond Content-Type; no schema/deps/layers; no out-of-envelope rewrites). No secrets; no library writes; child args are only server-resolved paths plus generated scratch filenames with shell disabled and existing authorization-before-child. Authorized Q5 source/test envelope edits remain allowed; deploy-only edits (`Dockerfile.api` / Compose) only when AC7 proof requires them; any other tracked file needs the existing return ruling. Size L requires Risk (Sentry), Standards (Ledger), Spec (Compass). Two review rounds; residual blockers to Bernstein (Q7). Honest gate labels; never lower thresholds.
 
@@ -92,7 +92,7 @@ Logged in `ASSUMPTIONS.md` as `[assumed]` (four defaults only):
 | Scratch size bound | `20 GiB` | `[assumed]` — LRU among completed assets with zero readers |
 | Scratch directory default | `cache/stream-conversion` (under content root unless absolute path configured) | `[assumed]` — isolated from library; mirrors thumbnail cache style |
 
-Per the analyze ruling in `brief.md` and `CONCLUSIONS.md` (`79c86dc4`), retain existing runner behavior and Q4 child kill and partial-file cleanup: conversion failure cleans up immediately; zero-waiter in-flight cleanup follows the 1 s internal reattachment grace (`ASSUMPTIONS.md`; Step 6 R1). Q6 sets the 120 s feasibility bar only. Add no feature-specific wall-clock timeout or timeout default while a waiter remains attached. Return to Patron if proof shows the runner cannot meet Q4 or Q6 (Step 6 R2).
+Per the analyze ruling in `brief.md` and `CONCLUSIONS.md` (`79c86dc4`), retain existing runner behavior and Q4 child kill and partial-file cleanup: conversion failure cleans up immediately; zero-waiter in-flight cleanup follows the 1 s internal reattachment grace (`ASSUMPTIONS.md`; Step 6 R1). The reopened Q6 ruling sets 300 s for the Compose feasibility proof only. Add no feature-specific wall-clock timeout or timeout default while a waiter remains attached. Return to Patron if proof shows the runner cannot meet Q4 or Q6 (Step 6 R2).
 
 ## Feasibility proof measurements (required in this plan before Build)
 
@@ -100,23 +100,34 @@ Linked evidence may supplement these tables; it does not replace them.
 
 | Sample | Selected input codec | Cold prep → audible (s) | Duration OK | Seek ≤3 s (click + arrows) | Range-abort OK | Video copy | AAC audio | Subtitle / delay / controls parity (Q2 Compose) |
 |---|---|---|---|---|---|---|---|---|
-| Movie 959 | _pending proof_ | _pending proof_ | | | | | | |
-| Real AC3 | _pending proof_ | _pending proof_ | | | | | | |
-| Real DTS | _pending proof_ | _pending proof_ | | | | | | |
+| Movie 959 | E-AC3 (`eac3`, first audio stream index 1, no default flag) | Conversion only: **272.786 s with `+faststart`** and **285.625 s without `+faststart`**. Both failed the then-active 120 s bar. Audible start was not measured. | Output metadata duration 10473.600 s matches source 10473.600 s in both runs | NOT RUN — stopped on Q6 bar (e) after both invocations | NOT RUN — stopped on Q6 bar (e) after both invocations | PASS by ffprobe: output video `hevc` Main 10 1440x1080 same as source; no re-encode | PASS by ffprobe: output audio `aac` LC stereo | NOT RUN — stopped on Q6 bar (e) after both invocations |
+| Real AC3 | AC3 (`ac3`, first/default audio stream index 1); verified from `E:\Filmes\Studio Ghibli Collection\Pom Poko[1994]\Pom Poko 1994 720p BluRay x264 AC3 - Ozlem.mp4` | NOT RUN — re-proof stopped on movie 959 bar (e) in both invocations | Source duration verified 7151.394 s | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
+| Real DTS | DTS (`dts`, first/default audio stream index 1); verified from `E:\Filmes\Justice League Collection\Justice League - Doom[2012]\Justice.League.Doom.2012.720p.BluRay.x264.DTS-HDChina.mkv` | NOT RUN — re-proof stopped on movie 959 bar (e) in both invocations | Source duration verified 4612.384 s | NOT RUN | NOT RUN | NOT RUN | NOT RUN | NOT RUN |
 
-120 s cold-prep cap applies to the **largest** of the three samples (Q6 bar e).
+The current Compose cap is **300 s from cold preparation to audible start** on the **largest** of the three samples (reopened Q6 bar e, `CONCLUSIONS.md`). Stop and return the measurements to Patron if it exceeds 300 s. Movie 959 is the longest sample (10473.600 s). Its two conversion-only timings exceeded the former 120 s cap: 272.786 s with `+faststart` and 285.625 s without it (ffmpeg `speed=37.4x` in the second run). Dropping `+faststart` did not improve cold preparation; the second output begins with `ftyp`/`free`/`mdat` and has `moov` at the end (byte-range capable, but no faster). Anvil returned `blocked` under Patron's `26c20a9e` ruling. T002 remains open. The resumed proof must measure end-to-end time to audible start and complete the remaining bars and samples, Q2 parity, and forced-hang cleanup.
 
 | Environment | ffmpeg path/version | ffprobe path/version | Scratch writable | Cold prep note |
 |---|---|---|---|---|
-| Local Compose API | _pending_ | _pending_ | _pending_ | bars (a)–(f) + Q2 subtitle/control parity |
-| Home cluster API (pre-build) | _pending_ | _pending_ | _pending_ | tools + path + scratch + **one** cold timing only (no extra cluster threshold) |
+| Local Compose API | `/usr/bin/ffmpeg`, `ffmpeg version 6.1.1-3ubuntu5` | `/usr/bin/ffprobe`, `ffprobe version 6.1.1-3ubuntu5` | `/app/cache` writable = yes; dedicated `/app/cache/stream-conversion-proof/{src,out,bin,logs}` created inside API-owned scratch | T002 re-proof stopped: movie 959 cold prep 272.786 s (`+faststart`) and 285.625 s (no `+faststart`), both above the former 120 s cap; audible start, remaining proof bars, and Q2 parity pending |
+| Home cluster API (pre-build) | _pending — T003_ | _pending — T003_ | _pending — T003_ | tools + path + scratch + **one** cold timing only (no extra cluster threshold) |
 
 Missing ffprobe on either environment → **STOP** for Q3 provisioning ruling.
 
 | Raw path timing | Baseline | With probe | Delta |
 |---|---|---|---|
-| Cold first request | _pending_ | _pending_ | must be ≤ 300 ms |
-| Warm Range | _pending_ | _pending_ | no repeatable difference |
+| Cold first request | NOT RUN — stopped on movie 959 cold-prep failure in both invocations | NOT RUN — stopped on movie 959 cold-prep failure in both invocations | NOT RUN — ≤ 300 ms bar not evaluated |
+| Warm Range | NOT RUN — stopped on movie 959 cold-prep failure in both invocations | NOT RUN — stopped on movie 959 cold-prep failure in both invocations | NOT RUN — no repeatable difference bar not evaluated |
+
+### T002 re-proof receipt — Anvil, before production code
+
+- Worktree `F:/Dev/LamuFlix.worktrees/DEV-572`, branch `feature/DEV-572`; first partial receipt at HEAD `23866df574eb705b38f918d3fa267a0d084c5dff`, Patron re-proof ruling committed at `26c20a9e`. No production conversion code was edited; only this plan is updated with proof evidence.
+- Compose container `lamuflix-api-1`: `command -v ffmpeg` → `/usr/bin/ffmpeg`, `command -v ffprobe` → `/usr/bin/ffprobe`; both report `6.1.1-3ubuntu5`. `/app/cache` is writable; scratch proof subdirectories were created there. No `Dockerfile.api` or Compose edit was required or made.
+- Real samples were located and copied read-only from the host library into API-owned scratch: movie 959 `You.Can.See.Everything.2026.1080p.WEBRip.10Bit.DDP5.1.x265-NeoNoir.mkv` (2,320,887,181 bytes; source video `hevc` Main 10 1440x1080, selected audio stream 1 `eac3`, duration 10473.600 s); real AC3 `Pom Poko 1994 720p BluRay x264 AC3 - Ozlem.mp4` (990,186,485 bytes; `h264` + `ac3`, duration 7151.394 s); real DTS `Justice.League.Doom.2012.720p.BluRay.x264.DTS-HDChina.mkv` (2,967,209,285 bytes; `h264` + default `dts`, duration 4612.384 s). ffprobe in the API container confirmed these codecs and selected tracks.
+- First invocation used the Q2 design: video `-c:v copy`, selected audio `-c:a aac -b:a 192k -ac 2`, non-fragmented MP4 with `-movflags +faststart`; output written only to `/app/cache/stream-conversion-proof/out`. Movie 959 measured `elapsed_ms=272786` (272.786 s); log `/app/cache/stream-conversion-proof/logs/movie959.mkv.ffmpeg.log`.
+- Per Patron's 26c20a9e Q1 ruling, the re-proof invocation dropped `+faststart` only: `/usr/bin/ffmpeg -nostdin -y -i src/movie959.mkv -map 0:v:0 -map 0:a:0 -c:v copy -c:a aac -b:a 192k -ac 2 out/movie959-nofs.mp4`, with all paths inside `/app/cache/stream-conversion-proof`. Measured `rc=0 elapsed_ms=285625` (285.625 s); final progress `speed=37.4x`; log `/app/cache/stream-conversion-proof/logs/movie959-nofs.log`. Output ffprobe: `hevc` Main 10 1440x1080 copied video, `aac` stereo audio, duration 10473.600 s, size 2,245,194,955 bytes. First boxes are `ftyp`/`free`/`mdat`; `moov` is in the final 8 MiB — non-fragmented and Range-servable, but 13.8 s slower than the faststart run.
+- Both invocations failed the 120 s Q6 bar (e) in effect at the time on the largest sample. Per the 26c20a9e return condition this is `blocked` with both numbers returned to Patron; no bar or model change was made, and no bar (a)–(d), raw timing, or forced-hang cancellation proof was run after the second failure. Q2 compatibility/browser proof remains unverified.
+- AC3/DTS conversions were not attempted after either stop; the AC3 attempt in the first batch failed only because of an incorrect audio-map index (`0:a:1` on a single-audio file) and produced no output, so that malformed invocation is not proof evidence.
+- `T002` remains unchecked. No production conversion code was changed; no commit was created for the failed re-proof.
 
 ## Verification Approach
 
