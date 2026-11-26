@@ -8,6 +8,7 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -19,7 +20,9 @@ public sealed class EfRecommendationCandidateSource(
     LamuFlixDbContext db,
     ICandidateEvidenceStore? evidenceStore = null,
     IOptions<RecommendationOptions>? options = null,
-    TimeProvider? timeProvider = null) : IRecommendationCandidateSource
+    TimeProvider? timeProvider = null,
+    IOutsideLibraryEvidenceResolver? evidenceResolver = null,
+    IOptions<OmdbQuotaOptions>? quotaOptions = null) : IRecommendationCandidateSource
 {
     private readonly LamuFlixDbContext db = db ?? throw new ArgumentNullException(nameof(db));
 
@@ -114,14 +117,68 @@ public sealed class EfRecommendationCandidateSource(
             }
         }
 
-        return snapshot with
+        if (evidenceResolver is null || quotaOptions is null)
         {
-            AdmittedCards = OutsideLibraryRanking.RankAdmitted(
-                snapshot,
-                options.Value,
-                evidence,
-                clock),
-        };
+            return snapshot with
+            {
+                AdmittedCards = OutsideLibraryRanking.RankAdmitted(
+                    snapshot,
+                    options.Value,
+                    evidence,
+                    clock),
+            };
+        }
+
+        var budget = await CreateBudgetAsync(ct);
+        var resolvedEvidence = new Dictionary<int, CandidateImdbEvidence>();
+        var admitted = await OutsideLibraryRanking.RankAdmittedAsync(
+            snapshot,
+            options.Value,
+            evidence,
+            async (tmdbId, token) =>
+            {
+                var resolved = await evidenceResolver.ResolveAsync(
+                    tmdbId,
+                    evidence.GetValueOrDefault(tmdbId),
+                    budget,
+                    token);
+                if (resolved is not null)
+                {
+                    resolvedEvidence[tmdbId] = resolved;
+                }
+
+                return resolved;
+            },
+            ct,
+            clock,
+            resolvedEvidence);
+
+        return snapshot with { AdmittedCards = admitted };
+    }
+
+    private async Task<OutsideLibraryEvidenceBudget> CreateBudgetAsync(CancellationToken ct)
+    {
+        if (quotaOptions is null)
+        {
+            return new OutsideLibraryEvidenceBudget(0, DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime));
+        }
+
+        var quota = quotaOptions.Value;
+        var usageDate = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+        var remaining = 0;
+        if (quota.IsEnabled)
+        {
+            var used = await db.DailyRequestUsages
+                .AsNoTracking()
+                .Where(row => row.UsageDate == usageDate)
+                .Select(row => row.RequestCount)
+                .SingleOrDefaultAsync(ct);
+            remaining = Math.Max(0, quota.DailyLimit - used);
+        }
+
+        return new OutsideLibraryEvidenceBudget(
+            Math.Min(OutsideLibraryCollectionSelection.MaxAdmitted, remaining),
+            usageDate);
     }
 
     public async Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace LamuFlix.Core.Features.Recommendations;
 
@@ -7,7 +9,8 @@ public sealed class OutsideLibraryEvidenceLookup(
     IReadOnlyDictionary<int, CandidateImdbEvidence> cachedEvidence,
     DateTimeOffset now,
     Func<int, CandidateImdbEvidence?>? resolveEvidence = null,
-    IReadOnlyDictionary<int, CandidateImdbEvidence>? fresherEvidence = null)
+    IReadOnlyDictionary<int, CandidateImdbEvidence>? fresherEvidence = null,
+    Func<int, CancellationToken, ValueTask<CandidateImdbEvidence?>>? resolveEvidenceAsync = null)
 {
     private readonly IReadOnlyDictionary<int, CandidateImdbEvidence> cached =
         cachedEvidence ?? throw new ArgumentNullException(nameof(cachedEvidence));
@@ -20,6 +23,18 @@ public sealed class OutsideLibraryEvidenceLookup(
 
     public CandidateImdbEvidence? Resolve(int tmdbId) =>
         Peek(tmdbId) ?? resolveEvidence?.Invoke(tmdbId);
+
+    public async ValueTask<CandidateImdbEvidence?> ResolveAsync(int tmdbId, CancellationToken ct)
+    {
+        if (Peek(tmdbId) is { } fresh)
+        {
+            return fresh;
+        }
+
+        return resolveEvidenceAsync is not null
+            ? await resolveEvidenceAsync(tmdbId, ct)
+            : resolveEvidence?.Invoke(tmdbId);
+    }
 
     private CandidateImdbEvidence? PreferFresher(
         int tmdbId,

@@ -90,6 +90,8 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IOmdbRequestGate, EfMetadataRequestGate>();
         services.TryAddScoped<ICandidateEvidenceStore, EfCandidateEvidenceStore>();
         services.TryAddScoped<ICandidateEvidenceWriter, CandidateEvidenceWriter>();
+        services.TryAddSingleton<CandidateEvidenceFlightRegistry>();
+        services.TryAddScoped<IOutsideLibraryEvidenceResolver, OutsideLibraryEvidenceResolver>();
         services.AddScoped<MovieLibraryPathMigrationGate>();
 
         return services;
