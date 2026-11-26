@@ -35,6 +35,13 @@ public sealed class RabbitMqTopology(
     private const string DeadLetterStrategyAtLeastOnce = "at-least-once";
     private const string OverflowRejectPublish = "reject-publish";
 
+    private static readonly TimeSpan[] DeclareRetryDelays =
+    [
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4),
+        TimeSpan.FromSeconds(8),
+    ];
+
     private readonly SemaphoreSlim gate = new(1, 1);
     private volatile bool declared;
 
@@ -53,7 +60,9 @@ public sealed class RabbitMqTopology(
                 return;
             }
 
-            await DeclareAsync(cancellationToken);
+            await ExecuteWithClusterRetryAsync(
+                token => DeclareAsync(token),
+                cancellationToken);
             declared = true;
         }
         finally
@@ -184,6 +193,43 @@ public sealed class RabbitMqTopology(
             ExchangeName,
             ThumbnailDeadLetterRoutingKey,
             cancellationToken: cancellationToken);
+    }
+
+    public static bool IsClusterNotFormed(Exception failure)
+    {
+        for (var current = failure; current is not null; current = current.InnerException)
+        {
+            if (current.Message.Contains("541", StringComparison.OrdinalIgnoreCase)
+                || current.Message.Contains("cluster_not_formed", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static async Task ExecuteWithClusterRetryAsync(
+        Func<CancellationToken, Task> declare,
+        CancellationToken cancellationToken,
+        TimeSpan[]? retryDelays = null)
+    {
+        var delays = retryDelays ?? DeclareRetryDelays;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await declare(cancellationToken);
+                return;
+            }
+            catch (Exception failure)
+                when (attempt <= delays.Length
+                    && IsClusterNotFormed(failure)
+                    && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(delays[attempt - 1], cancellationToken);
+            }
+        }
     }
 
     private static async Task DeclareQueueAsync(
