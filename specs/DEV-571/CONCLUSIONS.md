@@ -140,3 +140,38 @@ Record this in specs/DEV-571/CONCLUSIONS.md verbatim; leave worktree writes to K
 - **Lows:** F7: T001 confirms that the gate and handler path take a `TimeProvider`, or reports `needs recon`. F8: adversarial numeric fixtures for both fields, choosing null (unresolved) over a numeric guess. F9: a fresh cached collection ID counts as known until it expires, unless fresher evidence is already known without a remote lookup; one test pins this. L1: tidy to one normative gate-vocabulary statement plus references. L2: new test files are in scope. L3: the `MovieMetadata` widening must not change enrichment output or any public DTO, and the T019 drift check must show zero drift. Compass: 0 findings, nothing to dispose.
 
 Basis: recon-DEV-571 23-37; findings-DEV-571-Ledger/Compass/Sentry; Constitution I, IV, VI, VII; Q2-Q5 rulings above; charter §2.3.
+
+### Keel dispositions
+
+The challenge reviewed draft artifacts on `ef6dd3e694aa82d3bddd7effe3e31f96b5289a75`. Patron's ruling is recorded in `147a48be`. The dispositions below accept the scoped correction for each finding. Where a finding proposed multiple remedies, the disposition identifies the approved remedy.
+
+| Finding | Disposition | Rationale and required repair |
+|---|---|---|
+| Sentry F1 | Accept | Recon line 23 establishes the denial exception. Discovery defers the candidate and continues cache-only, preserving a successful shorter row. Exercise a mid-scan denial and a lower cached survivor. |
+| Sentry F2 | Accept | Cap TMDb calls at the same per-load ceiling and count every external-ID call against it, including failures and missing IDs. Attempt one only while an OMDb send could still follow. Keep successful IDs in eligible evidence rows and assert provider call counts. No additional configured budget or transient TTL. |
+| Sentry F3 | Accept | Validate the request ID before reservation. Malformed input makes zero sends or charges, while malformed response evidence cannot undo a charge for a request already sent. |
+| Sentry F4 | Accept | Coalesce the full miss chain by TMDb ID. Waiters share the outcome, may cancel independently and never take over the flight. Failed or abandoned flights defer waiters and permit later loads to retry. |
+| Sentry F5 | Accept | Resolve serially in DEV-561 order within one load. Preserve atomic shared reservation across loads and consumers and the send-boundary retry guard. |
+| Sentry F6 | Accept | Add bounded quota-denial/defer diagnostics and show the charged discovery/enrichment split in Q4 proof. The single pool continues to allow either consumer to exhaust it. |
+| Sentry F7 | Accept | Confirm the gate and handler time seam explicitly in T001 and report `needs recon` if it cannot be established. |
+| Sentry F8 | Accept | Cover adversarial rating and vote strings and treat ambiguous values as unknown. Preserve Q1 outcome precedence and retention windows. |
+| Sentry F9 | Accept | Fresh cached membership is known until expiry unless fresher information is already available locally. Verify the case without triggering a remote refresh on a fresh cache hit. |
+| Sentry F10 | Accept | Each send reserves against its current UTC date. The per-load ceiling stays fixed and exhaustion stops fresh resolution for the rest of that load. Cover rollover. |
+| Sentry F11 | Accept | Assert diagnostics contain only approved structured fields and exclude credentials, request URIs and raw bodies. |
+| Ledger H1 | Accept | The governance lane applies the actual narrow VII amendment with version and sync-impact record to the spec PR after owner approval. T000 records the merged amendment commit and verified owner merge. |
+| Ledger H2 | Accept | Recon lines 31–37 establish the existing allowed `IRecommendationCandidateSource` and scoped EF implementation. Keep pure policy in Core and perform evidence I/O through the existing Infrastructure source. |
+| Ledger M1 | Accept | Under the amended VII rule, normalize only the raw daily allowance key in existing binding to a typed positive allowance or disabled state. The shared gate denies both consumers when disabled, while other option validation and enrichment settlement are preserved. |
+| Ledger M2 | Accept | Adopt option (a). T000 blocks all Build tasks. Remove redundant conditional branches downstream of that hard block and retain the global owner prerequisite. |
+| Ledger M3 | Accept | Remove the default and add disabled normalization in the same post-Gate-1 step. Identify dependent hosts and fix test fixtures shown by a gate to rely on the default. Use Q4 provisioning for environments and keep committed host config outside this scope. |
+| Ledger M4 | Accept | Move the external-ID capability and evidence-write path into Phase 2 after the evidence model, before selection consumes the source. Keep tests ahead of the corresponding implementation. |
+| Ledger L1 | Accept | Keep a single normative statement of gate labels in T019 and refer to it elsewhere. Preserve all existing verdict categories. |
+| Ledger L2 | Accept | State directly that the existing test projects may receive new feature tests. |
+| Ledger L3 | Accept | Keep external-ID lookup discovery-only and prove unchanged enrichment output and public contract. Run contract drift verification under T019. |
+
+Compass reported zero findings. Total **20 accepted, 0 rejected, 0 deferred**. Gate 1 remains closed on the unchecked Principle VII owner question.
+
+### PLAN FROZEN — Phase 2 receipt
+
+Keel independently checked Quill's repaired artifacts and private plan/tasks mirrors after both Phase 2 read-backs. Read-only `speckit-analyze` prerequisites exited 0 with `PYTHONUTF8=1`. All 15 functional requirements and 8 success criteria map to the 21 tasks, and all named dependencies point to earlier tasks in execution order. The plan and task mirrors match byte for byte. The three-axis challenge closes with 20 accepted, 0 rejected, and 0 deferred findings.
+
+The draft Spec Kit PR may be prepared with the exact unchecked owner checkbox in `spec.md`. Principle VII remains **blocked: structural**. Gate 1 and T000 remain closed until the owner answers affirmatively and merges the Spec Kit PR carrying the actual narrow constitution amendment. T000 records the verified merge and amendment commit. An owner rejection stops this draft for re-planning.
