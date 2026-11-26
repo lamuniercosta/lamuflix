@@ -2586,6 +2586,9 @@
           "metaScore",
           "directors",
           "actors",
+          "writers",
+          "genres",
+          "collectionName",
           "trailerKey"
         ],
         "type": "object",
@@ -2667,6 +2670,24 @@
             "items": {
               "type": "string"
             }
+          },
+          "writers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "collectionName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "trailerKey": {
             "type": [

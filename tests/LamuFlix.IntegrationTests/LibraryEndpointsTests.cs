@@ -749,6 +749,83 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task GetMovieDetails_AboutFieldsPopulated_ProjectsTheStoredValuesInOrder()
+    {
+        // arrange
+        catalog.Details = DetailsWithAboutMetadata(
+            writers: ["Michael Mann", "Peter Brown"],
+            genres: ["Crime", "Drama"],
+            collectionName: "Heat Collection");
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(DetailsUrl("7"), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var metadata = body.GetProperty("metadata");
+        ShouldCarryExactly(metadata, MetadataPropertyNames);
+        metadata.GetProperty("writers").ValueKind.ShouldBe(JsonValueKind.Array);
+        metadata.GetProperty("writers").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["Michael Mann", "Peter Brown"]);
+        metadata.GetProperty("genres").ValueKind.ShouldBe(JsonValueKind.Array);
+        metadata.GetProperty("genres").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["Crime", "Drama"]);
+        metadata.GetProperty("collectionName").GetString().ShouldBe("Heat Collection");
+    }
+
+    [Fact]
+    public async Task GetMovieDetails_AboutFieldsWithoutWriters_ProjectsEmptyArrayAndStoredGenres()
+    {
+        // arrange
+        catalog.Details = DetailsWithAboutMetadata(genres: ["Crime", "Thriller"]);
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(DetailsUrl("7"), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var metadata = body.GetProperty("metadata");
+        ShouldCarryExactly(metadata, MetadataPropertyNames);
+        metadata.GetProperty("writers").ValueKind.ShouldBe(JsonValueKind.Array);
+        metadata.GetProperty("writers").EnumerateArray().ShouldBeEmpty();
+        metadata.GetProperty("genres").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["Crime", "Thriller"]);
+        ShouldCarryJsonNull(metadata, "collectionName");
+    }
+
+    [Fact]
+    public async Task GetMovieDetails_SparseMetadataAboutFields_ProjectsEmptyArraysAndExplicitNull()
+    {
+        // arrange
+        catalog.Details = DetailsWithSparseMetadata();
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(DetailsUrl("7"), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var metadata = body.GetProperty("metadata");
+        ShouldCarryExactly(metadata, MetadataPropertyNames);
+        metadata.GetProperty("writers").ValueKind.ShouldBe(JsonValueKind.Array);
+        metadata.GetProperty("writers").EnumerateArray().ShouldBeEmpty();
+        metadata.GetProperty("genres").ValueKind.ShouldBe(JsonValueKind.Array);
+        metadata.GetProperty("genres").EnumerateArray().ShouldBeEmpty();
+        ShouldCarryJsonNull(metadata, "collectionName");
+    }
+
+    [Fact]
     public async Task GetMovieDetails_AbsentMetadata_KeepsMetadataPresentAsJsonNull()
     {
         // arrange
@@ -1025,7 +1102,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     private static readonly string[] MetadataPropertyNames =
     [
         "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl",
-        "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey",
+        "rottenTomatoesRating", "metaScore", "directors", "actors", "writers", "genres",
+        "collectionName", "trailerKey",
     ];
 
     private static string DetailsUrl(string id) => $"{BrowseRoute}/{id}";
@@ -1113,6 +1191,30 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
 
     private static MovieDetails KnownDetails() =>
         DetailsWith(EnrichmentStatus.NotFound, category: null);
+
+    private static MovieDetails DetailsWithAboutMetadata(
+        IEnumerable<string>? writers = null,
+        IEnumerable<string>? genres = null,
+        string? collectionName = null) =>
+        new(
+            new MovieId(7),
+            "Heat",
+            new LibraryPath("Heat/Heat.mkv"),
+            new MediaFormat(".MKV"),
+            new MovieMetadata(
+                "Heat",
+                directors: ["Michael Mann"],
+                actors: ["Al Pacino", "Robert De Niro"],
+                genres: genres,
+                writers: writers,
+                collectionId: collectionName is null ? null : 7,
+                collectionName: collectionName,
+                trailerKey: TrailerKey),
+            true,
+            false,
+            Review.None,
+            EnrichmentStatus.Enriched,
+            FailureCategory: null);
 
     private static MovieDetails DetailsWithFullMetadata() =>
         new(

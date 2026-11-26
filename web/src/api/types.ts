@@ -242,6 +242,9 @@ export interface components {
       metaScore: null | number | string;
       directors: string[];
       actors: string[];
+      writers: string[];
+      genres: string[];
+      collectionName: null | string;
       trailerKey: null | string;
     };
     MovieSummaryResponse: {
