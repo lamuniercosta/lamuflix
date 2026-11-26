@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
 
 namespace LamuFlix.Infrastructure.RabbitMq;
 
@@ -201,6 +202,20 @@ public sealed class RabbitMqTopology(
         {
             if (current.Message.Contains("541", StringComparison.OrdinalIgnoreCase)
                 || current.Message.Contains("cluster_not_formed", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static bool IsNotFound(Exception failure)
+    {
+        for (var current = failure; current is not null; current = current.InnerException)
+        {
+            if (current is OperationInterruptedException interrupted
+                && interrupted.ShutdownReason is { ReplyCode: 404 })
             {
                 return true;
             }
