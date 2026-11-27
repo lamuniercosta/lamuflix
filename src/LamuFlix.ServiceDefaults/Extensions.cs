@@ -88,6 +88,8 @@ public static class ServiceDefaultsExtensions
         BindAndValidate<OmdbOptions>(services, OmdbOptions.SectionName);
         BindOmdbQuotaOptions(services);
         BindAndValidate<TmdbOptions>(services, TmdbOptions.SectionName);
+        BindAndValidate<ProviderKeyOptions>(services, ProviderKeyOptions.SectionName);
+        services.AddSingleton<IValidateOptions<ProviderKeyOptions>, ProviderKeyOptionsValidator>();
         BindAndValidate<MetadataProviderResilienceOptions>(services, MetadataProviderResilienceOptions.SectionName);
         BindAndValidate<RabbitMqOptions>(services, RabbitMqOptions.SectionName);
         BindAndValidate<EnrichmentOptions>(services, EnrichmentOptions.SectionName);

@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 
@@ -70,6 +71,7 @@ builder.Services.AddOpenApi("v1", static options =>
     options.AddOperationTransformer<RecommendationsOperationTransformer>();
 });
 var app = builder.Build();
+LogProviderKeySets(app);
 if (BackfillOperatorMode.IsRequested(args))
 {
     using var operatorCancellation = new CancellationTokenSource();
@@ -111,6 +113,18 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
+
+static void LogProviderKeySets(WebApplication app)
+{
+    var keySet = app.Services.GetRequiredService<IOptions<ProviderKeyOptions>>().Value.KeySet;
+
+    var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("ProviderKeyStartup");
+    ProviderKeyStartupLog.LogProviderKeySets(
+        logger,
+        app.Configuration,
+        keySet,
+        app.Environment.IsDevelopment());
+}
 
 static async Task RunLibraryPathGateAsync(WebApplication app)
 {

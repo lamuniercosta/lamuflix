@@ -1,10 +1,12 @@
 #Requires -Version 7.0
-# Renders docker/api.settings.json from docker/api.settings.example.json and the shared
-# provider-key source the home setup reads (secretSourcePath holding OMDB_API_KEY and
-# TMDB_API_KEY). Existing non-provider settings are preserved; OMDb is required and
-# TMDb renders an explicit empty key when the source omits it. Never prints secret values.
+# Renders docker/api.settings.json from docker/api.settings.example.json and a dedicated
+# test-key env file holding OMDB_API_KEY and TMDB_API_KEY. The test-key file is required:
+# the script never falls back to the home deployment secret source, so home production
+# keys cannot be rendered into Compose settings labeled as test keys. Existing
+# non-provider settings are preserved; OMDb is required and TMDb renders an explicit
+# empty key when the source omits it. Never prints secret values.
 #
-# Usage: pwsh -NoProfile -File scripts/New-ComposeApiSettings.ps1 [-SecretSourcePath <file>] [-SettingsPath <file>] [-WhatIf]
+# Usage: pwsh -NoProfile -File scripts/New-ComposeApiSettings.ps1 -SecretSourcePath <test-keys-file> [-SettingsPath <file>] [-WhatIf]
 # Exit 0 on success, 1 on failure.
 
 [CmdletBinding()]
@@ -17,20 +19,6 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'home/_home-common.ps1')
-
-function Get-DefaultSecretSourcePath {
-    param([string]$RepoRoot)
-    $configPath = Get-HomeConfigPathDefault -RepoRoot $RepoRoot
-    if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
-        throw "home config not found: $configPath (pass -SecretSourcePath or create the config from deploy/home/home.config.example.json)"
-    }
-    $raw = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
-    $source = [string](Get-OptionalProperty $raw 'secretSourcePath' '')
-    if ([string]::IsNullOrWhiteSpace($source)) {
-        throw "home config sets no secretSourcePath: $configPath (pass -SecretSourcePath)"
-    }
-    return $source
-}
 
 function Merge-ExistingSettings {
     param($Template, [string]$Path)
@@ -55,7 +43,7 @@ try {
     }
     if (-not (Test-Path -LiteralPath $templatePath -PathType Leaf)) { throw "missing $templatePath" }
     if ([string]::IsNullOrWhiteSpace($SecretSourcePath)) {
-        $SecretSourcePath = Get-DefaultSecretSourcePath -RepoRoot $repoRoot
+        throw "missing -SecretSourcePath: pass a dedicated test-key file holding OMDB_API_KEY and TMDB_API_KEY"
     }
     if (-not (Test-Path -LiteralPath $SecretSourcePath -PathType Leaf)) {
         throw "secret source file not found: $SecretSourcePath"
@@ -72,9 +60,10 @@ try {
     }
     $settings.Omdb.ApiKey = $omdb
     $settings.Tmdb.ApiKey = $tmdb
+    $settings | Add-Member -NotePropertyName 'ProviderKeys' -NotePropertyValue ([pscustomobject]@{ KeySet = 'test' }) -Force
 
     if ($WhatIf) {
-        Write-Host '[compose] WhatIf: no changes made. Would render the Compose API settings from the shared provider-key source.'
+        Write-Host '[compose] WhatIf: no changes made. Would render the Compose API settings from the dedicated test-key source.'
         exit 0
     }
     $dir = Split-Path -Parent $SettingsPath

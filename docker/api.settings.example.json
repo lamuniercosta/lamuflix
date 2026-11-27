@@ -3,6 +3,9 @@
   "Features": {
     "LocalPlay": false
   },
+  "ProviderKeys": {
+    "KeySet": "test"
+  },
   "Database": {
     "ApplyMigrationsOnStartup": true
   },

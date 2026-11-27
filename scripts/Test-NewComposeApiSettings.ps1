@@ -39,6 +39,7 @@ if (Test-Path -LiteralPath $settings1) {
     Assert-Case 'fresh render: OMDb key copied from source' ([string]$s1.Omdb.ApiKey -eq 'omdb-test-value')
     Assert-Case 'fresh render: TMDb key copied from source' ([string]$s1.Tmdb.ApiKey -eq 'tmdb-test-value')
     Assert-Case 'fresh render: TMDb enablement from the template' (([bool]$s1.Tmdb.Enabled) -eq $true)
+    Assert-Case 'fresh render: compose key set is test' ([string]$s1.ProviderKeys.KeySet -eq 'test')
     Assert-Case 'fresh render: connection string from the template' ([string]$s1.ConnectionStrings.DefaultConnection -match '^Host=postgres')
     Assert-Case 'fresh render: template has no secret values' ((Get-Content -LiteralPath $templatePath -Raw) -notmatch 'omdb-test-value|tmdb-test-value')
 }
@@ -64,6 +65,7 @@ if ($r2.ExitCode -eq 0) {
     Assert-Case 'existing settings: broker password preserved' ([string]$s2.RabbitMq.Password -eq 'local-rabbit')
     Assert-Case 'existing settings: library root preserved' ([string]$s2.Library.RootPath -eq '/media/videos')
     Assert-Case 'existing settings: subtitle key preserved' ([string]$s2.Subtitles.OpenSubtitles.ApiKey -eq 'subs-test-value')
+    Assert-Case 'existing settings: compose key set is test' ([string]$s2.ProviderKeys.KeySet -eq 'test')
 }
 
 # Case 3: OMDb key absent from the source; fail closed without touching the settings file.
@@ -98,11 +100,24 @@ $r6 = Invoke-ComposeSettingsCase -SettingsPath $settings6 -ExtraArgs @('-SecretS
 Assert-Case 'missing source file: exit 1' ($r6.ExitCode -eq 1) "exit $($r6.ExitCode)"
 Assert-Case 'missing source file: nothing written' (-not (Test-Path -LiteralPath $settings6))
 
-# Case 7: the ignored Compose settings path is the script default and stays out of Git.
+# Case 7: omitting -SecretSourcePath fails closed without touching the settings file.
+$settings7 = Join-Path $root 'case-no-source-arg/api.settings.json'
+$r7 = Invoke-ComposeSettingsCase -SettingsPath $settings7
+Assert-Case 'missing -SecretSourcePath: exit 1' ($r7.ExitCode -eq 1) "exit $($r7.ExitCode)"
+Assert-Case 'missing -SecretSourcePath: names the argument, not a home fallback' ($r7.Output -match 'SecretSourcePath')
+Assert-Case 'missing -SecretSourcePath: nothing written' (-not (Test-Path -LiteralPath $settings7))
+
+# Case 8: blank -SecretSourcePath fails the same way.
+$settings8 = Join-Path $root 'case-blank-source-arg/api.settings.json'
+$r8 = Invoke-ComposeSettingsCase -SettingsPath $settings8 -ExtraArgs @('-SecretSourcePath', '   ')
+Assert-Case 'blank -SecretSourcePath: exit 1' ($r8.ExitCode -eq 1) "exit $($r8.ExitCode)"
+Assert-Case 'blank -SecretSourcePath: nothing written' (-not (Test-Path -LiteralPath $settings8))
+
+# Case 9: the ignored Compose settings path is the script default and stays out of Git.
 $gitignore = Get-Content -LiteralPath (Join-Path $repoRoot '.gitignore') -Raw
 Assert-Case 'compose settings path stays git-ignored' ($gitignore -match '(?m)^/docker/api\.settings\.json\s*$')
 
-$combined = $r1.Output + "`n" + $r2.Output + "`n" + $r3.Output + "`n" + $r4.Output + "`n" + $r5.Output + "`n" + $r6.Output
+$combined = $r1.Output + "`n" + $r2.Output + "`n" + $r3.Output + "`n" + $r4.Output + "`n" + $r5.Output + "`n" + $r6.Output + "`n" + $r7.Output + "`n" + $r8.Output
 Assert-Case 'secret values are never printed' (-not ($combined.Contains('omdb-test-value') -or $combined.Contains('tmdb-test-value') -or $combined.Contains('subs-test-value') -or $combined.Contains('fix-pw') -or $combined.Contains('local-rabbit')))
 
 Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
