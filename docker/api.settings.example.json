@@ -46,6 +46,12 @@
       "RequestTimeout": "00:00:15"
     }
   },
+  "StreamConversion": {
+    "MaxConcurrentConversions": 2,
+    "IdleExpiry": "01:00:00",
+    "ScratchSizeLimitBytes": 21474836480,
+    "ScratchDirectory": "cache/stream-conversion"
+  },
   "Recommendations": {
     "MinimumSimilarity": 0.225,
     "CrowdEnabled": false,
