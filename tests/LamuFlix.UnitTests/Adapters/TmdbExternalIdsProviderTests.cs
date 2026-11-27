@@ -73,6 +73,96 @@ public sealed class TmdbExternalIdsProviderTests
     }
 
     [Fact]
+    public async Task GetDiscoveryExternalIdAsync_ExplicitNullId_IsConfirmedAbsence()
+    {
+        // arrange
+        var handler = new RecordingHandler((HttpStatusCode.OK, """{ "id": 201, "imdb_id": null }"""));
+        var provider = Provider(handler, enabled: true);
+
+        // act
+        var result = await provider.GetDiscoveryExternalIdAsync(201, TestContext.Current.CancellationToken);
+
+        // assert
+        result.Status.ShouldBe(DiscoveryExternalIdStatus.ConfirmedAbsence);
+        result.ImdbId.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task GetDiscoveryExternalIdAsync_OmittedField_IsUnresolved()
+    {
+        // arrange
+        var handler = new RecordingHandler((HttpStatusCode.OK, """{ "id": 202 }"""));
+        var provider = Provider(handler, enabled: true);
+
+        // act
+        var result = await provider.GetDiscoveryExternalIdAsync(202, TestContext.Current.CancellationToken);
+
+        // assert
+        result.Status.ShouldBe(DiscoveryExternalIdStatus.Unresolved);
+    }
+
+    [Theory]
+    [InlineData("""{ "id": 203, "imdb_id": "" }""")]
+    [InlineData("""{ "id": 203, "imdb_id": "not-an-id" }""")]
+    [InlineData("""{ "id": 203, "imdb_id": 123 }""")]
+    public async Task GetDiscoveryExternalIdAsync_MalformedIdentifier_IsUnresolved(string body)
+    {
+        // arrange
+        var handler = new RecordingHandler((HttpStatusCode.OK, body));
+        var provider = Provider(handler, enabled: true);
+
+        // act
+        var result = await provider.GetDiscoveryExternalIdAsync(203, TestContext.Current.CancellationToken);
+
+        // assert
+        result.Status.ShouldBe(DiscoveryExternalIdStatus.Unresolved);
+    }
+
+    [Fact]
+    public async Task GetDiscoveryExternalIdAsync_TransportFailure_IsUnresolved()
+    {
+        // arrange
+        var handler = new RecordingHandler((HttpStatusCode.InternalServerError, string.Empty));
+        var provider = Provider(handler, enabled: true);
+
+        // act
+        var result = await provider.GetDiscoveryExternalIdAsync(204, TestContext.Current.CancellationToken);
+
+        // assert
+        result.Status.ShouldBe(DiscoveryExternalIdStatus.Unresolved);
+    }
+
+    [Fact]
+    public async Task GetDiscoveryExternalIdAsync_ValidId_IsFound()
+    {
+        // arrange
+        var handler = new RecordingHandler((HttpStatusCode.OK, """{ "id": 205, "imdb_id": "tt0111161" }"""));
+        var provider = Provider(handler, enabled: true);
+
+        // act
+        var result = await provider.GetDiscoveryExternalIdAsync(205, TestContext.Current.CancellationToken);
+
+        // assert
+        result.Status.ShouldBe(DiscoveryExternalIdStatus.Found);
+        result.ImdbId.ShouldBe(new ImdbId("tt0111161"));
+    }
+
+    [Fact]
+    public async Task GetDiscoveryExternalIdAsync_WhenTmdbIsDisabled_MakesNoCall()
+    {
+        // arrange
+        var handler = new RecordingHandler((HttpStatusCode.OK, """{ "imdb_id": "tt0111161" }"""));
+        var provider = Provider(handler, enabled: false);
+
+        // act
+        var result = await provider.GetDiscoveryExternalIdAsync(206, TestContext.Current.CancellationToken);
+
+        // assert
+        result.Status.ShouldBe(DiscoveryExternalIdStatus.Unresolved);
+        handler.Requests.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task GetExternalIdsAsync_WhenTmdbIsDisabled_MakesNoCall()
     {
         // arrange

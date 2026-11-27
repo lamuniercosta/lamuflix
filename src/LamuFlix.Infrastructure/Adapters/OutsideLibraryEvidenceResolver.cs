@@ -51,16 +51,41 @@ internal sealed partial class OutsideLibraryEvidenceResolver(
                 : null;
         }
 
-        if (tmdb is null || !budget.CanCallExternalIds)
+        var provider = tmdb;
+        if (provider is null || !budget.CanCallExternalIds)
         {
             return null;
         }
 
         budget.CountExternalId();
-        var externalId = await tmdb.GetExternalIdsAsync(tmdbId, ct);
-        return externalId is { } found
-            ? await LookupAsync(tmdbId, cached, found, budget, ct)
-            : null;
+        return await ResolveDiscoveryAsync(tmdbId, cached, provider, budget, ct);
+    }
+
+    private async ValueTask<CandidateImdbEvidence?> ResolveDiscoveryAsync(
+        int tmdbId,
+        CandidateImdbEvidence? cached,
+        TmdbMetadataProvider provider,
+        OutsideLibraryEvidenceBudget budget,
+        CancellationToken ct)
+    {
+        var externalId = await provider.GetDiscoveryExternalIdAsync(tmdbId, ct);
+        if (externalId is { Status: DiscoveryExternalIdStatus.Found, ImdbId: { } found })
+        {
+            return await LookupAsync(tmdbId, cached, found, budget, ct);
+        }
+
+        if (externalId.Status is DiscoveryExternalIdStatus.ConfirmedAbsence)
+        {
+            var absence = await WithCollectionAsync(
+                tmdbId,
+                cached,
+                new CandidateEvidencePayload(true, null, null, null),
+                budget,
+                ct);
+            return await writer.RecordAsync(tmdbId, absence, ct);
+        }
+
+        return null;
     }
 
     private async ValueTask<CandidateImdbEvidence?> LookupAsync(
@@ -70,12 +95,12 @@ internal sealed partial class OutsideLibraryEvidenceResolver(
         OutsideLibraryEvidenceBudget budget,
         CancellationToken ct)
     {
-        if (omdb is null || !budget.TryStartSend())
+        if (omdb is null || !budget.CanStartSend)
         {
             return null;
         }
 
-        var result = await omdb.GetCandidateEvidenceAsync(imdbId.Value, ct);
+        var result = await omdb.GetCandidateEvidenceAsync(imdbId.Value, ct, budget);
         Log.Lookup(
             logger,
             tmdbId,
@@ -97,11 +122,31 @@ internal sealed partial class OutsideLibraryEvidenceResolver(
             return null;
         }
 
+        payload = await WithCollectionAsync(tmdbId, cached, payload, budget, ct);
+        return await writer.RecordAsync(tmdbId, payload, ct);
+    }
+
+    private async ValueTask<CandidateEvidencePayload> WithCollectionAsync(
+        int tmdbId,
+        CandidateImdbEvidence? cached,
+        CandidateEvidencePayload payload,
+        OutsideLibraryEvidenceBudget budget,
+        CancellationToken ct)
+    {
         if (cached?.CollectionId is { } collectionId)
         {
-            payload = payload with { CollectionId = collectionId };
+            return payload with { CollectionId = collectionId };
         }
 
-        return await writer.RecordAsync(tmdbId, payload, ct);
+        var provider = tmdb;
+        if (provider is null || !budget.CanCallExternalIds)
+        {
+            return payload;
+        }
+
+        budget.CountExternalId();
+        return await provider.GetCollectionIdAsync(tmdbId, ct) is { } live
+            ? payload with { CollectionId = live }
+            : payload;
     }
 }

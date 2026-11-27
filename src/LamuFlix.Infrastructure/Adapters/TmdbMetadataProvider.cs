@@ -38,6 +38,7 @@ public sealed partial class TmdbMetadataProvider(
     private const int NoResultStatusCode = 21;
     private const string PortugueseLanguage = "pt";
     private const string BrazilianPortugueseLanguage = "pt-BR";
+    private const string ExternalIdProperty = "imdb_id";
 
     private static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
@@ -102,6 +103,97 @@ public sealed partial class TmdbMetadataProvider(
         {
             return null;
         }
+    }
+
+    public async Task<TmdbExternalIdLookupResult> GetDiscoveryExternalIdAsync(int tmdbId, CancellationToken ct)
+    {
+        if (!IsConfigured() || tmdbId <= 0)
+        {
+            return TmdbExternalIdLookupResult.Unresolved;
+        }
+
+        try
+        {
+            using var response = await httpClient.GetAsync(BuildExternalIdsUri(tmdbId), ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return TmdbExternalIdLookupResult.Unresolved;
+            }
+
+            return ToDiscoveryExternalId(await response.Content.ReadAsStringAsync(ct));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            return TmdbExternalIdLookupResult.Unresolved;
+        }
+        catch (Exception exception) when (exception is HttpRequestException
+            or TimeoutRejectedException
+            or BrokenCircuitException
+            or JsonException
+            or NotSupportedException)
+        {
+            return TmdbExternalIdLookupResult.Unresolved;
+        }
+    }
+
+    public async Task<int?> GetCollectionIdAsync(int tmdbId, CancellationToken ct)
+    {
+        if (!IsConfigured() || tmdbId <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var response = await httpClient.GetAsync(BuildDetailsUri(tmdbId), ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var stream = await response.Content.ReadAsStreamAsync(ct);
+            var body = await JsonSerializer.DeserializeAsync<Response>(stream, SerializerOptions, ct);
+            return body is null ? null : ResponseMapper.MapCollectionId(body);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException
+            or TimeoutRejectedException
+            or BrokenCircuitException
+            or JsonException
+            or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    private static TmdbExternalIdLookupResult ToDiscoveryExternalId(string payload)
+    {
+        using var document = JsonDocument.Parse(payload);
+        if (document.RootElement.ValueKind != JsonValueKind.Object
+            || !document.RootElement.TryGetProperty(ExternalIdProperty, out var property))
+        {
+            return TmdbExternalIdLookupResult.Unresolved;
+        }
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.String => ResponseMapper.MapExternalId(property.GetString()) is { } found
+                ? TmdbExternalIdLookupResult.Found(found)
+                : TmdbExternalIdLookupResult.Unresolved,
+            JsonValueKind.Null => TmdbExternalIdLookupResult.ConfirmedAbsence,
+            _ => TmdbExternalIdLookupResult.Unresolved,
+        };
     }
 
     private async Task<MetadataLookupResult> ExecuteAsync(MetadataLookup stored, CancellationToken ct)

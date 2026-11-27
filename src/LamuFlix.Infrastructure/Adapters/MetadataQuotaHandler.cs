@@ -15,6 +15,13 @@ internal sealed class MetadataQuotaHandler(IServiceScopeFactory scopeFactory) : 
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        if (request.Options.TryGetValue(OutsideLibraryEvidenceBudget.DiscoveryBudgetKey, out var budget)
+            && budget is not null
+            && !budget.TryStartSend())
+        {
+            throw new MetadataLoadCeilingExhaustedException();
+        }
+
         bool admitted;
         await using (var scope = scopeFactory.CreateAsyncScope())
         {
