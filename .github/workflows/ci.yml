@@ -36,10 +36,10 @@ jobs:
     name: build-test-format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
 
@@ -62,7 +62,7 @@ jobs:
       # hung run; keep them for diagnosis. ignore finds nothing on a clean run.
       - name: Upload hang dumps
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: hang-dumps
           path: '**/TestResults/**/*'
@@ -97,7 +97,7 @@ jobs:
 
       - name: Upload evaluation metrics
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: evaluation-metrics
           path: artifacts/evaluation/metrics-summary.json
@@ -111,10 +111,10 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: web/.node-version
           cache: npm
@@ -145,10 +145,10 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: web/.node-version
           cache: npm
@@ -194,7 +194,7 @@ jobs:
 
       - name: Upload e2e failure evidence
         if: always() && steps.evidence.outcome == 'success'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: e2e-evidence
           path: web/e2e/.runtime/ci-upload
@@ -204,21 +204,74 @@ jobs:
   container-build:
     name: container-build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Build docker/Dockerfile.api
-        run: docker build --build-arg "LAMUFLIX_COMMIT=${{ github.sha }}" -f docker/Dockerfile.api .
+        run: docker build --build-arg "LAMUFLIX_COMMIT=${{ github.sha }}" -t lamuflix-api:ci -f docker/Dockerfile.api .
 
       - name: Build docker/Dockerfile.web
-        run: docker build --build-arg "LAMUFLIX_COMMIT=${{ github.sha }}" -f docker/Dockerfile.web .
+        run: docker build --build-arg "LAMUFLIX_COMMIT=${{ github.sha }}" -t lamuflix-web:ci -f docker/Dockerfile.web .
+
+      - name: Trivy scan api image (report)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          image-ref: lamuflix-api:ci
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+
+      - name: Trivy scan api image (fail on fixable CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          image-ref: lamuflix-api:ci
+          format: sarif
+          output: trivy-api.sarif
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Trivy scan web image (report)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          image-ref: lamuflix-web:ci
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+
+      - name: Trivy scan web image (fail on fixable CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          image-ref: lamuflix-web:ci
+          format: sarif
+          output: trivy-web.sarif
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Upload Trivy api SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@bf58c2ac1f8060aa73f1225f461c80391348076a # v4
+        with:
+          sarif_file: trivy-api.sarif
+          category: trivy-api
+
+      - name: Upload Trivy web SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@bf58c2ac1f8060aa73f1225f461c80391348076a # v4
+        with:
+          sarif_file: trivy-web.sarif
+          category: trivy-web
 
   deploy-parity:
     name: deploy-parity
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Check Compose and home manifests agree
         shell: pwsh
@@ -242,10 +295,10 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
 
@@ -257,7 +310,7 @@ jobs:
 
       - name: Upload shard report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: stryker-shard-${{ matrix.shard }}
           path: ${{ runner.temp }}/stryker-core/reports/mutation-report.json
@@ -271,15 +324,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
 
       - name: Download shard reports
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: stryker-shard-*
           path: ${{ runner.temp }}/shards
@@ -298,7 +351,7 @@ jobs:
 
       - name: Upload merged Stryker report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: stryker-report-core
           path: ${{ runner.temp }}/mutation-report.json
@@ -309,10 +362,10 @@ jobs:
     name: property-tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
 
@@ -338,13 +391,13 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -352,7 +405,7 @@ jobs:
 
       - name: API image metadata
         id: meta-api
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ghcr.io/lamuniercosta/lamuflix-api
           tags: |
@@ -361,7 +414,7 @@ jobs:
 
       - name: Build and push API image
         id: push-api
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: docker/Dockerfile.api
@@ -376,7 +429,7 @@ jobs:
 
       - name: Web image metadata
         id: meta-web
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ghcr.io/lamuniercosta/lamuflix-web
           tags: |
@@ -385,7 +438,7 @@ jobs:
 
       - name: Build and push Web image
         id: push-web
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: docker/Dockerfile.web
