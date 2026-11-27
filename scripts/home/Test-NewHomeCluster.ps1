@@ -75,8 +75,9 @@ function Assert-HomeSettingsChannel {
     Assert-Case "${Label}: api-settings published from generated settings" (Test-LogHas $Result 'create secret generic api-settings --from-file=appsettings\.Production\.json=.*api\.settings\.json')
     Assert-Case "${Label}: no tmdb.env written" (-not (Test-Path -LiteralPath $tmdbEnvPath))
     Assert-Case "${Label}: no tmdb-credentials published" (-not (Test-LogHas $Result 'create secret generic tmdb-credentials'))
+    Assert-Case "${Label}: dashboard api key published from the generated key file" (Test-LogHas $Result 'create secret generic aspire-dashboard-api --from-file=api-key=.*dashboard-api-key')
     $publishes = @(@($Result.Log) | Where-Object { $_ -match 'create secret generic ' }).Count
-    Assert-Case "${Label}: only three Secrets published" ($publishes -eq 3) "found $publishes"
+    Assert-Case "${Label}: only four Secrets published" ($publishes -eq 4) "found $publishes"
     $combined = $Result.Output + "`n" + ($Result.Log -join "`n")
     Assert-Case "${Label}: secret values are not printed" (-not ($combined.Contains('omdb-test-value') -or $combined.Contains('tmdb-test-value') -or $combined.Contains('opensubtitles-test-value')))
 }
@@ -128,6 +129,13 @@ Assert-Case 'fresh: no leftover apply files' (-not (Get-ChildItem -LiteralPath $
 
 $pgLine = Get-Content -LiteralPath $pgEnvPath | Where-Object { $_ -like 'POSTGRES_PASSWORD=*' }
 $pgSecret = ($pgLine -split '=', 2)[1]
+$dashKeyPath = Join-Path $secrets1 'dashboard-api-key.txt'
+Assert-Case 'fresh: dashboard api key file written' (Test-Path -LiteralPath $dashKeyPath)
+$dashKey = ''
+if (Test-Path -LiteralPath $dashKeyPath) { $dashKey = [System.IO.File]::ReadAllText($dashKeyPath) }
+Assert-Case 'fresh: dashboard api key is a single line with no trailing newline' (($dashKey.Length -ge 32) -and ($dashKey -notmatch '[\r\n]'))
+$dashLeaked = ($dashKey.Length -gt 0) -and (($r1.Output.Contains($dashKey)) -or (($r1.Log -join "`n").Contains($dashKey)))
+Assert-Case 'fresh: dashboard api key value is not printed or logged' (-not $dashLeaked)
 Assert-Case 'fresh: subtitle saving is enabled for the home library' ([bool]$settings.Subtitles.SaveEnabled -eq $true)
 Assert-Case 'fresh: subtitle preferred languages are pt-BR then en' ((@($settings.Subtitles.PreferredLanguages) -join ',') -eq 'pt-BR,en')
 Assert-HomeSettingsChannel -Label 'present' -Result $r1 -OpsPath $ops1 -ExpectedTmdbKey 'tmdb-test-value'
