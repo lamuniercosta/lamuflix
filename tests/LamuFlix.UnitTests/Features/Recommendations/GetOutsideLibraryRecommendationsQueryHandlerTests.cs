@@ -99,8 +99,9 @@ public sealed class GetOutsideLibraryRecommendationsQueryHandlerTests
         using var cancellation = new CancellationTokenSource();
         var source = Substitute.For<IRecommendationCandidateSource>();
         source.GetOutsideLibraryRecommendationsAsync(Arg.Any<CancellationToken>())
-            .Returns(call =>
+            .Returns(_ =>
             {
+                // ReSharper disable once AccessToDisposedClosure // cancellation runs before disposal within the test
                 cancellation.Cancel();
                 return Snapshot();
             });

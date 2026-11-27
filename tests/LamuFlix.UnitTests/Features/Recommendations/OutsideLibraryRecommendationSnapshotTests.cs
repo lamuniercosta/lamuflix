@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using LamuFlix.Core.Features.Recommendations;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
@@ -11,6 +10,7 @@ public sealed class OutsideLibraryRecommendationSnapshotTests
     {
         // act
         var failure = Should.Throw<ArgumentNullException>(() =>
+            // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
             new OutsideLibraryRecommendationSnapshot(null!, []));
 
         // assert
@@ -22,7 +22,8 @@ public sealed class OutsideLibraryRecommendationSnapshotTests
     {
         // act
         var failure = Should.Throw<ArgumentNullException>(() =>
-            new OutsideLibraryRecommendationSnapshot([], (IReadOnlyList<OutsideLibraryMovieIdentity>)null!));
+            // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
+            new OutsideLibraryRecommendationSnapshot([], null!));
 
         // assert
         failure.ParamName.ShouldBe("library");

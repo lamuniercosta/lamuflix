@@ -14,6 +14,7 @@ public sealed class OutsideLibraryRankingTests
     {
         // act
         var failure = Should.Throw<ArgumentNullException>(() =>
+            // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
             OutsideLibraryRanking.RankAll(null!, Options()));
 
         // assert
@@ -25,6 +26,7 @@ public sealed class OutsideLibraryRankingTests
     {
         // act
         var failure = Should.Throw<ArgumentNullException>(() =>
+            // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
             OutsideLibraryRanking.RankAll(new OutsideLibraryRecommendationSnapshot([], []), null!));
 
         // assert
