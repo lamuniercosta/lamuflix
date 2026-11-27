@@ -67,6 +67,7 @@ function Assert-HomeSettingsChannel {
     Assert-Case "${Label}: TMDb enabled from the settings template" (($null -ne $tmdb) -and ($null -ne $templateTmdb) -and (([bool]$tmdb.Enabled) -eq $true) -and (([bool]$templateTmdb.Enabled) -eq $true))
     Assert-Case "${Label}: TMDb key is explicit" (($null -ne $tmdb) -and ($tmdb.PSObject.Properties.Name -contains 'ApiKey'))
     Assert-Case "${Label}: TMDb key matches the source" (($null -ne $tmdb) -and ([string]$tmdb.ApiKey -eq $ExpectedTmdbKey))
+    Assert-Case "${Label}: home key set is prod" ([string]$settings.ProviderKeys.KeySet -eq 'prod')
     Assert-Case "${Label}: OpenSubtitles key copied from source" (($null -ne $provider) -and ([string]$provider.ApiKey -eq 'opensubtitles-test-value'))
     Assert-Case "${Label}: OpenSubtitles endpoint is the production https API" (($null -ne $provider) -and ([string]$provider.BaseUrl -eq 'https://api.opensubtitles.com'))
     Assert-Case "${Label}: OpenSubtitles allowlist contains api and www download hosts" (($null -ne $provider) -and (@($provider.DownloadAllowedHosts) -contains 'api.opensubtitles.com') -and (@($provider.DownloadAllowedHosts) -contains 'www.opensubtitles.com'))
