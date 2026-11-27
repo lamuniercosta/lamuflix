@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.Adapters;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -260,6 +261,29 @@ public sealed class MetadataProviderResilienceTests(MetadataProviderProbe probe)
         probe.RequestCount.ShouldBe(1);
         gate.Invocations.ShouldBe(2);
         gate.Commitments.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetCandidateEvidenceAsync_OneSlotExhaustedByFirstSend_BlocksRetrySendAndStaysUnresolved()
+    {
+        // arrange
+        StubStatus(503);
+        var gate = RecordingRequestGate.Admitting();
+        var services = probe.BuildServices(gate: gate);
+        var budget = new OutsideLibraryEvidenceBudget(1, new DateOnly(2026, 3, 4));
+
+        // act
+        var result = await services
+            .GetRequiredService<OmdbMetadataProvider>()
+            .GetCandidateEvidenceAsync("tt0069293", TestContext.Current.CancellationToken, budget);
+
+        // assert
+        result.Status.ShouldBe(CandidateLookupStatus.Unresolved);
+        result.Evidence.ShouldBeNull();
+        probe.RequestCount.ShouldBe(1);
+        gate.Invocations.ShouldBe(1);
+        gate.Commitments.ShouldBe(1);
+        budget.UsedSends.ShouldBe(1);
     }
 
     [Fact]
