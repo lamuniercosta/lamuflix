@@ -62,6 +62,12 @@ public sealed partial class TmdbMetadataProvider
         private static (int? Id, string? Name) MapCollection(CollectionPayload? collection) =>
             collection is null ? (null, null) : (collection.Id, collection.Name);
 
+        public static int? MapCollectionId(Response response)
+        {
+            var collection = MapCollection(response.BelongsToCollection);
+            return collection.Id is > 0 ? collection.Id : null;
+        }
+
         private static bool TryTitle(string? value, [NotNullWhen(true)] out string? title)
         {
             title = string.IsNullOrWhiteSpace(value) ? null : value;

@@ -36,6 +36,7 @@ public sealed partial class OmdbMetadataProvider(
     private const string MovieNotFoundError = "Movie not found!";
     private const string TooManyResultsError = "Too many results.";
     private const string NotAvailable = "N/A";
+    private const string RatingProperty = "imdbRating";
     private const int YearDigits = 4;
 
     private static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);
@@ -67,23 +68,38 @@ public sealed partial class OmdbMetadataProvider(
 
     public async Task<CandidateEvidenceLookupResult> GetCandidateEvidenceAsync(
         string? imdbId,
-        CancellationToken ct)
+        CancellationToken ct,
+        OutsideLibraryEvidenceBudget? budget = null)
     {
         if (!ImdbId.TryCreate(imdbId, out var id))
         {
             return CandidateEvidenceLookupResult.Invalid;
         }
 
-        var fetch = await FetchAsync(BuildIdUri(id), ct);
-        if (fetch is Fetch.Rejected rejected)
+        Fetch fetch;
+        try
         {
-            return rejected.Failure is MetadataLookupResult.Failed failed
-                && failed.Category == EnrichmentFailureCategory.QuotaExhausted
-                    ? CandidateEvidenceLookupResult.QuotaDenied
-                    : CandidateEvidenceLookupResult.Unresolved;
+            fetch = await FetchAsync(BuildIdUri(id), ct, budget);
+        }
+        catch (MetadataLoadCeilingExhaustedException)
+        {
+            return CandidateEvidenceLookupResult.Unresolved;
         }
 
-        var body = ((Fetch.Succeeded)fetch).Body;
+        return fetch is Fetch.Rejected rejected
+            ? ToRejected(rejected)
+            : ToEvidence((Fetch.Succeeded)fetch);
+    }
+
+    private static CandidateEvidenceLookupResult ToRejected(Fetch.Rejected rejected) =>
+        rejected.Failure is MetadataLookupResult.Failed failed
+            && failed.Category == EnrichmentFailureCategory.QuotaExhausted
+                ? CandidateEvidenceLookupResult.QuotaDenied
+                : CandidateEvidenceLookupResult.Unresolved;
+
+    private static CandidateEvidenceLookupResult ToEvidence(Fetch.Succeeded succeeded)
+    {
+        var body = succeeded.Body;
         if (ResponseMapper.IsMovieNotFound(body))
         {
             return CandidateEvidenceLookupResult.ConfirmedAbsence;
@@ -96,11 +112,19 @@ public sealed partial class OmdbMetadataProvider(
 
         return CandidateEvidenceLookupResult.For(
             new CandidateEvidencePayload(
-                ProviderConfirmedAbsent: false,
+                HasExplicitNullRating(succeeded.RawBody),
                 resolvedId.Value,
                 body.Rating,
                 body.Votes,
                 CollectionId: null));
+    }
+
+    private static bool HasExplicitNullRating(string rawBody)
+    {
+        using var document = JsonDocument.Parse(rawBody);
+        return document.RootElement.ValueKind == JsonValueKind.Object
+            && document.RootElement.TryGetProperty(RatingProperty, out var rating)
+            && rating.ValueKind == JsonValueKind.Null;
     }
 
     private async Task<MetadataLookupResult> ExecuteAsync(MetadataLookup stored, CancellationToken ct)
@@ -283,11 +307,17 @@ public sealed partial class OmdbMetadataProvider(
             : Classify(((Fetch.Succeeded)fetch).Body);
     }
 
-    private async Task<Fetch> FetchAsync(Uri uri, CancellationToken ct)
+    private async Task<Fetch> FetchAsync(Uri uri, CancellationToken ct, OutsideLibraryEvidenceBudget? budget = null)
     {
         try
         {
-            using var response = await httpClient.GetAsync(uri, ct);
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            if (budget is not null)
+            {
+                request.Options.Set(OutsideLibraryEvidenceBudget.DiscoveryBudgetKey, budget);
+            }
+
+            using var response = await httpClient.SendAsync(request, ct);
             return await ReadAsync(response, ct);
         }
         catch (MetadataQuotaExhaustedException)
@@ -317,10 +347,11 @@ public sealed partial class OmdbMetadataProvider(
             return new Fetch.Rejected(await RejectedStatusAsync(response, ct));
         }
 
+        var payload = await response.Content.ReadAsStringAsync(ct);
         Response? body;
         try
         {
-            body = await DeserializeAsync(response, ct);
+            body = JsonSerializer.Deserialize<Response>(payload, SerializerOptions);
         }
         catch (Exception exception) when (exception is JsonException or NotSupportedException)
         {
@@ -329,7 +360,7 @@ public sealed partial class OmdbMetadataProvider(
 
         return body is null
             ? new Fetch.Rejected(MalformedFailure())
-            : new Fetch.Succeeded(body);
+            : new Fetch.Succeeded(body, payload);
     }
 
     private MetadataLookupResult Classify(Response body)
@@ -447,12 +478,6 @@ public sealed partial class OmdbMetadataProvider(
         return new MetadataLookupResult.Failed(category);
     }
 
-    private static async Task<Response?> DeserializeAsync(HttpResponseMessage response, CancellationToken ct)
-    {
-        var payload = await response.Content.ReadAsStringAsync(ct);
-        return JsonSerializer.Deserialize<Response>(payload, SerializerOptions);
-    }
-
     private static void Record(Activity? activity, MetadataLookupResult result)
     {
         if (activity is null || result is not MetadataLookupResult.Failed failed)
@@ -515,7 +540,7 @@ public sealed partial class OmdbMetadataProvider(
         {
         }
 
-        public sealed record Succeeded(Response Body) : Fetch;
+        public sealed record Succeeded(Response Body, string RawBody) : Fetch;
 
         public sealed record Rejected(MetadataLookupResult Failure) : Fetch;
     }

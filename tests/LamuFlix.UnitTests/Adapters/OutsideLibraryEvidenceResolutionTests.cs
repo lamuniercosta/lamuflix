@@ -193,8 +193,8 @@ public sealed class OutsideLibraryEvidenceResolutionTests
         // assert
         harness.Tmdb.Requests.Select(uri => uri.AbsolutePath).ShouldBe([
             "/3/movie/201/external_ids",
+            "/3/movie/201",
             "/3/movie/202/external_ids",
-            "/3/movie/203/external_ids",
         ]);
     }
 
@@ -310,7 +310,7 @@ public sealed class OutsideLibraryEvidenceResolutionTests
         // assert
         outcomes[0].ShouldNotBeNull();
         outcomes[1].ShouldBe(outcomes[0]);
-        harness.Tmdb.Requests.Count.ShouldBe(1);
+        harness.Tmdb.Requests.Count.ShouldBe(2);
         harness.Omdb.GateAttempts.ShouldBe(1);
         budget.UsedSends.ShouldBe(1);
     }
@@ -352,6 +352,107 @@ public sealed class OutsideLibraryEvidenceResolutionTests
         leaderOutcome.ShouldBeNull();
         retry.ShouldNotBeNull();
         harness.Omdb.GateAttempts.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task GetCandidateEvidenceAsync_SecondAttemptOverCeiling_MakesNoSendAndIsUnresolved()
+    {
+        // arrange
+        var handler = new OmdbHandler((HttpStatusCode.OK, FoundBody));
+        var provider = CreateOmdbProvider(handler);
+        var budget = new OutsideLibraryEvidenceBudget(1, DateOnly.FromDateTime(Now.UtcDateTime));
+
+        // act
+        var first = await provider.GetCandidateEvidenceAsync("tt0111161", TestContext.Current.CancellationToken, budget);
+        var second = await provider.GetCandidateEvidenceAsync("tt0111161", TestContext.Current.CancellationToken, budget);
+
+        // assert
+        first.Status.ShouldBe(CandidateLookupStatus.Evidence);
+        second.Status.ShouldBe(CandidateLookupStatus.Unresolved);
+        second.Evidence.ShouldBeNull();
+        handler.Sends.Count.ShouldBe(1);
+        handler.GateAttempts.ShouldBe(1);
+        budget.UsedSends.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetCandidateEvidenceAsync_ExplicitNullRating_IsConfirmedAbsence()
+    {
+        // arrange
+        var handler = new OmdbHandler(
+            (HttpStatusCode.OK, """{ "Response": "True", "Title": "Candidate", "Type": "movie", "imdbID": "tt0111161", "imdbRating": null, "imdbVotes": null }"""));
+
+        // act
+        var result = await CreateOmdbProvider(handler)
+            .GetCandidateEvidenceAsync("tt0111161", TestContext.Current.CancellationToken);
+
+        // assert
+        result.Status.ShouldBe(CandidateLookupStatus.Evidence);
+        result.Evidence.ShouldNotBeNull().ProviderConfirmedAbsent.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task GetCandidateEvidenceAsync_OmittedRating_IsNotConfirmedAbsence()
+    {
+        // arrange
+        var handler = new OmdbHandler(
+            (HttpStatusCode.OK, """{ "Response": "True", "Title": "Candidate", "Type": "movie", "imdbID": "tt0111161", "imdbVotes": "25000" }"""));
+
+        // act
+        var result = await CreateOmdbProvider(handler)
+            .GetCandidateEvidenceAsync("tt0111161", TestContext.Current.CancellationToken);
+
+        // assert
+        result.Status.ShouldBe(CandidateLookupStatus.Evidence);
+        result.Evidence.ShouldNotBeNull().ProviderConfirmedAbsent.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ResolveAsync_LiveCollectionIsPopulatedAndSecondRepresentativeSkipped()
+    {
+        // arrange
+        var harness = new Harness(
+            (HttpStatusCode.OK, FoundBody),
+            (HttpStatusCode.OK, FoundBody),
+            (HttpStatusCode.OK, FoundBody));
+        harness.Tmdb.Respond("/3/movie/201", """{ "id": 201, "belongs_to_collection": { "id": 7, "name": "Saga" } }""");
+        harness.Tmdb.Respond("/3/movie/202", """{ "id": 202, "belongs_to_collection": { "id": 7, "name": "Saga" } }""");
+        var budget = new OutsideLibraryEvidenceBudget(6, DateOnly.FromDateTime(Now.UtcDateTime));
+
+        // act
+        var cards = await OutsideLibraryRanking.RankAdmittedAsync(
+            Snapshot(Contributions(201, 3)),
+            Options(),
+            new Dictionary<int, CandidateImdbEvidence>(),
+            (tmdbId, token) => harness.Resolver.ResolveAsync(tmdbId, null, budget, token),
+            TestContext.Current.CancellationToken,
+            new FixedTimeProvider(Now));
+
+        // assert
+        cards.Select(card => card.TmdbId).ShouldBe([201, 203]);
+        harness.Writer.Records.Count.ShouldBe(3);
+        harness.Writer.Records.Single(record => record.TmdbId == 201).Payload.CollectionId.ShouldBe(7);
+        harness.Writer.Records.Single(record => record.TmdbId == 202).Payload.CollectionId.ShouldBe(7);
+        harness.Writer.Records.Single(record => record.TmdbId == 203).Payload.CollectionId.ShouldBeNull();
+        harness.Tmdb.Requests.ShouldContain(uri => uri.AbsolutePath == "/3/movie/201");
+    }
+
+    [Fact]
+    public async Task ResolveAsync_TmdbConfirmedAbsence_RecordsAbsenceWithoutOmdbSend()
+    {
+        // arrange
+        var harness = new Harness((HttpStatusCode.OK, FoundBody));
+        harness.Tmdb.Respond("/3/movie/301/external_ids", """{ "id": 301, "imdb_id": null }""");
+        var budget = new OutsideLibraryEvidenceBudget(2, DateOnly.FromDateTime(Now.UtcDateTime));
+
+        // act
+        var resolved = await harness.Resolver.ResolveAsync(301, null, budget, TestContext.Current.CancellationToken);
+
+        // assert
+        resolved.ShouldNotBeNull().Outcome.ShouldBe(CandidateEvidenceOutcome.ConfirmedAbsence);
+        harness.Omdb.GateAttempts.ShouldBe(0);
+        harness.Omdb.Sends.ShouldBeEmpty();
+        harness.Writer.Records.ShouldHaveSingleItem().Payload.ProviderConfirmedAbsent.ShouldBeTrue();
     }
 
     private static CandidateImdbEvidence Complete(DateTimeOffset expiresAtUtc) =>
@@ -463,6 +564,13 @@ public sealed class OutsideLibraryEvidenceResolutionTests
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
+            if (request.Options.TryGetValue(OutsideLibraryEvidenceBudget.DiscoveryBudgetKey, out var budget)
+                && budget is not null
+                && !budget.TryStartSend())
+            {
+                throw new MetadataLoadCeilingExhaustedException();
+            }
+
             GateAttempts++;
             if (Deny)
             {

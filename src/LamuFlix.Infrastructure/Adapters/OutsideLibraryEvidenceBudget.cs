@@ -1,10 +1,14 @@
 using System;
+using System.Net.Http;
 using LamuFlix.Core.Features.Recommendations;
 
 namespace LamuFlix.Infrastructure.Adapters;
 
 public sealed class OutsideLibraryEvidenceBudget(int ceiling, DateOnly usageDate)
 {
+    public static readonly HttpRequestOptionsKey<OutsideLibraryEvidenceBudget?> DiscoveryBudgetKey =
+        new("LamuFlix.OutsideLibrary.DiscoveryBudget");
+
     public int Ceiling { get; } = Math.Clamp(
         ceiling,
         0,
@@ -20,6 +24,8 @@ public sealed class OutsideLibraryEvidenceBudget(int ceiling, DateOnly usageDate
 
     public bool CanCallExternalIds =>
         !CacheOnly && ExternalIdCalls < Ceiling && UsedSends < Ceiling;
+
+    public bool CanStartSend => !CacheOnly && UsedSends < Ceiling;
 
     public bool TryStartSend()
     {

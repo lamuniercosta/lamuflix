@@ -136,6 +136,55 @@ public sealed class MetadataQuotaHandlerTests
     }
 
     [Fact]
+    public async Task SendAsync_DiscoveryCeilingExhausted_ThrowsBeforeGateOrDispatch()
+    {
+        // arrange
+        var calls = 0;
+        var factory = new TrackingScopeFactory(() => new StubGate(_ =>
+        {
+            calls++;
+            return Task.FromResult(true);
+        }));
+        var transport = new RecordingHandler();
+        using var invoker = new HttpMessageInvoker(new MetadataQuotaHandler(factory) { InnerHandler = transport });
+        var budget = new OutsideLibraryEvidenceBudget(1, new DateOnly(2026, 7, 15));
+        using var first = RequestWithBudget(budget);
+        using var second = RequestWithBudget(budget);
+
+        // act
+        using var response = await invoker.SendAsync(first, TestContext.Current.CancellationToken);
+        var failure = await Should.ThrowAsync<MetadataLoadCeilingExhaustedException>(
+            () => invoker.SendAsync(second, TestContext.Current.CancellationToken));
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        failure.ShouldBeOfType<MetadataLoadCeilingExhaustedException>();
+        calls.ShouldBe(1);
+        transport.Calls.ShouldBe(1);
+        budget.UsedSends.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task SendAsync_RequestWithoutBudgetOption_IgnoresLoadCeiling()
+    {
+        // arrange
+        var factory = new TrackingScopeFactory(() => new StubGate(_ => Task.FromResult(true)));
+        var transport = new RecordingHandler();
+        using var invoker = new HttpMessageInvoker(new MetadataQuotaHandler(factory) { InnerHandler = transport });
+        var budget = new OutsideLibraryEvidenceBudget(0, new DateOnly(2026, 7, 15));
+
+        // act
+        using var response = await invoker.SendAsync(
+            new HttpRequestMessage(HttpMethod.Get, new Uri("https://example.test/?t=Blade")),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        transport.Calls.ShouldBe(1);
+        budget.UsedSends.ShouldBe(0);
+    }
+
+    [Fact]
     public void Constructor_DependsOnlyOnScopeFactory()
     {
         // arrange
@@ -150,6 +199,13 @@ public sealed class MetadataQuotaHandlerTests
 
     private static HttpClient Client(IServiceScopeFactory factory, HttpMessageHandler transport) =>
         new(new MetadataQuotaHandler(factory) { InnerHandler = transport });
+
+    private static HttpRequestMessage RequestWithBudget(OutsideLibraryEvidenceBudget budget)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, new Uri("https://example.test/?t=Discovery"));
+        request.Options.Set(OutsideLibraryEvidenceBudget.DiscoveryBudgetKey, budget);
+        return request;
+    }
 
     private sealed class StubGate(Func<CancellationToken, Task<bool>> acquire) : IOmdbRequestGate
     {
