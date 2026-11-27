@@ -92,6 +92,28 @@ public sealed class GetOutsideLibraryRecommendationsQueryHandlerTests
             .GetOutsideLibraryRecommendationsAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_CancelledAfterSnapshotRead_ThrowsBeforeRanking()
+    {
+        // arrange
+        using var cancellation = new CancellationTokenSource();
+        var source = Substitute.For<IRecommendationCandidateSource>();
+        source.GetOutsideLibraryRecommendationsAsync(Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                cancellation.Cancel();
+                return Snapshot();
+            });
+        var handler = Handler(source);
+
+        // act
+        var failure = await Should.ThrowAsync<OperationCanceledException>(async () =>
+            await handler.HandleAsync(new GetOutsideLibraryRecommendationsQuery(), cancellation.Token));
+
+        // assert
+        failure.CancellationToken.ShouldBe(cancellation.Token);
+    }
+
     private static GetOutsideLibraryRecommendationsQueryHandler Handler(IRecommendationCandidateSource source) =>
         new(source, Microsoft.Extensions.Options.Options.Create(new RecommendationOptions()));
 

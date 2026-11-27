@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
@@ -191,11 +193,64 @@ public sealed class OutsideLibraryEligibilityTests
         cards.Select(card => card.TmdbId).ShouldBe(expected);
     }
 
+    [Fact]
+    public void RankAdmitted_NullEvidence_ThrowsArgumentNullException()
+    {
+        // act
+        var failure = Should.Throw<ArgumentNullException>(() =>
+            OutsideLibraryRanking.RankAdmitted(Snapshot(Contributions()), Options(), null!));
+
+        // assert
+        failure.ParamName.ShouldBe("evidenceByTmdbId");
+    }
+
+    [Fact]
+    public async Task RankAdmittedAsync_NullEvidence_ThrowsArgumentNullException()
+    {
+        // act
+        var failure = await Should.ThrowAsync<ArgumentNullException>(() =>
+            OutsideLibraryRanking.RankAdmittedAsync(
+                Snapshot(Contributions()),
+                Options(),
+                null!,
+                null,
+                TestContext.Current.CancellationToken));
+
+        // assert
+        failure.ParamName.ShouldBe("evidenceByTmdbId");
+    }
+
+    [Fact]
+    public void RankAdmitted_CustomTimeProvider_UsesProvidedClock()
+    {
+        // arrange
+        var systemNow = TimeProvider.System.GetUtcNow();
+        Dictionary<int, CandidateImdbEvidence> evidence = new()
+        {
+            [201] = Fresh(systemNow.AddDays(30)),
+            [202] = Fresh(systemNow.AddDays(30)),
+            [203] = Fresh(systemNow.AddDays(30)),
+        };
+
+        // act
+        var cards = OutsideLibraryRanking.RankAdmitted(
+            Snapshot(Contributions()),
+            Options(),
+            evidence,
+            new FixedTimeProvider(systemNow.AddDays(60)));
+
+        // assert
+        cards.ShouldBeEmpty();
+    }
+
     private static CandidateImdbEvidence Evidence(
         decimal? rating,
         int? votes,
         CandidateEvidenceOutcome outcome = CandidateEvidenceOutcome.Complete) =>
         new("tt0111161", null, rating, votes, outcome);
+
+    private static CandidateImdbEvidence Fresh(DateTimeOffset expiresAtUtc) =>
+        new("tt0111161", null, 8.0m, 5000, CandidateEvidenceOutcome.Complete, expiresAtUtc);
 
     private static OutsideLibraryRecommendationContribution[] Contributions() =>
     [
