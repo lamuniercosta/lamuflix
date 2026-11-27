@@ -44,6 +44,11 @@ function Get-FreshCredentials {
         Write-EnvFile -Path $rmqEnv -Values ([ordered]@{ RABBITMQ_DEFAULT_USER = 'lamuflix'; RABBITMQ_DEFAULT_PASS = (New-RandomSecret -Length 40) })
         Write-HomeInfo 'generated rabbitmq credentials (values not shown)'
     }
+    $dashKey = Join-Path $SecretsDir 'dashboard-api-key.txt'
+    if (-not (Test-Path -LiteralPath $dashKey)) {
+        Write-TextFileUtf8 -Path $dashKey -Text (New-RandomSecret -Length 40)
+        Write-HomeInfo 'generated dashboard api key (value not shown)'
+    }
 }
 
 function New-ApiSettingsFile {
@@ -199,6 +204,7 @@ try {
     Publish-Secret -Cfg $cfg -Name 'postgres-credentials' -SecretsDir $secretsDir -CreateArgs @("--from-env-file=$(Join-Path $secretsDir 'postgres.env')")
     Publish-Secret -Cfg $cfg -Name 'rabbitmq-credentials' -SecretsDir $secretsDir -CreateArgs @("--from-env-file=$(Join-Path $secretsDir 'rabbitmq.env')")
     Publish-Secret -Cfg $cfg -Name 'api-settings' -SecretsDir $secretsDir -CreateArgs @("--from-file=appsettings.Production.json=$(Join-Path $secretsDir 'api.settings.json')")
+    Publish-Secret -Cfg $cfg -Name 'aspire-dashboard-api' -SecretsDir $secretsDir -CreateArgs @("--from-file=api-key=$(Join-Path $secretsDir 'dashboard-api-key.txt')")
     Write-HomeInfo 'api-settings published; verify Tmdb:Enabled there before rolling the API (set false to opt out; values not shown)'
 
     Install-ArgoCd -Cfg $cfg -RepoRoot $repoRoot -ScratchDir $scratch
