@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
@@ -249,6 +250,159 @@ public sealed class OutsideLibraryCollectionSelectionTests
         // assert
         cards.Select(card => card.TmdbId).ShouldBe([201]);
         lookups.ShouldBe([202]);
+    }
+
+    [Fact]
+    public void Admit_NullSnapshot_ThrowsArgumentNullException()
+    {
+        // act
+        var failure = Should.Throw<ArgumentNullException>(() =>
+            OutsideLibraryCollectionSelection.Admit(null!, Options(), new OutsideLibraryEvidenceLookup(new Dictionary<int, CandidateImdbEvidence>(), Now)));
+
+        // assert
+        failure.ParamName.ShouldBe("snapshot");
+    }
+
+    [Fact]
+    public void Admit_NullOptions_ThrowsArgumentNullException()
+    {
+        // act
+        var failure = Should.Throw<ArgumentNullException>(() =>
+            OutsideLibraryCollectionSelection.Admit(
+                Snapshot(Contributions(201, 2)),
+                null!,
+                new OutsideLibraryEvidenceLookup(new Dictionary<int, CandidateImdbEvidence>(), Now)));
+
+        // assert
+        failure.ParamName.ShouldBe("options");
+    }
+
+    [Fact]
+    public void Admit_NullEvidence_ThrowsArgumentNullException()
+    {
+        // act
+        var failure = Should.Throw<ArgumentNullException>(() =>
+            OutsideLibraryCollectionSelection.Admit(Snapshot(Contributions(201, 2)), Options(), null!));
+
+        // assert
+        failure.ParamName.ShouldBe("evidence");
+    }
+
+    [Fact]
+    public async Task AdmitAsync_NullSnapshot_ThrowsArgumentNullException()
+    {
+        // act
+        var failure = await Should.ThrowAsync<ArgumentNullException>(() =>
+            OutsideLibraryCollectionSelection.AdmitAsync(
+                null!,
+                Options(),
+                new OutsideLibraryEvidenceLookup(new Dictionary<int, CandidateImdbEvidence>(), Now),
+                TestContext.Current.CancellationToken));
+
+        // assert
+        failure.ParamName.ShouldBe("snapshot");
+    }
+
+    [Fact]
+    public async Task AdmitAsync_NullOptions_ThrowsArgumentNullException()
+    {
+        // act
+        var failure = await Should.ThrowAsync<ArgumentNullException>(() =>
+            OutsideLibraryCollectionSelection.AdmitAsync(
+                Snapshot(Contributions(201, 2)),
+                null!,
+                new OutsideLibraryEvidenceLookup(new Dictionary<int, CandidateImdbEvidence>(), Now),
+                TestContext.Current.CancellationToken));
+
+        // assert
+        failure.ParamName.ShouldBe("options");
+    }
+
+    [Fact]
+    public async Task AdmitAsync_NullEvidence_ThrowsArgumentNullException()
+    {
+        // act
+        var failure = await Should.ThrowAsync<ArgumentNullException>(() =>
+            OutsideLibraryCollectionSelection.AdmitAsync(
+                Snapshot(Contributions(201, 2)),
+                Options(),
+                null!,
+                TestContext.Current.CancellationToken));
+
+        // assert
+        failure.ParamName.ShouldBe("evidence");
+    }
+
+    [Fact]
+    public async Task AdmitAsync_TwentyRepresentatives_IsTheVisibleCap()
+    {
+        // arrange
+        var evidence = Enumerable.Range(300, 25)
+            .ToDictionary(id => id, id => Complete(1000 + id));
+        var lookup = new OutsideLibraryEvidenceLookup(evidence, Now);
+
+        // act
+        var cards = await OutsideLibraryCollectionSelection.AdmitAsync(
+            Snapshot(Contributions(300, 25)),
+            Options(),
+            lookup,
+            TestContext.Current.CancellationToken);
+
+        // assert
+        cards.Count.ShouldBe(20);
+        cards.Select(card => card.TmdbId).ShouldBe(Enumerable.Range(300, 20));
+    }
+
+    [Fact]
+    public async Task AdmitAsync_KnownDuplicateCollection_IsSkippedBeforeAnyLookup()
+    {
+        // arrange
+        List<int> lookups = [];
+        Dictionary<int, CandidateImdbEvidence> evidence = new()
+        {
+            [201] = Complete(77),
+            [202] = Complete(77),
+        };
+        var lookup = new OutsideLibraryEvidenceLookup(
+            evidence,
+            Now,
+            tmdbId =>
+            {
+                lookups.Add(tmdbId);
+                return null;
+            });
+
+        // act
+        var cards = await OutsideLibraryCollectionSelection.AdmitAsync(
+            Snapshot(Contributions(201, 2)),
+            Options(),
+            lookup,
+            TestContext.Current.CancellationToken);
+
+        // assert
+        cards.Select(card => card.TmdbId).ShouldBe([201]);
+        lookups.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Admit_ZeroCollectionId_RemainsIndependentlyEligible()
+    {
+        // arrange
+        Dictionary<int, CandidateImdbEvidence> evidence = new()
+        {
+            [201] = Complete(0),
+            [202] = Complete(0),
+        };
+        var lookup = new OutsideLibraryEvidenceLookup(evidence, Now);
+
+        // act
+        var cards = OutsideLibraryCollectionSelection.Admit(
+            Snapshot(Contributions(201, 2)),
+            Options(),
+            lookup);
+
+        // assert
+        cards.Select(card => card.TmdbId).ShouldBe([201, 202]);
     }
 
     private static CandidateImdbEvidence Complete(int? collectionId, DateTimeOffset? expiresAtUtc = null) =>
