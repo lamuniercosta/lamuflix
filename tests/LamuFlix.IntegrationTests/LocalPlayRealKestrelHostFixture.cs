@@ -178,9 +178,9 @@ public sealed class LocalPlayRealKestrelHostFixture : IAsyncDisposable
     public static LocalPlayRealKestrelHostFixture Build(Func<int, IEnumerable<KeyValuePair<string, string?>>> settingsFactory)
     {
         ArgumentNullException.ThrowIfNull(settingsFactory);
-        var listenerPort = ReserveFreePort();
+        var (listenerPort, binderPort) = ReserveTwoDistinctPorts();
         var recorder = new LocalPlayStartupRecorder();
-        var binder = new SocketBinder(ReserveFreePort());
+        var binder = new SocketBinder(binderPort);
         var settings = settingsFactory(listenerPort).ToArray();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -266,13 +266,17 @@ public sealed class LocalPlayRealKestrelHostFixture : IAsyncDisposable
         Binder.Dispose();
     }
 
-    private static int ReserveFreePort()
+    private static (int ListenerPort, int BinderPort) ReserveTwoDistinctPorts()
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
+        using var first = new TcpListener(IPAddress.Loopback, 0);
+        using var second = new TcpListener(IPAddress.Loopback, 0);
+        first.Start();
+        second.Start();
+        var firstPort = ((IPEndPoint)first.LocalEndpoint).Port;
+        var secondPort = ((IPEndPoint)second.LocalEndpoint).Port;
+        first.Stop();
+        second.Stop();
+        return (firstPort, secondPort);
     }
 
     public static bool IsListeningOn(int port)
