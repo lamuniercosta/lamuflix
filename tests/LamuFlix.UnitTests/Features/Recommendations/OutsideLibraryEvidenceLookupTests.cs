@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using LamuFlix.Core.Features.Recommendations;
-using LamuFlix.UnitTests.Features;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 

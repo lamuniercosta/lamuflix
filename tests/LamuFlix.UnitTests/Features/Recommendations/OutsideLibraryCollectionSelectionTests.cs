@@ -257,6 +257,7 @@ public sealed class OutsideLibraryCollectionSelectionTests
     {
         // act
         var failure = Should.Throw<ArgumentNullException>(() =>
+            // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
             OutsideLibraryCollectionSelection.Admit(null!, Options(), new OutsideLibraryEvidenceLookup(new Dictionary<int, CandidateImdbEvidence>(), Now)));
 
         // assert
@@ -270,6 +271,7 @@ public sealed class OutsideLibraryCollectionSelectionTests
         var failure = Should.Throw<ArgumentNullException>(() =>
             OutsideLibraryCollectionSelection.Admit(
                 Snapshot(Contributions(201, 2)),
+                // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
                 null!,
                 new OutsideLibraryEvidenceLookup(new Dictionary<int, CandidateImdbEvidence>(), Now)));
 
@@ -282,6 +284,7 @@ public sealed class OutsideLibraryCollectionSelectionTests
     {
         // act
         var failure = Should.Throw<ArgumentNullException>(() =>
+            // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
             OutsideLibraryCollectionSelection.Admit(Snapshot(Contributions(201, 2)), Options(), null!));
 
         // assert
@@ -294,6 +297,7 @@ public sealed class OutsideLibraryCollectionSelectionTests
         // act
         var failure = await Should.ThrowAsync<ArgumentNullException>(() =>
             OutsideLibraryCollectionSelection.AdmitAsync(
+                // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
                 null!,
                 Options(),
                 new OutsideLibraryEvidenceLookup(new Dictionary<int, CandidateImdbEvidence>(), Now),
@@ -310,6 +314,7 @@ public sealed class OutsideLibraryCollectionSelectionTests
         var failure = await Should.ThrowAsync<ArgumentNullException>(() =>
             OutsideLibraryCollectionSelection.AdmitAsync(
                 Snapshot(Contributions(201, 2)),
+                // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
                 null!,
                 new OutsideLibraryEvidenceLookup(new Dictionary<int, CandidateImdbEvidence>(), Now),
                 TestContext.Current.CancellationToken));
@@ -326,6 +331,7 @@ public sealed class OutsideLibraryCollectionSelectionTests
             OutsideLibraryCollectionSelection.AdmitAsync(
                 Snapshot(Contributions(201, 2)),
                 Options(),
+                // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
                 null!,
                 TestContext.Current.CancellationToken));
 
