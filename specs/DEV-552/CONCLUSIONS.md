@@ -39,3 +39,17 @@ Basis is DEV-552 Wanted 1 and Where it lands, PRODUCT §5, and recon-DEV-552:45-
 - `preferredLanguageCodes` (ordered, canonical supported codes) added to the existing languages response; basis Wanted 1 and 9, recon-DEV-552:53-56 (the catalog orders preferred first but does not mark which are preferred). Amendment: an empty list falls back to today's behaviour, one automatic search of `defaultLanguage` when it is non-null, otherwise none; Add a language stays available. Sound practice: no regression for an owner with no preferences configured.
 - `hashMatch` (non-null boolean) added to the candidate DTO and the stream event candidate; true only on affirmative provider evidence, never inferred from match percent; basis Wanted 3, Out of scope (no scorer change). Surfacing it through the `ISubtitleProvider` result is in scope and is not a scorer change.
 - Unverified: whether the OpenSubtitles search sends a movie hash today; if it does not, the plan states that and the mark is false until it does (no new hashing work without a further ruling).
+
+---
+
+## Q2 — Preferred languages and hash-match evidence (§2.3 API shape)
+
+**Keel.** Which additive metadata should drive the initial searches and hash-match mark? I recommend an ordered preferredLanguageCodes array on the existing languages response, using canonical supported codes, with an empty list triggering no automatic search and leaving Add a language available. Add a boolean hashMatch to the existing candidate DTO and event candidate using actual provider evidence, with no mark without affirmative evidence and no inference from score. This gives the picker explicit data without new routes or a scorer change. Basis: Wanted 1, 3 and 9; recon-DEV-552:50,53-56 shows both contract gaps. Please rule on this additive metadata contract.
+
+**Patron.** APPROVED with one amendment. preferredLanguageCodes (ordered canonical codes) on the existing languages response; hashMatch non-null boolean on candidate DTO and stream event candidate, true only on affirmative provider evidence, never inferred from score; surfacing it via the ISubtitleProvider result is in scope, not a scorer change. Amendment: empty preferred list falls back to today's behaviour, one automatic search of defaultLanguage when non-null, else none; Add a language stays. Unverified: whether OpenSubtitles search sends a movie hash today; plan must state it, mark stays false if not, no new hashing work without a further ruling. Logged in specs/DEV-552/CONCLUSIONS.md (committed).
+
+Basis is DEV-552 Wanted 1, 3 and 9, PRODUCT §5 and recon-DEV-552:50,53-56. A catalog can now distinguish configured membership from display order. OpenSubtitles hash evidence remains unverified in the supplied evidence and is a named verification item.
+
+## Q3 - Provider line and quota across overlapping language requests (taste)
+
+**Patron.** CONFIRMED as Keel recommended; basis Wanted 4-7, recon-DEV-552:48-50. Logged `[assumed]` in ASSUMPTIONS.md.
