@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-28
 
-**Status**: gate1: provisional
+**Status**: gate1: approve
 
 **Input**: Ticket DEV-554 (size M) as recorded in `recon-DEV-554:19–75`; grill-closed `brief.md` (Q1–Q7 + Step 3.3 governance ruling); `CONCLUSIONS.md`; Maestri notes `DEV-554`, `recon-DEV-554`; `specs/PRODUCT.md`. Quill invents no decisions beyond the brief.
 
