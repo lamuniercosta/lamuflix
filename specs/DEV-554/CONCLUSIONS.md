@@ -154,3 +154,10 @@ Reviewed `feature/554-spec` at `508f8e48c98d12465d9f418a9c5e86b6b9a61e89`, inclu
 Read-only `/speckit-analyze` cleared the repaired package. The 18 tasks cover all 15 functional requirements and 7 success criteria. The seven adjudicated repairs are reflected in the package, including T005/T007 and the transport contract for the HTTP compressed-byte bound before buffering. The private plan and tasks match the worktree copies byte for byte.
 
 Ready for Phase 2 step 7 commit and draft PR preparation. Include the narrow Principle VII amendment, constitution version bump, Sync Impact Report, and unchecked owner checkbox in the draft PR. Gate 1 remains closed until the owner ticks the checkbox and merges. T000 still requires the recorded merge, amended constitution on main, landed DEV-551 seams, and approved cap values before Build.
+
+## Gate 1 ruling (2026-11-28, HEAD 45ff03c1)
+
+**gate1: provisional, not approve. The constitution amendment must land on `feature/554-spec` before Rigger marks PR #523 ready.**
+- The owner ticked the VII checkbox on PR #523. That approves the Step 3.3 amendment as worded in the PR's Patron recommendation, including the caps of 8 MiB compressed, 32 MiB expanded and 128 entries. The owner's word is final, so this is not re-opened.
+- `git diff origin/main...HEAD` touches only `specs/DEV-554/`. `.specify/memory/constitution.md` is unchanged. Step 3.3 order item 1 and T000 require the edit on this spec PR: add the options entry at :782-784, replace the 409 clause at :795-801, update the checklist at :946-948, bump the version, and add a Sync Impact Report citing DEV-501 and ADR 0041. The owner approval and T000 force this edit, so it is in scope. Quill drafts it with `/speckit-constitution`, Keel rereads it, then Rigger marks the PR ready and sets YouTrack Gate 1. The owner merges.
+- In the same commit, fix the stale `tasks.md:9` status ("awaiting Keel reread") to match the freeze receipt. Analyze is clean, the plan challenge is adjudicated and the User-Visible Outcome items are ticked, so `spec.md` Status is now `gate1: provisional`.
