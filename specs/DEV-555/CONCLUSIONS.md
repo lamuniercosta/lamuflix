@@ -74,3 +74,46 @@ Q1. How do you rule on Principle VII for the ticket-mandated typed BSPlayer opti
 ### Patron’s answer
 
 [from Patron] DEV-555 Q5: CONFIRMED as stated - two rounds, High/Medium and accepted in-scope Low block, scope frozen to Q1-Q4 and recon :68-106, default off with home-only enablement (Open point :101), live bar per Done when :82; out-of-scope findings get a YouTrack follow-up only if Critical/High or broken behaviour, else noted, no ticket in CONCLUSIONS. Grill may close.
+
+---
+
+## Plan challenge r1 adjudication (Phase 2 step 6, Keel)
+
+Inputs: `findings-DEV-555-Sentry` (3 High, 5 Medium, 2 Low), `findings-DEV-555-Ledger` (4 Medium, 5 Low), `findings-DEV-555-Compass` (0 findings), at HEAD `252f1342` with draft artifacts uncommitted. All three axes are present. Basis: Q1–Q5 above, ticket text (`recon-DEV-555` lines 52–108), constitution Principles I and V–IX, and recon lines 12–20 for existing patterns. No disposition changes ticket text or departs from the constitution, so nothing escalates to the user. The binding decisions are recorded in [brief.md § Plan-challenge decisions (r1)](brief.md#plan-challenge-decisions-r1) as D1–D15.
+
+| Finding | Disposition | Ruling / basis |
+|---|---|---|
+| Sentry H1: per-attempt share unspecified | **ACCEPT** → D1 | A plan gap. The FR-004 wording admits several formulas. D1 pins one, together with a ≥3-server test. Q3 already rules that close is not reserved (it is skipped if no budget remains), so L2 folds in here. |
+| Sentry H2: session-token scope / concurrency | **ACCEPT** → D2 | The token is local to each search call. The adapter holds no mutable state, and a test covers two concurrent searches. This follows Q2's redaction rule and the Q3 rule that close never fails a search. |
+| Sentry H3: SSRF predicate under-specified | **ACCEPT** (a–d) / **DISMISS** (e) → D3 | D3 pins the scheme rule, exact host matching, IP-literal, port and userinfo handling, absolute-only download URLs, and one shared refusal gate (the existing host-refusal service, recon line 13). (e) DNS-rebinding pinning is dismissed. Q2 makes the configured host name the trust boundary, and the ticket says plain-HTTP content is trusted no further than the payload checks (recon line 66). Resolve-pinning would be a new control, which Q2 did not ask for. |
+| Sentry M1: cancellation vs timeout mechanism | **ACCEPT** → D4 | Linked token sources. The outcome is classified by which token fired. |
+| Sentry M2: XML expansion / depth / over-bound | **ACCEPT** → D5 | `DtdProcessing.Prohibit` refuses every DTD, which rules out internal-entity expansion too. A body over the bound aborts before parsing and is never truncated. The byte bound already limits depth and element count, and `XmlReader` streams, so no separate depth setting is added. |
+| Sentry M3: MovieHash divergence guard | **ACCEPT** → D6 | If the hash differs, the change is a separately named routine. The existing routine stays byte-identical and the existing OpenSubtitles hash tests stay unchanged and green (Q4: preserve OpenSubtitles behaviour). |
+| Sentry M4: empty-result capture leaves download host undecidable | **ACCEPT** → D7 | Adds a branch for inconclusive evidence: a second capture against a movie BSPlayer knows. If that is also inconclusive, Build STOPs. This applies the Q2 rule that a prerequisite is never assumed. |
+| Sentry M5 + Ledger M3: fake time vs real sockets | **ACCEPT** (merged) → D8 | The deadline uses `CancellationTokenSource(timeout, TimeProvider)` and waits use `Task.Delay(…, TimeProvider, …)`. Timing tests run on a stub `HttpMessageHandler`. WireMock covers only the wire shape. |
+| Sentry L1: telemetry cardinality / fixture size | **ACCEPT** → D9, D10 | No new telemetry attribute keys. The known file is generated inside the test, so no file is committed. |
+| Sentry L2: close budget accounting | **ACCEPT** (folded into D1) | Adds a test where close has zero budget and the search still succeeds. |
+| Ledger M1: options shape duplicates fields | **ACCEPT** → D11 | Reuse the existing `SubtitleProviderOptions` record as a named instance bound from `Subtitles:BsPlayer`, with the existing property names. This adds no new options record, so it stays inside the Q1(a) closed list. This replaces the draft's preference for a nested type under `SubtitlesOptions`. Q1 stated that as a preference, and Q1(a) is satisfied. |
+| Ledger M2: vendor identifiers not enumerated | **ACCEPT** → D12 | Table of identifiers. If a vendor tag value is required, that is a conditional STOP routed as `blocked: structural` (constitution VIII departure, PRODUCT §5 b). It is not ruled now because DEV-551's mechanism is unverified until T001. |
+| Ledger M4: home-settings surface contradicts VII | **ACCEPT** → D13 | Under Principle VII the home settings are untracked (`docker/api.settings.json` or the `api-settings` Secret). T004 edits no home file. The tracked example block carries the documented keys, and T017 lists the keys the operator sets. |
+| Ledger L1: Stryker static-init hazard | **ACCEPT** → D14 | No `static readonly` or mutable static state in new or changed production code. |
+| Ledger L2: SOAP build / parse mechanism | **ACCEPT** (merged into D5) | Build requests with `XElement`/`XmlWriter`, with no string concatenation. Parse with the `XmlReader` settings in D5. |
+| Ledger L3: validator rule table | **ACCEPT** → D15 | Rule table, tested with Theory + MemberData. |
+| Ledger L4: telemetry / logging generic | **ACCEPT** (merged into D9) | Reuse existing spans and metrics. Logs are structured with the movie id, the attempt number and the failure category, and never the token. Includes a log-scrub test. |
+| Ledger L5: plan hygiene | **ACCEPT** | Add a Keel Constitution Check recheck after T003. In plan, spec and tasks, cite constitution principles rather than line numbers. CONCLUSIONS keeps its historical line citations. |
+| Compass: 0 findings | n/a | No action. |
+
+**Result:** 19 findings, all accepted (some merged). Only sub-item H3(e) is dismissed, with its reason cited. The accepted findings require edits to spec, plan, tasks and contract, so the **plan is NOT frozen**. Quill gets fix list r1, which is stored at `C:\Users\lamun\AppData\Local\LamuFlix\artifacts\LamuFlix\DEV-555\receipts\keel-plan-challenge-r1.md`. After Quill's repair, Keel re-verifies the edits against D1–D15 and freezes the plan if they are clean.
+
+### Plan challenge r1 re-verify and freeze (Keel)
+
+Keel re-verified Quill repair round 2 (DRAFTING_RECEIPT § Repair round 2) against fix list r1 items 1–16 and brief D1–D15, in `spec.md`, `plan.md`, `tasks.md`, `contracts/bsplayer-soap-adapter.md` and `checklists/requirements.md`. All 16 items are present as written: D11 named-instance options with the union-of-hosts rule and the stale "server list itself" branch removed; the D1 budget formula and two tests; D2 per-call token and concurrency test; the D3 Destination predicate row and table tests, with DNS rebinding excluded under Q2; D4 linked-token classification and caller-cancel test; D5 XML settings and the over-bound and internal-entity tests; D6 separately named hash routine; D7 second-capture branch, hash acceptance in SC-002 and T008, and the STOP; D8 stub handler with test-owned `FakeTimeProvider.Advance`; D10 with no committed-file option left; D12 identifier table with the vendor `TelemetryConstants` route to `blocked: structural`; D9 telemetry and log-scrub test; D13 with no home file edited by T004 and the T011 and T017 keys; D14 in Conventions, T004 and T005; D15 rule table with Theory + MemberData; the recheck after T003; and principle citations instead of constitution line numbers (the remaining line citations are recon lines). The private plan, tasks and contract mirrors are byte-identical. The only remaining residue is the historical repair-round-1 log line in `checklists/requirements.md`, which is a record and not a live requirement.
+
+**PLAN FROZEN** at plan challenge r1, with the artifacts still uncommitted on `feature/555-spec` (HEAD `252f1342`). The plan stays conditional on the T001 pickup facts and on the Keel Constitution Check recheck after T003. Gate 1 (the Spec Kit PR merge by the user) is next.
+
+## Gate 1 provisional ruling (Patron)
+
+**gate1: provisional** - no blocker, no structural escalation.
+- `/speckit-analyze` r2 CLEAN and plan challenge adjudicated and FROZEN (CONCLUSIONS Plan challenge r1 re-verify and freeze).
+- `checklists/requirements.md` User-Visible Outcome ticked; spec says Nothing visible with reason (no ui tag).
+- §2.3 envelope holds: named `SubtitleProviderOptions` instance with two added fields inside the existing record (Q1), existing refusal service extended, no dependency/project/schema/API/LocalPlay change (Q4); vendor-tag and second-capture paths stay conditional STOPs (D7, D12).
