@@ -28,18 +28,19 @@
       "banned": "scan",
       "canonical": "Import",
       "term": "Import",
-      "exceptions": [
-        {
-          "file": "web/src/library/BulkImportDialog.tsx",
-          "phrase": "Could not scan the library.",
-          "reason": "Bulk discovery across the library root, not the single-folder case CONTEXT.md avoids; owner ruling recorded in DEV-564 PR."
-        },
-        {
-          "file": "web/src/library/BulkImportDialog.tsx",
-          "phrase": "Retry scan",
-          "reason": "Bulk discovery across the library root, not the single-folder case CONTEXT.md avoids; owner ruling recorded in DEV-564 PR."
-        }
-      ]
+      "exceptions": []
+    },
+    {
+      "banned": "scanning",
+      "canonical": "Import",
+      "term": "Import",
+      "exceptions": []
+    },
+    {
+      "banned": "scanned file",
+      "canonical": "Primary video",
+      "term": "Primary video",
+      "exceptions": []
     },
     {
       "banned": "re-import",
@@ -98,18 +99,7 @@
       "banned": "poster",
       "canonical": "Thumbnail",
       "term": "Thumbnail",
-      "exceptions": [
-        {
-          "file": "web/src/features/movie-details/MoviePoster.tsx",
-          "phrase": "poster",
-          "reason": "Accessibility copy (alt/aria-label); owner to confirm Thumbnail wording in DEV-564 PR."
-        },
-        {
-          "file": "web/src/features/for-you/OutsideLibrarySection.tsx",
-          "phrase": "poster",
-          "reason": "Accessibility copy (alt/fallback text); owner to confirm Thumbnail wording in DEV-564 PR."
-        }
-      ]
+      "exceptions": []
     },
     {
       "banned": "preview image",
@@ -125,17 +115,17 @@
         {
           "file": "README.md",
           "phrase": "The download quota is per account",
-          "reason": "Names the OpenSubtitles provider quota, not Subtitle Download Availability; owner ruling recorded in DEV-564 PR."
+          "reason": "Names the OpenSubtitles provider quota, not Subtitle Download Availability; pending owner ruling on PR."
         },
         {
           "file": "web/src/features/playback/subtitleCopy.ts",
           "phrase": "Download quota reached.",
-          "reason": "Names the provider's real quota (problem reason download_quota_exhausted, ADR 0041), not Subtitle Download Availability; owner ruling recorded in DEV-564 PR."
+          "reason": "Names the provider's real quota (problem reason download_quota_exhausted, ADR 0041), not Subtitle Download Availability; pending owner ruling on PR."
         },
         {
           "file": "web/src/features/playback/subtitleCopy.ts",
           "phrase": "Download quota reached. Resets at",
-          "reason": "Names the provider's real quota (problem reason download_quota_exhausted, ADR 0041), not Subtitle Download Availability; owner ruling recorded in DEV-564 PR."
+          "reason": "Names the provider's real quota (problem reason download_quota_exhausted, ADR 0041), not Subtitle Download Availability; pending owner ruling on PR."
         }
       ]
     },
