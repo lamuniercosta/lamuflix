@@ -45,7 +45,7 @@ describe('BulkImportDialog scan states', () => {
     renderDialog();
 
     const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
-    expect(await within(dialog).findByText(/scanning library/i)).toBeInTheDocument();
+    expect(await within(dialog).findByText(/looking for movies to import/i)).toBeInTheDocument();
     resolveScan();
     expect(await within(dialog).findByText('No new movies found')).toBeInTheDocument();
   });
@@ -71,11 +71,11 @@ describe('BulkImportDialog scan states', () => {
     render(<BulkImportDialog open onClose={() => {}} />, { wrapper: Wrapper });
 
     const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
-    expect(await within(dialog).findByText(/scanning library/i)).toBeInTheDocument();
+    expect(await within(dialog).findByText(/looking for movies to import/i)).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     resolveScan();
     await waitFor(() =>
-      expect(within(dialog).queryByText(/scanning library/i)).not.toBeInTheDocument(),
+      expect(within(dialog).queryByText(/looking for movies to import/i)).not.toBeInTheDocument(),
     );
   });
 

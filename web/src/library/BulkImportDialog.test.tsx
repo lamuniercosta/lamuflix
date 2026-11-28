@@ -526,9 +526,9 @@ describe('BulkImportDialog', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
     const alert = await within(dialog).findByRole('alert');
-    expect(alert).toHaveTextContent('Could not scan the library.');
+    expect(alert).toHaveTextContent('Could not look for movies to import.');
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Retry scan' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Try again' }));
 
     expect(await within(dialog).findByLabelText('Alpha')).toBeInTheDocument();
     expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();

@@ -99,7 +99,23 @@
       "banned": "poster",
       "canonical": "Thumbnail",
       "term": "Thumbnail",
-      "exceptions": []
+      "exceptions": [
+        {
+          "file": "web/src/features/movie-details/MoviePoster.tsx",
+          "phrase": "poster",
+          "reason": "Metadata-provider poster artwork (posterUrl), not a Thumbnail frame; covers the img alt and the matching placeholder label. Owner-approved on PR #517."
+        },
+        {
+          "file": "web/src/features/for-you/OutsideLibrarySection.tsx",
+          "phrase": "Poster unavailable",
+          "reason": "TMDb poster artwork (posterPath) for an outside-library movie, not a Thumbnail. Owner-approved on PR #517."
+        },
+        {
+          "file": "web/src/features/for-you/OutsideLibrarySection.tsx",
+          "phrase": "poster",
+          "reason": "TMDb poster artwork (posterPath) img alt for an outside-library movie, not a Thumbnail. Owner-approved on PR #517."
+        }
+      ]
     },
     {
       "banned": "preview image",
@@ -115,17 +131,17 @@
         {
           "file": "README.md",
           "phrase": "The download quota is per account",
-          "reason": "Names the OpenSubtitles provider quota, not Subtitle Download Availability; pending owner ruling on PR."
+          "reason": "Names the OpenSubtitles provider quota, not Subtitle Download Availability. Owner-approved on PR #517."
         },
         {
           "file": "web/src/features/playback/subtitleCopy.ts",
           "phrase": "Download quota reached.",
-          "reason": "Names the provider's real quota (problem reason download_quota_exhausted, ADR 0041), not Subtitle Download Availability; pending owner ruling on PR."
+          "reason": "Names the provider's real quota (problem reason download_quota_exhausted, ADR 0041), not Subtitle Download Availability. Owner-approved on PR #517."
         },
         {
           "file": "web/src/features/playback/subtitleCopy.ts",
           "phrase": "Download quota reached. Resets at",
-          "reason": "Names the provider's real quota (problem reason download_quota_exhausted, ADR 0041), not Subtitle Download Availability; pending owner ruling on PR."
+          "reason": "Names the provider's real quota (problem reason download_quota_exhausted, ADR 0041), not Subtitle Download Availability. Owner-approved on PR #517."
         }
       ]
     },
