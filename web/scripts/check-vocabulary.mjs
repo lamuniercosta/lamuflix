@@ -46,8 +46,61 @@ export function findHitsInSegment(segment, repoPath, line, entries) {
 }
 
 const STRING_PATTERN = /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
-const CLASSNAME_PATTERN =
-  /className\s*=\s*("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|\{(?:`(?:[^`\\]|\\.)*`|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')\})/g;
+const NON_COPY_ATTRIBUTE_PATTERN =
+  /(?:className|data-testid)\s*=\s*("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|\{(?:`(?:[^`\\]|\\.)*`|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')\})/g;
+const LOG_CALL_PATTERN = /(?:\bconsole|\blogger)\s*\.\s*(?:log|debug|info|warn|error|trace)\s*\(/g;
+
+function findLogRanges(text) {
+  const ranges = [];
+  LOG_CALL_PATTERN.lastIndex = 0;
+  let open;
+  while ((open = LOG_CALL_PATTERN.exec(text)) !== null) {
+    let index = open.index + open[0].length;
+    let depth = 1;
+    let quote = null;
+    while (index < text.length && depth > 0) {
+      const ch = text[index];
+      if (quote !== null) {
+        if (ch === '\\') {
+          index += 2;
+          continue;
+        }
+        if (ch === quote) {
+          quote = null;
+        }
+        index += 1;
+        continue;
+      }
+      if (ch === '"' || ch === "'" || ch === '`') {
+        quote = ch;
+        index += 1;
+        continue;
+      }
+      if (ch === '/' && text[index + 1] === '/') {
+        const newline = text.indexOf('\n', index);
+        index = newline === -1 ? text.length : newline;
+        continue;
+      }
+      if (ch === '/' && text[index + 1] === '*') {
+        const end = text.indexOf('*/', index + 2);
+        index = end === -1 ? text.length : end + 2;
+        continue;
+      }
+      if (ch === '(') {
+        depth += 1;
+      } else if (ch === ')') {
+        depth -= 1;
+      }
+      index += 1;
+    }
+    ranges.push([open.index, index]);
+  }
+  return ranges;
+}
+
+function isInRanges(ranges, offset) {
+  return ranges.some(([start, end]) => offset >= start && offset < end);
+}
 
 function literalParts(literal) {
   const inner = literal.slice(1, -1);
@@ -59,25 +112,41 @@ function literalParts(literal) {
 
 export function extractSegments(text, isTsx) {
   const segments = [];
+  const strippedLines = [];
+  const logRanges = findLogRanges(text);
   const lines = text.split('\n');
   let inBlockComment = false;
+  let offset = 0;
   lines.forEach((rawLine, index) => {
     const line = index + 1;
+    const lineStart = offset;
+    offset += rawLine.length + 1;
     let code = rawLine;
+    let shift = 0;
     if (inBlockComment) {
       const end = code.indexOf('*/');
       if (end === -1) {
+        strippedLines.push('');
         return;
       }
-      code = code.slice(end + 2);
+      shift = end + 2;
+      code = code.slice(shift);
       inBlockComment = false;
     }
     const literals = [];
-    code = code.replace(CLASSNAME_PATTERN, (match) => ' '.repeat(match.length));
-    code = code.replace(STRING_PATTERN, (match) => {
-      literals.push(match);
-      return ' '.repeat(match.length);
-    });
+    code = code.replace(NON_COPY_ATTRIBUTE_PATTERN, (match) => ' '.repeat(match.length));
+    STRING_PATTERN.lastIndex = 0;
+    let literalMatch;
+    const literalAt = [];
+    while ((literalMatch = STRING_PATTERN.exec(code)) !== null) {
+      literalAt.push({ match: literalMatch[0], offset: lineStart + shift + literalMatch.index });
+    }
+    code = code.replace(STRING_PATTERN, (match) => ' '.repeat(match.length));
+    for (const { match, offset: literalOffset } of literalAt) {
+      if (!isInRanges(logRanges, literalOffset)) {
+        literals.push(match);
+      }
+    }
     for (const literal of literals) {
       for (const part of literalParts(literal)) {
         if (part.trim() !== '') {
@@ -103,18 +172,133 @@ export function extractSegments(text, isTsx) {
     if (commentAt !== -1) {
       stripped = stripped.slice(0, commentAt);
     }
-    if (isTsx) {
-      const jsxPattern = />((?:[^<>{}]|\{[^{}]*\})+)</g;
-      let jsxMatch;
-      while ((jsxMatch = jsxPattern.exec(stripped)) !== null) {
-        const inner = jsxMatch[1].replace(/\{[^{}]*\}/g, ' ').trim();
-        if (inner !== '') {
-          segments.push({ text: inner, line });
+    strippedLines.push(stripped);
+  });
+  if (isTsx) {
+    const strippedFull = strippedLines.join('\n');
+    for (const gap of collectJsxTextGaps(strippedFull)) {
+      segments.push({ text: gap.text, line: gap.line });
+    }
+  }
+  return segments;
+}
+
+function readTag(text, start) {
+  let index = start + 1;
+  let closing = false;
+  if (text[index] === '/') {
+    closing = true;
+    index += 1;
+  }
+  if (text[index] === '>') {
+    return { end: index + 1, closing, selfClosing: false };
+  }
+  if (!/[A-Za-z]/.test(text[index] ?? '')) {
+    return null;
+  }
+  while (index < text.length && /[A-Za-z0-9.]/.test(text[index])) {
+    index += 1;
+  }
+  let selfClosing = false;
+  for (;;) {
+    const ch = text[index];
+    if (ch === undefined || ch === '<') {
+      return null;
+    }
+    if (ch === '>') {
+      index += 1;
+      break;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch;
+      index += 1;
+      while (index < text.length && text[index] !== quote) {
+        if (text[index] === '\\') {
+          index += 1;
         }
+        index += 1;
+      }
+      index += 1;
+      continue;
+    }
+    if (ch === '{') {
+      let depth = 1;
+      index += 1;
+      let quote = null;
+      while (index < text.length && depth > 0) {
+        const inner = text[index];
+        if (quote !== null) {
+          if (inner === '\\') {
+            index += 2;
+            continue;
+          }
+          if (inner === quote) {
+            quote = null;
+          }
+          index += 1;
+          continue;
+        }
+        if (inner === '"' || inner === "'" || inner === '`') {
+          quote = inner;
+          index += 1;
+          continue;
+        }
+        if (inner === '{') {
+          depth += 1;
+        } else if (inner === '}') {
+          depth -= 1;
+        }
+        index += 1;
+      }
+      if (depth !== 0) {
+        return null;
+      }
+      continue;
+    }
+    if (ch === '/' && text[index + 1] === '>') {
+      selfClosing = true;
+      index += 2;
+      break;
+    }
+    index += 1;
+  }
+  return { end: index, closing, selfClosing };
+}
+
+export function collectJsxTextGaps(text) {
+  const tags = [];
+  let index = 0;
+  while (index < text.length) {
+    if (text[index] === '<' && /[A-Za-z/>]/.test(text[index + 1] ?? '')) {
+      const tag = readTag(text, index);
+      if (tag !== null) {
+        tags.push({ start: index, end: tag.end, closing: tag.closing });
+        index = tag.end;
+        continue;
       }
     }
-  });
-  return segments;
+    index += 1;
+  }
+  const gaps = [];
+  for (let at = 1; at < tags.length; at += 1) {
+    if (tags[at - 1].closing) {
+      continue;
+    }
+    const raw = text.slice(tags[at - 1].end, tags[at].start);
+    const withoutExpressions = raw.replace(/\{(?:[^{}]|\{[^{}]*\})*\}/g, (match) =>
+      ' '.repeat(match.length),
+    );
+    if (/[{}]/.test(withoutExpressions)) {
+      continue;
+    }
+    const first = withoutExpressions.search(/\S/);
+    if (first === -1) {
+      continue;
+    }
+    const line = text.slice(0, tags[at - 1].end + first).split('\n').length;
+    gaps.push({ text: withoutExpressions.trim(), line });
+  }
+  return gaps;
 }
 
 export async function collectTargetFiles(repoRoot) {
@@ -135,7 +319,7 @@ export async function collectTargetFiles(repoRoot) {
     for (const name of names) {
       const abs = join(dir, name.name);
       if (name.isDirectory()) {
-        if (name.name !== '__tests__') {
+        if (name.name !== '__tests__' && name.name !== 'test') {
           queue.push(abs);
         }
       } else if (
@@ -201,27 +385,12 @@ export function scanMarkdownText(text, repoPath, entries) {
   return hits;
 }
 
-function collectOpenApiStrings(node, out) {
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      collectOpenApiStrings(item, out);
-    }
-  } else if (node !== null && typeof node === 'object') {
-    for (const [key, item] of Object.entries(node)) {
-      if ((key === 'description' || key === 'summary') && typeof item === 'string') {
-        out.push(item);
-      } else {
-        collectOpenApiStrings(item, out);
-      }
-    }
-  }
-}
+const JSON_STRING_PATTERN = /"(?:[^"\\]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"/g;
 
 export function scanOpenApiText(raw, repoPath, entries) {
   const hits = [];
-  let parsed;
   try {
-    parsed = JSON.parse(raw);
+    JSON.parse(raw);
   } catch {
     return [
       {
@@ -233,17 +402,31 @@ export function scanOpenApiText(raw, repoPath, entries) {
       },
     ];
   }
-  const strings = [];
-  collectOpenApiStrings(parsed, strings);
-  const seen = new Set();
-  for (const value of strings) {
-    if (typeof value !== 'string' || value.trim() === '' || seen.has(value)) {
+  JSON_STRING_PATTERN.lastIndex = 0;
+  let tokenMatch;
+  let pendingKey = null;
+  while ((tokenMatch = JSON_STRING_PATTERN.exec(raw)) !== null) {
+    const token = tokenMatch[0];
+    if (/^\s*:/.test(raw.slice(tokenMatch.index + token.length))) {
+      try {
+        pendingKey = JSON.parse(token);
+      } catch {
+        pendingKey = null;
+      }
       continue;
     }
-    seen.add(value);
-    const at = raw.indexOf(value.slice(0, 60));
-    const line = at === -1 ? 1 : raw.slice(0, at).split('\n').length;
-    hits.push(...findHitsInSegment(value, repoPath, line, entries));
+    if (pendingKey === 'description' || pendingKey === 'summary') {
+      let value;
+      try {
+        value = JSON.parse(token);
+      } catch {
+        continue;
+      }
+      if (typeof value === 'string' && value.trim() !== '') {
+        const line = raw.slice(0, tokenMatch.index).split('\n').length;
+        hits.push(...findHitsInSegment(value, repoPath, line, entries));
+      }
+    }
   }
   return hits;
 }
