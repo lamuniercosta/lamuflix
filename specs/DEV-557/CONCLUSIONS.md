@@ -34,3 +34,31 @@ Sources: ticket DEV-557 (`get-task.ps1`), `recon-DEV-557`, task note `DEV-557`, 
 - The InspectCode gate analyses changed files, so any edit to that file surfaces `MethodHasAsyncOverloadWithCancellation` at :98,:102 and fails the gate (task note DEV-557, Gauge baseline) — gate-forced edit. Likely, since telemetry twins leave that file.
 
 Grill closed at 7 questions; no taste item arose, so no `ASSUMPTIONS.md` entry.
+
+## Plan challenge adjudication (Keel, step 6, HEAD c8a1b696)
+
+Inputs: findings-DEV-557-Sentry (8), findings-DEV-557-Ledger (10), findings-DEV-557-Compass (0, clean). All three Size M axes present. 0 Critical, 0 High. No ticket-text change and no constitution departure, so no owner checkbox. Decision changes recorded first in `brief.md` "Plan challenge decisions" P1-P11.
+
+| Finding | Ruling | Basis | Fix item |
+|---|---|---|---|
+| Sentry F1 harness capabilities | Accept (P4) | brief Test strategy; FR-001; Q1 | 1 |
+| Sentry F2 isolation / timing | Accept (P5) | plan Technical Context no invented SLA; FR-001, FR-006 | 2 |
+| Sentry F3 draft inventory all families | Accept (P6) | brief Contract case set; ticket Wanted 3, Done when 2 | 3 |
+| Sentry F4 ordinary-401 stub excludes quota body | Accept (P7) | FR-003; recon OMDb :414, :452-455 | 4 |
+| Sentry F5 cancel twin vs stay | Accept (P6), checklist line only | Q4 | 3 |
+| Sentry F6 harness line attribution | Accept (P3) | Q5 | 5 |
+| Sentry F7 Stryker receipt completeness | Accept, merged into P8 | Q5; pipeline mutation honesty | 6 |
+| Sentry F8 Q7 likely | Noted, no change; plan already orders it | Q7 | none |
+| Ledger M1 OMDb in Q3 carve-out | Accept (P1) | Q3 brings TMDb to OMDb only; Q6 | 7 |
+| Ledger M2 stay files editable | Accept (P2) | Q4 names them stay; Q6 | 8 |
+| Ledger M3 open-ended DEV-551 extraction | Accept (P3) | Q1 forbids subtitle assertion changes; Q6 | 5 |
+| Ledger M4 mutation gate handling | Accept (P8) | Q5; Done when 3 | 6 |
+| Ledger M5 repin ownership | Accept (P9) | Q1 repin; charter commit format | 9 |
+| Ledger L1 line-count comparator | Accept (P10) | brief ordering step 2 | 10 |
+| Ledger L2 inventory location | Accept (P11) | FR-004 order | 11 |
+| Ledger L3 commit format | Accept (P11) | charter commit rule | 11 |
+| Ledger L4 story labels | Accept, cosmetic note | Spec Kit tasks format | 12 |
+| Ledger L5 expected Q3 outcome none | Accept (brief Files touched) | recon OMDb :452-455, TMDb :537-540 | 7 |
+| Compass | Clean, nothing to adjudicate | — | none |
+
+Ledger M4 cites `run-mutation.ps1` SKIPPED/exit 2 and maxKillShare 50% / killFileSpan 15. The ruling does not depend on those values: Gauge reports whatever verdict and kill-share/span lines the script prints. Fix list: `specs/DEV-557/plan-challenge-fixes-r1.md` (12 items, routed to Quill via Bernstein). Plan freezes after Quill applies the list and Keel verifies it.
