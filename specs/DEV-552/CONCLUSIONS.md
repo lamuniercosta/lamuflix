@@ -71,3 +71,7 @@ Provider outcomes are tracked per language. The visible provider summary preserv
 - As recommended: DEV-551 request validation and no-usable-provider (409) errors stay JSON and are returned before any stream opens (contracts/search-response.md:81-93,104-110 per recon-DEV-552:49); one event per configured provider, off and unusable rows included; server deadlines and safe closed outcome codes kept; no automatic retry; stale searches cancelled on media change and late events for a superseded query ignored. Basis: Wanted 1 and 5, Q1.
 - Amendment: the stream ends with an explicit terminal completion event carrying the settled provider count. The client treats a close without it as incomplete for that language, so a normal end is never confused with a dropped connection. The client knows the provider total only from the server.
 - The server honours client disconnect (request abort cancels outstanding provider calls). Contract tests cover the normal end, the interrupted end and the pre-stream JSON errors.
+
+## Q5 - Batch snapshot, order and finish
+
+**Patron.** CONFIRMED as Keel recommended; basis Wanted 2, 4, 7-9, Done when, Open points defaults (one call per download, one at a time, preferred-then-added group order). Lifecycle details logged `[assumed]` in ASSUMPTIONS.md.

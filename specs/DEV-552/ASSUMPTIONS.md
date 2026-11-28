@@ -1,3 +1,7 @@
 # DEV-552 - Assumptions
 
 - [assumed] Q3: one provider line per configured provider, keeping per-language outcomes and safe reasons visible beside successes; selected rows counted per metered provider; quota shown is the last observed value (download observations supersede in-flight search ones), unknown stays explicitly unknown; a selection larger than observed quota is allowed and every row is submitted in order, the route deciding each attempt (a quota observation is not a reservation).
+# DEV-552 assumptions
+
+- [assumed] Q3 — One line per configured provider summarizes language outcomes and safe reasons. Use the latest observed quota per provider, giving a download observation precedence over a search already in flight. Show unknown quota as unknown. Present selected spend per metered provider and attempt all selected rows in sequence. Basis is DEV-552 Wanted 4–7 and recon-DEV-552:48-50.
+- [assumed] Q5: on submit, snapshot distinct checked candidate IDs in current visual order; one sequential call per ID through the existing route; batch membership frozen, one active batch per media item; group order is configured preferences then manually added languages in add order, release-name tie-break kept; selection keyed by candidate ID through incremental reordering; expired rows show search again with no automatic retry; tracks reload once at batch end, failures included; responses from a previous media item are ignored. DEV-553 owns player track visibility.
