@@ -87,3 +87,11 @@ Provider outcomes are tracked per language. The visible provider summary preserv
 ## Q7 - Closing bar and frozen scope
 
 **Patron.** CONFIRMED as Keel recommended: 2 plan-review and 2 code-remediation rounds maximum, then open blockers go to Bernstein; Critical/High/Medium block, as do verified acceptance, security or contract-compatibility failures at any severity; other findings dispositioned explicitly; frozen scope is Q1-Q6 behaviour within ticket exclusions and Q6 file boundaries, anything else is a follow-up. Basis: Done when, Out of scope, Q1-Q6, task-pipeline Phase 3-5. Grill closed from Patron's side at 7 questions.
+
+## Q8 - downloadAvailability on the providerSettled stream event (§2.3 item 4, Compass M1)
+
+**Patron.** APPROVED as Keel recommended.
+
+- Basis: recon-DEV-552:12-13 shows both baselines return `downloadAvailability` (`SubtitleDownloadAvailabilityDto(bool Enabled, string Reason)`, `SubtitleSearchResponse.cs:13-18`) on every successful search and the picker depends on it to show candidates read-only, disable Get and issue zero download POSTs (`subtitlesTab.test.tsx:420-443`); the approved SSE representation (Q1, Q4) must not regress that, and the first visible rows need it, so `searchCompleted` is too late.
+- Shape: reuse the existing `SubtitleDownloadAvailabilityDto` (no new DTO) as a required, non-null `downloadAvailability` on `SubtitleProviderSettledEventDto`; evaluated once when the stream opens and repeated unchanged on every `providerSettled` event of that stream; no second search, no new event type, default JSON and download route unchanged (Q1, Q6). Generated through OpenAPI into `types.ts` (contract chain).
+- Tests: stream contract test asserts the same snapshot on every event in read-only and enabled modes; picker test asserts read-only rows from the first streamed event are visible with Get disabled and zero POSTs. The download route remains the authority on each attempt.
