@@ -18,8 +18,8 @@ export async function loadConfig(configPath) {
   return config.entries ?? [];
 }
 
-export function isException(entry, repoPath, segment) {
-  const lowered = segment.toLowerCase();
+export function isException(entry, repoPath, segment, context = segment) {
+  const lowered = context.toLowerCase();
   return (entry.exceptions ?? []).some(
     (exception) =>
       (repoPath === exception.file || repoPath.endsWith(exception.file)) &&
@@ -27,12 +27,12 @@ export function isException(entry, repoPath, segment) {
   );
 }
 
-export function findHitsInSegment(segment, repoPath, line, entries) {
+export function findHitsInSegment(segment, repoPath, line, entries, context = segment) {
   const hits = [];
   for (const entry of entries) {
     const pattern = new RegExp(`\\b${escapeRegExp(entry.banned)}\\b`, 'i');
     const match = pattern.exec(segment);
-    if (match && !isException(entry, repoPath, segment)) {
+    if (match && !isException(entry, repoPath, segment, context)) {
       hits.push({
         file: repoPath,
         line,
@@ -150,7 +150,7 @@ export function extractSegments(text, isTsx) {
     for (const literal of literals) {
       for (const part of literalParts(literal)) {
         if (part.trim() !== '') {
-          segments.push({ text: part, line });
+          segments.push({ text: part, context: literal, line });
         }
       }
     }
@@ -177,7 +177,7 @@ export function extractSegments(text, isTsx) {
   if (isTsx) {
     const strippedFull = strippedLines.join('\n');
     for (const gap of collectJsxTextGaps(strippedFull)) {
-      segments.push({ text: gap.text, line: gap.line });
+      segments.push({ text: gap.text, context: gap.text, line: gap.line });
     }
   }
   return segments;
@@ -364,7 +364,15 @@ export async function collectTargetFiles(repoRoot) {
 export function scanSourceText(text, repoPath, entries, isTsx) {
   const hits = [];
   for (const segment of extractSegments(text, isTsx)) {
-    hits.push(...findHitsInSegment(segment.text, repoPath, segment.line, entries));
+    hits.push(
+      ...findHitsInSegment(
+        segment.text,
+        repoPath,
+        segment.line,
+        entries,
+        segment.context ?? segment.text,
+      ),
+    );
   }
   return hits;
 }

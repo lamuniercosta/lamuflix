@@ -102,7 +102,7 @@
       "exceptions": [
         {
           "file": "web/src/features/movie-details/MoviePoster.tsx",
-          "phrase": "poster",
+          "phrase": "${title} poster",
           "reason": "Metadata-provider poster artwork (posterUrl), not a Thumbnail frame; covers the img alt and the matching placeholder label. Owner-approved on PR #517."
         },
         {
@@ -112,7 +112,7 @@
         },
         {
           "file": "web/src/features/for-you/OutsideLibrarySection.tsx",
-          "phrase": "poster",
+          "phrase": "${card.title} poster",
           "reason": "TMDb poster artwork (posterPath) img alt for an outside-library movie, not a Thumbnail. Owner-approved on PR #517."
         }
       ]

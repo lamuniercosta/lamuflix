@@ -229,6 +229,56 @@ describe('check-vocabulary fixtures', () => {
     expect(hits[0]).toMatchObject({ file: 'MoviePoster.tsx', line: 1 });
   });
 
+  it('allows only the four PR 517 poster phrases in their files', async () => {
+    // arrange
+    const configRaw = await readFile(join(process.cwd(), '..', 'vocabulary-check.json'), 'utf8');
+    const posterEntry = JSON.parse(configRaw).entries.find((entry) => entry.banned === 'poster');
+    const movieSource = await readFile(
+      join(process.cwd(), 'src', 'features', 'movie-details', 'MoviePoster.tsx'),
+      'utf8',
+    );
+    const outsideSource = await readFile(
+      join(process.cwd(), 'src', 'features', 'for-you', 'OutsideLibrarySection.tsx'),
+      'utf8',
+    );
+    const movieFile = 'web/src/features/movie-details/MoviePoster.tsx';
+    const outsideFile = 'web/src/features/for-you/OutsideLibrarySection.tsx';
+    // act
+    const movieHits = scanSourceText(movieSource, movieFile, [posterEntry], true);
+    const outsideHits = scanSourceText(outsideSource, outsideFile, [posterEntry], true);
+    const galleryInMovie = scanSourceText(
+      'const hint = "See poster gallery";\n',
+      movieFile,
+      [posterEntry],
+      true,
+    );
+    const galleryInOutside = scanSourceText(
+      'const hint = "See poster gallery";\n',
+      outsideFile,
+      [posterEntry],
+      true,
+    );
+    const bareInMovie = scanSourceText(
+      'const hint = "My poster";\n',
+      movieFile,
+      [posterEntry],
+      true,
+    );
+    const crossFile = scanSourceText(
+      'const alt = `${title} poster`;\n',
+      outsideFile,
+      [posterEntry],
+      true,
+    );
+    // assert
+    expect(movieHits).toEqual([]);
+    expect(outsideHits).toEqual([]);
+    expect(galleryInMovie).toHaveLength(1);
+    expect(galleryInOutside).toHaveLength(1);
+    expect(bareInMovie).toHaveLength(1);
+    expect(crossFile).toHaveLength(1);
+  });
+
   it('excludes web/src/test helpers when collecting targets', async () => {
     // arrange
     const root = await makeTempRoot();
