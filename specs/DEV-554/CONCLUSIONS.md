@@ -49,3 +49,12 @@ Grill opened by Keel, 2026-11-28. Sources read: ticket (via recon-DEV-554), note
   - The year is never silently dropped, and no candidate with a different year is returned. A contract case covers the same title in a different year.
   - If v2 documents neither, pause the transport work and send a `needs recon` request through the Conductor, then come back for a Patron ruling. The legacy endpoint is not approved here.
   - Basis: ticket *Wanted* 2 (title and year as a search kind) and *Done when* bullet 1 (contract suite passes); recon-DEV-554:108–109 (v2 documents title search; the year filter is documented only in the legacy docs); Q1 ruling (v2 transport).
+- **Q6 (delivery evidence). Accept Keel's recommendation.**
+  - **Contract suite:** the DEV-551 shared contract suite runs against sanitized, recorded WireMock responses. It covers all three search kinds, the year case, the zip download, and download quota both known and unknown. WireMock is the CI path.
+  - **Options:** tests cover enabled with a key and enabled with a blank key (provider off).
+  - **Key leakage:** a sentinel key is checked at every log level and on traces and errors, including an upstream failure and a redirected download.
+  - **Archive:** tests cover each of the three caps (compressed, expanded, entry count), traversal names, a missing `.srt`, a corrupt archive, the ranking, and rejection by the existing SRT checks.
+  - **Property tests** use the repo's existing FsCheck, with no new dependency. They show the choice does not depend on entry order whenever the deciding ranks differ, and they probe each limit at its boundary.
+  - **Gates:** the normal size-M backend gates run at build and rebase.
+  - **Delivery PR:** it must include a real search on the home cluster with one download, stating the movie, the languages, the candidate count and that the download succeeded, with credentials removed.
+  - Basis: ticket *Wanted* 1–7 and *Done when* bullets 1–4; the `task-pipeline` note, Phase 3 step 5 and Phase 5; care item 1 (no new dependency).
