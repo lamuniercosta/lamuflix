@@ -58,3 +58,15 @@ Grill opened by Keel, 2026-11-28. Sources read: ticket (via recon-DEV-554), note
   - **Gates:** the normal size-M backend gates run at build and rebase.
   - **Delivery PR:** it must include a real search on the home cluster with one download, stating the movie, the languages, the candidate count and that the download succeeded, with credentials removed.
   - Basis: ticket *Wanted* 1–7 and *Done when* bullets 1–4; the `task-pipeline` note, Phase 3 step 5 and Phase 5; care item 1 (no new dependency).
+- **Q7 (closing bar, frozen scope, round cap). Accept Keel's recommendation; the grill can close.**
+  - **Closing bar:** a concrete in-scope Critical or High finding blocks. So does any demonstrated breach of the ticket's acceptance, credential safety or archive safety, whatever its severity. Every other finding is recorded and dispositioned as advisory or follow-up.
+  - **Frozen scope:**
+    - the movie-only SubDL v2 provider and its options;
+    - the secure zip reader, returning through the existing SRT seam;
+    - download quota through DEV-551;
+    - focused tests and fixtures;
+    - setup docs;
+    - the home-cluster receipt.
+    Anything else becomes a follow-up, not a finding in this round.
+  - **Round cap:** two review rounds, with up to two fix commits per round. Round 1 reviews the full diff; round 2 reviews only the fix diff. At the cap, any unresolved blocker goes to the owner on the PR, and the acceptance bar stays in force.
+  - Basis: ticket *Wanted*, *Done when* and *Out of scope*; `task-pipeline` standing constraints; `agent-pipeline` Loop Discipline. This is a standing ruling, cited once for this chain.
