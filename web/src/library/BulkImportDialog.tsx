@@ -214,23 +214,23 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
             {candidates.isError ? (
               <p role="alert" className="lamu-dialog-alert">
                 <AlertTriangleIcon size={18} />
-                Could not scan the library.{' '}
+                Could not look for movies to import.{' '}
                 <button
                   type="button"
                   className="lamu-action-quiet"
                   onClick={() => void candidates.refetch()}
                 >
-                  Retry scan
+                  Try again
                 </button>
               </p>
             ) : initialScan ? (
               <p role="status" className="lamu-dialog-hint">
-                Scanning library…
+                Looking for movies to import…
               </p>
             ) : folders.length === 0 ? (
               scanning ? (
                 <p role="status" className="lamu-dialog-hint">
-                  Scanning library…
+                  Looking for movies to import…
                 </p>
               ) : (
                 <p role="status" className="lamu-dialog-hint">
@@ -255,7 +255,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
                   ))}
                 </ul>
                 {scanning && summary === null ? (
-                  <p className="lamu-dialog-hint">Scanning library…</p>
+                  <p className="lamu-dialog-hint">Looking for movies to import…</p>
                 ) : null}
               </>
             )}
