@@ -75,3 +75,11 @@ Provider outcomes are tracked per language. The visible provider summary preserv
 ## Q5 - Batch snapshot, order and finish
 
 **Patron.** CONFIRMED as Keel recommended; basis Wanted 2, 4, 7-9, Done when, Open points defaults (one call per download, one at a time, preferred-then-added group order). Lifecycle details logged `[assumed]` in ASSUMPTIONS.md.
+
+## Q6 - Authorized file scope beyond the named picker files (§2.3 item 6)
+
+**Patron.** CONFIRMED as Keel recommended.
+
+- Basis: these edits are forced by the approved Q1-Q4 contract and the Done when tests, so they are in scope under §2.3 item 6 (forced edit); Where it lands names `SubtitleEndpoints.cs` and `CONTEXT.md`.
+- `web/src/api/openapi.json` and `web/src/api/types.ts` change only by regeneration, never by hand (contract chain).
+- Hard limits stand: no dependency, project, layer, schema, scorer, credential or `Features:LocalPlay` change; the hash mark stays false without verified provider evidence (Q2); a DEV-553 track-flow gap pauses for a scoped ruling.
