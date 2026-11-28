@@ -41,3 +41,11 @@ Grill opened by Keel, 2026-11-28. Sources read: ticket (via recon-DEV-554), note
     Any other tracked file needs a fresh ruling.
   - **Out of bounds:** the handler's SRT seam and the public API shape stay as they are, so care item 4 is not triggered. There are no schema, web, new project/layer/dependency, `Features:LocalPlay` or `Process.Start` changes (care items 1, 2, 3 and 5).
   - Basis: ticket *Needs* ("DEV-551. Run after DEV-549 if possible"); *Wanted* 5–7; *Where it lands* table; recon-DEV-554:83–98 and :111 (neither DEV-551 nor DEV-549 artifacts are tracked at HEAD); `PRODUCT.md` §5 care list.
+- **Q5 (title-and-year search). Accept Keel's recommendation.**
+  - Title and year form one search kind.
+  - At pickup, check the current v2 docs and the sanitized fixtures for how the year maps:
+    - if v2 documents a year request filter, use it;
+    - if not, v2 must document a result-year field, and results are filtered to the requested year before any candidate is returned.
+  - The year is never silently dropped, and no candidate with a different year is returned. A contract case covers the same title in a different year.
+  - If v2 documents neither, pause the transport work and send a `needs recon` request through the Conductor, then come back for a Patron ruling. The legacy endpoint is not approved here.
+  - Basis: ticket *Wanted* 2 (title and year as a search kind) and *Done when* bullet 1 (contract suite passes); recon-DEV-554:108–109 (v2 documents title search; the year filter is documented only in the legacy docs); Q1 ruling (v2 transport).
