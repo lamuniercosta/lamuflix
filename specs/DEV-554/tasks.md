@@ -6,7 +6,7 @@ description: "Task list for DEV-554 SubDL provider and shared archive reader"
 
 **Input**: Design documents from `specs/DEV-554/` — `spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q7 + Step 3.3), `CONCLUSIONS.md`, `contracts/subdl-v2-adapter.md`; Maestri notes `DEV-554`, `recon-DEV-554`; `specs/PRODUCT.md`.
 
-**Status**: Draft — Phase 2 step 6 Quill fix list applied; awaiting Keel reread. Gate 1 / T000 pending the owner checkbox. Quill does not declare freeze. Quill does not claim the VII amendment is already applied or approved.
+**Status**: PLAN FROZEN (2026-11-28). Gate 1 provisional — Principle VII SubDL amendment drafted on this branch (v2.1.0 → 2.2.0, Sync Impact Report cites DEV-501 / ADR 0041); awaiting Keel reread before Rigger marks PR #523 ready. Owner checkbox ticked; caps 8 MiB / 32 MiB / 128 approved. T000 still requires merged amended constitution on `origin/main` and landed DEV-551 before Build.
 
 **Tests**: Required (`brief.md` Test and acceptance evidence / Q6; FR-001–FR-015; SC-001–SC-007). TDD optional. Use existing integration/unit homes and packages only. No new test framework/dependency.
 
