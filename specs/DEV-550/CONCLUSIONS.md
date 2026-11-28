@@ -47,3 +47,14 @@ Ruling: yes - the override lives only in internal Infrastructure guard options, 
 - Basis: ticket Wanted 1 and Where it lands; recon-DEV-550 lines 11, 16, 25, 28; Q1-Q4. Production configuration and constitution Principle VII subtitle acquisition are unchanged.
 - File boundary (PRODUCT.md 5 item 6): the three named registration files; new guard/option code in `src/LamuFlix.Infrastructure/Adapters/`; `ArchitectureTests.cs` and its fixtures; new guard/DI tests in `tests/LamuFlix.IntegrationTests/`. A focused override opt-in is permitted in the existing `OpenSubtitlesSubtitleProviderTests.cs`, `SubtitleSearchDownloadEndpointTests.cs` and `SubtitleProviderHealthRegistrationTests.cs`, only where they hit guarded local endpoints. Those tests must still prove the mandatory set applies.
 - Forced edit: if the integration tests cannot reach the internal options, adding `InternalsVisibleTo` for `LamuFlix.IntegrationTests` to the Infrastructure project is in scope, forced by the Done-when guard tests. Any other existing file needs a ruling. Host `Program.cs` stays unedited (Q1).
+
+- Question (Keel): Can the test override and its implementation stay in internal Infrastructure guard options and ticket-scoped fixtures/tests, with existing subtitle tests changed only where they exercise guarded local endpoints?
+- Answer (Patron): Yes. The default-false option is set only by test service composition, with zero configuration binding. The three known subtitle integration tests can opt in locally, and the existing Infrastructure project file can add test friendship if needed. Any other existing-file expansion requires a ruling.
+
+
+## Q6 - Closure package (Phase 2 grill, final)
+Ruling: approved as proposed; this closes the grill on Patron's side.
+- Frozen scope: ticket Wanted 1-3 and Done when, inside the Q1-Q5 boundaries. Anything else becomes a follow-up issue. Close every verified in-scope finding through Low and record all three Size-M dispositions. Two review rounds, at most two fix commits per round. No ADR and no Gherkin opt-in. Basis: ticket Done when/Needs; PRODUCT.md 2-5; task-pipeline 0, 2.2 and Phases 3-5.
+- Proof bar: green C# gates at the exact head, including property checks of the address-policy invariants and mutation testing under existing harness policy. Separate redacted reachability receipts for OMDb, TMDb, Ollama and OpenSubtitles, from both Compose and the home cluster.
+- Order: factory/transport and address-policy work first, then behavior and regression proof. The architecture rules run as an independent stream. Verification runs after both streams. DEV-550 and DEV-551 run one after the other, per the ticket.
+- Inventory: the plan works from the four providers recon-DEV-550 lists individually (lines 11, 34) plus dynamic DI discovery, not the headline count of five. A fixed count is not an acceptance criterion.
