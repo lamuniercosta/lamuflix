@@ -196,13 +196,15 @@ spec:
     spec:
       containers:
       - env:
+        - name: LAMUFLIX_RELEASE
+          value: ''
         - name: Ollama__Endpoint
           value: http://ollama:11434/
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
           value: http://aspire-dashboard:18889
         - name: OTEL_SERVICE_NAME
           value: lamuflix-api
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:1dd1dc9467921956306617f8f06859ee7bd72fb19b6d9541387b65318615ac7a
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:52a4a2a47a5f152b5c2a39e89757750a6f2a0c9f1bd200f108c3e685e3877b73
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -247,7 +249,7 @@ spec:
           for h in postgres:5432 rabbitmq:5672; do
             until (exec 3<>/dev/tcp/${h%:*}/${h#*:}) 2>/dev/null; do sleep 2; done
           done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:1dd1dc9467921956306617f8f06859ee7bd72fb19b6d9541387b65318615ac7a
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:52a4a2a47a5f152b5c2a39e89757750a6f2a0c9f1bd200f108c3e685e3877b73
         name: wait-postgres-rabbitmq
         resources:
           limits:
@@ -259,7 +261,7 @@ spec:
         - -c
         - |
           until (exec 3<>/dev/tcp/ollama/11434 && printf 'GET /api/tags HTTP/1.1\r\nHost: ollama\r\nConnection: close\r\n\r\n' >&3 && timeout 5 cat <&3 | grep -q all-minilm); do sleep 3; done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:1dd1dc9467921956306617f8f06859ee7bd72fb19b6d9541387b65318615ac7a
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:52a4a2a47a5f152b5c2a39e89757750a6f2a0c9f1bd200f108c3e685e3877b73
         name: wait-ollama-model
         resources:
           limits:
@@ -299,7 +301,18 @@ spec:
         app.kubernetes.io/part-of: lamuflix-home
     spec:
       containers:
-      - image: mcr.microsoft.com/dotnet/aspire-dashboard@sha256:e69a221d6d4ce3ee9bd74b9474c073dd154ef8df7eaa535c2f50f4a554adce54
+      - env:
+        - name: DASHBOARD__API__ENABLED
+          value: "true"
+        - name: DASHBOARD__API__AUTHMODE
+          value: ApiKey
+        - name: DASHBOARD__API__PRIMARYAPIKEY
+          valueFrom:
+            secretKeyRef:
+              key: api-key
+              name: aspire-dashboard-api
+              optional: true
+        image: mcr.microsoft.com/dotnet/aspire-dashboard@sha256:e69a221d6d4ce3ee9bd74b9474c073dd154ef8df7eaa535c2f50f4a554adce54
         livenessProbe:
           failureThreshold: 3
           periodSeconds: 20
@@ -345,7 +358,10 @@ spec:
         app.kubernetes.io/part-of: lamuflix-home
     spec:
       containers:
-      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:89dc581480ef8e84acf558eccf4174b96c535afcc605d15a7030030dda36b6f9
+      - env:
+        - name: LAMUFLIX_RELEASE
+          value: ''
+        image: ghcr.io/lamuniercosta/lamuflix-web@sha256:e795290d94d895813a92b8ab4fa6c8fa7b1992a83cab0e983797cc6736be103e
         livenessProbe:
           httpGet:
             path: /

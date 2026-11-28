@@ -1,16 +1,16 @@
 {
   "release": null,
-  "commit": "79103a820df13a68c8abefd4ca5d2b3e44e14582",
+  "commit": "e1649d533018ee7311144c8c3953895c8cfcb0e2",
   "images": {
     "api": {
       "image": "ghcr.io/lamuniercosta/lamuflix-api",
-      "digest": "sha256:1dd1dc9467921956306617f8f06859ee7bd72fb19b6d9541387b65318615ac7a"
+      "digest": "sha256:52a4a2a47a5f152b5c2a39e89757750a6f2a0c9f1bd200f108c3e685e3877b73"
     },
     "web": {
       "image": "ghcr.io/lamuniercosta/lamuflix-web",
-      "digest": "sha256:89dc581480ef8e84acf558eccf4174b96c535afcc605d15a7030030dda36b6f9"
+      "digest": "sha256:e795290d94d895813a92b8ab4fa6c8fa7b1992a83cab0e983797cc6736be103e"
     }
   },
-  "promotedAtUtc": "2026-11-24T22:06:48Z",
-  "workflowRun": "https://github.com/lamuniercosta/lamuflix/actions/runs/45497709227"
+  "promotedAtUtc": "2026-11-28T21:08:47Z",
+  "workflowRun": "https://github.com/lamuniercosta/lamuflix/actions/runs/46190018486"
 }
