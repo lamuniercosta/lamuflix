@@ -83,3 +83,7 @@ Provider outcomes are tracked per language. The visible provider summary preserv
 - Basis: these edits are forced by the approved Q1-Q4 contract and the Done when tests, so they are in scope under §2.3 item 6 (forced edit); Where it lands names `SubtitleEndpoints.cs` and `CONTEXT.md`.
 - `web/src/api/openapi.json` and `web/src/api/types.ts` change only by regeneration, never by hand (contract chain).
 - Hard limits stand: no dependency, project, layer, schema, scorer, credential or `Features:LocalPlay` change; the hash mark stays false without verified provider evidence (Q2); a DEV-553 track-flow gap pauses for a scoped ruling.
+
+## Q7 - Closing bar and frozen scope
+
+**Patron.** CONFIRMED as Keel recommended: 2 plan-review and 2 code-remediation rounds maximum, then open blockers go to Bernstein; Critical/High/Medium block, as do verified acceptance, security or contract-compatibility failures at any severity; other findings dispositioned explicitly; frozen scope is Q1-Q6 behaviour within ticket exclusions and Q6 file boundaries, anything else is a follow-up. Basis: Done when, Out of scope, Q1-Q6, task-pipeline Phase 3-5. Grill closed from Patron's side at 7 questions.
