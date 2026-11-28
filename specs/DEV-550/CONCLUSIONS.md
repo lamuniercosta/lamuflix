@@ -58,3 +58,13 @@ Ruling: approved as proposed; this closes the grill on Patron's side.
 - Proof bar: green C# gates at the exact head, including property checks of the address-policy invariants and mutation testing under existing harness policy. Separate redacted reachability receipts for OMDb, TMDb, Ollama and OpenSubtitles, from both Compose and the home cluster.
 - Order: factory/transport and address-policy work first, then behavior and regression proof. The architecture rules run as an independent stream. Verification runs after both streams. DEV-550 and DEV-551 run one after the other, per the ticket.
 - Inventory: the plan works from the four providers recon-DEV-550 lists individually (lines 11, 34) plus dynamic DI discovery, not the headline count of five. A fixed count is not an acceptance criterion.
+
+- Question (Keel): Do the frozen ticket scope, through-Low three-axis review, two-round/two-fix cap, exact-head gates, separate two-environment receipts, and stated ordering close the grill?
+- Answer (Patron): Approved as proposed, closing the grill. Use four individually listed providers as starting coverage and dynamic DI discovery for completeness. No ADR or Gherkin.
+- Inventory clarification: recon-DEV-550 lines 34–37 list four typed providers. The raw tally includes the subtitle primary-handler construction and does not identify a fifth client registration. This clarification supersedes the Q1 headline registration count for planning.
+
+- Question (Keel, analyze round 1 item 1): Constitution IX assigns FsCheck property tests to LamuFlix.UnitTests, but Q5 and the brief placed the two address-policy properties in IntegrationTests. Where do they go?
+- Answer (Patron): Approved, scope-preserving. All ticket-required guard, request-behaviour and DI tests stay in `tests/LamuFlix.IntegrationTests/`. The two pure properties (mandatory-deny invariance under the subtitle override, IPv4-mapping equivalence) move to the existing `tests/LamuFlix.UnitTests/`. This supersedes the Q5/brief property placement.
+  - Basis: constitution IX (property tests live in LamuFlix.UnitTests); ticket Where it lands names IntegrationTests only for guard and DI tests (recon-DEV-550 lines 10, 16, 28), so the properties' home is not ticket text and no constitution departure is needed.
+  - UnitTests already references Infrastructure, FsCheck and FsCheck.Xunit.v3 (verified in its csproj), so there is no new dependency, project, layer or public API.
+  - Forced edit: add `InternalsVisibleTo` for `LamuFlix.UnitTests` to the Infrastructure csproj only if the properties cannot reach the internal policy. It is forced by constitution IX plus FR-009.
