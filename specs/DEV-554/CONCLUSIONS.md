@@ -70,3 +70,42 @@ Grill opened by Keel, 2026-11-28. Sources read: ticket (via recon-DEV-554), note
     Anything else becomes a follow-up, not a finding in this round.
   - **Round cap:** two review rounds, with up to two fix commits per round. Round 1 reviews the full diff; round 2 reviews only the fix diff. At the cap, any unresolved blocker goes to the owner on the PR, and the acceptance bar stays in force.
   - Basis: ticket *Wanted*, *Done when* and *Out of scope*; `task-pipeline` standing constraints; `agent-pipeline` Loop Discipline. This is a standing ruling, cited once for this chain.
+- **Step 3.3 (Principles VII/VIII and SubDL options). Amend VII narrowly, behind an unchecked owner checkbox. VIII is met with vendor-neutral Core names, so it needs no exception.**
+  - **Why VII must be amended:** VII lists the options records as a closed set (constitution.md:782-807). Its subtitle exception covers only `Subtitles:OpenSubtitles` (:788-801). The ticket requires typed `Subtitles:SubDl` options (`Enabled`, `ApiKey`, `BaseUrl`, hosts), and with no key the provider is off (recon-DEV-554:37, :63-64). Nothing in the current text allows either. That is a constitution departure, which charter §2.3(b) sends to the owner. Patron judges it necessary because the ticket text is authoritative. The spec PR therefore carries `blocked: structural — approve the VII amendment adding the SubDL acquisition options exception?` as an unchecked checkbox, and Gate 1 stays closed until the owner ticks it.
+  - **What the amendment says (SubDL only; nothing else in VII changes):**
+    - The vendor-neutral options record is added to the VII list. It binds `Subtitles:SubDl` as typed options with a validator.
+    - SubDL is effectively disabled when `Enabled` is false or the key is blank. In that state it makes no outbound call, it is not an error, and it never fails startup.
+    - When enabled but invalid (for example a non-HTTPS `BaseUrl`, a missing host, or a missing or non-positive cap):
+      - startup does not fail;
+      - SubDL is unusable and makes zero outbound calls;
+      - the per-provider state (DEV-551) reports it as misconfigured, with the key redacted.
+    - Settings are validated before any outbound use.
+    - The archive caps (archive bytes, unpacked total, entry count) are required typed values. Code supplies no defaults, because VII forbids guessed numeric defaults (:800-801). A missing cap makes SubDL invalid. The values go in the example and home config, and the spec states them for the owner to approve.
+    - These stay unchanged:
+      - OpenSubtitles and other providers;
+      - `SaveEnabled` and read-only precedence;
+      - existing-track serving;
+      - `GET /api/subtitles/languages`;
+      - secret isolation.
+  - **How the 409 works with several providers (spell this out in the amendment, because it changes behaviour today's text describes):**
+    - **Search** returns 409 only when no provider has effective, valid settings. SubDL being off or invalid while another provider is valid is not a 409: the search returns the valid providers' results and shows SubDL's state.
+    - **Download** returns 409 when the chosen candidate's provider has missing or invalid settings. The read-only library policy is checked before that configuration failure (:795-796).
+    - **What the owner is approving:** today a blank OpenSubtitles key gives 409. After this, the same blank key with a valid SubDL gives SubDL results. The checkbox text must say so.
+  - **VIII naming:** Core types are named for what they do, not for the vendor. For example `ArchiveSubtitleProviderOptions` and its validator; the spec picks the final names. The ticket's "SubDL options and validator" (recon:64) names a purpose, not identifiers. The vendor name may appear only:
+    - on the Infrastructure adapter (for example `SubDlSubtitleProvider`);
+    - in the `Subtitles:SubDl` configuration-key string (:855-857).
+    No VIII exception is requested.
+  - **Order of steps:**
+    1. On the spec PR: the constitution edit, with the version bump and Sync Impact Report required by its amendment procedure, plus the unchecked checkbox.
+    2. The owner ticks the checkbox and merges.
+    3. T000 runs before any build task and checks, with recorded evidence:
+       - the owner checkbox is ticked on the merged spec PR (`gh pr view`);
+       - `origin/main:.specify/memory/constitution.md` contains the amended VII clause and the new version line;
+       - DEV-551's provider seam and per-provider state are on main. They are absent at the spec HEAD (recon:111), and the 409 rule depends on them;
+       - the cap values the owner approved.
+       If any check fails, T000 fails and no build starts.
+  - **If the owner rejects:**
+    - The constitution edit is reverted on the spec branch.
+    - The ticket cannot be delivered as written, so DEV-554 goes back to the owner to re-scope under §2.3(a), and the build does not start.
+    - Patron offers no workaround. Nesting SubDL under `SubtitleProviderOptions` would still break the `Subtitles:OpenSubtitles` path clause.
+  - Basis: constitution VII :782-807, VIII :852-857; recon-DEV-554:37, :63-64, :111; charter §2.3(b) and care item 4. No owner approval is presumed.
