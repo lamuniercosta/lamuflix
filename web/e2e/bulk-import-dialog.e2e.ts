@@ -41,7 +41,7 @@ test.describe('bulk import dialog scan states', () => {
     });
 
     const dialog = await openDialog(page);
-    await expect(dialog.getByText(/scanning library/i)).toBeVisible({
+    await expect(dialog.getByText(/looking for movies to import/i)).toBeVisible({
       timeout: context.waitBudgetMs,
     });
     await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeVisible({
