@@ -17,3 +17,13 @@ Ruling: yes, Keel's policy, with these concrete sets; no constitution impact (ha
 - Stricter set, the whole OpenSubtitles client: mandatory set plus 127.0.0.0/8, ::1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, fc00::/7, 198.18.0.0/15. Test override is an explicit options flag, default false, that relaxes only this stricter set, never the mandatory one.
 - Documentation: both sets live in one internal static range table with an XML doc citing the IANA IPv4/IPv6 Special-Purpose Address Registries (RFC 6890); the spec lists the same ranges. Basis: ticket Wanted 1 and Done when; recon-DEV-550 lines 10-12, 32-37; PRODUCT.md 2.3 (no dependency, schema or API change).
 - Mechanics: resolve once in `ConnectCallback`, validate each candidate, connect to the exact validated `IPEndPoint`; no second resolution. Deny is a connect failure with a logged reason carrying no secrets or query strings.
+
+- Question (Keel): What dial-time policy should each client enforce? Recommend mandatory link-local/metadata denial including mapped IPv4, whole-client subtitle local/private denial, default-off test override limited to the strict set, preserving configured provider endpoints, and dialing the validated address without another lookup.
+- Answer (Patron): Accepted with the explicit address sets, option boundary, documentation, and connection mechanics above. No constitution impact.
+
+
+## Q3 - Enforced transport paths and proof (Phase 2 grill)
+Ruling: yes - guarded clients use only paths where the effective `ConnectCallback` vets the destination before connecting; one enforcement-and-proof decision.
+- Enforcement: guarded handlers set `UseProxy = false`, because a proxy resolves the target outside the callback. Requests are capped at HTTP/2 or lower, because HTTP/3 (QUIC) bypasses `ConnectCallback`. Recon-DEV-550 lines 32-37 show no proxy or HTTP/3 configuration in use, so direct provider traffic is preserved. Basis: ticket Wanted 1-2 and Done when; Q1-Q2.
+- Proof: DI tests enumerate every named/typed registration from production composition, assert the effective primary handler carries the callback, and include a negative control that fails on an unguarded handler. Request tests drive controlled resolver/connect seams per client: mandatory denial, strict private rejection (subtitles), public allowance, and configured-private reach (OMDb/TMDb/Ollama), with no internet traffic.
+- Q2 amendment: range citations (IANA Special-Purpose Address Registries, RFC 6890) live in the spec and the PR body, not XML prose, because AGENTS allows only three comment exemptions. The range table stays one internal static list.
