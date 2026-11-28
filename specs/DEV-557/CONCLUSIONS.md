@@ -66,3 +66,9 @@ Ledger M4 cites `run-mutation.ps1` SKIPPED/exit 2 and maxKillShare 50% / killFil
 ## Plan freeze (Keel, step 6 verify)
 
 Quill applied fix list r1, 12/12; Keel verified each item read-only. `/speckit-analyze` result: 0 CRITICAL, 0 HIGH, 0 MEDIUM, 2 LOW; FR 9/9 and SC 5/5 covered; private IMPL_PLAN/TASKS byte-identical to canonical. The two LOWs, both non-blocking, are deferred to the Phase B repin commit (names and paths only): I1, plan.md Scale/Scope cites 5,072 without "historical context only" (P10 comparator is correct elsewhere); U1, the plan.md Documentation tree omits `twin-inventory.md`. **PLAN FROZEN** at the commit that adds this section.
+
+## Gate 1 (Patron, step 7, frozen HEAD 808063d7)
+**Ruling: gate1: provisional; no owner checkbox.** Spec, plan and tasks are ready for the Spec PR.
+- `/speckit-analyze` 0 CRITICAL/HIGH/MEDIUM, FR 9/9, SC 5/5; plan challenge adjudicated (Sentry/Ledger/Compass, table above), fix list r1 12/12 landed (task note DEV-557 lines 14-20). Two LOWs (I1, U1) deferred to the Phase B repin, names only.
+- User-visible outcome: spec.md states "Nothing visible" with reason (no `ui` tag); no checklist required.
+- No ticket-text change and no constitution departure (Q6, adjudication header), so neither §2.3 escalation applies.

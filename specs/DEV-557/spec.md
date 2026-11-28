@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-28
 
-**Status**: Draft
+**Status**: gate1: provisional
 
 **Input**: Ticket DEV-557 (size M; no `ui` tag); grill-closed `brief.md` (Q1–Q7); `CONCLUSIONS.md`; Maestri notes `DEV-557`, `recon-DEV-557`; `specs/PRODUCT.md`. Decisions come only from brief and its rulings. Facts for per-adapter 401 outcomes come from `recon-DEV-557` (verified 401 follow-up). Quill invents no decisions.
 
