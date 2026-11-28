@@ -95,3 +95,10 @@ Provider outcomes are tracked per language. The visible provider summary preserv
 - Basis: recon-DEV-552:12-13 shows both baselines return `downloadAvailability` (`SubtitleDownloadAvailabilityDto(bool Enabled, string Reason)`, `SubtitleSearchResponse.cs:13-18`) on every successful search and the picker depends on it to show candidates read-only, disable Get and issue zero download POSTs (`subtitlesTab.test.tsx:420-443`); the approved SSE representation (Q1, Q4) must not regress that, and the first visible rows need it, so `searchCompleted` is too late.
 - Shape: reuse the existing `SubtitleDownloadAvailabilityDto` (no new DTO) as a required, non-null `downloadAvailability` on `SubtitleProviderSettledEventDto`; evaluated once when the stream opens and repeated unchanged on every `providerSettled` event of that stream; no second search, no new event type, default JSON and download route unchanged (Q1, Q6). Generated through OpenAPI into `types.ts` (contract chain).
 - Tests: stream contract test asserts the same snapshot on every event in read-only and enabled modes; picker test asserts read-only rows from the first streamed event are visible with Get disabled and zero POSTs. The download route remains the authority on each attempt.
+
+## Gate 1 - provisional (Patron @ e9175fcb)
+
+**Ruling: gate1: provisional.** No owner checkbox; no follow-up ticket (noted, no ticket).
+
+- Basis: /speckit-analyze CLEAN and all 15 plan-challenge findings dispositioned (DEV-552 note:35); requirements.md User-Visible Outcome ticked with SMOKE-001; no ticket contradiction or constitution departure (spec.md Owner question); §2.3 care items ruled Q1-Q8, plan adds no dependency, layer, schema, LocalPlay or Process.Start (plan.md:19,21,49,125).
+- Conditions: T001 moves ADR 0053 to Accepted; T002 pickup stops on needs recon or a scoped ruling if the landed DEV-551 contract or DEV-553 track refresh leaves a Done-when gap (plan.md:70, Q6); public hashMatch true only on explicit moviehash_match evidence, scoring fallback unchanged (plan.md:73, Q2); openapi.json/types.ts by regeneration only (Q6).
