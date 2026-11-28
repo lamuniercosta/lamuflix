@@ -31,3 +31,13 @@ Grill opened by Keel, 2026-11-28. Sources read: ticket (via recon-DEV-554), note
   - **Choosing the `.srt` entry:** first an exact normalized stem match to the candidate release name, then the most shared distinct release-name tokens, then the largest actual size, then ordinal entry-name order, then archive order. The selected bytes pass the existing handler SRT checks.
   - Basis: ticket *Wanted* 4 (caps, paths never used as file paths, SRT checks reused) and *Done when* bullet 2. The ranking follows the ticket default in *Open points* bullet 1 and standing ruling 1; the token tier and the final tie-breaks only make "best name match" and its ties deterministic. The SRT seam is at recon-DEV-554:87.
   - Rejecting the whole archive for a traversal name satisfies *Done when* bullet 2 (`../x.srt` rejected) and stays within the ticket. The cap values are spec detail, not a care-list item.
+- **Q4 (pickup and integration boundary). Accept Keel's recommendation.**
+  - **Pickup:** DEV-551 is a hard prerequisite. At pickup, confirm that its provider registry, per-provider quota state and shared contract suite have landed, then build on those seams. The recorded WireMock fixtures, cleaned of keys, go where DEV-549 puts fakes. If DEV-549 has not landed by fixture time, confirm the location with the Conductor before writing any fixture. There is no parallel fake framework.
+  - **File scope (care item 6):** the work may touch:
+    - the new files in `Infrastructure/Adapters/` and `Core/Options/`;
+    - only the DEV-551 registration/composition code needed to wire the provider in;
+    - the existing integration and unit tests that cover what changes;
+    - `README.md`, `docker/api.settings.example.json` and `SubtitleSetupDocumentationTests`, as *Wanted* 6–7 require.
+    Any other tracked file needs a fresh ruling.
+  - **Out of bounds:** the handler's SRT seam and the public API shape stay as they are, so care item 4 is not triggered. There are no schema, web, new project/layer/dependency, `Features:LocalPlay` or `Process.Start` changes (care items 1, 2, 3 and 5).
+  - Basis: ticket *Needs* ("DEV-551. Run after DEV-549 if possible"); *Wanted* 5–7; *Where it lands* table; recon-DEV-554:83–98 and :111 (neither DEV-551 nor DEV-549 artifacts are tracked at HEAD); `PRODUCT.md` §5 care list.
