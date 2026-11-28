@@ -9,13 +9,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && npm run typecheck:e2e && vite build",
-    "lint": "npm run check:api && eslint . --max-warnings 0 && prettier --check .",
+    "lint": "npm run check:vocabulary && npm run check:api && eslint . --max-warnings 0 && prettier --check .",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:run": "vitest run",
     "test:watch": "vitest",
     "generate:api": "node scripts/generate-api.mjs",
     "check:api": "node scripts/check-api.mjs",
+    "check:vocabulary": "node scripts/check-vocabulary.mjs",
     "e2e": "node e2e/run.mjs",
     "typecheck:e2e": "tsc --noEmit -p e2e/tsconfig.json"
   },

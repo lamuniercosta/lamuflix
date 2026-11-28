@@ -1,0 +1,35 @@
+# UI-copy vocabulary check. Runs the curated CONTEXT.md word list over UI
+# strings, OpenAPI descriptions, the README and the docs on every PR and push
+# to main, with no path filters so docs-only changes are checked too. This is
+# an advisory check, not a required one.
+name: vocabulary
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vocabulary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: vocabulary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: web/.node-version
+
+      - name: Check vocabulary
+        working-directory: web
+        run: npm run check:vocabulary

@@ -1,0 +1,161 @@
+{
+  "$comment": "Curated user-facing words banned from UI copy, OpenAPI descriptions, README and docs. Source: CONTEXT.md _Avoid_: lines. Each entry names its CONTEXT.md term and lists allowed exceptions by file, phrase and reason. Code-level terms (queue and attempt names, routing actions) are deliberately outside this list.",
+  "entries": [
+    {
+      "banned": "Filme",
+      "canonical": "Movie",
+      "term": "Movie",
+      "exceptions": []
+    },
+    {
+      "banned": "Film",
+      "canonical": "Movie",
+      "term": "Movie",
+      "exceptions": [
+        {
+          "file": "README.md",
+          "phrase": "Film.srt",
+          "reason": "Example sidecar filename mirroring the CONTEXT.md Sidecar example, not a term for Movie."
+        },
+        {
+          "file": "README.md",
+          "phrase": "Film.mkv",
+          "reason": "Example sidecar filename mirroring the CONTEXT.md Sidecar example, not a term for Movie."
+        }
+      ]
+    },
+    {
+      "banned": "scan",
+      "canonical": "Import",
+      "term": "Import",
+      "exceptions": [
+        {
+          "file": "web/src/library/BulkImportDialog.tsx",
+          "phrase": "Could not scan the library.",
+          "reason": "Bulk discovery across the library root, not the single-folder case CONTEXT.md avoids; owner ruling recorded in DEV-564 PR."
+        },
+        {
+          "file": "web/src/library/BulkImportDialog.tsx",
+          "phrase": "Retry scan",
+          "reason": "Bulk discovery across the library root, not the single-folder case CONTEXT.md avoids; owner ruling recorded in DEV-564 PR."
+        }
+      ]
+    },
+    {
+      "banned": "re-import",
+      "canonical": "Rescan",
+      "term": "Rescan",
+      "exceptions": []
+    },
+    {
+      "banned": "refresh metadata",
+      "canonical": "Rescan",
+      "term": "Rescan",
+      "exceptions": []
+    },
+    {
+      "banned": "job",
+      "canonical": "Enrichment",
+      "term": "Enrichment",
+      "exceptions": [
+        {
+          "file": "README.md",
+          "phrase": "in the job summary",
+          "reason": "CI job (promote-home run), not Enrichment."
+        },
+        {
+          "file": "README.md",
+          "phrase": "stryker-core-gate` job",
+          "reason": "CI job (ci.yml), not Enrichment."
+        }
+      ]
+    },
+    {
+      "banned": "Watch",
+      "canonical": "Playback",
+      "term": "Playback",
+      "exceptions": []
+    },
+    {
+      "banned": "Assistir",
+      "canonical": "Playback",
+      "term": "Playback",
+      "exceptions": []
+    },
+    {
+      "banned": "MinhaLista",
+      "canonical": "Watchlist",
+      "term": "Watchlist",
+      "exceptions": []
+    },
+    {
+      "banned": "My List",
+      "canonical": "Watchlist",
+      "term": "Watchlist",
+      "exceptions": []
+    },
+    {
+      "banned": "poster",
+      "canonical": "Thumbnail",
+      "term": "Thumbnail",
+      "exceptions": [
+        {
+          "file": "web/src/features/movie-details/MoviePoster.tsx",
+          "phrase": "poster",
+          "reason": "Accessibility copy (alt/aria-label); owner to confirm Thumbnail wording in DEV-564 PR."
+        },
+        {
+          "file": "web/src/features/for-you/OutsideLibrarySection.tsx",
+          "phrase": "poster",
+          "reason": "Accessibility copy (alt/fallback text); owner to confirm Thumbnail wording in DEV-564 PR."
+        }
+      ]
+    },
+    {
+      "banned": "preview image",
+      "canonical": "Thumbnail",
+      "term": "Thumbnail",
+      "exceptions": []
+    },
+    {
+      "banned": "download quota",
+      "canonical": "Subtitle Download Availability",
+      "term": "Subtitle Download Availability",
+      "exceptions": [
+        {
+          "file": "README.md",
+          "phrase": "The download quota is per account",
+          "reason": "Names the OpenSubtitles provider quota, not Subtitle Download Availability; owner ruling recorded in DEV-564 PR."
+        },
+        {
+          "file": "web/src/features/playback/subtitleCopy.ts",
+          "phrase": "Download quota reached.",
+          "reason": "Names the provider's real quota (problem reason download_quota_exhausted, ADR 0041), not Subtitle Download Availability; owner ruling recorded in DEV-564 PR."
+        },
+        {
+          "file": "web/src/features/playback/subtitleCopy.ts",
+          "phrase": "Download quota reached. Resets at",
+          "reason": "Names the provider's real quota (problem reason download_quota_exhausted, ADR 0041), not Subtitle Download Availability; owner ruling recorded in DEV-564 PR."
+        }
+      ]
+    },
+    {
+      "banned": "confidence",
+      "canonical": "Subtitle Match Percent",
+      "term": "Subtitle Match Percent",
+      "exceptions": []
+    },
+    {
+      "banned": "stuck",
+      "canonical": "Stranded Movie",
+      "term": "Stranded Movie",
+      "exceptions": []
+    },
+    {
+      "banned": "DLQ",
+      "canonical": "Dead-Letter Queue",
+      "term": "Dead-Letter Queue",
+      "exceptions": []
+    }
+  ]
+}
