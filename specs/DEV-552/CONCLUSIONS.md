@@ -53,3 +53,21 @@ Basis is DEV-552 Wanted 1, 3 and 9, PRODUCT §5 and recon-DEV-552:50,53-56. A ca
 ## Q3 - Provider line and quota across overlapping language requests (taste)
 
 **Patron.** CONFIRMED as Keel recommended; basis Wanted 4-7, recon-DEV-552:48-50. Logged `[assumed]` in ASSUMPTIONS.md.
+
+---
+
+## Q3 — Provider summaries and quota
+
+**Keel.** How should the picker handle provider quota and summaries when several language requests overlap? I recommend one line per configured provider, retaining outcomes per language so that failures and their safe reasons stay visible alongside any successes. Count selected rows per metered provider, display the last observed quota (download observations supersede in-flight search observations), and leave unknown quota explicitly unknown. Permit a selection larger than observed quota and submit every selected row sequentially; the route decides each attempt. Basis: Wanted 4–7 and recon-DEV-552:48-50. This keeps partial failures visible and avoids treating a quota observation as a reservation. Please confirm or amend.
+
+**Patron.** CONFIRMED as recommended (Wanted 4-7, recon-DEV-552:48-50); taste, logged [assumed] in specs/DEV-552/ASSUMPTIONS.md and noted in CONCLUSIONS.md (committed).
+
+Provider outcomes are tracked per language. The visible provider summary preserves safe failed-language reasons, and selected spend and observed remaining quota are per provider. The download route remains authoritative for each attempt.
+
+## Q4 - Stream completion and errors (§2.3 item 4, status codes and stream shape)
+
+**Patron.** APPROVED with one amendment.
+
+- As recommended: DEV-551 request validation and no-usable-provider (409) errors stay JSON and are returned before any stream opens (contracts/search-response.md:81-93,104-110 per recon-DEV-552:49); one event per configured provider, off and unusable rows included; server deadlines and safe closed outcome codes kept; no automatic retry; stale searches cancelled on media change and late events for a superseded query ignored. Basis: Wanted 1 and 5, Q1.
+- Amendment: the stream ends with an explicit terminal completion event carrying the settled provider count. The client treats a close without it as incomplete for that language, so a normal end is never confused with a dropped connection. The client knows the provider total only from the server.
+- The server honours client disconnect (request abort cancels outstanding provider calls). Contract tests cover the normal end, the interrupted end and the pre-stream JSON errors.
