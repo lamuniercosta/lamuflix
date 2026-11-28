@@ -1,6 +1,60 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 2.1.0 → 2.2.0 (MINOR: Principle VII SubDL acquisition options and
+multi-provider search/download 409 rules; DEV-554; cites DEV-501 / ADR 0041)
+
+Amendment 2.2.0 (2026-11-28), DEV-554 governance lane after owner Gate 1 approval on PR #523:
+  Authority: owner affirmative tick on the Principle VII SubDL amendment checkbox on
+    draft Spec Kit PR #523 (merge-reconcile verified); Patron Gate 1 provisional ruling
+    in specs/DEV-554/CONCLUSIONS.md at HEAD 2ee433d5 authorizing the constitution edit
+    on feature/554-spec with approved archive caps 8 MiB compressed / 32 MiB expanded /
+    128 entries; Step 3.3 and Quill fix list item 1 (Ledger S-1); Conductor Gate 1
+    follow-up to land the amendment before Keel reread and Rigger ready-mark.
+  ADR: no new ADR and no ADR supersession. DEV-501 / ADR 0041 remain the Accepted
+    subtitle acquisition boundary (search/download routes; typed OpenSubtitles binding;
+    ValidateOnStart exception; secret isolation). This amendment extends that Principle VII
+    acquisition exception to enumerate `ArchiveSubtitleProviderOptions` bound at
+    `Subtitles:SubDl` and to replace the singular-provider 409 clause with provider-set
+    search and chosen-provider download rules. ADR 0041 text is not edited (any separate
+    ADR edit requires a cited Q4 ruling under specs/DEV-554/CONCLUSIONS.md).
+  Modified principles:
+    VII. Configuration Isolation and Deterministic Time (title unchanged): add
+       `ArchiveSubtitleProviderOptions` to the closed options-record list; replace the
+       OpenSubtitles-only singular 409 acquisition wording with multi-provider rules —
+       search returns 409 only when no provider has effective, valid settings (valid SubDL
+       with a blank OpenSubtitles key returns SubDL results); download returns 409 when
+       the chosen candidate's provider has missing or invalid settings after read-only
+       library precedence; SubDL effective-disabled (`Enabled=false` or blank key) and
+       keyed-invalid behaviours keep host startup and make zero outbound SubDL calls;
+       required positive archive caps with no guessed numeric code defaults. Preserve
+       OpenSubtitles binding and validation, `SaveEnabled`, existing-track serving,
+       languages route, and secret isolation.
+    Pull Request Quality Gates: startup-validation checkbox names multi-provider
+       subtitle acquisition settings (including `Subtitles:SubDl` /
+       `ArchiveSubtitleProviderOptions`) under Principle VII.
+  Added sections: none
+  Removed sections: none
+  Templates reviewed (no updates required):
+    .specify/templates/constitution-template.md — Governance placeholder; no SubDL rule.
+    .specify/templates/plan-template.md — Constitution Check derives current principles.
+    .specify/templates/spec-template.md — no options inventory or startup-validation rule.
+    .specify/templates/tasks-template.md — generic ADR/constitution tasks only.
+    .specify/templates/checklist-template.md — no SubDL acquisition rule.
+    .specify/templates/commands/ — absent; no command templates to synchronize.
+  Runtime guidance reviewed (no updates in this amendment):
+    README.md, AGENTS.md, and specs/PRODUCT.md — no duplicated closed options inventory
+      or singular-409 rule requiring an edit here; SubDL setup docs are DEV-554 delivery
+      tasks (Wanted 6–7 / T012).
+    docs/adr/0041-explicit-subtitle-acquisition.md — impact cited; no text edit or
+      supersession.
+  Migration / follow-up:
+    No schema/data migration. Runtime SubDL options, multi-provider 409 behaviour, and
+    owner-approved caps land with DEV-554 Build after T000 verifies the amended VII clause
+    and version line on origin/main plus landed DEV-551 seams. This amendment alone claims
+    no implementation, gate, or runtime PASS.
+  Deferred placeholders / template follow-up: none
+
 Version change: 2.0.0 → 2.1.0 (MINOR: Principle VII OmdbQuotaOptions daily allowance
 owner-approved startup-validation exception; DEV-571)
 
@@ -781,7 +835,8 @@ for connection strings, API keys, library roots, or player paths.
 
 - All configuration is bound to options records (`LibraryOptions`, `PlaybackOptions`,
   `OmdbOptions`, `OmdbQuotaOptions`, `TmdbOptions`, `RabbitMqOptions`, `EnrichmentOptions`, `FeatureOptions`,
-  `RecommendationOptions`, `ThumbnailOptions`, `SubtitlesOptions`, `SubtitleProviderOptions`)
+  `RecommendationOptions`, `ThumbnailOptions`, `SubtitlesOptions`, `SubtitleProviderOptions`,
+  `ArchiveSubtitleProviderOptions`)
   with data-annotation validation and `ValidateOnStart()`, except for the two narrowly
   scoped rules below (subtitle acquisition settings and `OmdbQuotaOptions` daily
   allowance). Reading
@@ -791,20 +846,32 @@ for connection strings, API keys, library roots, or player paths.
   values solely to prove effective listeners loopback before server bind when
   `Features:LocalPlay` is true (DEV-458; ADR-0036).
 - **Subtitle acquisition exception (DEV-453 owner C4/VII approval on PR #358; scope
-  updated by DEV-501, ADR 0041):**
+  updated by DEV-501, ADR 0041; SubDL multi-provider acquisition updated by DEV-554
+  owner Gate 1 approval on PR #523):**
   `SubtitlesOptions` and nested `SubtitleProviderOptions` MUST remain typed options;
-  the vendor configuration path remains `Subtitles:OpenSubtitles`. Missing or invalid
-  subtitle acquisition settings MUST NOT fail host startup via `ValidateOnStart()` or
-  prevent existing-track serving. `GET /api/movies/{id}/subtitles/search` and
-  `POST /api/movies/{id}/subtitles/download` MUST evaluate acquisition settings at
-  request time and return `409 Conflict` when missing or invalid, with the read-only
-  library policy taking precedence over that configuration failure on download.
-  `GET /api/subtitles/languages` is key-free, makes no provider call, and is unaffected
-  by acquisition configuration. An empty language preference list is valid
-  configuration, not an acquisition failure. No guessed numeric safety defaults are
-  allowed; `SaveEnabled` defaults false and language preferences default empty. Secret
-  isolation remains mandatory. This exception applies only to subtitle acquisition
-  validation.
+  the OpenSubtitles vendor configuration path remains `Subtitles:OpenSubtitles`.
+  `ArchiveSubtitleProviderOptions` MUST remain typed options bound at `Subtitles:SubDl`
+  with a typed validator. SubDL is effectively disabled when `Enabled` is false or the
+  API key is blank: that state is not an error, MUST NOT fail host startup, and MUST
+  make zero outbound SubDL calls. Enabled keyed SubDL settings that fail validation
+  MUST NOT fail host startup; SubDL MUST make zero outbound calls and MUST surface a
+  redacted misconfigured state through the provider registry. Positive archive caps
+  (compressed bytes, expanded bytes, entry count) are required typed settings; code
+  MUST NOT supply guessed numeric defaults, and missing caps make SubDL invalid.
+  Missing or invalid subtitle acquisition settings MUST NOT fail host startup via
+  `ValidateOnStart()` or prevent existing-track serving. `GET /api/movies/{id}/subtitles/search`
+  MUST return `409 Conflict` only when no provider has effective, valid acquisition
+  settings; a valid SubDL configuration with a blank OpenSubtitles key MUST return
+  SubDL results, and SubDL off or invalid while another provider is valid is not a
+  search 409 (return the valid providers' results and show SubDL's state).
+  `POST /api/movies/{id}/subtitles/download` MUST return `409 Conflict` when the chosen
+  candidate's provider has missing or invalid settings, with the read-only library
+  policy taking precedence over that configuration failure. `GET /api/subtitles/languages`
+  is key-free, makes no provider call, and is unaffected by acquisition configuration.
+  An empty language preference list is valid configuration, not an acquisition failure.
+  No guessed numeric safety defaults are allowed; `SaveEnabled` defaults false and
+  language preferences default empty. Secret isolation remains mandatory. This
+  exception applies only to subtitle acquisition validation.
 - **OmdbQuotaOptions daily allowance exception (DEV-571 owner Gate 1 approval on PR #508;
   H1 / Q3 / Q4 / FR-011):**
   `OmdbQuotaOptions` MUST remain typed options within existing configuration binding.
@@ -944,7 +1011,8 @@ Every PR MUST satisfy all of the following before merging:
 - [ ] New external dependencies register a health check and telemetry names in
       `TelemetryConstants`
 - [ ] No secrets, machine paths, or `IConfiguration` magic strings; new options records are
-      validated at startup, except subtitle acquisition search/download settings and
+      validated at startup, except multi-provider subtitle acquisition search/download
+      settings (including `Subtitles:SubDl` / `ArchiveSubtitleProviderOptions`) and
       `OmdbQuotaOptions` daily allowance normalization under Principle VII
 - [ ] No `DateTime.Now`-family calls; `TimeProvider` injected
 - [ ] `CancellationToken` flows through every async path; no sync-over-async
@@ -1119,4 +1187,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 2.1.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-26
+**Version**: 2.2.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-28
